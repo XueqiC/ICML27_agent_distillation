@@ -11,7 +11,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   18:02: chain replaced by scripts/rai_collect_parallel.sh (seeds 1 and 2 in parallel with seed 0; teacher dev140 after all three).
   18:32: s0 complete (20 verified / 29 attempts; k5/k10 subsets built), s2 17/20, s1 4/20.
 - rai GPU1 (Blackwell): Seed-SFT K=20 s0 profiling/training run → reports/runs/train/seedsft-k20-s0-rai, 208,140 supervised tokens
-  (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv). Started 18:38 CDT.
+  (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv). Started ~18:35 CDT. First update 72.8 s (18 turns, each with its full conversation as context) → ~8 h for 20 passes;
+  one non-fatal CUDA OOM warning (7.1 GB allocation) at start. Codex is adding `--packing episode` (one sequence per episode, all assistant
+  spans labelled; documented difference: history turns lack the empty thought-channel marker the generation prompt has) — ~15x cheaper.
 
 ## Stage 2c implementation (2026-10-04)
 
