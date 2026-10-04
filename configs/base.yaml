@@ -1,0 +1,63 @@
+project: sufficient_experience_agent_distillation
+status: discovery_not_run
+models:
+  teacher:
+    requested_name: gpt-6-luna
+    provider_model_id: gpt-6-luna
+    account_canary_passed: true
+    account_canary:
+      timestamp: '2026-10-04T15:00:00-05:00'
+      timezone: CDT
+      returned_model_id: gpt-6-luna
+      dated_snapshot: null
+      evidence_source: user_reported
+    access: black_box_outputs_only
+    sampling: {max_output_tokens: 512}
+    max_attempts: 3
+    timeout_seconds: 60
+  student:
+    requested_repo: google/gemma-4-12B-it
+    revision: 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7
+  checkpoint_origin_policy: no_chinese_checkpoints
+training:
+  mode: post_training_only
+  adaptation: bf16_lora_proposed_pending_profile
+  thinking_mode: fixed_before_comparison
+setting:
+  task_family: fixed_workflow_family
+  seed_trajectory_count: 10
+  support_sampling_seeds: [0, 1, 2]
+  new_tasks_allowed: true
+  new_teacher_outputs_allowed: true
+  new_real_interactions_allowed: true
+  budget_optimization_is_main_objective: false
+environment:
+  name: alfworld
+  version: '0.4.2'
+  textworld_version: '1.7.0'
+  action_format: single_text_command
+  legal_information_queries: [look, inventory, examine]
+  train_mechanism_split: null
+  data_root: '${ALFWORLD_DATA_ROOT:-}'
+  python: '${SED_ALFWORLD_PYTHON:-python}'
+  max_episode_steps: 40
+  seed: 0
+  domain_randomization: false
+splits:
+  dev_source: valid_seen
+  dev_count: null
+  sampling_seed: 0
+  sealed_source: valid_unseen
+evaluation:
+  sealed_manifest: '${SED_SPLIT_FREEZE:-data/manifest/alfworld_split_freeze.json}'
+  privileged_fields_allowed: false
+  checkpoint_selection_split: development_only
+paths:
+  manifest: '${SED_MANIFEST:-data/manifest/alfworld_manifest.json}'
+  split_freeze: '${SED_SPLIT_FREEZE:-data/manifest/alfworld_split_freeze.json}'
+  raw: '${SED_RAW_DIR:-data/raw}'
+  verified: '${SED_VERIFIED_DIR:-data/verified}'
+  runs: '${SED_RUNS_DIR:-reports/runs}'
+  teacher_cache: '${SED_TEACHER_CACHE:-data/raw/teacher_cache}'
+  teacher_usage: '${SED_TEACHER_USAGE:-data/raw/teacher_usage.jsonl}'
+  secrets_file: '${SED_SECRETS_FILE:-~/hq/secrets/llm_apis.env}'

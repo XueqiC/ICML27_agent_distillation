@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools==65.5.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sufficient-experience-distillation"
+version = "0.1.0"
+description = "Auditable black-box agent distillation research harness"
+requires-python = ">=3.11"
+dependencies = ["PyYAML==6.0.3"]
+
+[project.optional-dependencies]
+teacher = ["openai==2.8.1"]
+alfworld = ["alfworld==0.4.2", "textworld[pddl]==1.7.0"]
+test = ["pytest==7.4.0"]
+
+[project.scripts]
+sed-manifest = "sed.manifest:main"
+sed-episode = "sed.runner:main"
+sed-replay = "sed.runner:replay_main"
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["sed*", "harness*", "teachers*", "train*"]
+exclude = ["tests*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+markers = ["integration: optional real ALFWorld reset and prefix replay"]
+addopts = "-ra"
