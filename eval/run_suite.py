@@ -40,6 +40,14 @@ def frozen_tasks(path, manifest, freeze, *, sealed_final=False, policy="student"
     return listing, tasks
 
 
+def policy_condition(policy, spec, config):
+    if policy == "teacher":
+        return "teacher"
+    server = config.get("server_provenance", {}).get("config", {}).get("server", {})
+    name = "merged_lora_student" if server.get("merged_model") else "base_student"
+    return name + "_thinking_" + str(spec["enable_thinking"]).lower()
+
+
 def _worker(job):
     """One process owns one environment/client at a time; artifacts never collide."""
     task, config, output, policy_name, spec, inputs = job
@@ -55,7 +63,7 @@ def _worker(job):
                              sampling=teacher_spec["sampling"], max_attempts=teacher_spec["max_attempts"],
                              timeout_seconds=teacher_spec["timeout_seconds"],
                              secrets_file=config["paths"]["secrets_file"], purpose="evaluation")
-        condition = "teacher" if policy_name == "teacher" else "base_student_thinking_" + str(spec["enable_thinking"]).lower()
+        condition = policy_condition(policy_name, spec, config)
         run_episode(_environment(config, task), policy, task, config, output,
                     policy_condition=condition, purpose="evaluation", input_paths=inputs)
     except Exception as exc:
@@ -147,7 +155,8 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
             pass
     rows = [task_result(t, d) for t, d in zip(tasks, directories)]
     summary = summarize(rows, time.monotonic() - started)
-    summary.update(task_list_sha256=listing["list_sha256"], policy=policy, student=spec)
+    summary.update(task_list_sha256=listing["list_sha256"], policy=policy, student=spec,
+                   policy_condition=policy_condition(policy, spec, config))
     write_json(output / "summary.json", summary, exclusive=True)
     with (output / "per_task.tsv").open("x", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]), delimiter="\t")
@@ -163,13 +172,15 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
-    parser.add_argument("--enable-thinking", choices=("off", "on"), default="off")
+    parser.add_argument("--enable-thinking", choices=("off",), default="off")
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--sealed-final", action="store_true")
     parser.add_argument("--server-provenance", help="Hash/copy the launcher provenance into this run")
     args = parser.parse_args(argv)
+    if args.max_tokens != 1024:
+        parser.error("Stage 2b fixes the student per-step cap at 1024 tokens")
     config = load_config(args.config)
     if not config["environment"]["data_root"]:
         parser.error("Set ALFWORLD_DATA_ROOT")

@@ -36,7 +36,7 @@ def separate_response(message):
 
 class Student:
     def __init__(self, *, endpoint, model, revision, enable_thinking, log_dir,
-                 max_tokens=2048, timeout_seconds=180, transport=None):
+                 max_tokens=1024, timeout_seconds=180, transport=None):
         url = urlsplit(endpoint)
         if (url.scheme not in {"http", "https"} or not url.hostname or url.username or
                 url.password or url.query or url.fragment):

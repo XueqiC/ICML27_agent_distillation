@@ -21,8 +21,9 @@ models:
   checkpoint_origin_policy: no_chinese_checkpoints
 training:
   mode: post_training_only
-  adaptation: bf16_lora_proposed_pending_profile
-  thinking_mode: fixed_before_comparison
+  adaptation: bf16_lora
+  thinking_mode: 'off'
+  student_step_token_cap: 1024
 setting:
   task_family: fixed_workflow_family
   seed_trajectory_count: 10

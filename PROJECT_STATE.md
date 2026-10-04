@@ -7,6 +7,23 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - none
 
+## Stage 2b implementation (2026-10-04)
+
+- Implemented TRAIN-only stratified seed selection and generated `seeds_k10_s0.json`
+  (10 initial groups, 1,455 replacement groups; zero newly verified trajectories).
+- Added resumable teacher collection with real-environment win checks, all-attempt
+  accounting, same-type replacement and separate per-attempt caches.
+- Added exact Gemma OFF evaluation-prefix masks (assistant reply + `<turn|>` id 106),
+  complete-turn token-budget LoRA SFT, checkpoint profiling, checked merge/reload,
+  and B200 train/merged-dev40 launchers. ReAct, thinking OFF, student cap 1,024 fixed.
+- Validation: 106 project tests passed including real ALFWorld replay; torch module
+  skipped there and four tokenizer/torch tests passed in the separate RAI reference
+  venv with CUDA hidden. Real ReAct dev episode mask report: 16 turns / 473 supervised
+  tokens; diagnostic only, excluded from training.
+- No GPU, network, OpenAI calls, jobs, commits or pushes for Stage 2b. Collection,
+  full-model training/merge, GPU profiling and Seed-SFT dev40 remain future runs.
+  Files, semantics and exact commands: [reports/stage2b_validation.md](reports/stage2b_validation.md).
+
 ## Log (times CDT)
 - 2026-10-04 15:00 gpt-6-luna canary: HTTP 200, returned model id `gpt-6-luna` (no dated snapshot), 58 in / 59 out (45 reasoning).
 - 2026-10-04 15:29 Stage 1 skeleton (Codex, reviewed): event log, ALFWorld harness (official textworld.start + AlfredDemangler, no expert,

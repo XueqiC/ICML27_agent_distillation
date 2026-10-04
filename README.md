@@ -25,7 +25,10 @@ origins is in scope; see [AGENTS.md](AGENTS.md) for the hard rules and contract.
 
 Stage 2a adds the shared ReAct teacher/student interface, a greedy vLLM student
 client, frozen dev40, process-based suite evaluation, and a HiPerGator launcher.
-The OFF/ON pilot is enabled but has not been run by this implementation.
+The completed pilot fixes ReAct, thinking OFF, and a 1,024-token student step
+cap for subsequent methods. Stage 2b adds TRAIN seed selection/collection,
+assistant-only token masks, LoRA SFT, and checked merge/export. No Stage 2b
+teacher collection or full-model GPU training has been run.
 
 ## Layout
 
@@ -37,7 +40,8 @@ The OFF/ON pilot is enabled but has not been run by this implementation.
 | `teachers/openai_teacher.py` | Sampled-action teacher, cache, retry and usage ledger |
 | `data/manifest/` | Builder, content hashes, immutable split freeze |
 | `data/raw/`, `data/verified/` | Separate unverified and verified experience destinations |
-| `train/dataset.py` | Allowlisted action examples with role-level supervision and label origin |
+| `data/seeds/select_seeds.py`, `teachers/collect_seeds.py` | Frozen TRAIN groups, same-type replacements, resumable environment-verified collection |
+| `train/dataset.py`, `train/sft.py`, `train/merge_lora.py` | Exact Gemma OFF prompts, assistant token masks, LoRA training, checked standalone export |
 | `students/vllm_student.py` | Greedy chat client, separate Gemma thinking, durable call accounting |
 | `eval/` | Frozen suite and replay CLIs; no online training or training-pool writes |
 | `scripts/hpg_eval_student.slurm`, `configs/hpg.env` | B200 pilot job and overridable cluster defaults |
@@ -128,9 +132,10 @@ visible text, admissible sets, reward, terminal flags, and hidden audit hashes
 at every point. Divergence invalidates the environment; it cannot create a
 counterfactual branch. Replay records environment seed and game hash.
 
-The initial trained baselines and later SmartAD/DART-SD comparisons remain future
-stages. `train/dataset.py` specifies assistant-only role supervision; it does
-not yet tokenize, apply model-specific loss masks, or claim a working trainer.
+Real trained baselines and later SmartAD/DART-SD comparisons remain future
+experiments. `train/dataset.py` now tokenizes complete ReAct turns using the
+student's local chat template, masking the entire evaluation prompt and
+supervising the visible assistant reply plus native `<turn|>` token 106.
 The old adapter and support-rollout code were read for interface reference;
 no old implementation or experimental numbers were copied wholesale.
 
@@ -139,7 +144,7 @@ local counts, exact runtime, test results, episode artifacts, and remaining
 limits.
 
 
-## Stage 2a: base-student thinking pilot on HiPerGator
+## Shared evaluation on HiPerGator
 
 The shared template/parser is `src/sed/react.py`: optional visible `Thought:`
 followed by `Action: <command>`. Both teacher and student receive system
@@ -167,13 +172,13 @@ Override any default through exported environment variables. From the HPG checko
 source configs/hpg.env
 cd "$PROJECT_ROOT"
 sbatch --export="ALL,ENABLE_THINKING=off,OUT=$PROJECT_ROOT/reports/runs/stage2a-base-dev40-off" scripts/hpg_eval_student.slurm
-sbatch --export="ALL,ENABLE_THINKING=on,OUT=$PROJECT_ROOT/reports/runs/stage2a-base-dev40-on" scripts/hpg_eval_student.slurm
 ```
 
 Each job requests account/qos `fsu-compsci-dept`, partition `hpg-b200`, one GPU,
-8 CPUs, 48 GB RAM, and 3 hours. It uses four environment worker processes by
-default (`WORKERS`), a 40-turn limit, and greedy decoding with `MAX_TOKENS=2048`
-per reply, including thinking. `ENABLE_THINKING` accepts `off` or `on`. The server
+8 CPUs, 48 GB RAM, and 3 hours. It uses eight environment worker processes by
+default (`WORKERS`), a 40-turn limit, and greedy decoding with `MAX_TOKENS=1024`
+per reply, including any spontaneous thinking. Current launchers require
+`ENABLE_THINKING=off`; historical pilot results are in the reports. The server
 uses `FLASH_ATTN`, disables the FlashInfer sampler, sets context length 32768 and
 GPU-memory utilization 0.85, and enables `--reasoning-parser gemma4` if registered.
 It binds loopback on `20000 + SLURM_JOB_ID % 20000`, checks readiness with a timeout,
@@ -196,7 +201,7 @@ For an already running student server, use the suite directly:
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. "$ENV_PYTHON" eval/run_suite.py \
   --policy student --endpoint http://127.0.0.1:PORT/v1 --enable-thinking off \
-  --tasks data/manifest/dev40.json --workers 4 --max-tokens 2048 \
+  --tasks data/manifest/dev40.json --workers 4 --max-tokens 1024 \
   --output reports/runs/base-dev40-direct
 ```
 
@@ -211,3 +216,40 @@ confirmed/unknown transitions.
 
 See [Stage 2a validation](reports/stage2a_validation.md) for the installed vLLM
 response schema, test evidence, and limitations.
+
+## Stage 2b: Seed-SFT
+
+Select groups without opening environments or contacting a teacher:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python \
+  data/seeds/select_seeds.py --k 10 --seed 0
+```
+
+The versioned selection rule shuffles the six types, assigns balanced quotas,
+selects one trial per distinct TRAIN group, and freezes ordered replacements.
+Selection records zero verified trajectories. `teachers/collect_seeds.py`
+later runs up to three real teacher episodes per candidate, retains every
+attempt, and promotes only real environment wins. Re-running the same command
+resumes the collection; changed code/config/dependencies require a new output.
+
+Training examples each supervise one complete assistant turn with its exact
+evaluation prefix; earlier replies remain masked context and are supervised
+once in their own examples. No observations or empty thought-prefill tokens
+enter the loss. Overlong contexts fail explicitly. Training shuffles complete
+passes deterministically, accumulates a supervised-token mean loss, and saves
+checkpoints at the first complete turn reaching each requested endpoint.
+Requested and actual token counts, overshoot, passes, updates, timing and peak
+CUDA memory are recorded. A turn exceeding the update budget runs alone.
+
+The trainer uses official `Gemma4UnifiedForConditionalGeneration` and PEFT LoRA,
+bf16, rank 16/alpha 32/dropout 0, all text attention/MLP projections, gradient
+checkpointing, microbatch 1, AdamW at 1e-5, and 512 supervised tokens per update.
+Token and pass limits are configurable; when both are set, the first reached
+stops training. Output directories must be fresh. Merging validates all
+next-token logits on a fixed input before and after standalone reload.
+
+See [Stage 2b validation](reports/stage2b_validation.md) for offline tests,
+the real ReAct diagnostic mask report, complete HPG commands and remaining
+GPU acceptance checks. Cluster paths and the separate training/reference
+Python environments live in [configs/hpg.env](configs/hpg.env).
