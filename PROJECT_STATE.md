@@ -5,7 +5,9 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- none
+- rai (nohup, pid of scripts/rai_collect_and_teacher_eval.sh, started 17:30 CDT 10-04): collect K=20 verified seeds for support seeds 0/1/2
+  (K=5/10 nested subsets) → data/verified/seeds_k20_s{0,1,2}; then teacher dev140 → reports/runs/teacher-dev140. Logs: logs/collect_k20_s*.log,
+  logs/teacher-dev140.log, logs/rai_collect_and_teacher_eval.log.
 
 ## Stage 2c implementation (2026-10-04)
 
@@ -117,6 +119,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - 17:15 Stage 2b reviewed and pushed (6a2d177): seed selection/collection with real-win receipts, Gemma 4 ReAct SFT dataset (assistant-only,
   token 106), LoRA trainer with supervised-token exposure, merge consistency check, hpg train/eval scripts. 106 tests pass.
 - 17:16 Codex stage 2c: teacher 429 backoff + cross-process limiter, frozen dev140, nested K=5⊂10⊂20 seeds for seeds 0/1/2.
+- 17:28 Stage 2c pushed (8b53713): teacher backoff + cross-process limiter, dev140 (140 instances / 137 groups), nested seeds K=5/10/20 × s0–2.
+- 17:31 **Tunnel down** (ssh hpg: localhost:2222 refused) — told the user once to restart autossh on the Mac; waiting. Nothing running on hpg.
 - ETA told the user: table core ~1–1.5 days, + Augmented-SFT/DAgger + plot ~1 day, first mechanism round +2–3 days.
 
 ## Next
