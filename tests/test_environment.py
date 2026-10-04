@@ -4,8 +4,8 @@ import json
 import pytest
 
 from conftest import FakeBackend
-from harness.alfworld import Environment, ReplayMismatch
-from harness.alfworld.environment import partition_state
+from harness.alfworld_env import Environment, ReplayMismatch
+from harness.alfworld_env.environment import partition_state
 from sed.storage import digest
 
 

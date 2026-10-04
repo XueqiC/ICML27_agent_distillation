@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from harness.alfworld import Environment
+from harness.alfworld_env import Environment
 from sed.manifest import load_frozen, resolve_task, verify_task_files
 
 

@@ -23,18 +23,24 @@ its returned model ID and time; an alias can drift. The student checkpoint has
 not been downloaded or trained here. Only post-training with permitted model
 origins is in scope; see [AGENTS.md](AGENTS.md) for the hard rules and contract.
 
+Stage 2a adds the shared ReAct teacher/student interface, a greedy vLLM student
+client, frozen dev40, process-based suite evaluation, and a HiPerGator launcher.
+The OFF/ON pilot is enabled but has not been run by this implementation.
+
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
 | `configs/base.yaml` | Fixed model identities, protocol, environment-variable path overrides |
 | `src/sed/` | Configuration, durable storage, events, provenance, manifest, runner |
-| `harness/alfworld/` | Official ALFWorld/TextWorld adapter with verified prefix replay |
+| `harness/alfworld_env/` | Official ALFWorld/TextWorld adapter with verified prefix replay |
 | `teachers/openai_teacher.py` | Sampled-action teacher, cache, retry and usage ledger |
 | `data/manifest/` | Builder, content hashes, immutable split freeze |
 | `data/raw/`, `data/verified/` | Separate unverified and verified experience destinations |
 | `train/dataset.py` | Allowlisted action examples with role-level supervision and label origin |
-| `eval/` | Replay CLI; no online training or writes into the training pool |
+| `students/vllm_student.py` | Greedy chat client, separate Gemma thinking, durable call accounting |
+| `eval/` | Frozen suite and replay CLIs; no online training or training-pool writes |
+| `scripts/hpg_eval_student.slurm`, `configs/hpg.env` | B200 pilot job and overridable cluster defaults |
 | `analysis/`, `reports/` | Future mechanism analysis and recorded validation/provenance |
 | `tests/` | Fake-based unit tests and one optional real-environment integration test |
 
@@ -97,7 +103,11 @@ requires a new explicit destination; existing frozen files are not overwritten.
 
 Every episode writes `provenance.json`, `events.jsonl`, content-addressed
 `blobs/`, and `episode.json`. A reset event costs zero environment steps; each
-issued step costs one. Failed step calls are flagged as errors, and their
+issued command costs one. Under ReAct, an unparseable reply consumes one of
+40 policy turns but zero environment steps; it produces visible parser feedback.
+A parseable inadmissible command is still executed verbatim. Events and summaries
+distinguish `legal`, `inadmissible`, and `parser_error`. The last exact `Action:`
+line wins; only surrounding whitespace is removed. Failed step calls are flagged as errors, and their
 state outcome is unknown. Teacher usage includes reasoning-token counts only,
 with request attempts in a separate append-only ledger. A durable `started`
 entry without a completion is an interrupted attempt with unknown cost.
@@ -118,7 +128,7 @@ visible text, admissible sets, reward, terminal flags, and hidden audit hashes
 at every point. Divergence invalidates the environment; it cannot create a
 counterfactual branch. Replay records environment seed and game hash.
 
-The initial baselines and later SmartAD/DART-SD comparisons remain future
+The initial trained baselines and later SmartAD/DART-SD comparisons remain future
 stages. `train/dataset.py` specifies assistant-only role supervision; it does
 not yet tokenize, apply model-specific loss masks, or claim a working trainer.
 The old adapter and support-rollout code were read for interface reference;
@@ -127,3 +137,77 @@ no old implementation or experimental numbers were copied wholesale.
 See [reports/stage1_validation.md](reports/stage1_validation.md) for measured
 local counts, exact runtime, test results, episode artifacts, and remaining
 limits.
+
+
+## Stage 2a: base-student thinking pilot on HiPerGator
+
+The shared template/parser is `src/sed/react.py`: optional visible `Thought:`
+followed by `Action: <command>`. Both teacher and student receive system
+instructions and alternating observation/user and visible reply/assistant turns.
+Gemma's separate thinking never enters the ReAct parser or later history.
+The teacher cache uses a new protocol/version key; older cached commands are
+not reused. Scripted action lists still contain bare commands; the scripted
+policy formats them as ReAct replies.
+
+`data/manifest/dev40.json` freezes 40 `valid_seen` dev instances (40 task groups),
+seed 0, with quotas 7/7/6/7/7/6 in alphabetic task-type order. Rebuild/check it
+without reading environment data:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python data/manifest/build_dev40.py
+```
+
+Cluster defaults live in [configs/hpg.env](configs/hpg.env). `ENV_PYTHON` defaults
+to the project's `.venv/bin/python` and must contain ALFWorld, TextWorld, PyYAML,
+and httpx. `VLLM_PYTHON` points to the separate serving venv. `MODEL_PATH` defaults
+to the already-installed HF snapshot at the pinned revision; no download occurs.
+Override any default through exported environment variables. From the HPG checkout:
+
+```bash
+source configs/hpg.env
+cd "$PROJECT_ROOT"
+sbatch --export="ALL,ENABLE_THINKING=off,OUT=$PROJECT_ROOT/reports/runs/stage2a-base-dev40-off" scripts/hpg_eval_student.slurm
+sbatch --export="ALL,ENABLE_THINKING=on,OUT=$PROJECT_ROOT/reports/runs/stage2a-base-dev40-on" scripts/hpg_eval_student.slurm
+```
+
+Each job requests account/qos `fsu-compsci-dept`, partition `hpg-b200`, one GPU,
+8 CPUs, 48 GB RAM, and 3 hours. It uses four environment worker processes by
+default (`WORKERS`), a 40-turn limit, and greedy decoding with `MAX_TOKENS=2048`
+per reply, including thinking. `ENABLE_THINKING` accepts `off` or `on`. The server
+uses `FLASH_ATTN`, disables the FlashInfer sampler, sets context length 32768 and
+GPU-memory utilization 0.85, and enables `--reasoning-parser gemma4` if registered.
+It binds loopback on `20000 + SLURM_JOB_ID % 20000`, checks readiness with a timeout,
+and shuts down on completion or cancellation. Workers have CUDA hidden.
+`harness/serve_student.py --merged-model-path PATH` supports an explicitly merged
+LoRA checkpoint for later work; the pilot uses the base snapshot.
+
+Outputs are `$OUT/server/{provenance.json,server.log}` and
+`$OUT/eval/{summary.json,per_task.tsv,provenance.json,episodes/}`. Existing output
+directories are refused. Per-episode artifacts include events, replay records,
+and durable student request/response/thinking blobs. Total completion tokens
+include thinking; thinking-token counts are `null` when the server omits the
+breakdown, with unknown counts carried into summaries. Thinking characters and
+finish reasons are always recorded for returned completions. No character-based
+token estimate is used. Server provenance records the local checkpoint path and
+metadata hashes; it does not certify local weight bytes against Hugging Face.
+
+For an already running student server, use the suite directly:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. "$ENV_PYTHON" eval/run_suite.py \
+  --policy student --endpoint http://127.0.0.1:PORT/v1 --enable-thinking off \
+  --tasks data/manifest/dev40.json --workers 4 --max-tokens 2048 \
+  --output reports/runs/base-dev40-direct
+```
+
+`--policy teacher` uses the same ReAct interface and puts its cache/usage ledger
+inside episode output directories, outside training data. Sealed task lists
+require `--sealed-final`; teacher generation remains forbidden on sealed tasks.
+No truncation of conversation history, command substitution, or online learning
+occurs. Context/service failures are retained as error episodes with unknown
+success, and remain in the suite denominator. `steps` counts policy attempts;
+`environment_steps` counts attempted actual calls and separately reports
+confirmed/unknown transitions.
+
+See [Stage 2a validation](reports/stage2a_validation.md) for the installed vLLM
+response schema, test evidence, and limitations.

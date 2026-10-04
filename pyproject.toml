@@ -11,6 +11,7 @@ dependencies = ["PyYAML==6.0.3"]
 
 [project.optional-dependencies]
 teacher = ["openai==2.8.1"]
+student = ["httpx==0.28.1"]
 alfworld = ["alfworld==0.4.2", "textworld[pddl]==1.7.0"]
 test = ["pytest==7.4.0"]
 
@@ -18,10 +19,12 @@ test = ["pytest==7.4.0"]
 sed-manifest = "sed.manifest:main"
 sed-episode = "sed.runner:main"
 sed-replay = "sed.runner:replay_main"
+sed-suite = "eval.run_suite:main"
+sed-dev40 = "sed.dev_subset:main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["sed*", "harness*", "teachers*", "train*"]
+include = ["sed*", "harness*", "teachers*", "students*", "train*", "eval*"]
 exclude = ["tests*"]
 namespaces = false
 

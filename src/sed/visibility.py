@@ -15,6 +15,9 @@ def visible_history(history):
     result = []
     for turn in history:
         item = {"visible": visible_observation(turn["visible"])}
+        if "reply" in turn:
+            from sed.thinking import split_thinking
+            item["reply"] = split_thinking(turn["reply"])[0]
         if "action" in turn:
             if type(turn["action"]) is not str:
                 raise TypeError("History action must be text")

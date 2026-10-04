@@ -22,6 +22,7 @@ def test_event_schema_and_durable_blobs(tmp_path):
     writer.append(event)
     row = json.loads((tmp_path / "events.jsonl").read_text())
     expected = "run_id episode_id event_id split task_family task_id parent_seed_ids mechanism_id student_revision teacher_provider_id environment_revision policy_condition history_ref visible_context_ref action_raw action_parsed observation_ref verification_ref feedback_source new_environment_information teacher_tokens_in teacher_tokens_out environment_steps latency_seconds terminated truncated status error_type".split()
+    expected += ["action_outcome", "inadmissible", "policy_metadata_ref"]
     assert set(row) == set(expected) == {f.name for f in fields(Event)}
     assert writer.blobs.get(row["observation_ref"])["long"].startswith("observation")
     assert writer.blobs.put({"long": "observation" * 1000}) == event.observation_ref

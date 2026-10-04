@@ -18,7 +18,7 @@ def utc_now():
 def versions():
     result = {}
     for name in ("sufficient-experience-distillation", "alfworld", "textworld",
-                 "openai", "PyYAML", "pytest", "numpy", "fast-downward"):
+                 "openai", "httpx", "vllm", "transformers", "PyYAML", "pytest", "numpy", "fast-downward"):
         try:
             result[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
@@ -29,11 +29,12 @@ def versions():
 def code_hashes(root):
     root = Path(root)
     files = []
-    for folder in ("src", "harness", "teachers", "train", "eval", "tests", "configs"):
+    for folder in ("src", "harness", "teachers", "students", "train", "eval", "tests", "configs", "scripts"):
         files.extend(p for p in (root / folder).rglob("*")
-                     if p.suffix in {".py", ".yaml"})
+                     if p.suffix in {".py", ".yaml", ".env", ".slurm"})
     files.extend(root / p for p in ("AGENTS.md", "pyproject.toml", "requirements.txt",
-                                    "requirements-alfworld.txt", "data/manifest/build.py"))
+                                    "requirements-alfworld.txt", "data/manifest/build.py",
+                                    "data/manifest/build_dev40.py"))
     return {str(p.relative_to(root)): file_hash(p) for p in sorted(files) if p.is_file()}
 
 

@@ -7,8 +7,8 @@ from pathlib import Path
 import time
 import uuid
 
-from harness.alfworld import Environment, ReplayMismatch
-from sed.actions import ActionParseError, parse_action
+from harness.alfworld_env import Environment, ReplayMismatch
+from sed.react import ActionParseError, parse_action, action_outcome, PARSER_FEEDBACK
 from sed.config import load_config
 from sed.events import Event, EventWriter
 from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_files
@@ -27,7 +27,8 @@ class ScriptedPolicy:
         self.index = 0
 
     def generate(self, history, task, visible_context):
-        raw = self.actions[self.index % len(self.actions)]
+        command = self.actions[self.index % len(self.actions)]
+        raw = "Action: " + command if "\n" not in command else command
         self.index += 1
         try:
             parsed, error = parse_action(raw), None
@@ -37,22 +38,46 @@ class ScriptedPolicy:
                                          "billed_usage": {"input_tokens": 0, "output_tokens": 0}})
 
 
+def episode_metrics(episode):
+    steps = episode["steps"]
+    calls = episode.get("policy_calls", [s.get("policy_metadata", {}) for s in steps])
+    outcomes = episode.get("action_outcomes", [s.get("action_outcome") for s in steps])
+    def total(key):
+        values = [m.get(key) for m in calls]
+        return {"known_total": sum(v for v in values if v is not None),
+                "unknown_calls": sum(v is None for v in values)}
+    return {"success": episode.get("success", "unknown"),
+            "steps": episode.get("policy_turns_attempted", len(steps)),
+            "environment_steps": sum(s.get("environment_steps", 1) for s in steps) +
+                                 int(episode.get("error_type") == "step_error"),
+            "environment_steps_confirmed": sum(s.get("environment_steps", 1) for s in steps),
+            "environment_steps_unknown": int(episode.get("error_type") == "step_error"),
+            "parser_errors": outcomes.count("parser_error"),
+            "inadmissible_actions": outcomes.count("inadmissible"),
+            "legal_actions": outcomes.count("legal"),
+            "prompt_tokens": total("prompt_tokens"), "completion_tokens": total("completion_tokens"),
+            "thinking_tokens": total("thinking_tokens"), "thinking_chars": total("thinking_chars"),
+            "policy_latency_seconds": sum(m.get("latency_seconds", 0) for m in calls),
+            "wall_time_seconds": episode.get("wall_time_seconds", 0),
+            "failed_policy_calls": int(episode.get("error_type") == "policy_error")}
+
+
 def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                 purpose="generation", parent_seed_ids=(), input_paths=()):
     authorize_task(task, purpose)
+    if isinstance(policy, Teacher) and (task["split"] == "test" or task.get("sealed")):
+        raise ValueError("No teacher generation on sealed tasks")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=False)
     run_id, episode_id = str(uuid.uuid4()), str(uuid.uuid4())
     if isinstance(policy, Teacher):
-        if task["split"] == "test":
-            raise ValueError("No teacher generation on sealed tasks")
-        policy.run_id = run_id
-        policy.purpose = purpose
+        policy.run_id, policy.purpose = run_id, purpose
     task = dict(task, parent_seed_ids=list(parent_seed_ids))
     provenance = write_provenance(output_dir, command="episode", config=config,
                                   inputs=input_paths, run_id=run_id,
                                   details={"task_id": task["task_id"], "split": task["split"],
                                            "purpose": purpose, "policy_condition": policy_condition,
+                                           "policy_spec": getattr(policy, "spec", None),
                                            "scripted_actions": getattr(policy, "actions", None),
                                            "seed": env.seed, "max_episode_steps": env.max_episode_steps,
                                            "parent_seed_ids": list(parent_seed_ids)})
@@ -62,99 +87,134 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                                    "seed": env.seed, "max_episode_steps": env.max_episode_steps})
     history, steps = [], []
     visible = {"observation": "", "admissible_commands": []}
-    episode = {"schema_version": 1, "run_id": run_id, "episode_id": episode_id,
+    episode = {"schema_version": 2, "run_id": run_id, "episode_id": episode_id,
                "task_id": task["task_id"], "split": task["split"], "sealed": task.get("sealed", False),
                "game_sha256": task.get("game_sha256"), "environment_revision": environment_revision,
                "seed": env.seed, "max_episode_steps": env.max_episode_steps,
-               "complete": False, "status": "started", "steps": steps}
+               "complete": False, "status": "started", "steps": steps,
+               "policy_calls": [], "policy_turns_attempted": 0, "action_outcomes": []}
     write_json(output_dir / "episode.json", episode)
     counter = 0
+    episode_started = time.monotonic()
 
-    def record(before, result, raw, action, metadata, elapsed, *, error=None, env_steps=0):
+    def record(before, result, raw, action, metadata, elapsed, *, error=None,
+               env_steps=0, outcome="not_applicable"):
         nonlocal counter
         observation, reward, terminated, truncated, audit = result
         event_id = f"{episode_id}:{counter:04d}"
         counter += 1
-        verification = {"audit": audit, "reward": reward, "teacher_metadata": metadata,
-                        "executable": "unknown" if error == "step_error" else error is None,
-                        "success": audit.get("won", "unknown"),
-                        "fact_source": "real_environment" if error is None else "unknown",
+        parser_error = outcome == "parser_error"
+        source = "analytic_verifier" if parser_error else "real_environment" if error is None else "none"
+        verification = {"audit": audit, "reward": reward, "policy_metadata": metadata,
+                        "executable": "unknown" if error == "step_error" else not parser_error and error is None,
+                        "success": audit.get("won", "unknown"), "fact_source": source,
                         "environment_steps_attempted": env_steps,
-                        "environment_steps_confirmed": env_steps if error is None else "unknown",
-                        "failure_reason": error}
-        usage = metadata.get("billed_usage") or {}
+                        "environment_steps_confirmed": env_steps if error is None or parser_error else "unknown",
+                        "failure_reason": error, "action_outcome": outcome,
+                        "inadmissible": outcome == "inadmissible"}
+        usage = (metadata.get("billed_usage") or {}) if isinstance(policy, Teacher) else {}
         event = Event(
             run_id=run_id, episode_id=episode_id, event_id=event_id, split=task["split"],
             task_family=task.get("task_type", "alfworld"), task_id=task["task_id"],
             parent_seed_ids=list(parent_seed_ids), mechanism_id="audit_only",
             student_revision=config["models"]["student"]["revision"],
             teacher_provider_id=(config["models"]["teacher"]["provider_model_id"]
-                                 if policy_condition == "teacher" else None),
+                                 if isinstance(policy, Teacher) else None),
             environment_revision=environment_revision, policy_condition=policy_condition,
             history_ref=writer.blobs.put(visible_history(history)),
             visible_context_ref=writer.blobs.put(visible_observation(before)),
             action_raw=raw, action_parsed=action,
-            observation_ref=(writer.blobs.put(visible_observation(observation)) if error is None else None),
+            observation_ref=(writer.blobs.put(visible_observation(observation))
+                             if error is None or parser_error else None),
             verification_ref=writer.blobs.put(verification),
-            feedback_source="real_environment" if error is None else "none",
-            new_environment_information="unknown_until_audit",
+            feedback_source=source, new_environment_information="none" if parser_error else "unknown_until_audit",
             teacher_tokens_in=usage.get("input_tokens", 0), teacher_tokens_out=usage.get("output_tokens", 0),
             environment_steps=env_steps, latency_seconds=elapsed,
             terminated=terminated, truncated=truncated,
-            status="ok" if error is None else "error", error_type=error)
+            status="rejected" if parser_error else "ok" if error is None else "error", error_type=error,
+            action_outcome=outcome, inadmissible=outcome == "inadmissible",
+            policy_metadata_ref=writer.blobs.put(metadata))
         writer.append(event)
         return {"event_id": event_id, "action_raw": raw, "action_parsed": action,
                 "visible": visible_observation(observation), "reward": reward,
                 "terminated": terminated, "truncated": truncated,
-                "verification_ref": event.verification_ref, "audit_sha256": digest(audit)}
+                "verification_ref": event.verification_ref, "audit_sha256": digest(audit),
+                "action_outcome": outcome, "inadmissible": outcome == "inadmissible",
+                "environment_steps": env_steps, "policy_metadata": metadata}
 
     phase, raw, action, metadata = "reset", None, None, {}
+    outcome = "not_applicable"
     started = time.monotonic()
     try:
         result = env.reset(task["task_id"])
         episode["initial"] = record(visible, result, None, None, {}, time.monotonic() - started)
-        visible, _, terminated, truncated, _ = result
+        visible, _, terminated, truncated, audit = result
         episode["game_sha256"] = env.game_hash
         write_json(output_dir / "episode.json", episode)
         while not (terminated or truncated):
             phase, raw, action, metadata = "policy", None, None, {}
+            outcome = "not_applicable"
             started = time.monotonic()
-            # Policy never receives task filenames, split labels, hidden audit,
-            # verification, reward, or arbitrary event fields as prompt material.
+            episode["policy_turns_attempted"] += 1
+            # Only Teacher receives a task identity for authorization/cache, never
+            # as prompt text. Student/history inputs remain explicitly whitelisted.
+            result_policy = policy.generate(visible_history(history),
+                                            task if isinstance(policy, Teacher) else visible_task(task),
+                                            visible_observation(visible))
+            raw, reported_action, metadata = result_policy
+            action, outcome = action_outcome(raw, visible["admissible_commands"])
+            episode["action_outcomes"].append(outcome)
+            metadata = dict(metadata)
             if isinstance(policy, Teacher):
-                result_policy = policy.generate(visible_history(history), task, visible_observation(visible))
-            else:
-                result_policy = policy.generate(visible_history(history), visible_task(task),
-                                                visible_observation(visible))
-            raw, action, metadata = result_policy
-            if action is None:
-                raise ActionParseError("Policy output could not be parsed")
-            if parse_action(raw) != action:
+                usage = metadata.get("usage") or {}
+                metadata.update(prompt_tokens=usage.get("input_tokens"),
+                                completion_tokens=usage.get("output_tokens"),
+                                thinking_tokens=usage.get("reasoning_tokens"), thinking_chars=None,
+                                finish_reason=metadata.get("response_status"))
+            episode["policy_calls"].append(metadata)
+            if action != reported_action:
                 raise ActionParseError("Policy result disagrees with shared parser")
-            phase = "step"
             before = deepcopy(visible)
-            result = env.step(action)
+            if outcome == "parser_error":
+                # Keep the actual environment state/audit unchanged; this is
+                # parser feedback, not a fabricated environment transition.
+                result = ({"observation": PARSER_FEEDBACK,
+                           "admissible_commands": before["admissible_commands"]},
+                          0.0, False, False, audit)
+            else:
+                phase = "step"
+                result = env.step(action)  # Inadmissible commands are issued verbatim.
+            visible, reward, terminated, truncated, audit = result
+            truncated = (truncated or len(steps) + 1 >= env.max_episode_steps) and not terminated
+            result = (visible, reward, terminated, truncated, audit)
             step = record(before, result, raw, action, metadata, time.monotonic() - started,
-                          env_steps=1)
+                          env_steps=int(outcome != "parser_error"), outcome=outcome,
+                          error="parser_error" if outcome == "parser_error" else None)
             steps.append(step)
-            history.append({"visible": before, "action": action})
-            visible, _, terminated, truncated, audit = result
+            history.append({"visible": before, "reply": raw})
             write_json(output_dir / "episode.json", episode)
         episode.update(complete=True, status="ok", terminated=terminated, truncated=truncated,
-                       success=bool(result[4].get("won", False)))
-        write_json(output_dir / "episode.json", episode)
+                       success=audit.get("won", "unknown"))
         return episode
     except Exception as exc:
         error = "ActionParseError" if isinstance(exc, ActionParseError) else f"{phase}_error"
+        if len(episode["policy_calls"]) < episode["policy_turns_attempted"]:
+            episode["policy_calls"].append({"latency_seconds": time.monotonic() - started,
+                                            "status": "failed", "usage": None})
         failed = (visible, 0.0, False, False,
                   {"phase": phase, "error_type": type(exc).__name__, "won": "unknown"})
         record(visible, failed, raw, action, metadata, time.monotonic() - started,
-               error=error, env_steps=1 if phase == "step" else 0)
-        episode.update(status="error", error_type=error, failed_action=action, complete=False)
-        write_json(output_dir / "episode.json", episode)
+               error=error, env_steps=1 if phase == "step" else 0, outcome=outcome)
+        episode.update(status="error", error_type=error, failed_action=action, complete=False,
+                       success="unknown")
         raise RuntimeError(f"Episode failed ({error}); inspect sanitized run artifacts") from None
     finally:
+        episode["wall_time_seconds"] = time.monotonic() - episode_started
+        episode["metrics"] = episode_metrics(episode)
+        write_json(output_dir / "episode.json", episode)
         env.close()
+        if hasattr(policy, "close"):
+            policy.close()
 
 
 def replay_episode(env, episode):
@@ -162,19 +222,29 @@ def replay_episode(env, episode):
         raise ValueError("Sealed episodes cannot be used for diagnostic replay")
     if env.seed != episode["seed"] or env.max_episode_steps != episode["max_episode_steps"]:
         raise ReplayMismatch("Replay configuration differs")
+    executed = 0
     try:
         result = env.reset(episode["task_id"])
         if env.game_hash != episode["game_sha256"]:
             raise ReplayMismatch("Game content differs")
         for index, expected in enumerate([episode["initial"], *episode["steps"]]):
             if index:
-                result = env.step(expected["action_parsed"])
+                if expected.get("action_outcome") == "parser_error":
+                    if action_outcome(expected["action_raw"], result[0]["admissible_commands"])[1] != "parser_error":
+                        raise ReplayMismatch("Recorded parser error is parseable")
+                    result = ({"observation": PARSER_FEEDBACK,
+                               "admissible_commands": result[0]["admissible_commands"]},
+                              0.0, False, False, result[4])
+                else:
+                    result = env.step(expected["action_parsed"])
+                    executed += 1
             visible, reward, terminated, truncated, audit = result
+            truncated = (truncated or index >= env.max_episode_steps) and not terminated
             if (visible_observation(visible) != expected["visible"] or reward != expected["reward"] or
                     terminated != expected["terminated"] or truncated != expected["truncated"] or
                     digest(audit) != expected["audit_sha256"]):
                 raise ReplayMismatch(f"Episode diverges at step {index}")
-        return {"matched": True, "steps_replayed": len(episode["steps"]),
+        return {"matched": True, "steps_replayed": executed, "policy_turns": len(episode["steps"]),
                 "complete_episode": episode["complete"]}
     finally:
         env.close()

@@ -35,7 +35,7 @@ environment:
   name: alfworld
   version: '0.4.2'
   textworld_version: '1.7.0'
-  action_format: single_text_command
+  action_format: react_v2_last_action_line
   legal_information_queries: [look, inventory, examine]
   train_mechanism_split: null
   data_root: '${ALFWORLD_DATA_ROOT:-}'

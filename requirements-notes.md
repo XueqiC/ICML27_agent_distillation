@@ -18,3 +18,9 @@ Student download/license/template checks and training dependency pins are
 future work. The configured student revision is user-specified; Stage 1
 does not claim to have downloaded or trained it. The teacher canary is the
 user-reported result, not an API call performed by this codebase setup.
+
+Stage 2a adds direct client pin `httpx==0.28.1` (already installed as an OpenAI
+SDK dependency). The serving runtime was inspected read-only at vLLM 0.27.1 /
+Transformers 5.14.1 in its separate venv. Serving dependencies are deliberately
+not imported by environment workers or installed into the project venv. No
+packages were installed for Stage 2a.

@@ -15,19 +15,11 @@ import time
 from typing import NamedTuple
 import uuid
 
-from sed.actions import ActionParseError, parse_action
+from sed.react import ActionParseError, parse_action, build_messages, PROMPT_TEMPLATE, PROMPT_VERSION
 from sed.manifest import authorize_task
 from sed.provenance import utc_now
 from sed.storage import BlobStore, JsonlLedger, digest, locked, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
-
-PROMPT_TEMPLATE = (
-    "You act in an ALFWorld household environment. Complete the task in the "
-    "initial visible observation. Use the visible history and current observation. "
-    "Reply with exactly one admissible command and no other text. "
-    "The following JSON contains task text, visible history, and current context.\n"
-)
-
 
 class TeacherResult(NamedTuple):
     raw_text: str
@@ -120,13 +112,11 @@ class Teacher:
         return self.client
 
     def prompt(self, history, task, visible_context):
-        from sed.storage import canonical_bytes
-        payload = {"task": visible_task(task), "history": visible_history(history),
-                   "visible_context": visible_observation(visible_context)}
-        return self.prompt_template + canonical_bytes(payload).decode("utf-8")
+        return build_messages(history, task, visible_context, prompt_template=self.prompt_template)
 
     def cache_key(self, history, task, visible_context):
-        return digest({"schema_version": 1, "provider_model_id": self.provider_model_id,
+        return digest({"schema_version": 2, "prompt_version": PROMPT_VERSION,
+                       "provider_model_id": self.provider_model_id,
                        "prompt_template_sha256": digest(self.prompt_template),
                        "task_id": task["task_id"], "task_sha256": digest(visible_task(task)),
                        "history_sha256": digest(visible_history(history)),
@@ -213,8 +203,6 @@ class Teacher:
             except ActionParseError:
                 parsed, parser_error = None, "ActionParseError"
             response_status = _field(response, "status", "completed")
-            if response_status != "completed":
-                parsed, parser_error = None, "IncompleteResponse"
             metadata = self._redact({
                 "provider_model_id": self.provider_model_id,
                 "returned_model_id": _field(response, "model"),

@@ -37,14 +37,17 @@ class Event:
     truncated: bool
     status: str
     error_type: str | None
+    action_outcome: str = "not_applicable"
+    inadmissible: bool = False
+    policy_metadata_ref: str | None = None
 
     def validate(self):
         row = asdict(self)
         nullable = {"teacher_provider_id", "action_raw", "action_parsed",
-                    "observation_ref", "error_type"}
+                    "observation_ref", "error_type", "policy_metadata_ref"}
         for key, value in row.items():
             if key in {"parent_seed_ids", "teacher_tokens_in", "teacher_tokens_out",
-                       "environment_steps", "latency_seconds", "terminated", "truncated"}:
+                       "environment_steps", "latency_seconds", "terminated", "truncated", "inadmissible"}:
                 continue
             if value is None and key in nullable:
                 continue
@@ -63,6 +66,10 @@ class Event:
             raise ValueError("Invalid latency")
         if type(self.terminated) is not bool or type(self.truncated) is not bool:
             raise ValueError("Termination flags must be booleans")
+        if type(self.inadmissible) is not bool or self.inadmissible != (self.action_outcome == "inadmissible"):
+            raise ValueError("Invalid inadmissible flag")
+        if self.action_outcome not in {"not_applicable", "legal", "inadmissible", "parser_error"}:
+            raise ValueError("Invalid action outcome")
         if self.split not in {"train", "dev", "test"}:
             raise ValueError("Invalid logical split")
         if self.status not in {"ok", "error", "rejected"}:

@@ -3,7 +3,7 @@ import json
 import pytest
 
 from conftest import FakeBackend
-from harness.alfworld import Environment, ReplayMismatch
+from harness.alfworld_env import Environment, ReplayMismatch
 from sed.config import load_config
 from sed.runner import ScriptedPolicy, replay_episode, run_episode
 from sed.storage import BlobStore
@@ -28,15 +28,18 @@ def test_full_episode_logs_and_replays(data_root, tmp_path, task):
 
 
 def test_failure_is_persisted_and_environment_closed(data_root, tmp_path, task):
+    class FailedPolicy:
+        def generate(self, *args):
+            raise RuntimeError("untrusted policy exception")
     env = Environment(data_root, backend_factory=FakeBackend)
     directory = tmp_path / "run"
-    with pytest.raises(RuntimeError, match="ActionParseError"):
-        run_episode(env, ScriptedPolicy(["bad\naction"]), task, load_config(), directory,
+    with pytest.raises(RuntimeError, match="policy_error"):
+        run_episode(env, FailedPolicy(), task, load_config(), directory,
                     policy_condition="scripted")
     episode = json.loads((directory / "episode.json").read_text())
     assert episode["status"] == "error" and not episode["complete"]
     event = json.loads((directory / "events.jsonl").read_text().splitlines()[-1])
-    assert event["action_raw"] == "bad\naction" and event["environment_steps"] == 0
+    assert event["action_raw"] is None and event["environment_steps"] == 0
     assert env.backend is None
 
 

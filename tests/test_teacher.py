@@ -4,9 +4,10 @@ from types import SimpleNamespace as NS
 import pytest
 
 from teachers.openai_teacher import Teacher, TeacherCallError, read_api_key
+from sed.react import build_messages
 
 
-def response(text="ACTION: look"):
+def response(text="Action: look"):
     return NS(output_text=text, model="gpt-6-luna", id="resp_fake", _request_id="req_fake",
               status="completed", usage=NS(input_tokens=13, output_tokens=17, total_tokens=30,
               input_tokens_details=NS(cached_tokens=2), output_tokens_details=NS(reasoning_tokens=10)))
@@ -37,7 +38,7 @@ def test_disk_cache_metadata_and_no_privileged_requests(tmp_path, task, visible)
     first = teacher(tmp_path, client=client).generate([], task, visible)
     fresh = teacher(tmp_path, client=client)
     cached = fresh.generate([], task, visible)
-    assert first.raw_text == "ACTION: look" and first.parsed_action == "look"
+    assert first.raw_text == "Action: look" and first.parsed_action == "look"
     assert first.metadata["usage"]["reasoning_tokens"] == 10
     assert first.metadata["returned_model_id"] == "gpt-6-luna"
     assert cached.metadata["cache_hit"] and cached.metadata["billed_usage"]["input_tokens"] == 0
@@ -62,11 +63,19 @@ def test_cache_keys_cover_context_prompt_history_task_and_sampling(tmp_path, tas
     assert key == model.cache_key([], dict(task, hidden="SECRET"), dict(visible, audit="SECRET"))
 
 
+def test_teacher_uses_shared_react_conversation_and_visible_thought_in_cache(tmp_path, task, visible):
+    model = teacher(tmp_path)
+    history = [{"visible": visible, "reply": "Thought: inspect\nAction: look", "thinking": "SECRET"}]
+    assert model.prompt(history, task, visible) == build_messages(history, task, visible)
+    assert model.cache_key(history, task, visible) != model.cache_key(
+        [{"visible": visible, "reply": "Thought: changed\nAction: look"}], task, visible)
+
+
 def test_prompt_allowlist_hides_audit_and_task_filename(tmp_path, task, visible):
     model = teacher(tmp_path)
     polluted = dict(visible, policy_commands=["SECRET"], extra={"expert_plan": "SECRET"}, facts="SECRET")
-    prompt = model.prompt([{"visible": polluted, "action": "look", "audit": "SECRET"}],
-                          dict(task, mechanism_id="SECRET", audit="SECRET"), polluted)
+    prompt = json.dumps(model.prompt([{"visible": polluted, "action": "look", "audit": "SECRET"}],
+                          dict(task, mechanism_id="SECRET", audit="SECRET"), polluted))
     assert "SECRET" not in prompt and task["task_id"] not in prompt
     assert "policy_commands" not in prompt and "admissible_commands" in prompt
 
