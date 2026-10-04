@@ -8,6 +8,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - rai (nohup, pid of scripts/rai_collect_and_teacher_eval.sh, started 17:30 CDT 10-04): collect K=20 verified seeds for support seeds 0/1/2
   (K=5/10 nested subsets) → data/verified/seeds_k20_s{0,1,2}; then teacher dev140 → reports/runs/teacher-dev140. Logs: logs/collect_k20_s*.log,
   logs/teacher-dev140.log, logs/rai_collect_and_teacher_eval.log.
+  18:02: chain replaced by scripts/rai_collect_parallel.sh (seeds 1 and 2 in parallel with seed 0; teacher dev140 after all three).
+  18:32: s0 complete (20 verified / 29 attempts; k5/k10 subsets built), s2 17/20, s1 4/20.
+- rai GPU1 (Blackwell): Seed-SFT K=20 s0 profiling/training run → reports/runs/train/seedsft-k20-s0-rai, 208,140 supervised tokens
+  (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv). Started 18:38 CDT.
 
 ## Stage 2c implementation (2026-10-04)
 
@@ -121,6 +125,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - 17:16 Codex stage 2c: teacher 429 backoff + cross-process limiter, frozen dev140, nested K=5⊂10⊂20 seeds for seeds 0/1/2.
 - 17:28 Stage 2c pushed (8b53713): teacher backoff + cross-process limiter, dev140 (140 instances / 137 groups), nested seeds K=5/10/20 × s0–2.
 - 17:31 **Tunnel down** (ssh hpg: localhost:2222 refused) — told the user once to restart autossh on the Mac; waiting. Nothing running on hpg.
+- Supervised tokens per pass (seed 0): K=5 2,146 (79 turns), K=10 5,311 (200), K=20 10,407 (382).
 - ETA told the user: table core ~1–1.5 days, + Augmented-SFT/DAgger + plot ~1 day, first mechanism round +2–3 days.
 
 ## Next
