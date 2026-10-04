@@ -22,8 +22,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   Use `python -m harness.run_episode`; rename the package in stage 2.
 
 ## Open decisions (asked the user)
-1. Interaction format for teacher and student: action-only vs visible Thought+Action (ReAct); gemma `enable_thinking` on/off.
-2. K=10 seed selection rule (task types, sampling seeds).
+1. Interaction format: **ReAct accepted** (user, 2026-10-04 15:39). Gemma `enable_thinking`: the user asked why off. I explained
+   (teacher reasoning is not returned, so the only supervisable reasoning is its visible Thought; the Gemma template strips earlier-turn
+   thinking via `strip_thinking`, while ReAct Thought stays in history; one fixed mode for all methods). I proposed a pilot: base student,
+   ReAct, 40 fixed dev games, thinking off vs on, then fix the mode. Awaiting reply.
+2. K=10 seed selection rule: proposed stratified random over the 6 task types, 3 sampling seeds, up to 3 teacher attempts per task,
+   keep only execution-verified successes. Awaiting reply.
 
 ## Next
 Stage 2: student serving/eval (vLLM, merged LoRA), Seed-SFT trainer with assistant-only loss masks, K=10 seed collection, base/teacher/Seed-SFT
