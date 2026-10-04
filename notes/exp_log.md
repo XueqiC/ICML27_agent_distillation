@@ -1,2 +1,3 @@
 # exp_log (one line per experiment): exp_id | config | where | metrics | artifacts
 smoke-teacher-1 | teacher gpt-6-luna, action-only prompt, 1 train task | rai CPU | success, 4 steps, 2,193/201 tokens, replay matched | reports/runs/smoke-teacher-1
+pilot-base-dev40-off | base gemma-4-12B, ReAct, enable_thinking=False, dev40, max 4,096 tok, 8 workers | hpg B200 44733714 | 19/40 = 47.5% (pick_and_place 7/7, look 5/7, clean 3/6, cool 2/7, two 2/6, heat 0/7); 1,147 steps: 1,072 legal, 66 inadmissible, 9 parser errors (all = spontaneous thought channel to the 4,096 cap, all in look_at_obj tasks); 3 min wall | hpg reports/runs/pilot-base-dev40-off
