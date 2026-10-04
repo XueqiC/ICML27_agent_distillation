@@ -164,7 +164,7 @@ def main(argv=None):
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--enable-thinking", choices=("off", "on"), default="off")
-    parser.add_argument("--max-tokens", type=int, default=2048)
+    parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--sealed-final", action="store_true")

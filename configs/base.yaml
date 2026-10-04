@@ -12,7 +12,7 @@ models:
       dated_snapshot: null
       evidence_source: user_reported
     access: black_box_outputs_only
-    sampling: {max_output_tokens: 512}
+    sampling: {max_output_tokens: 2048}
     max_attempts: 3
     timeout_seconds: 60
   student:
