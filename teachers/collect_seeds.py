@@ -9,10 +9,10 @@ from sed.config import load_config
 from sed.manifest import load_frozen, resolve_task, verify_task_files
 from sed.provenance import write_provenance, utc_now, code_hashes, versions, safe_config
 from sed.runner import _environment, run_episode
-from sed.seed_evidence import artifact_hashes, environment_won
+from sed.seed_evidence import artifact_hashes, environment_won, materialize_subsets
 from sed.seed_selection import validate_selection
 from sed.storage import digest, locked, write_json
-from teachers.openai_teacher import Teacher
+from teachers.openai_teacher import Teacher, rate_limit_options
 
 
 def usage_summary(path):
@@ -40,6 +40,7 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
         return Teacher(cache_dir=cache, usage_ledger=ledger, run_id="pending",
                        provider_model_id=spec["provider_model_id"], sampling=spec["sampling"],
                        max_attempts=spec["max_attempts"], timeout_seconds=spec["timeout_seconds"],
+                       **rate_limit_options(spec, output / "data/teacher_rate_limit"),
                        secrets_file=config["paths"]["secrets_file"])
     teacher_factory = teacher_factory or default_teacher
     identity = {"selection": selection, "config": safe_config(config), "attempts_per_candidate": attempts,
@@ -154,16 +155,22 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--selection", required=True)
     parser.add_argument("--attempts", type=int, default=3)
+    parser.add_argument("--subset-k", nargs="+", type=int, default=[],
+                        help="Collect the selection's largest K once, then reuse verified slots for these smaller K")
     parser.add_argument("--output")
     args = parser.parse_args(argv)
     config = load_config(args.config)
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     selection = json.loads(Path(args.selection).read_text())
+    if any(k < 1 or k >= selection["K"] for k in args.subset_k):
+        parser.error("--subset-k must be positive and smaller than the selected collection K")
     output = args.output or str(Path(config["paths"]["verified"]) /
                                f"seeds_k{selection['K']}_s{selection['seed']}")
     result = collect(selection, manifest, freeze, config, output, attempts=args.attempts,
                      input_paths=[args.config, args.selection, config["paths"]["manifest"],
                                   config["paths"]["split_freeze"]])
+    if result["status"] == "complete" and args.subset_k:
+        materialize_subsets(output, manifest, freeze, args.subset_k)
     print(json.dumps({key: result[key] for key in ("status", "trusted_trajectories", "task_groups")}))
     return 0 if result["status"] == "complete" else 1
 

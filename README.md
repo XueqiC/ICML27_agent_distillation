@@ -29,6 +29,9 @@ The completed pilot fixes ReAct, thinking OFF, and a 1,024-token student step
 cap for subsequent methods. Stage 2b adds TRAIN seed selection/collection,
 assistant-only token masks, LoRA SFT, and checked merge/export. No Stage 2b
 teacher collection or full-model GPU training has been run.
+Stage 2c adds shared teacher rate limiting, frozen dev140, and nested K=5/10/20
+collections that reuse identical verified trajectories. This remains engineering
+validation; no new live teacher run or scientific finding is claimed.
 
 ## Layout
 
@@ -253,3 +256,83 @@ See [Stage 2b validation](reports/stage2b_validation.md) for offline tests,
 the real ReAct diagnostic mask report, complete HPG commands and remaining
 GPU acceptance checks. Cluster paths and the separate training/reference
 Python environments live in [configs/hpg.env](configs/hpg.env).
+
+## Stage 2c: teacher reliability and nested seeds
+
+Teacher HTTP attempts use full-jitter exponential backoff (base 2 seconds, cap
+60 seconds, at most 10 attempts). `Retry-After` and `x-ratelimit-reset-*` can
+extend that delay. Auth/400 errors fail immediately. Every attempt keeps its
+sanitized ledger record, including error type, retry wait, limiter wait and token
+reservation. Cache hits make no HTTP request and consume no limiter capacity.
+
+`models.teacher.rate_limit` in `configs/base.yaml` defaults to 300 requests/minute
+and 400,000 tokens/minute **across all workers of one run**. A file-locked rolling
+minute ledger, keyed by provider model under `<run>/data/teacher_rate_limit`,
+reserves UTF-8 prompt bytes plus framing allowance and the output cap. This is
+conservative admission accounting, separate from returned billed usage; failed
+requests keep their reservations. Provider cooldowns are shared across workers.
+Independent runs have independent limits; the commands below collect seeds
+sequentially. Keep the limiter state on a filesystem with POSIX lock support.
+
+`dev140.json` contains every frozen `valid_seen` dev game: **140 instances / 137
+task groups**. The original manifest, split freeze, dev40 and sealed games are
+unchanged. All nine `seeds_k{5,10,20}_s{0,1,2}.json` selections are frozen and
+contain zero collected trajectories. At a fixed seed, smaller selections are
+per-type prefixes of the same shuffled lists under `stratified_groups_v1`.
+
+Offline, repeatable builders:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python data/manifest/build_dev140.py
+for seed in 0 1 2; do
+  for k in 5 10 20; do
+    CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python \
+      data/seeds/select_seeds.py --k "$k" --seed "$seed"
+  done
+done
+```
+
+Exact commands for a **later live run on rai** (not executed during Stage 2c):
+
+```bash
+cd /home/xueqi/hq/projects/ICML27_agent_distillation
+export ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1
+
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python eval/run_suite.py \
+  --config configs/base.yaml --policy teacher --tasks data/manifest/dev140.json \
+  --workers 8 --output reports/runs/teacher-dev140-stage2c
+
+for seed in 0 1 2; do
+  CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python teachers/collect_seeds.py \
+    --config configs/base.yaml --selection "data/manifest/seeds_k20_s${seed}.json" \
+    --attempts 3 --subset-k 5 10 --output "data/verified/seeds_k20_s${seed}" || break
+done
+```
+
+The suite requires a fresh output directory. Repeating a collection command
+resumes its saved attempts. Once K=20 completes, `--subset-k 5 10` writes
+`data/verified/seeds_k20_sN/subsets/k5/manifest.json` and `subsets/k10/manifest.json`.
+Smaller-K sets **reuse the same executed trajectories and receipt files**, with
+no new calls, interactions or copied episodes. They inherit successes by original
+selection slot, including its same-type replacement if necessary. This differs
+from independently collecting each K, whose replacement boundary can differ.
+Failed attempts for those slots remain in each view; the source manifest retains
+all K=20 attempts and costs. Do not count the views as independent collections or
+sum their overlapping costs. K remains the number of verified trajectories made
+available to training, while the larger collection's total experience is disclosed.
+
+For K=5 training, use `--verified data/verified/seeds_k20_s0/subsets/k5`; use the
+analogous K=10 path or the collection root for K=20. Keep the parent collection
+with its subsets: loading checks source hashes, receipt identity, actual wins,
+TRAIN membership, distinct groups and quotas before constructing model inputs.
+
+Required offline checks:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m pytest -q
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. \
+ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1 \
+.venv/bin/python -m pytest -q
+```
+
+See [Stage 2c validation](reports/stage2c_validation.md) for evidence and limits.

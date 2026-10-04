@@ -11,13 +11,13 @@ from pathlib import Path
 import time
 
 from sed.config import load_config
-from sed.dev_subset import build_dev40
+from sed.dev_subset import build_dev40, build_dev140
 from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_files
 from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode
 from sed.storage import digest, write_json
 from students.vllm_student import Student
-from teachers.openai_teacher import Teacher
+from teachers.openai_teacher import Teacher, rate_limit_options
 
 
 def frozen_tasks(path, manifest, freeze, *, sealed_final=False, policy="student"):
@@ -37,6 +37,8 @@ def frozen_tasks(path, manifest, freeze, *, sealed_final=False, policy="student"
                 raise ValueError("Teacher generation remains forbidden on sealed tasks")
     if listing.get("name") == "dev40" and listing != build_dev40(manifest, freeze):
         raise ValueError("dev40 differs from its fixed seed-0 selection rule")
+    if listing.get("name") == "dev140" and listing != build_dev140(manifest, freeze):
+        raise ValueError("dev140 differs from its frozen full-dev rule")
     return listing, tasks
 
 
@@ -62,6 +64,7 @@ def _worker(job):
                              run_id="pending", provider_model_id=teacher_spec["provider_model_id"],
                              sampling=teacher_spec["sampling"], max_attempts=teacher_spec["max_attempts"],
                              timeout_seconds=teacher_spec["timeout_seconds"],
+                             **rate_limit_options(teacher_spec, config["suite"]["teacher_rate_limit_dir"]),
                              secrets_file=config["paths"]["secrets_file"], purpose="evaluation")
         condition = policy_condition(policy_name, spec, config)
         run_episode(_environment(config, task), policy, task, config, output,
@@ -143,6 +146,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
     inputs = [*inputs, tasks_path, config["paths"]["manifest"], config["paths"]["split_freeze"]]
     effective = deepcopy(config)
     effective["suite"] = {"policy": policy, "student": spec, "workers": workers,
+                          "teacher_rate_limit_dir": str((output / "data/teacher_rate_limit").resolve()),
                           "sealed_final": sealed_final, "task_list_sha256": listing["list_sha256"]}
     write_provenance(output, command="suite", config=effective, inputs=inputs)
     write_json(output / "tasks.json", listing, exclusive=True)

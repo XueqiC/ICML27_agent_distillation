@@ -13,8 +13,11 @@ models:
       evidence_source: user_reported
     access: black_box_outputs_only
     sampling: {max_output_tokens: 2048}
-    max_attempts: 3
+    max_attempts: 10
     timeout_seconds: 60
+    rate_limit:
+      requests_per_minute: 300
+      tokens_per_minute: 400000
   student:
     requested_repo: google/gemma-4-12B-it
     revision: 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7

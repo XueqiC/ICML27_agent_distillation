@@ -82,6 +82,51 @@ def fake_worker(job):
     return result
 
 
+def fake_teacher_worker(job):
+    import socket
+    from types import SimpleNamespace
+    from conftest import FakeBackend
+    from harness.alfworld_env import Environment
+    from teachers.openai_teacher import Teacher
+    from test_teacher import response
+    import eval.run_suite as suite
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Network forbidden in spawned test worker")
+    socket.socket.connect = socket.socket.connect_ex = socket.socket.sendto = forbidden
+    socket.getaddrinfo = socket.create_connection = forbidden
+    suite._environment = lambda config, task: Environment(config["environment"]["data_root"],
+        split=task["split"], max_episode_steps=1, backend_factory=FakeBackend)
+    suite.Teacher = lambda **kwargs: Teacher(**kwargs, client=SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **_kwargs: response())))
+    return suite._worker(job)
+
+
+def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path):
+    path, manifest, freeze = fixture_list(data_root, tmp_path)
+    config = load_config()
+    assert config["models"]["teacher"]["max_attempts"] == 10
+    assert config["models"]["teacher"]["rate_limit"] == {
+        "requests_per_minute": 300, "tokens_per_minute": 400000}
+    config["models"]["teacher"]["rate_limit"] = {"requests_per_minute": 10, "tokens_per_minute": 100000}
+    config["environment"].update(data_root=str(data_root), max_episode_steps=1)
+    for name, data in (("manifest", manifest), ("split_freeze", freeze)):
+        destination = tmp_path / (name + ".json")
+        write_json(destination, data)
+        config["paths"][name] = str(destination)
+    output = tmp_path / "teacher-suite"
+    summary = run_suite(config=config, tasks_path=path, output=output, policy="teacher",
+                        workers=2, worker_fn=fake_teacher_worker)
+    assert summary["episodes"] == summary["completed_episodes"] == 4
+    states = list(output.glob("**/teacher_rate_limit/*.json"))
+    assert len(states) == 1 and states[0].parent == output / "data/teacher_rate_limit"
+    state = json.loads(states[0].read_text())
+    assert state["limits"] == config["models"]["teacher"]["rate_limit"]
+    assert len(state["reservations"]) == 4
+    ledgers = list(output.glob("episodes/*/teacher_usage.jsonl"))
+    assert len(ledgers) == 4
+    assert all(json.loads(p.read_text().splitlines()[0])["reserved_tokens"] > 2048 for p in ledgers)
+
+
 def test_process_suite_with_fake_server_and_environment(data_root, tmp_path):
     path, manifest, freeze = fixture_list(data_root, tmp_path)
     config = load_config()

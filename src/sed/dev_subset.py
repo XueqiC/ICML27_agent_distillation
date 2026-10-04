@@ -1,10 +1,30 @@
-"""Immutable seed-0 dev40 derived only from frozen valid_seen assignments."""
+"""Immutable dev lists derived only from frozen valid_seen assignments."""
 
 import argparse
 from collections import Counter
 
 from sed.manifest import TASK_TYPES, frozen_write, load_frozen
 from sed.storage import digest
+
+
+def build_dev140(manifest, freeze):
+    # Use metadata only: never open environments, game files or sealed data.
+    if freeze["manifest_sha256"] != digest(manifest):
+        raise ValueError("Manifest differs from freeze")
+    chosen = [t for t in manifest["tasks"] if t["source_split"] == "valid_seen"
+              and t["eligible"] and freeze["assignments"].get(t["task_id"], {}).get("split") == "dev"
+              and not freeze["assignments"][t["task_id"]]["sealed"]]
+    chosen.sort(key=lambda t: (digest([0, "order", t["task_id"]]), t["task_id"]))
+    ids = [t["task_id"] for t in chosen]
+    if len(ids) != 140 or len(set(ids)) != 140:
+        raise ValueError("Full frozen valid_seen dev split must contain exactly 140 games")
+    counts = dict(sorted(Counter(t["task_type"] for t in chosen).items()))
+    return {"schema_version": 1, "name": "dev140", "split": "dev", "source_split": "valid_seen",
+            "seed": 0, "selection_rule": "all frozen eligible valid_seen dev; sha256 canonical JSON [0, order, task_id]; ascending",
+            "manifest_sha256": digest(manifest), "split_freeze_sha256": digest(freeze),
+            "task_ids": ids, "list_sha256": digest(ids), "quotas": counts,
+            "unique_instances": len(ids), "task_groups": len({t["group_id"] for t in chosen}),
+            "counts_by_task_type": counts}
 
 
 def build_dev40(manifest, freeze, seed=0):
@@ -31,14 +51,14 @@ def build_dev40(manifest, freeze, seed=0):
             "counts_by_task_type": dict(sorted(Counter(t["task_type"] for t in chosen).items()))}
 
 
-def main(argv=None):
+def main(argv=None, *, full=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", default="data/manifest/alfworld_manifest.json")
     parser.add_argument("--freeze", default="data/manifest/alfworld_split_freeze.json")
-    parser.add_argument("--output", default="data/manifest/dev40.json")
+    parser.add_argument("--output", default=f"data/manifest/dev{140 if full else 40}.json")
     args = parser.parse_args(argv)
     manifest, freeze = load_frozen(args.manifest, args.freeze)
-    subset = build_dev40(manifest, freeze, seed=0)
+    subset = build_dev140(manifest, freeze) if full else build_dev40(manifest, freeze, seed=0)
     frozen_write(args.output, subset)
     print(f"{len(subset['task_ids'])} dev games; list_sha256={subset['list_sha256']}")
 

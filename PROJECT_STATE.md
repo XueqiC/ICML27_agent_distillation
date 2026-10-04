@@ -7,6 +7,22 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - none
 
+## Stage 2c implementation (2026-10-04)
+
+- Teacher: at most 10 HTTP attempts, full-jitter exponential backoff (2 s base,
+  60 s cap), provider timing headers and shared cooldowns; file-locked run-wide
+  RPM/TPM admission (300 / 400,000 defaults). All attempts remain in usage ledgers.
+- Frozen `dev140.json`: all 140 valid_seen instances, 137 task groups. Original
+  manifest, split freeze, dev40 and K=10/seed=0 selection unchanged; sealed untouched.
+- Generated all K=5/10/20 selections for seeds 0/1/2; tested per-type nesting.
+  `collect_seeds.py --subset-k 5 10` collects K=20 once and materializes smaller
+  verified views sharing its receipts and trajectories, with full reuse disclosure.
+  Zero new live teacher trajectories collected in this stage.
+- Full offline suites: 137 passed / 2 skipped without data override; 138 passed /
+  1 skipped with real ALFWorld TRAIN replay. Torch module unavailable in project
+  venv. No GPU, network, OpenAI calls, commits or pushes. Exact later rai commands
+  and implementation limits: [reports/stage2c_validation.md](reports/stage2c_validation.md).
+
 ## Stage 2b implementation (2026-10-04)
 
 - Implemented TRAIN-only stratified seed selection and generated `seeds_k10_s0.json`

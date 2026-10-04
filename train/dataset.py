@@ -6,7 +6,6 @@ The legacy Stage 1 action example API is retained for its callers.
 """
 
 import argparse
-from collections import Counter
 import json
 from pathlib import Path
 
@@ -15,8 +14,7 @@ from sed.storage import canonical_bytes
 from sed.visibility import visible_history, visible_observation, visible_task
 from sed.react import build_messages, PROMPT_VERSION, PROMPT_TEMPLATE
 from sed.storage import digest, file_hash, write_json
-from sed.seed_evidence import checked_episode
-from sed.seed_selection import validate_selection
+from sed.seed_evidence import checked_episode, load_verified_collection
 from sed.manifest import load_frozen, resolve_task
 from sed.thinking import split_thinking
 
@@ -138,34 +136,11 @@ def mask_report(examples, tokenizer, *, first=3):
 
 
 def build_verified_dataset(root, tokenizer, manifest, freeze, *, max_length=32768):
-    root = Path(root)
-    collection = json.loads((root / "manifest.json").read_text())
-    selection = json.loads((root / "selection.json").read_text())
-    validate_selection(selection, manifest, freeze)
-    identity = json.loads((root / "identity.json").read_text())
-    if (collection["status"] != "complete" or collection["selection_sha256"] != digest(selection)
-            or len(collection["verified"]) != selection["K"]
-            or collection["identity_sha256"] != digest(identity) or identity["selection"] != selection):
-        raise ValueError("Collection must contain exactly K verified trajectories")
-    examples, groups, counts = [], set(), Counter()
-    candidates = {r["task_id"] for kind in selection["type_order"]
-                  for r in selection["selected"][kind] + selection["replacements"][kind]}
+    collection, _, evidence_root = load_verified_collection(root, manifest, freeze)
+    examples = []
     for receipt in collection["verified"]:
-        task = resolve_task(manifest, freeze, receipt["task_id"])
-        authorize_task(task, "generation")
-        if (task["source_split"] != "train" or task["group_id"] in groups
-                or task["task_id"] not in candidates or receipt not in collection["attempts"]
-                or receipt["won"] is not True):
-            raise ValueError("Seeds must be distinct TRAIN groups")
-        groups.add(task["group_id"])
-        counts[task["task_type"]] += 1
-        episode = checked_episode(root, receipt)
-        if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
-                or episode["split"] != "train"):
-            raise ValueError("Episode differs from frozen TRAIN task")
+        episode = checked_episode(evidence_root, receipt)
         examples.extend(episode_examples(episode, tokenizer, max_length=max_length))
-    if any(counts[kind] != quota for kind, quota in selection["quotas"].items()):
-        raise ValueError("Verified trajectories differ from stratified quotas")
     return examples
 
 

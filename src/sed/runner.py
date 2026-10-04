@@ -15,7 +15,7 @@ from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_
 from sed.provenance import versions, write_provenance
 from sed.storage import digest, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
-from teachers.openai_teacher import Teacher, TeacherResult
+from teachers.openai_teacher import Teacher, TeacherResult, rate_limit_options
 
 
 class ScriptedPolicy:
@@ -291,6 +291,7 @@ def main(argv=None):
                          usage_ledger=config["paths"]["teacher_usage"], run_id="pending",
                          provider_model_id=spec["provider_model_id"], sampling=spec["sampling"],
                          max_attempts=spec["max_attempts"], timeout_seconds=spec["timeout_seconds"],
+                         **rate_limit_options(spec, Path(args.output) / "data/teacher_rate_limit"),
                          secrets_file=config["paths"]["secrets_file"], purpose=args.purpose)
     else:
         if args.actions:

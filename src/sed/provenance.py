@@ -35,7 +35,8 @@ def code_hashes(root):
                      if p.suffix in {".py", ".yaml", ".env", ".slurm"})
     files.extend(root / p for p in ("AGENTS.md", "pyproject.toml", "requirements.txt",
                                     "requirements-alfworld.txt", "data/manifest/build.py",
-                                    "data/manifest/build_dev40.py", "data/seeds/select_seeds.py"))
+                                    "data/manifest/build_dev40.py", "data/manifest/build_dev140.py",
+                                    "data/seeds/select_seeds.py"))
     return {str(p.relative_to(root)): file_hash(p) for p in sorted(files) if p.is_file()}
 
 
