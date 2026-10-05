@@ -11,6 +11,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   44837380 agentgym-cells (dept, 2×B200 160G, %1: k5s0 k10s0 k5s1 k10s1 k5s2 k10s2 k20s1 k20s2). Outputs
   $B/reports/runs/baselines/{kang-<cell>-tp,agentgym-<cell>}, Kang SAG eval $B/reports/runs/eval/baselines/kang-<cell>-tp-sag.
   Memory right-sized from sacct MaxRSS: Kang train 2.9G / SAG eval 9.7G; AgentGym 2-GPU train 137G.
+- **hpg tree 57c9365**: K=1/2 Seed-SFT — 44842264 train array (6 runs k1s0,k2s0,k1s1,k2s1,k1s2,k2s2, %3; grid
+  configs/seedsft_dose_grid_v2_k12_ready.json prepared on hpg, committed), 44842265 BI dev140 eval array (aftercorr) →
+  $B/reports/runs/train/seedsft-k{1,2}s*-hpg, $B/reports/runs/eval/seedsft-sweep-bi-v2k12 (add as --sweep-root/--grid in main_results).
+- Kang cells so far: k5s0 57, k5s2 68, **k10s2 85** (base 62).
 - **hpg tree 74cdb97**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept 2×B200 200G, pending QOSGrpMemLimit — dept mem 980/1000G used);
   44836718/44836719 LEAP privileged/zero K20 s0 FAILED 13:4x CDT at merge-0 (data-0, train-0 completed): our merge check
   (allclose atol .125 / rtol .01 on all vocab logits) rejects the bf16 merge — mean |dlogit| 0.083 / 0.145, max 0.56 / 0.81, argmax
