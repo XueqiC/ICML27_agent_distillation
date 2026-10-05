@@ -396,13 +396,26 @@ Teacher HTTP attempts use full-jitter exponential backoff (base 2 seconds, cap
 extend that delay. Auth/400 errors fail immediately. Every attempt keeps its
 sanitized ledger record, including error type, retry wait, limiter wait and token
 reservation. Cache hits make no HTTP request and consume no limiter capacity.
+When a response carries them, success, rejected-output and HTTP-failure attempt
+rows include `rate_limit_headers` with the integer counters
+`x-ratelimit-limit-requests`, `x-ratelimit-limit-tokens`,
+`x-ratelimit-remaining-requests` and `x-ratelimit-remaining-tokens`.
+Only these counters are retained; other headers and malformed values are omitted.
 
-`models.teacher.rate_limit` in `configs/base.yaml` defaults to 300 requests/minute
-and 400,000 tokens/minute **across all workers of one run**. A file-locked rolling
-minute ledger, keyed by provider model under `<run>/data/teacher_rate_limit`,
-reserves UTF-8 prompt bytes plus framing allowance and the output cap. This is
-conservative admission accounting, separate from returned billed usage; failed
-requests keep their reservations. Provider cooldowns are shared across workers.
+`models.teacher.rate_limit` in `configs/base.yaml` defaults to 450 requests/minute
+and 180,000 tokens/minute **across all workers of one run** (also the Python
+defaults). These are 90% of the provider limits reported for this key's
+`gpt-6-luna` responses on 2026-10-04: `x-ratelimit-limit-requests: 500` and
+`x-ratelimit-limit-tokens: 200000` (user-reported header observation).
+A file-locked rolling minute ledger, keyed by provider model under
+`<run>/data/teacher_rate_limit`,
+reserves `ceil(prompt_characters / 4) + 256 * (message_count + 1) + max_output_tokens`.
+Characters are counted in the canonical JSON prompt as Unicode characters,
+not UTF-8 bytes. This follows OpenAI's character-based TPM estimate (about four
+characters per token) plus the output cap, plus 8 framing tokens per message.
+Reservations are separate from returned billed usage; failed requests keep their
+reservations. The existing 429/`Retry-After` backoff remains the safety net, and
+provider cooldowns are shared across workers.
 Independent runs have independent limits; the commands below collect seeds
 sequentially. Keep the limiter state on a filesystem with POSIX lock support.
 

@@ -4,7 +4,6 @@ from types import SimpleNamespace as NS
 
 import pytest
 
-from sed.storage import canonical_bytes
 from teachers.openai_teacher import Teacher, TeacherCallError
 from teachers.rate_limit import RateLimiter, reserved_tokens
 from test_teacher import FakeClient, response
@@ -115,9 +114,20 @@ def test_failed_call_cooldown_shared_with_another_worker(tmp_path, task, visible
     assert clock.waits == [12] and result["limiter_wait_seconds"] == 12
 
 
+@pytest.mark.parametrize("prompt,cap,expected", [
+    ([], 2048, 2057),  # Two JSON characters, one framing allowance.
+    ([{"role": "user", "content": "ab"}], 2048, 2072),  # 32 characters / 4.
+    ([{"role": "user", "content": "abc"}], 2048, 2073),  # Round 33 / 4 up.
+    ([{"role": "user", "content": "é🙂"}], 2048, 2072),  # Characters, not bytes.
+    ([{"role": "user", "content": "é🙂" * 100}], 512, 586),
+    ([{"role": "system", "content": "é🙂"}, {"role": "user", "content": "abc"}],
+     512, 553),  # 66 characters, three framing allowances.
+])
+def test_token_reservation_character_estimate(prompt, cap, expected):
+    assert reserved_tokens(prompt, cap) == expected
+
+
 def test_token_reservations_and_changed_limits_fail_closed(tmp_path):
-    prompt = [{"role": "user", "content": "é🙂"}]
-    assert reserved_tokens(prompt, 2048) > len(canonical_bytes(prompt)) + 2048
     clock = FakeClock()
     limiter = RateLimiter(tmp_path, "model", requests_per_minute=3, tokens_per_minute=100,
                           clock=clock, sleep=clock.sleep)
@@ -127,6 +137,54 @@ def test_token_reservations_and_changed_limits_fail_closed(tmp_path):
         limiter.acquire(101)
     with pytest.raises(ValueError, match="configuration changed"):
         RateLimiter(tmp_path, "model", clock=clock, sleep=clock.sleep).acquire(1)
+
+
+@pytest.mark.parametrize("text,status", [("Action: look", "success"), ("invalid reply", "rejected")])
+def test_raw_response_rate_limit_headers_allowlisted_per_attempt(tmp_path, task, visible, text, status):
+    counters = {"x-ratelimit-limit-requests": 500, "x-ratelimit-limit-tokens": 200000,
+                "x-ratelimit-remaining-requests": 499, "x-ratelimit-remaining-tokens": 198000}
+    headers = {k.upper(): str(v) for k, v in counters.items()}
+    headers.update({"Authorization": "Bearer sk-never-log-header",
+                    "Set-Cookie": "sk-never-log-cookie", "x-private": "sk-never-log-private"})
+    parsed = []
+    def parse():
+        parsed.append(True)
+        return response(text)
+    raw = NS(headers=headers, parse=parse)
+    model, clock, client = make_teacher(tmp_path, [
+        HTTPError(429, {**headers, "X-RATELIMIT-REMAINING-REQUESTS": "0", "Retry-After": "7"}), raw])
+    # Match the installed SDK: headers live on the raw wrapper, not its parsed body.
+    client.responses = NS(with_raw_response=NS(create=client.create))
+    result = model.generate([], task, visible)
+    rows = ledger(tmp_path)
+    assert [r["status"] for r in rows] == ["started", "failed", "started", status]
+    assert rows[1]["rate_limit_headers"] == dict(counters, **{"x-ratelimit-remaining-requests": 0})
+    assert rows[3]["rate_limit_headers"] == counters
+    assert all("rate_limit_headers" not in rows[i] for i in (0, 2))
+    assert clock.waits == [7] and len(client.requests) == 2 and parsed == [True]
+    assert result.metadata["usage"]["input_tokens"] == 13
+    assert result.parsed_action == ("look" if status == "success" else None)
+    if status == "success":
+        model.generate([], task, visible)
+        assert len(client.requests) == 2 and ledger(tmp_path)[-1]["status"] == "cache_hit"
+        assert "rate_limit_headers" not in ledger(tmp_path)[-1]
+    for path in tmp_path.rglob("*"):
+        if path.is_file():
+            assert "sk-never-log" not in path.read_text()
+
+
+def test_partial_and_malformed_rate_limit_headers(tmp_path, task, visible):
+    reply = response()
+    reply.headers = {"X-RateLimit-Limit-Requests": " 500 ",
+                     "x-ratelimit-limit-tokens": "sk-never-log-header",
+                     "x-ratelimit-remaining-requests": "-1",
+                     "x-ratelimit-remaining-tokens": "NaN"}
+    model, _, _ = make_teacher(tmp_path, [reply])
+    model.generate([], task, visible)
+    assert ledger(tmp_path)[-1]["rate_limit_headers"] == {"x-ratelimit-limit-requests": 500}
+    for path in tmp_path.rglob("*"):
+        if path.is_file():
+            assert "sk-never-log" not in path.read_text()
 
 
 def limiter_worker(directory, now, barrier, queue, rpm, tpm):

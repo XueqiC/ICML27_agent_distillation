@@ -16,8 +16,10 @@ models:
     max_attempts: 10
     timeout_seconds: 60
     rate_limit:
-      requests_per_minute: 300
-      tokens_per_minute: 400000
+      # 90% of gpt-6-luna provider headers on this key, read 2026-10-04:
+      # x-ratelimit-limit-requests: 500; x-ratelimit-limit-tokens: 200000.
+      requests_per_minute: 450
+      tokens_per_minute: 180000
   student:
     requested_repo: google/gemma-4-12B-it
     revision: 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7

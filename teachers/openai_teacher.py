@@ -3,6 +3,10 @@
 API shape checked against the installed OpenAI 2.8.1 SDK and official guide:
 https://developers.openai.com/api/docs/guides/migrate-to-responses
 Only output_text and explicitly allowlisted accounting fields are retained.
+The SDK raw-response interface exposes provider rate-limit headers. Attempt
+outcomes record only nonnegative integer x-ratelimit-{limit,remaining}-{requests,
+tokens} counters in rate_limit_headers when present, including on HTTP failures.
+Other headers and malformed values are never persisted.
 """
 
 from copy import deepcopy
@@ -71,6 +75,21 @@ def _usage(response):
             "cached_input_tokens": _field(input_details, "cached_tokens", 0) or 0}
 
 
+def _rate_limit_headers(response):
+    """Allowlist numeric provider counters; never retain arbitrary HTTP headers."""
+    headers = _field(response, "headers", {}) or {}
+    allowed = {"x-ratelimit-limit-requests", "x-ratelimit-limit-tokens",
+               "x-ratelimit-remaining-requests", "x-ratelimit-remaining-tokens"}
+    counters = {}
+    for name, value in headers.items():
+        name = str(name).lower()
+        if name in allowed:
+            value = str(value).strip()
+            if re.fullmatch(r"[0-9]{1,20}", value):
+                counters[name] = int(value)
+    return counters
+
+
 def _seconds(value, now, *, reset=False):
     """Parse only rate-limit timing values; never retain raw HTTP headers."""
     try:
@@ -119,7 +138,7 @@ class Teacher:
                  sampling=None, max_attempts=10, timeout_seconds=60,
                  secrets_file=None, client=None, sleep=time.sleep,
                  purpose="generation", clock=time.time, jitter=random.uniform,
-                 rate_limit_dir=None, requests_per_minute=300, tokens_per_minute=400_000):
+                 rate_limit_dir=None, requests_per_minute=450, tokens_per_minute=180_000):
         if provider_model_id != "gpt-6-luna":
             raise ValueError("Model substitution requires a new explicit provenance policy")
         self.provider_model_id = provider_model_id
@@ -235,9 +254,18 @@ class Teacher:
             response = None
             failure = None
             try:
-                response = client.responses.create(model=self.provider_model_id, input=prompt,
-                                                   store=False, **self.sampling)
+                raw_api = getattr(client.responses, "with_raw_response", None)
+                response = (raw_api or client.responses).create(
+                    model=self.provider_model_id, input=prompt, store=False, **self.sampling)
+                counters = _rate_limit_headers(response)
+                if counters:
+                    identity["rate_limit_headers"] = counters
+                if raw_api is not None:
+                    response = response.parse()
             except Exception as exc:
+                counters = _rate_limit_headers(getattr(exc, "response", None) or exc)
+                if counters:
+                    identity["rate_limit_headers"] = counters
                 failure = {"error_type": type(exc).__name__,
                            "http_status": getattr(exc, "status_code", None),
                            "request_id": self._redact(getattr(exc, "request_id", None))}
@@ -261,7 +289,7 @@ class Teacher:
                 if retryable and attempt < self.max_attempts:
                     self.sleep(wait)
                     continue
-                # Never expose SDK exception messages, HTTP headers or bodies.
+                # Never expose SDK exception messages, raw HTTP headers or bodies.
                 raise TeacherCallError("Teacher request failed; see sanitized usage ledger") from None
             raw = self._redact(_field(response, "output_text", ""))
             usage = _usage(response)

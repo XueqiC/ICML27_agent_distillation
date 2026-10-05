@@ -106,7 +106,7 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
     config = load_config()
     assert config["models"]["teacher"]["max_attempts"] == 10
     assert config["models"]["teacher"]["rate_limit"] == {
-        "requests_per_minute": 300, "tokens_per_minute": 400000}
+        "requests_per_minute": 450, "tokens_per_minute": 180000}
     config["models"]["teacher"]["rate_limit"] = {"requests_per_minute": 10, "tokens_per_minute": 100000}
     config["environment"].update(data_root=str(data_root), max_episode_steps=1)
     for name, data in (("manifest", manifest), ("split_freeze", freeze)):
@@ -141,6 +141,7 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, ada
             "revision": student["revision"], "enable_thinking": True}
     if adapter:
         from harness.lora_adapters import adapter_identity
+        from tools.check_lora_serving import summarize_prompts
         record = {"name": "sft", "base_model": student["requested_repo"], "revision": student["revision"],
                   "adapter_config_sha256": "c", "adapter_weights_sha256": "w",
                   "training_state_sha256": "s", "training_provenance_sha256": "p"}
@@ -148,13 +149,14 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, ada
                    "endpoint": spec["endpoint"], "served_model_name": student["requested_repo"]}}}
         spec["model"] = "sft"
         config["server_provenance"] = server
-        config["lora_equivalence"] = {"passed": True, "model_name": "sft",
-            "server_provenance_sha256": digest(server), "identity": {"adapter": adapter_identity(record)},
-            "prompts": [{"hf_logprobs": [-1], "adapter_vllm_logprobs": [-1.01],
-                         "base_vllm_logprobs": [-2], "input_ids": [2, 106], "prompt_tokens": 1,
-                         "input_sha256": digest([2, 106]),
-                         "source": {"task_id": "train/task/1", "turn_index": i,
-                                    "training_eligible": True}} for i in range(8)]}
+        report = summarize_prompts([
+            {"hf_logprobs": [-1], "hf_base_logprobs": [-2.01], "adapter_vllm_logprobs": [-1.01],
+             "base_vllm_logprobs": [-2], "input_ids": [2, 106], "prompt_tokens": 1,
+             "input_sha256": digest([2, 106]),
+             "source": {"task_id": "train/task/1", "turn_index": i,
+                        "training_eligible": True}} for i in range(8)])
+        config["lora_equivalence"] = {**report, "model_name": "sft",
+            "server_provenance_sha256": digest(server), "identity": {"adapter": adapter_identity(record)}}
     output = tmp_path / "suite"
     summary = run_suite(config=config, tasks_path=path, output=output, spec=spec, workers=2, worker_fn=fake_worker)
     assert summary["episodes"] == summary["completed_episodes"] == 4
