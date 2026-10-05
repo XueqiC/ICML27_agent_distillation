@@ -47,8 +47,10 @@ def validate_checkpoint(path, student=None, *, base_snapshot=None):
 
 
 def prepare_model(snapshot, *, reference=False):
-    """Same class/loader as Seed-SFT, fp32 master weights, SDPA (X6/X7)."""
-    model = load_student(snapshot, device="cpu", dtype="float32")
+    """SDPA with fp32 policy masters or frozen bf16 reference storage (X6/X7)."""
+    # FSDP already casts reference parameters to bf16 for every forward.
+    # Loading directly in that dtype preserves compute and halves storage.
+    model = load_student(snapshot, device="cpu", dtype="bfloat16" if reference else "float32")
     model.set_attn_implementation("sdpa")
     model.config.get_text_config().use_cache = False
     for name, parameter in model.named_parameters():
@@ -60,15 +62,18 @@ def prepare_model(snapshot, *, reference=False):
     return model
 
 
-def shard_model(model, *, mesh):
+def shard_model(model, *, mesh, reference=False):
     import torch
     from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
     from transformers.models.gemma4_unified.modeling_gemma4_unified import Gemma4UnifiedTextDecoderLayer
     layers = [m for m in model.modules() if isinstance(m, Gemma4UnifiedTextDecoderLayer)]
     if len(layers) != model.config.text_config.num_hidden_layers:
         raise ValueError("Gemma4UnifiedTextDecoderLayer wrap count differs from config")
-    if any(p.dtype != torch.float32 for p in model.parameters()):
-        raise ValueError("FSDP requires fp32-loaded master weights")
+    storage_dtype = torch.bfloat16 if reference else torch.float32
+    if any(p.dtype != storage_dtype for p in model.parameters()):
+        raise ValueError(f"FSDP {'reference' if reference else 'policy'} requires {storage_dtype} storage")
+    if reference and (model.training or any(p.requires_grad for p in model.parameters())):
+        raise ValueError("FSDP reference must be frozen and in eval mode")
     policy = MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)
     for layer in layers:
         fully_shard(layer, mesh=mesh, mp_policy=policy, reshard_after_forward=True)
@@ -133,6 +138,9 @@ def sequence_logps(model, rows, device):
                        target[:, start:start + 128].clone(), average_log_prob=False,
                        is_encoder_decoder=True)
               for start in range(0, len(positions), 128)]
+    # Under no_grad this releases the vocabulary tensor before the next turn
+    # or policy forward; only summed log-probs leave this scope.
+    del logits
     return sum(values)
 
 
@@ -169,7 +177,9 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
     reference.eval()
     rows = [pair["chosen"], pair["rejected"]]
     with torch.no_grad():
-        ref = batch_logps(reference, rows, device, rounds=rounds)
+        ref = batch_logps(reference, rows, device, rounds=rounds).detach()
+    # Reference activations/logits are out of scope before policy activations
+    # are allocated. Only two detached continuation sums remain.
     policy = batch_logps(model, rows, device, rounds=rounds)
     settings = SimpleNamespace(beta=beta, loss_type="sigmoid", label_smoothing=0.0)
     losses, chosen, rejected = OfficialLoss.dpo_loss(settings, policy[:1], policy[1:], ref[:1], ref[1:])
@@ -572,6 +582,7 @@ def main(argv=None):
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
                                      "iteration_start" if args.objective == "dpo" else None),
+                "reference_storage_dtype": "bfloat16" if args.objective in {"dpo", "ipr"} else None,
                 "reference_artifact_sha256": artifact_hashes(args.reference) if args.reference else None,
                 "label_smoothing": 0.0, "sft_term_in_dpo": args.objective == "ipr",
                 "chosen_nll_weight": 1 if args.objective == "ipr" else 0}
@@ -580,7 +591,8 @@ def main(argv=None):
         dist.barrier()
         mesh = init_device_mesh("cuda", (world,))
         model = shard_model(prepare_model(args.snapshot), mesh=mesh)
-        reference = shard_model(prepare_model(args.reference, reference=True), mesh=mesh) if args.objective != "sft" else None
+        reference = (shard_model(prepare_model(args.reference, reference=True), mesh=mesh, reference=True)
+                     if args.objective != "sft" else None)
         started = time.monotonic()
         state = train_loop(model, examples, output, objective=args.objective,
                     learning_rate=args.learning_rate, scheduler=args.scheduler, warmup_ratio=args.warmup_ratio,

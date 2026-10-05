@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 from types import SimpleNamespace
+import weakref
 
 import pytest
 
@@ -14,7 +15,8 @@ pytest.importorskip("transformers")
 from test_stage2b_torch import tokenizer, tiny_model, trajectory
 from baselines.common.conversation import conversation, episode_messages, preference_conversation, sequence_rows
 from baselines.common.fsdp_train import (batch_logps, sft_objective, dpo_objective, train_loop,
-                                         export_checkpoint, prepare_model, validate_checkpoint, sft_microsteps, scoring_batches)
+                                         export_checkpoint, prepare_model, shard_model, validate_checkpoint,
+                                         sft_microsteps, scoring_batches)
 from baselines.common.schedule import dose, lr_multiplier, rank_slots
 from baselines.eto.official_loss import OfficialLoss
 from sed.manifest import load_frozen
@@ -252,14 +254,132 @@ def test_tiny_full_parameter_training_export_reload_cpu(tmp_path, objective):
         torch.testing.assert_close(model(input_ids=ids).logits, loaded(input_ids=ids).logits)
 
 
-def test_prepare_model_sdpa_fp32_and_checkpointing(tmp_path):
+def test_prepare_and_shard_policy_fp32_reference_bf16(tmp_path, monkeypatch):
     tiny_model().save_pretrained(tmp_path / "base")
     policy = prepare_model(tmp_path / "base")
     reference = prepare_model(tmp_path / "base", reference=True)
     assert all(p.dtype == torch.float32 for p in policy.parameters())
+    assert all(p.dtype == torch.bfloat16 for p in reference.parameters())
     assert policy.config.get_text_config()._attn_implementation == "sdpa"
-    assert policy.is_gradient_checkpointing and not reference.training
+    assert reference.config.get_text_config()._attn_implementation == "sdpa"
+    assert policy.is_gradient_checkpointing and not reference.is_gradient_checkpointing
+    assert not reference.training and not reference.config.get_text_config().use_cache
     assert not any(p.requires_grad for p in reference.parameters())
+    assert sum(p.numel() * p.element_size() for p in policy.parameters()) == 2 * sum(
+        p.numel() * p.element_size() for p in reference.parameters())
+
+    # Inspect the production wrap/precision choices without a process group or GPU.
+    import torch.distributed.fsdp as fsdp
+    wraps = []
+    monkeypatch.setattr(fsdp, "fully_shard", lambda module, **kwargs: wraps.append((module, kwargs)))
+    mesh = object()
+    for candidate, is_reference in ((policy, False), (reference, True)):
+        wraps.clear()
+        assert shard_model(candidate, mesh=mesh, reference=is_reference) is candidate
+        assert [module for module, _ in wraps] == [*candidate.model.language_model.layers, candidate]
+        for _, kwargs in wraps:
+            assert kwargs["mesh"] is mesh and kwargs["reshard_after_forward"] is True
+            assert kwargs["mp_policy"].param_dtype == torch.bfloat16
+            assert kwargs["mp_policy"].reduce_dtype == torch.float32
+    with pytest.raises(ValueError, match="policy requires torch.float32"):
+        shard_model(reference, mesh=mesh)
+    with pytest.raises(ValueError, match="reference requires torch.bfloat16"):
+        shard_model(policy, mesh=mesh, reference=True)
+    reference.train()
+    with pytest.raises(ValueError, match="frozen and in eval mode"):
+        shard_model(reference, mesh=mesh, reference=True)
+    reference.eval().requires_grad_(True)
+    with pytest.raises(ValueError, match="frozen and in eval mode"):
+        shard_model(reference, mesh=mesh, reference=True)
+
+
+@pytest.mark.parametrize("seed", [0, 17])
+def test_reference_bf16_storage_has_bitwise_equal_logps_to_fp32_compute_cast(tmp_path, seed):
+    torch.set_num_threads(1)
+    torch.manual_seed(seed)
+    tiny_model().save_pretrained(tmp_path / "base")
+    # Reconstruct the former fp32-stored reference with the same loader/SDPA.
+    fp32 = prepare_model(tmp_path / "base").eval().requires_grad_(False)
+    fp32.gradient_checkpointing_disable()
+    bf16 = prepare_model(tmp_path / "base", reference=True)
+
+    class Bf16Compute(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, **kwargs):
+            # FSDP2 casts parameters to param_dtype before forward; buffers
+            # (including fp32 RoPE caches) retain their original dtype/values.
+            parameters = {name: p.to(torch.bfloat16) for name, p in self.model.named_parameters()}
+            return torch.func.functional_call(self.model, parameters, (), kwargs)
+
+    for name, value in fp32.named_buffers():
+        # RoPE caches must stay fp32: a blanket model.to(bf16) rounds them.
+        # Other loader buffers (e.g. embed_scale) can differ in storage dtype;
+        # keep them native and test the resulting log-probs end to end below.
+        if "rotary_emb" in name:
+            other = dict(bf16.named_buffers())[name]
+            assert value.dtype == other.dtype == torch.float32 and torch.equal(value, other)
+    examples = [{"packing": "turn", "turns": rows()},
+                {"packing": "turn", "turns": [rows()[0]]}]
+    with torch.no_grad():
+        expected = batch_logps(Bf16Compute(fp32).eval(), examples, "cpu", rounds=3)
+        actual = batch_logps(Bf16Compute(bf16).eval(), examples, "cpu", rounds=3)
+    assert actual.dtype == expected.dtype == torch.float32
+    assert torch.equal(actual, expected)
+    assert actual.grad_fn is None and not actual.requires_grad
+    assert all(p.dtype == torch.float32 for p in fp32.parameters())
+    assert all(p.dtype == torch.bfloat16 for p in bf16.parameters())
+
+
+@pytest.mark.parametrize("nll_weight", [0.0, 1.0], ids=["dpo", "ipr"])
+def test_reference_activations_released_before_policy_forward(tmp_path, monkeypatch, nll_weight):
+    torch.set_num_threads(1)
+    tiny_model().save_pretrained(tmp_path / "base")
+    policy = prepare_model(tmp_path / "base")
+    reference = prepare_model(tmp_path / "base", reference=True)
+    tensors, scores = [], []
+
+    def record_activation(module, args, output):
+        assert not torch.is_grad_enabled()
+        tensors.append(weakref.ref(output))
+
+    def record_logits(module, args, output):
+        assert output.logits.grad_fn is None and not output.logits.requires_grad
+        tensors.append(weakref.ref(output.logits))
+
+    def check_released(module, args):
+        assert all(tensor() is None for tensor in tensors)
+
+    def score(model, *args, **kwargs):
+        result = batch_logps(model, *args, **kwargs)
+        if model is reference:
+            assert result.shape == (2,) and result.grad_fn is None and not result.requires_grad
+            scores.append(result)
+        else:
+            assert scores and tensors
+        return result
+
+    monkeypatch.setattr("baselines.common.fsdp_train.batch_logps", score)
+    handles = [reference.model.language_model.layers[0].mlp.register_forward_hook(record_activation),
+               reference.register_forward_hook(record_logits),
+               reference.register_forward_pre_hook(check_released),
+               policy.register_forward_pre_hook(check_released)]
+    pair = {"chosen": {"packing": "turn", "turns": rows()},
+            "rejected": {"packing": "turn", "turns": [rows()[0]]}}
+    try:
+        loss, metrics = dpo_objective(policy, reference, pair, "cpu", beta=.1,
+                                      nll_weight=nll_weight, rounds=3)
+        loss.backward()
+    finally:
+        for handle in handles:
+            handle.remove()
+    assert len(tensors) == 6  # An activation and logits from each scoring round.
+    assert all(tensor() is None for tensor in tensors)
+    assert all(not value.requires_grad for value in metrics.values())
+    assert all(p.grad is None for p in reference.parameters())
+    assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in policy.parameters())
 
 
 def packed_examples(packing, n=25):
