@@ -35,7 +35,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
 - **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT), sequential
   s0→s1→s2, each extends seeds_k20_s* by 80 tasks (+ subsets k1/2/5/10/20/50). s0 at 13:05 CDT: 29 tasks / 38 attempts / 24 wins in 24 min
-  → ~65 min per seed. Shares the provider TPM with the K5 mechanism run: 429s occur but every one retried (0 exhausted).
+  → ~65 min per seed. 15:47 CDT: s0 103 tasks / 137 attempts (≈1.4 min/attempt) → ~2.2 h per seed, all three ≈ 19:30–20:00 CDT
+  (my 14:01 message said ~15 h — correct this in the next report). Shares the provider TPM with the K5 mechanism run: 429s occur but every one retried (0 exhausted).
   After it finishes: rsync seeds_k100_s* to hpg, prepare dose grid v2 (scripts/prepare_seedsft_dose_grid.py, CPU), Seed-SFT sweep
   K∈{1,2,50,100}×3 seeds, then baseline cells for K∈{1,2,50,100}.
 - **rai GPU1: mechanism run on k5s0-t400k** (scripts/rai_mech_k5s0.sh, pid 1513532, tree 70314a3; G=43, R=4), FCE phase, ~12 h TPM-bound
