@@ -29,7 +29,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   44843960 passed merge-0 under the new policy but FAILED at explore-1: vLLM cannot load the merged checkpoint (no processor_config.json;
   merge_adapter saves only weights+tokenizer, the full-FT export copies base assets). 44843961 cancelled before start (same failure).
   Fixed in 442d142 (copy_base_assets shared with full-FT export). **Resubmitted 44850280 privileged / 44850281 zero** (group, tree 442d142)
-  → $B/reports/runs/baselines/leap-{privileged,zero}-k20s0-m3. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
+  → $B/reports/runs/baselines/leap-{privileged,zero}-k20s0-m3.
+  m3 privileged ran through iteration 1 (40 min) but **all 16 privileged-state extractions got HTTP 400**: gpt-6-luna rejects
+  temperature AND top_p (error type invalid_request_error, param set, code null — probed 16:2x CDT); our fallback only fires on
+  code unsupported_parameter/value → never switched to default sampling → 0 states → 12 failed rollouts excluded → stopped_empty_min.
+  0% variant cancelled (would hit the same 400 at correct-1). Codex: accept the code-null shape; then a 2-call live check on rai, then -m4. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
 - **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
   k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
