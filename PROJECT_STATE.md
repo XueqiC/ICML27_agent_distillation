@@ -5,15 +5,14 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg 44802334** (group yd24f, 2×B200, 16 CPU / 240G, tree ICML27_runs/96d4219): ETO K=20 s0, turn packing, all stages (SFT → 3 × explore/
-  pairs/DPO) → reports/runs/baselines/eto-k20s0-tp. First live run of the FSDP2 full-FT path. Old episode-packed ETO job 44777572 cancelled.
-- **hpg 44802335** (dept, 1×B200): Kang K=20 s0 re-run with turn packing → reports/runs/baselines/kang-k20s0-tp (first run invalid).
-- **hpg 44802354** (dept, 1×B200): schema-5 re-eval of the 9 gate-failed sweep cells (k20s2 p30/p40/t400k, k10s2 p30/p40/t200k/t400k,
-  k5s0/k5s2 p03) → reports/runs/eval/seedsft-sweep-bi-reeval-s5.
-- rai GPU1: mechanism run2 (pid 899949) — see below.
-- **hpg tunnel down again 06:43 CDT 10-05** (told the user once). ETO SFT was at update 6/30 (FSDP2 full FT works) when it dropped.
-- Merged today 06:1x CDT: 6bf70b4 turn packing for baselines (default for Kang/AgentGym/ETO/IPR SFT; exact-prefix DPO/IPR scoring),
-  0968acd gate schema 5 + --gpus 2/4/8 + LORA_DTYPE; merge 96d4219 passes 594 CPU + 74 torch tests.
+- **hpg 44805191 / 44805192** (dept, tree 96d4219): Kang K=20 s0 turn-packed — dev140 eval with SAG / greedy → reports/runs/eval/baselines/
+  kang-k20s0-tp-{sag,greedy}. (Kang turn-packed training 44802335 COMPLETED 27.5 min.)
+- ETO K=20 s0 (hpg 44802334, group 2×B200) FAILED at checkpoint export after training (key-name mismatch: transformers renames
+  model.vision_embedder.* → model.embed_vision.* on load; tied lm_head not in file). Codex fix pid 1262776 (export under base-file names,
+  exact key-set equality check). Then resubmit ETO (2 GPUs).
+- Schema-5 re-eval 44802354 done: k10s2 p30 86 / p40 98 / t200k 104 / t400k 103; k20s2 p30 92 / p40 98 / t400k 98; k5 p03 still fail (b).
+- rai GPU1: mechanism run2 (pid 899949) — FCE probing, 660 probe episodes at 07:18 CDT.
+- hpg tunnel dropped 06:43–07:1x CDT (told the user once); back now.
 - **Sweep analysis committed** (reports/figs/seedsft-sweep/: table, plot): by supervised tokens all K coincide below ~100k (dip below base
   at 30–60k tokens, min ≈ 33%), then K separates: K20 → ~80% at 400k (= teacher), K5/K10 plateau ~60% with large seed spread. Sent to user
   05:1x CDT (footer first sent stale "0R+3P", corrected to the script's "2R+2P").
