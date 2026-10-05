@@ -104,7 +104,7 @@ def new_output(output, *, config, command, inputs=(), details=None):
     return output
 
 
-def workspace(output, *, config, command, identity, inputs=()):
+def workspace(output, *, config, command, identity, inputs=(), details=None):
     """Only an explicitly owned workspace resumes; individual attempts never do."""
     output = output_guard(output, inputs=inputs, config=config)
     identity = {"schema_version": 1, "command": command, "settings": identity,
@@ -130,7 +130,7 @@ def workspace(output, *, config, command, identity, inputs=()):
                 if read_json(proof) != {"original_identity": saved, "execution_identity": identity}:
                     raise ValueError("Resume compatibility evidence changed") from None
     else:
-        new_output(output, config=config, command=command, inputs=inputs)
+        new_output(output, config=config, command=command, inputs=inputs, details=details)
         write_json(output / "identity.json", identity, exclusive=True)
     return output
 

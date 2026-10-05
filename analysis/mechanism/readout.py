@@ -8,6 +8,7 @@ from pathlib import Path
 from analysis.mechanism.common import (completed_branch, gap_episodes, load_episode, new_output, outcome, audit_states,
                                       read_json)
 from analysis.mechanism.goals import refuse_sealed
+from analysis.mechanism.fce import IncompleteProbe, locate_closest_approach, sample_distance, probe_episode
 from analysis.mechanism.interventions import ARMS, arm_outcome
 from analysis.mechanism.taxonomy import LABELS, shares
 from analysis.serving import SERVING_NOISE_REFERENCE, SERVING_NOISE_TEXT
@@ -70,6 +71,16 @@ def paired_excess(arms):
             for arm in ARMS}
 
 
+def distance_diagnostics(row):
+    t = row.get("t_star")
+    return {"task_id": row["task_id"], "status": row.get("status", "missing_fce"),
+            "t_star": t, "D_0": row.get("D_0"), "D_t_star": row.get("D_t_star"),
+            "turns_remaining_at_t_star": row.get("turns_remaining_at_t_star"),
+            "turns_spent_after_t_star_without_progress": row["episode_length"]-t if t is not None else None,
+            "budget_fce": row.get("budget_fce", row.get("fce")),
+            "budget_fce_status": row.get("budget_fce_status"), "D_curve": row.get("D_curve", {})}
+
+
 def build_readout(taxonomy, fce, interventions, coverage=None):
     coverage = coverage or {}
     gap = set(taxonomy["G"]["task_ids"])
@@ -90,12 +101,14 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
     for task_id in sorted(gap):
         refuse_sealed(task_id)
         e, f = entries.get(task_id, {}), fces.get(task_id, {})
-        if f.get("status") != "fce_found":
+        if f.get("status") != "closest_approach_found":
             exclusions[f.get("status", "missing_fce")] += 1
             continue
-        if not e or e.get("status") == "no_fce":
+        if not e or e.get("status") in {"no_fce", "no_t_star"}:
             exclusions["missing_interventions"] += 1
             continue
+        if e.get("t") != f["t_star"]:
+            raise ValueError("Interventions differ from the frozen closest-approach state")
         control = e.get("arms", {}).get("I0", {}).get("samples", [])
         greedy = next((s for s in control if s["sample_index"] == 0), None)
         if e.get("non_deterministic") or (greedy or {}).get("branch", {}).get("non_deterministic"):
@@ -121,7 +134,7 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
             label = "execution_or_capacity"
         elif cell == "neither" and excess["I4"] is None:
             label = "incomplete_I4"
-        rows.append({"task_id": task_id, "cell": cell, "label": label, "needed_step_coverage": covered,
+        rows.append({**distance_diagnostics(f), "cell": cell, "label": label, "needed_step_coverage": covered,
                      "task_type_covered": e.get("task_type_covered"), "arms": arms,
                      "paired_excess": excess, "non_deterministic": task_id in non_deterministic})
     rates, paired_rates = {}, {}
@@ -131,6 +144,7 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
         for arm in ARMS:
             available = [a[arm] for _, a in values if type(a[arm]) is bool]
             rates[cohort][arm] = {**wilson(sum(available), len(available)), "eligible_fce_episodes": len(values),
+                                 "eligible_t_star_episodes": len(values),
                                  "unknown": len(values)-len(available),
                                  "gap_denominator": wilson(sum(available), len(gap))}
             matched = [(task, a) for task, a in values if type(a[arm]) is bool and type(a["I0"]) is bool]
@@ -141,8 +155,10 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
                 "paired_excess": wilson(sum(a[arm] and not a["I0"] for _, a in matched), n),
                 "task_ids": [task for task, _ in matched],
                 "eligible_fce_episodes": len(values), "unknown_pairs": len(values)-n,
+                "eligible_t_star_episodes": len(values),
             }
-    positions = [r["fce"] for r in fce["episodes"] if r["status"] == "fce_found"]
+    budget_rows = [r for r in fce["episodes"] if r.get("budget_fce", r.get("fce")) is not None]
+    positions = [r.get("budget_fce", r.get("fce")) for r in budget_rows]
     return {"subject": interventions.get("subject", "student"), "student": interventions.get("student"),
             "gap_size": len(gap), "regression_size": taxonomy.get("R", {}).get("size"),
             "taxonomy_all_failures": taxonomy["runs"]["student"]["shares"],
@@ -150,7 +166,11 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
             "fce_positions": {"count": len(positions), "histogram": dict(sorted(Counter(positions).items())),
                               "relative_positions": [{"task_id": r["task_id"], "t": r["fce"],
                                 "fraction_of_parent": r["fce"]/r["episode_length"] if r["episode_length"] else None}
-                                for r in fce["episodes"] if r["status"] == "fce_found"]},
+                                for r in budget_rows]},
+            "distance_diagnostics": [distance_diagnostics(fces.get(t, {"task_id": t})) for t in sorted(gap)],
+            "turns_without_progress_definition": "Parent episode length minus t*: descriptive turns after the earliest "
+                "sampled minimum D. No later probed state has a smaller successful teacher distance; "
+                "unprobed/unsolved states do not establish turn-by-turn absence of progress.",
             "exclusions": dict(exclusions), "arm_rescue": rates,
             "paired_arm_rescue": paired_rates,
             "non_deterministic": {"count": len(non_deterministic), "task_ids": non_deterministic,
@@ -159,7 +179,7 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
                                for k in ("both", "M1_cell", "M2_cell", "neither", "incomplete")},
             "episodes": rows, "arms_by_task": arms_by_task, "paired_excess_by_task": excess_by_task,
             "rescue_rule": "greedy succeeds AND at least 3 of 4 T=0.7 samples succeed",
-            "paired_excess_rule": "arm rescues AND I0 does not rescue on the same FCE state; both outcomes must be known",
+            "paired_excess_rule": "arm rescues AND I0 does not rescue on the same t* state; both outcomes must be known",
             "decision_rule": "Section 6 uses paired excess rescues",
             "coverage_rule": "Task-type overlap alone is not needed-step coverage. No M1 attribution without explicit coverage evidence.",
             "limits": ["Descriptive engineering readout; no mechanism claim.",
@@ -197,16 +217,44 @@ def validate_fce_artifacts(path, value):
                        f"probes/t{int(t):02d}/sample{i}") for i in range(2)]
             if any(p is None for p in probes) or any(p["success"] is True for p in probes) is not expected:
                 raise ValueError("FCE probe summary disagrees with completed teacher samples")
-        if row["status"] == "fce_found":
+        if row.get("budget_fce_status") == "fce_found":
             t = row["fce"]
             if row["probes"].get(str(t)) is not True or row["probes"].get(str(t+1)) is not False:
                 raise ValueError("FCE lacks adjacent 1-to-0 takeover evidence")
+        verified = {}
+        for t, samples in row["probe_samples"].items():
+            actual = []
+            for index in range(2):
+                receipt = completed_branch(Path(path).parent/"tasks"/digest(row["task_id"])[:16]/
+                                           f"probes/t{int(t):02d}/sample{index}")
+                actual.append(sample_distance(receipt or {"success": "unknown"}, int(t), index))
+                if receipt:
+                    episode = load_episode(receipt["episode_path"])
+                    if read_json(Path(receipt["episode_path"]).parent/"probe_episode.json") != probe_episode(episode):
+                        raise ValueError("Stable probe episode differs from execution evidence")
+            if samples != actual:
+                raise ValueError("Teacher steps-to-go differ from executed probe episodes")
+            verified[int(t)] = actual
+            distances = [s["teacher_steps_to_go"] for s in actual if s["success"] is True]
+            if row["D_curve"].get(t) != (min(distances) if distances else None):
+                raise ValueError("D curve differs from successful teacher samples")
+        if row["status"] != "incomplete":
+            def probe(t):
+                samples = verified.get(t, [])
+                if len(samples) != 2 or any(type(s["success"]) is not bool for s in samples):
+                    raise IncompleteProbe("Missing teacher samples")
+                return [s["teacher_steps_to_go"] for s in samples]
+            expected = locate_closest_approach(row["episode_length"], probe)
+            for key, expected_value in expected.items():
+                # Disk JSON object keys are strings; pure locator uses integers.
+                if row.get(key) != json.loads(json.dumps(expected_value)):
+                    raise ValueError("Closest-approach summary differs from probe evidence: " + key)
 
 
 def markdown(result):
     lines = ["# Mechanism readout", "", f"Subject: {result['subject']}; |G| = {result['gap_size']}.", "",
              "Rescue requires greedy success and at least 3/4 sampled successes.", "",
-             "Each row compares the arm and I0 on the same completed FCE states. Paired excess = arm rescues and I0 does not.", "",
+             "Each row compares the arm and I0 on the same completed t* states. Paired excess = arm rescues and I0 does not.", "",
              "| Arm | Raw arm rescues (95% Wilson) | I0 on same states (95% Wilson) | Paired excess (95% Wilson) | Unknown pairs |",
              "|---|---|---|---|---:|"]
     def rate_text(row):
@@ -233,10 +281,21 @@ def markdown(result):
         "| | I5 or I1 rescues | Neither rescues |", "|---|---|---|",
         "| I3 or I2 rescues | " + cell("both", "Both mechanisms cell") + " | " + cell("M2_cell", "M2 cell") + " |",
         "| Neither rescues | " + cell("M1_cell", "M1 cell; coverage required") + " | " + cell("neither", "I4-only: execution/capacity; else unresolved") + " |",
-        "", "FCE positions: `" + json.dumps(result["fce_positions"]["histogram"], sort_keys=True) + "`.",
+        "", "Budget FCE positions: `" + json.dumps(result["fce_positions"]["histogram"], sort_keys=True) + "`.",
         "", "Exclusions/pending: `" + json.dumps(result["exclusions"], sort_keys=True) + "`.",
         "", f"Non-deterministic I0 greedy replays retained: {result['non_deterministic']['count']}.",
         "", result["coverage_rule"], "", *result["limits"]]
+    lines += ["", "Closest approach per gap episode (including exclusions/pending):", "",
+              "| Task | Status | t* | D(0) | D(t*) | Turns remaining at t* | Turns after t* without progress (descriptive) | Budget FCE |",
+              "|---|---|---:|---:|---:|---:|---:|---:|"]
+    for row in result["distance_diagnostics"]:
+        fields = ("task_id", "status", "t_star", "D_0", "D_t_star", "turns_remaining_at_t_star",
+                  "turns_spent_after_t_star_without_progress", "budget_fce")
+        lines.append("| " + " | ".join(str(row[k]) if row[k] is not None else "undefined" for k in fields) + " |")
+    lines += ["", result["turns_without_progress_definition"], "", "D(t) curves (undefined = no successful sample):", ""]
+    for row in result["distance_diagnostics"]:
+        curve = {str(t): row["D_curve"][t] for t in sorted(row["D_curve"], key=int)}
+        lines.append(f"- `{row['task_id']}`: `{json.dumps(curve)}`")
     if "paired_comparison" in result:
         lines += ["", "Student comparison of paired excess rescues (exact McNemar):", "", SERVING_NOISE_TEXT, "",
                   "| Arm | Paired states | First only | Second only | p |", "|---|---:|---:|---:|---:|"]
@@ -260,7 +319,7 @@ def main(argv=None):
     taxonomy, _ = gap_episodes(args.gap_set, config)
     fce, interventions = read_json(args.fce), read_json(args.interventions)
     if Path(fce["gap_path"]).resolve() != Path(args.gap_set).resolve() or Path(interventions["fce_path"]).resolve() != Path(args.fce).resolve():
-        raise ValueError("Readout inputs refer to different populations/FCE states")
+        raise ValueError("Readout inputs refer to different populations/closest-approach states")
     validate_intervention_artifacts(interventions)
     validate_fce_artifacts(args.fce, fce)
     coverage = read_json(args.coverage) if args.coverage else {}
@@ -274,7 +333,7 @@ def main(argv=None):
         other = read_json(args.compare_interventions)
         validate_intervention_artifacts(other)
         if other["fce_path"] != interventions["fce_path"] or other["gap_path"] != interventions["gap_path"]:
-            raise ValueError("Paired comparison requires identical gap and FCE states")
+            raise ValueError("Paired comparison requires identical gap and closest-approach states")
         compared = build_readout(taxonomy, fce, other, coverage)
         result["paired_comparison"] = {a: paired_mcnemar(
             {k: v[a] for k, v in result["paired_excess_by_task"].items()},

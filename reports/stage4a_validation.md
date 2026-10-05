@@ -324,3 +324,58 @@ checks and failed one resume-identity check when the unrelated
 comparison identified that addition. The full rerun passed without weakening
 resume validation or editing that script. `tools/check_lora_serving.py` and
 `scripts/eval_adapters.sh` were not edited for this amendment.
+
+## Amendment 3 implementation (Stage 4d, 2026-10-05)
+
+Implemented [Amendment 3](../docs/MECHANISM_PLAN.md) from commit `510d002`
+in the main checkout. This is engineering validation with fake environments,
+teachers and students; no mechanism finding or baseline reproduction is claimed.
+
+The takeover scan records each successful sample's turns after prefix replay,
+and D(t) is their minimum (undefined without a successful sample). The coarse
+grid is unchanged and completed before retaining the original first-drop budget
+refinement. Every prefix in [max(0, t_c−3), t_c] around the earliest coarse
+minimum is then probed with two samples, reusing existing probes. t* is the
+earliest minimum across all probed prefixes, including refinement. If no probe
+succeeds, status is `teacher_unsolvable_from_student_states`; incomplete probes keep
+their observed sample evidence and do not finalize t*.
+
+I0–I5 use t*. Amendment 2 pairing, greedy plus four sampled continuations,
+shared I3/I4 outputs, process workers, caps, cache keys and limiter semantics
+remain in place. JSON/Markdown readout retains budget FCE and D(t), and adds
+D(0), D(t*), turns remaining, and parent length−t* as descriptive turns after
+closest approach. This last quantity does not establish absence of progress at
+unprobed states. Excluded and pending episodes retain their distance diagnostics.
+
+`fce --seed-teacher-cache-from OLD_WORKSPACE` and launcher environment variable
+`SEED_TEACHER_CACHE_FROM` copy cache/blob entries into a new workspace. The old
+workspace is read-only; no source locks, budgets, ledgers or receipts are changed.
+Provenance records source path, entry counts and a manifest hash. Resume uses
+the frozen import manifest, rather than silently importing later source additions.
+The intended live source, `reports/runs/mechanism/k20s0-p20-bi/run`, was not
+used for execution or modified during this work.
+
+The offline cache test executes a fake scan twice in separate workspaces. The
+seeded run makes zero fake HTTP calls and zero budget reservations. Its
+`probe_episode.json` trajectory projections are byte-identical, including raw
+teacher outputs, observations, actions and audit hashes; the full execution
+logs retain distinct run/accounting metadata and correctly report cache hits
+with zero billed usage. The same fixture verifies t*=10, budget FCE=39, and
+all 30 intervention continuations at t*=10. Additional tests cover earliest
+ties, densification boundaries and reuse, refinement minima, successful later
+takeovers after T(0)=0, unsolvable/incomplete scans, readout integrity, and
+cache-manifest conflicts and source preservation.
+
+Validation:
+
+| Check | Result |
+|---|---|
+| Focused mechanism suite (`test_mechanism{,_amend3,_pipeline,_parallel}.py`) | **121 passed**, 294.15 seconds |
+| `CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m pytest -q` | **436 passed, 4 skipped**, 360.12 seconds |
+| `bash -n scripts/rai_mechanism.sh` | Passed |
+| `git diff --check` | Passed |
+
+The skips are the three modules requiring unavailable `torch` and the optional
+real ALFWorld integration test without configured data. Tests use the existing
+offline prohibition fixture and fake clients/backends. No GPU, live server,
+network/OpenAI call, experiment job, commit or push was used.

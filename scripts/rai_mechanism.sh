@@ -33,6 +33,10 @@ CONFIG=${CONFIG:-configs/base.yaml}
 READY_TIMEOUT=${READY_TIMEOUT:-900}
 LORA_CONVERSION=${LORA_CONVERSION:-none}
 INCLUDE_BASE=${INCLUDE_BASE:-0}
+seed_cache_args=()
+if [[ -n "${SEED_TEACHER_CACHE_FROM:-}" ]]; then
+    seed_cache_args+=(--seed-teacher-cache-from "$SEED_TEACHER_CACHE_FROM")
+fi
 [[ "$INCLUDE_BASE" == 0 || "$INCLUDE_BASE" == 1 ]]
 [[ -x "$ENV_PYTHON" && -x "$VLLM_PYTHON" && -x "$TRAIN_PYTHON" && -d "$MODEL_PATH" ]]
 # Authorization, checkpoint/seed binding, immutable population and resume identity before GPU work.
@@ -83,7 +87,8 @@ CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --con
     --server-provenance "$launch/server/provenance.json" --output "$launch/check"
 common=(--config "$CONFIG" --gap-set "$GAP_SET" --max-teacher-calls "$MAX_TEACHER_CALLS"
         --max-teacher-calls-run "$MAX_TEACHER_CALLS_RUN" --budget-dir "$OUT" --workers "$WORKERS")
-CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.fce "${common[@]}" --output "$OUT/fce"
+CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.fce "${common[@]}" \
+    --output "$OUT/fce" "${seed_cache_args[@]}"
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.interventions "${common[@]}" \
     --fce "$OUT/fce/fce.json" --verified "$VERIFIED" --output "$OUT/interventions" \
     --endpoint "$endpoint" --model-name "$name" --server-provenance "$launch/server/provenance.json" \

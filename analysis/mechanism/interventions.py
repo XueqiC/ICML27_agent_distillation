@@ -1,4 +1,4 @@
-"""Run I0-I5 at frozen FCE states: greedy plus four seeded T=0.7 continuations."""
+"""Run I0-I5 at frozen closest-approach states t*: greedy plus four T=0.7 samples."""
 import argparse
 import json
 from pathlib import Path
@@ -118,6 +118,8 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
     fce_rows = {r["task_id"]: r for r in fce["episodes"]}
     if len(fce_rows) != len(fce["episodes"]):
         raise ValueError("Duplicate FCE task")
+    if any("t_star" not in row for row in fce_rows.values()):
+        raise ValueError("Amendment 3 requires a new FCE scan with t_star; old caches may be seeded")
     seed_inputs = []
     if seeds is None:
         for row, _, _ in population:
@@ -141,15 +143,18 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
         for row, parent, task in population:
             verify_task_files(config["environment"]["data_root"], task)
             located = fce_rows.get(task["task_id"], {})
-            if located.get("status") != "fce_found":
-                results.append({"task_id": task["task_id"], "status": "no_fce", "fce_status": located.get("status")})
+            if located.get("status") != "closest_approach_found":
+                results.append({"task_id": task["task_id"], "status": "no_t_star", "fce_status": located.get("status")})
                 continue
             if located.get("parent_episode") != parent["episode_id"]:
                 raise ValueError("FCE parent episode differs")
-            t = located["fce"]
+            t = located["t_star"]
+            if type(t) is not int or not 0 <= t < len(parent["steps"]):
+                raise ValueError("Closest approach must precede a logged student action")
             root = output / "tasks" / digest(task["task_id"])[:16]
             example = select_example(task["task_id"], seeds)
             entry = {"task_id": task["task_id"], "t": t, "parent_episode": parent["episode_id"],
+                     "t_star": t, "budget_fce": located["budget_fce"],
                      "subject": subject, "status": "ok", "non_deterministic": False,
                      "taxonomy_primary": row["primary"], "taxonomy_labels": row["labels"],
                      "task_type_covered": example is not None,
@@ -181,7 +186,7 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
             summary = arm_outcome(samples)
             entry["arms"][arm] = {**summary, "samples": samples, "status": "ok" if summary["complete"] else "incomplete"}
         for entry in results:
-            if entry["status"] != "no_fce":
+            if entry["status"] != "no_t_star":
                 write_json(output/"tasks"/digest(entry["task_id"])[:16]/"result.json", entry)
         write_json(output/"interventions.json", {"gap_path": str(Path(gap_path).resolve()),
             "fce_path": str(Path(fce_path).resolve()), "subject": subject, "student": stable_spec,

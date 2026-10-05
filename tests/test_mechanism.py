@@ -636,9 +636,10 @@ def test_readout_coverage_format_and_unknown_stay_separate():
     ep, audits = episode(["look"])
     row = classify(ep, audits)
     tax = {"G": {"task_ids": [TASK_ID]}, "runs": {"student": {"episodes": [row], "shares": shares([row])}}}
-    fce = {"episodes": [{"task_id": TASK_ID, "status": "fce_found", "fce": 0, "episode_length": 1}]}
+    fce = {"episodes": [{"task_id": TASK_ID, "status": "closest_approach_found", "fce": 0,
+                         "budget_fce": 0, "t_star": 0, "episode_length": 1}]}
     arms = {arm: {"samples": [{"sample_index": i, "success": arm == "I1"} for i in range(5)]} for arm in ARMS_FOR_TEST}
-    interventions = {"episodes": [{"task_id": TASK_ID, "arms": arms, "taxonomy_labels": [], "task_type_covered": True}]}
+    interventions = {"episodes": [{"task_id": TASK_ID, "t": 0, "arms": arms, "taxonomy_labels": [], "task_type_covered": True}]}
     result = build_readout(tax, fce, interventions)
     assert result["episodes"][0]["label"] == "M1_requires_coverage"
     assert result["decision_cells"]["M1_cell"]["count"] == 1
@@ -667,7 +668,8 @@ def test_amendment2_pairs_same_states_and_preserves_raw_unknowns():
         task_id = TASK_ID.rsplit("/", 1)[0] + f"/trial_{index}"
         ep, audits = episode(["look"], task_id=task_id)
         tax_rows.append(classify(ep, audits))
-        fces.append({"task_id": task_id, "status": "fce_found", "fce": 0, "episode_length": 1})
+        fces.append({"task_id": task_id, "status": "closest_approach_found", "fce": 0,
+                     "budget_fce": 0, "t_star": 0, "episode_length": 1})
         arm_rows = {arm: {"samples": [{"sample_index": i, "success": False} for i in range(5)]}
                     for arm in ARMS_FOR_TEST}
         # Only I1 and I4 rescue in the first two states. A noisy control cancels both in state 0.
@@ -678,7 +680,7 @@ def test_amendment2_pairs_same_states_and_preserves_raw_unknowns():
             arm_rows["I0"]["samples"][-1]["success"] = "unknown"
         if index == 4:
             arm_rows["I1"]["samples"].pop()
-        entries.append({"task_id": task_id, "arms": arm_rows, "task_type_covered": True,
+        entries.append({"task_id": task_id, "t": 0, "arms": arm_rows, "task_type_covered": True,
                         "non_deterministic": index == 0})
     tax = {"G": {"task_ids": [r["task_id"] for r in tax_rows]},
            "runs": {"student": {"episodes": tax_rows, "shares": shares(tax_rows)}}}

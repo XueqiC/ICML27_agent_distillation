@@ -545,12 +545,13 @@ with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
 See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
 standalone commands, artifacts and the remaining GPU acceptance boundary.
 
-## Stages 4a–4b: mechanism analysis tooling
+## Stages 4a–4d: mechanism analysis tooling
 
 `analysis/mechanism/` implements the fixed measurements and I0–I5 arms in
 [MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md), including Amendment 1 (taxonomy,
 commit `862eaed`) and Amendment 2 (I0 control and paired excess rescues,
-commit `07af904`). Stage 4b also records batch-invariant serving as an explicit
+commit `07af904`) and Amendment 3 (closest-approach intervention state,
+commit `510d002`). Stage 4b also records batch-invariant serving as an explicit
 protocol setting; it does not re-run any evaluation or branch experiment.
 These are diagnostic tools, with
 `purpose=diagnosis`, zero training exposure, and no sealed-task access. The
@@ -614,19 +615,55 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.
   --max-teacher-calls 400 --max-teacher-calls-run 12000
 ```
 
-The dry run reports coarse points (including the episode endpoint), adaptive
-refinement and worst-case call estimates. Live use of the same command without
-`--dry-run` is a separate experiment. Each probe executes two teacher samples;
+The dry run reports coarse points (including the episode endpoint), budget-drop
+refinement, closest-approach densification and worst-case call estimates. Live
+use of the same command without `--dry-run` is a separate experiment. Each probe executes two teacher samples;
 their sample indices enter the cache key. A completed probe is true if either
-sample wins. Incomplete probes stay unknown. The scan refines the first coarse
-1→0 interval; it does not claim to find unprobed transient drops between two
-successful coarse points. T(0)=0 is reported separately.
+sample wins. Incomplete probes stay unknown. Stage 4d completes the unchanged
+coarse grid (0, 4, 8, …, endpoint), then retains the original first coarse
+1→0 interval refinement as the **budget FCE** (`budget_fce`, with `fce` retained
+as an alias). It does not claim to find unprobed transient budget drops.
+
+Each probe records `probe_samples`: success and `teacher_steps_to_go` for each
+sample. Steps-to-go count policy turns after the replayed prefix, including
+parser errors and inadmissible actions. `D_curve` stores D(t), the minimum of
+successful sample lengths, or null if neither succeeded. Around the earliest
+coarse prefix t_c with minimum D, probe every prefix in [max(0, t_c−3), t_c],
+reusing the same two samples at already probed prefixes. After this densification,
+`t_star` is the earliest prefix attaining minimum D across **all** probes,
+including budget refinement. `D_0`, `D_t_star` and `turns_remaining_at_t_star`
+(40−t*) are recorded. I0–I5 now run at t*, including when no budget drop exists.
+T(0)=0 alone no longer excludes a state if a later takeover succeeds. If no
+probe succeeds, status is `teacher_unsolvable_from_student_states`. Interrupted
+or capped scans retain observed distances but leave t* unset and stay incomplete.
 
 Every teacher HTTP attempt, including retries and interrupted reservations,
 counts against explicit episode/run caps. Cache hits consume no new attempt.
 The existing teacher cache, usage ledger and shared rate limiter remain in use.
 Caps are fixed on resume; exhaustion is recorded as incomplete, never failure.
 Use `--budget-dir OWNED_MECHANISM_WORKSPACE` to share caps across FCE and arms.
+
+To reuse teacher outputs across the protocol change, use a **new** workspace
+and pass `--seed-teacher-cache-from OLD_WORKSPACE` to `fce`, or set
+`SEED_TEACHER_CACHE_FROM=OLD_WORKSPACE` for `rai_mechanism.sh`. The source may be
+a direct FCE workspace or its launcher root; the latter resolves `fce/`.
+The intended existing source is `reports/runs/mechanism/k20s0-p20-bi/run`.
+This option copies `teacher_cache/` and `teacher_blobs/` only. It never writes
+or locks the source, and does not import old budgets, ledgers or branch receipts.
+Provenance records the source path, cache/blob entry counts and manifest hash;
+`teacher_cache_seed.json` freezes the relative file paths and SHA-256 hashes.
+Resume reuses that frozen manifest even if the live source grows. Conflicting
+destination entries or changed source content fail instead of being overwritten.
+Dry runs do not copy anything. Identical prompts/namespaces/sample indices replay
+identical cached teacher outputs with zero new HTTP attempts; new dense probes
+can still require calls, subject to the unchanged caps and limiter.
+
+Every completed probe also writes `episode/probe_episode.json`, a deterministic
+projection of the executed trajectory (raw/parsed actions, visible observations,
+rewards, turn outcomes and audit hashes). Offline seeded-cache tests compare these
+files byte for byte. Full `episode.json`, events and provenance retain fresh run
+IDs, timestamps and truthful cache-hit/zero-billing metadata, so those accounting
+artifacts are intentionally different across separate executions.
 
 Stage 4c adds `--workers N` to both `fce` and `interventions` (default **1**).
 FCE uses an episode process pool; with N > 1, each episode can run its two
@@ -746,10 +783,10 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.
   --output reports/runs/my-mechanism-readout
 ```
 
-The JSON and Markdown give |G|, taxonomy shares, FCE positions, rescue rates and
+The JSON and Markdown give |G|, taxonomy shares, budget FCE positions, rescue rates and
 95% Wilson intervals, and the fixed 2×2 table. Raw rescue requires greedy success
 **and ≥3/4 sampled successes**, for I0 as well as I1–I5. Each arm is shown beside
-I0 on the same FCE states with complete results for both. A **paired excess
+I0 on the same t* states with complete results for both. A **paired excess
 rescue** counts a state only when the arm rescues and I0 does not. Wilson
 intervals use this binary state count, not a subtraction of marginal rates.
 Section 6 cells and the I4 execution/capacity label use paired excess rescues.
@@ -759,6 +796,13 @@ Cells use |G| as denominator; paired intervals disclose unknown pairs and their
 matched task IDs. JSON retains all available raw rates under `arm_rescue`,
 arm/I0/excess rates on matched states under `paired_arm_rescue`, and raw and
 paired per-state outcomes under `arms_by_task` and `paired_excess_by_task`.
+`eligible_t_star_episodes` names the arm denominator; `eligible_fce_episodes`
+is retained as a compatibility alias for the same count.
+`distance_diagnostics` includes every gap episode, even exclusions and pending
+interventions: D(t) curve, t*, D(0), D(t*), remaining turns, budget FCE, and
+`turns_spent_after_t_star_without_progress` (parent episode length−t*). The last
+field is descriptive: no later **probed** state has a smaller successful teacher
+distance; it does not assert that every unprobed turn made no progress.
 Optional `--compare-interventions FILE` adds exact paired McNemar tests on excess
 rescues, alongside the historical 12/140 cross-server base-vs-base discordance
 reference (non-batch-invariant serving, not an estimate for the new mode). Optional

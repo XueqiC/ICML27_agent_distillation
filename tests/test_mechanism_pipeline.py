@@ -74,6 +74,7 @@ def test_fce_caps_unknown_and_resume_completed_probes(pipeline, tmp_path):
     result = run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
                      env_factory=env, teacher_factory=teacher)
     assert result["complete"] is False and result["episodes"][0]["status"] == "incomplete"
+    assert result["episodes"][0]["D_0"] == 1 and result["episodes"][0]["t_star"] is None
     assert len(calls) == 1
     assert len(list((tmp_path/"capped").rglob("receipt.json"))) == 1
     result = run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
@@ -86,11 +87,11 @@ def test_fce_caps_unknown_and_resume_completed_probes(pipeline, tmp_path):
 @pytest.mark.parametrize("control_rescues", [False, True])
 def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path, control_rescues):
     config, gap, env, teacher, calls, seeds = pipeline
-    fce = run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=250, max_run=250,
+    fce = run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=1000, max_run=1000,
                   env_factory=env, teacher_factory=teacher)
     assert fce["episodes"][0]["fce"] == 0 and fce["complete"]
     before = len(calls)
-    assert run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=250, max_run=250,
+    assert run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=1000, max_run=1000,
                   env_factory=env, teacher_factory=teacher) == fce
     assert len(calls) == before
     fce_file = tmp_path/"fce/fce.json"
@@ -100,7 +101,7 @@ def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path, control_
         student_calls.append(kwargs)
         return FakeStudent("win" if control_rescues else "look")
     args = dict(gap_path=gap, fce_path=fce_file, verified=None, output=tmp_path/"arms", config=config,
-                spec={"model": "fake", "endpoint": "http://fake/v1"}, max_episode=250, max_run=250,
+                spec={"model": "fake", "endpoint": "http://fake/v1"}, max_episode=1000, max_run=1000,
                 env_factory=env, teacher_factory=teacher, student_factory=student_factory, seeds=seeds,
                 budget_dir=tmp_path/"fce")
     result = run_interventions(**args)
@@ -118,7 +119,7 @@ def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path, control_
     assert readout["episodes"][0]["label"] == ("unresolved" if control_rescues else "execution_or_capacity")
     assert readout["non_deterministic"]["count"] == int(control_rescues)
     assert readout["paired_arm_rescue"]["primary"]["I4"]["paired_excess"]["count"] == int(not control_rescues)
-    run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=250, max_run=250,
+    run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=1000, max_run=1000,
             env_factory=env, teacher_factory=teacher)
     assert file_hash(fce_file) == fce_hash  # Later shared-budget use must not invalidate FCE inputs.
     run_interventions(**args)
@@ -139,9 +140,11 @@ def test_dry_run_never_constructs_teacher_or_environment(pipeline, tmp_path, mon
     monkeypatch.setattr(module, "make_teacher", forbidden)
     monkeypatch.setattr(module, "_environment", forbidden)
     assert fce_main(["--gap-set", str(gap), "--output", str(tmp_path/"dry"), "--dry-run",
+                     "--seed-teacher-cache-from", str(tmp_path/"missing-cache-source"),
                      "--max-teacher-calls", "25", "--max-teacher-calls-run", "100"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["teacher_calls"] == 0 and result["episodes"][0]["coarse_probe_points"][-1] == 40
+    assert result["episodes"][0]["densification_policy_call_upper_bound"] == 228
     assert not (tmp_path/"dry").exists() and not calls
 
 
@@ -188,13 +191,14 @@ else:raise AssertionError("Unexpected command")
     env = os.environ.copy()  # Never logged; only selected test flags are recorded.
     env.pop("WORKERS", None)
     env.pop("BATCH_INVARIANT", None)
+    seed_source = str(tmp_path/"old workspace")
     if batch_invariant is not None:
         env["BATCH_INVARIANT"] = batch_invariant
     env["VLLM_BATCH_INVARIANT"] = "0" if batch_invariant is None else "1"
     env.update(ENV_PYTHON=str(fake), TRAIN_PYTHON=str(fake), VLLM_PYTHON=str(fake),
         MODEL_PATH=str(tmp_path/"snapshot"), FAKE_LEDGER=str(tmp_path/"ledger.jsonl"),
         FAKE_FAIL="1" if fail_check else "0", MAX_TEACHER_CALLS="300", MAX_TEACHER_CALLS_RUN="3000",
-        INCLUDE_BASE="1", READY_TIMEOUT="5")
+        INCLUDE_BASE="1", READY_TIMEOUT="5", SEED_TEACHER_CACHE_FROM=seed_source)
     command = ["bash", "scripts/rai_mechanism.sh", "3", str(tmp_path/"gap.json"),
                str(tmp_path/"verified"), str(tmp_path/"out"), "student=/fake/adapter"]
     process = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
@@ -209,6 +213,10 @@ else:raise AssertionError("Unexpected command")
         assert row["cuda"] == ("3" if row["kind"] in {"server", "hf", "stopped"} else "")
         if row["kind"] in {"fce", "interventions"}:
             assert row["args"][row["args"].index("--workers")+1] == "8"
+        if row["kind"] == "fce":
+            assert row["args"][row["args"].index("--seed-teacher-cache-from")+1] == seed_source
+        else:
+            assert "--seed-teacher-cache-from" not in row["args"]
     if not fail_check:
         env["WORKERS"] = "4"
         again = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
