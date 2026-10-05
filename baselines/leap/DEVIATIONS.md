@@ -25,6 +25,7 @@ under the shared harness. No paper-level performance reproduction is claimed.
 | `prompts/alfworld_realizability_ablation/generation_oracle_0_privileged_template.j2` | Exact template switch, labeled **LEAP (0% privileged ablation)**. Same BC, student rollouts, corrections, aggregation, training, merge and evaluation. Skip unused expert/extraction resources and allow correction without expert availability; neither oracle state nor an oracle prompt is read by this variant. | requested ablation / unused compute omitted |
 | `scripts/train/sft.py:59-76`; `bash/train-sft-alfworld-iterx.sh:15-22` | At i load iter0..i, shuffle each separately with seed0, select the smallest size from each and reshuffle aggregate. NumPy default_rng permutation matches installed HF Datasets.shuffle; isolated official-code test verifies it. Record sizes before/after, selected indices, final order and source exposures. An empty minimum stops explicitly; no invented seed-only fallback. | unchanged aggregation; fixed seed; empty-data engineering |
 | `bash/train-sft-alfworld-iterx.sh:29-31`; `scripts/utils/upload_models_to_hf.py:23-26` | Train from previous MERGED model with a NEW LoRA. Never resume the previous adapter/optimizer. Save adapter; merge/check all-vocabulary logits and reload; publish local standalone checkpoint, no hub upload. Retain all models and partial attempts (~24GB per merged model). | faithful chaining / checked local export |
+| `scripts/utils/upload_models_to_hf.py:23-26`; `bash/train-sft-alfworld-iterx.sh:27-31` | Upstream calls `merge_and_unload` and chains from the merged checkpoint without a consistency gate. LEAP alone selects `leap_official_bf16_merge`: all fixed-input logits must be finite, both merged argmaxes must match base+adapter, and standalone reload must reproduce in-memory merged logits (max absolute error ≤1e-6, no relative tolerance). All-vocabulary base+adapter allclose remains a diagnostic (`strict_allclose_passed`), with mean/max bf16 merge-rounding errors disclosed per iteration in `consistency.json`; published `merge_passed` follows the LEAP policy, with policy and strict result alongside. Other callers retain the strict gate. | faithful chaining; measured bf16 merge rounding disclosed per iteration |
 | `bash/train-sft-alfworld-iterx.sh:57-62`; `src/leap_llm/utils/trainer.py:143-152` | r128/alpha64/dropout.05/bias none/CAUSAL_LM. Explicit full text q_proj/v_proj names implement the Llama PEFT default absent for gemma4_unified. Freeze vision/audio and all other base weights; fp32 adapters over bf16 base. | X2/X6 architecture adaptation |
 | `bash/train-sft-alfworld-iterx.sh:40-49,63-67` | Keep lr3e-5, cosine, warmup10, fused AdamW .9/.999/1e-8, wd0, clip.3, one epoch and gradient checkpointing. Only global batch32 shrinks by X5. Microbatch4 remains when it fits; final smaller microbatches and actual accumulation counts implement an exact global batch with no duplicate exposure. Completion-token CE per microbatch, then mean over its accumulation slots (explicit old Trainer-style reduction; dependencies unpinned upstream). | official hyperparameters / X5 realization |
 | `scripts/train/sft.py:81-85,114-119`; `bash/train-sft-alfworld-iterx.sh:45` | SDPA,32768 full-context limit, explicit overlength failure rather than left truncation. Training/subsampling seed0 instead of42; all serving batch invariant and greedy. | fixed X3/X5/X7 / no truncation |
@@ -43,7 +44,17 @@ visible messages and label targets; oracle state is never serialized into their
 context. Teacher-derived labels can still reveal facts semantically despite the
 official instruction; structural tests do not claim to solve that limitation.
 
+Merge-gate repair and resumption: pipeline `identity.json.code_sha256` binds
+every source hash returned by `sed.provenance.code_hashes`, including
+`baselines/leap/merge.py`, `train/merge_lora.py`, this file and the tests.
+With changed code, `baselines.common.pipeline.prepare` refuses the frozen root
+identity before reaching `merge-0`. Completed stage identities also bind
+`digest(identity)`. Keep these checks and all failed attempts intact; use a
+fresh pipeline output directory for the repaired code. The HPG run directories
+were unavailable in the local repair workspace, so their saved hash values and
+actual cluster resumption were not inspected.
+
 Remaining hardware acceptance: real expert availability, model/account sampling
 acceptance, long correction completeness, B200 peak memory/throughput and bf16
-merge consistency. The pipeline logs or fails explicitly on these conditions;
-this engineering task did not exercise them.
+merge acceptance under the revised policy. CPU regression tests exercise the
+policy and publication path; this repair did not rerun a B200 merge.

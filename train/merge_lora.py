@@ -2,6 +2,7 @@
 import argparse
 import gc
 import json
+import math
 from pathlib import Path
 import time
 
@@ -12,6 +13,9 @@ from sed.storage import digest, write_json
 from sed.seed_evidence import artifact_hashes
 from train.dataset import load_tokenizer
 from train.modeling import load_student, snapshot_metadata
+
+
+LEAP_MERGE_POLICY = "leap_official_bf16_merge"
 
 
 def validate_adapter_artifacts(adapter):
@@ -34,14 +38,33 @@ def next_token_logits(model, input_ids):
                      logits_to_keep=1).logits[0, -1].float().cpu()
 
 
+def _compare_logits(reference, logits, *, atol, rtol):
+    import torch
+    errors = (reference - logits).abs()
+    finite = bool(torch.isfinite(reference).all() and torch.isfinite(logits).all())
+    # JSON forbids NaN/Infinity. Preserve failed comparisons with null errors
+    # when their statistics are non-finite, alongside the explicit finite flag.
+    stats = {"max_absolute_error": float(errors.max()), "mean_absolute_error": float(errors.mean())}
+    return {"passed": finite and bool(torch.allclose(reference, logits, atol=atol, rtol=rtol)),
+            "all_logits_finite": finite,
+            "argmax_equal": int(reference.argmax()) == int(logits.argmax()),
+            **{name: value if math.isfinite(value) else None for name, value in stats.items()}}
+
+
 def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfloat16",
-                  atol=0.125, rtol=0.01, tokenizer=None, config=None, provenance_inputs=()):
+                  atol=0.125, rtol=0.01, tokenizer=None, config=None, provenance_inputs=(),
+                  policy="strict_allclose"):
     """Compare base+adapter against both merged and reloaded standalone weights.
 
     bf16 uses atol=.125, rtol=.01 (rounding from W + BA); CPU float32 tests use
-    atol=1e-5, rtol=1e-5. All vocabulary logits must pass, not only argmax.
+    atol=1e-5, rtol=1e-5. By default all vocabulary logits must pass, not only
+    argmax. LEAP explicitly selects its official bf16 chaining policy: finite
+    logits, unchanged argmax, and reload agreement within 1e-6 absolute error.
+    Both policies retain the strict comparison and merge-rounding statistics.
     No simultaneous second full model is needed during the reload check.
     """
+    if policy not in {"strict_allclose", LEAP_MERGE_POLICY}:
+        raise ValueError("Unknown merge consistency policy")
     import torch
     from peft import PeftModel
     output = Path(output)
@@ -49,7 +72,7 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
     started = time.monotonic()
     write_provenance(output, command="merge_lora", config={**(config or {}), "merge": {
         "snapshot": str(base), "adapter": str(adapter), "output": str(output),
-        "device": device, "dtype": dtype, "atol": atol, "rtol": rtol}},
+        "device": device, "dtype": dtype, "atol": atol, "rtol": rtol, "policy": policy}},
         inputs=provenance_inputs,
         details={"base_snapshot": snapshot_metadata(base), "fixed_input_sha256": digest(input_ids)})
     if device.startswith("cuda"):
@@ -70,12 +93,17 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
     standalone = next_token_logits(reloaded, input_ids)
     checks = {}
     for name, logits in (("merged_in_memory", in_memory), ("merged_reloaded", standalone)):
-        checks[name] = {"passed": bool(torch.isfinite(reference).all() and torch.isfinite(logits).all()
-                                       and torch.allclose(reference, logits, atol=atol, rtol=rtol)),
-                        "max_absolute_error": float((reference - logits).abs().max()),
-                        "mean_absolute_error": float((reference - logits).abs().mean()),
-                        "argmax_equal": int(reference.argmax()) == int(logits.argmax())}
-    report = {"passed": all(v["passed"] for v in checks.values()), "checks": checks,
+        checks[name] = _compare_logits(reference, logits, atol=atol, rtol=rtol)
+    strict_passed = all(v["passed"] for v in checks.values())
+    finite = all(v["all_logits_finite"] for v in checks.values())
+    argmax_equal = all(v["argmax_equal"] for v in checks.values())
+    reload_check = {**_compare_logits(in_memory, standalone, atol=1e-6, rtol=0),
+                    "exact": bool(torch.equal(in_memory, standalone)), "atol": 1e-6, "rtol": 0}
+    passed = (strict_passed if policy == "strict_allclose"
+              else finite and argmax_equal and reload_check["passed"])
+    report = {"passed": passed, "policy": policy, "strict_allclose_passed": strict_passed,
+              "all_logits_finite": finite, "argmax_equal": argmax_equal,
+              "reload_consistency": reload_check, "checks": checks,
               "input_ids": input_ids, "input_sha256": digest(input_ids), "dtype": dtype,
               "atol": atol, "rtol": rtol, "comparison": "all next-token vocabulary logits",
               "wall_time_seconds": time.monotonic() - started,
@@ -86,6 +114,8 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
                                    if device.startswith("cuda") else None)
     write_json(output / "consistency.json", report, exclusive=True)
     if not report["passed"]:
+        if policy == LEAP_MERGE_POLICY:
+            raise ValueError("Merged logits fail LEAP finite/argmax/reload consistency; checkpoint must not be served")
         raise ValueError("Merged logits exceed tolerance; checkpoint must not be served")
     return report
 

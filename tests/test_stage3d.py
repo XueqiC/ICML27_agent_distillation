@@ -305,6 +305,63 @@ def test_caps_and_launcher():
     assert "LEAP_VARIANT" in launch and "LEAP_CORRECTION_TOKENS" in launch
 
 
+@pytest.mark.parametrize("changed_file", ["baselines/leap/merge.py", "train/merge_lora.py",
+    "baselines/leap/DEVIATIONS.md", "tests/test_leap_merge.py", "tests/test_stage3d.py"])
+def test_new_merge_code_refuses_frozen_pipeline_resume(tmp_path, monkeypatch, changed_file):
+    from baselines.common import pipeline as common
+    from sed.seed_evidence import artifact_hashes
+
+    args = NS(output=str(tmp_path / "run"), verified=str(tmp_path / "verified"),
+              snapshot=str(tmp_path / "base"), config="config", gpus=1)
+    Path(args.snapshot).mkdir()
+    write_json(Path(args.snapshot) / "config.json", {"model_type": "gemma4_unified"})
+    tasks = [{"task_id": f"train/task-{i}"} for i in range(5)]
+    collection = {"K": 5, "unique_instances": 5, "task_groups": 5, "verified": tasks}
+    monkeypatch.setattr(common, "load_frozen", lambda *a: ({}, {}))
+    monkeypatch.setattr(common, "load_verified_collection", lambda *a:
+        (collection, {"K": 5, "seed": 0}, Path(args.verified)))
+    monkeypatch.setattr(common, "checked_episode", lambda root, row: {"episode_id": row["task_id"]})
+    monkeypatch.setattr(common, "training_tasks", lambda *a: None)
+    monkeypatch.setattr(common, "write_provenance", lambda *a, **kw: None)
+    config = {"paths": {name: str(tmp_path / name) for name in ("raw", "verified", "manifest", "split_freeze")}}
+    recipe = {"variant": "zero"}
+    identity = pipeline.prepare(args, config, method="leap", recipe=recipe)
+    assert changed_file in identity["code_sha256"]
+    root_identity = digest(identity)
+    output = Path(args.output)
+
+    def complete(attempt):
+        (attempt / "output").mkdir()
+        write_json(attempt / "output/result.json", {"complete": True})
+
+    data = pipeline.stage_run(output, "data-0", digest([root_identity, "seeds"]), complete)
+    trained = pipeline.stage_run(output, "train-0", digest([root_identity, 0, args.snapshot,
+                                str(data / "examples.json")]), complete)
+
+    def fail_merge(attempt):
+        raise ValueError("Merged logits exceed tolerance; checkpoint must not be served")
+
+    with pytest.raises(ValueError, match="Merged logits"):
+        pipeline.stage_run(output, "merge-0", digest([root_identity, 0, args.snapshot, str(trained)]), fail_merge)
+    before = artifact_hashes(output)
+    new_hashes = dict(identity["code_sha256"])
+    new_hashes[changed_file] = digest("changed code tree")
+    monkeypatch.setattr(common, "code_hashes", lambda root: new_hashes)
+    # main() calls prepare() before train_pipeline(): it refuses the root
+    # identity before even looking up data-0/train-0 or retrying merge-0.
+    with pytest.raises(ValueError, match="different frozen artifact: .*identity.json"):
+        pipeline.prepare(args, config, method="leap", recipe=recipe)
+    assert artifact_hashes(output) == before
+    assert not (output / "stages/merge-0/attempt-001").exists()
+    # Even bypassing prepare would fail the completed data stage's binding.
+    new_identity = dict(identity, code_sha256=new_hashes)
+    with pytest.raises(ValueError, match="Completed stage identity/artifacts changed"):
+        pipeline.stage_run(output, "data-0", digest([digest(new_identity), "seeds"]), complete)
+    assert artifact_hashes(output) == before
+    args.output = str(tmp_path / "fresh-run")
+    assert pipeline.prepare(args, config, method="leap", recipe=recipe) == new_identity
+
+
 @pytest.mark.parametrize("variant", ["privileged", "zero"])
 def test_checked_seed_rollout_correction_dataset_and_disclosure(seed_bank, tmp_path, monkeypatch, variant):
     from conftest import FakeBackend

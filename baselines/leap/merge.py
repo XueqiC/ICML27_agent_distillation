@@ -10,7 +10,7 @@ from sed.react import build_messages
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, fsync_dir, write_json
 from train.dataset import load_tokenizer
-from train.merge_lora import merge_adapter, validate_adapter_artifacts
+from train.merge_lora import LEAP_MERGE_POLICY, merge_adapter, validate_adapter_artifacts
 from train.modeling import snapshot_metadata
 
 
@@ -34,6 +34,7 @@ def main(argv=None):
     provenance = write_provenance(output, command="leap_checked_merge", config=config,
         inputs=[args.config, adapter / "training_state.json", adapter.parent / "provenance.json"],
         details={"leap_iteration": state["leap_iteration"], "adaptation": "leap_merged_lora",
+                 "policy": LEAP_MERGE_POLICY,
                  "leap_variant": state["leap_variant"], "privileged_teacher": state["privileged_teacher"],
                  "base_artifact_sha256": artifact_hashes(args.snapshot)})
     tokenizer = load_tokenizer(args.snapshot)
@@ -43,8 +44,10 @@ def main(argv=None):
         ids = ids["input_ids"]
     staging = output / ".checkpoint.partial"
     report = merge_adapter(args.snapshot, args.adapter, staging, list(ids), tokenizer=tokenizer, config=config,
+        policy=LEAP_MERGE_POLICY,
         provenance_inputs=[adapter / "training_state.json", adapter.parent / "provenance.json"])
     state.update(adaptation="leap_merged_lora", checkpoint_kind="merged_lora", text_export_dtype="bfloat16",
+        policy=report["policy"], strict_allclose_passed=report["strict_allclose_passed"],
         provenance_sha256=digest(provenance), artifact_sha256=artifact_hashes(staging), merge_passed=report["passed"])
     write_json(staging / "training_state.json", state)
     os.rename(staging, output / "checkpoint")
