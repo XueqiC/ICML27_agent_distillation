@@ -16,3 +16,4 @@ data/verified/*
 !data/verified/.gitkeep
 reports/runs/
 *.lock
+third_party/*/
