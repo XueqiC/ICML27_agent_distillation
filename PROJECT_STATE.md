@@ -13,6 +13,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - AgentGym K20 s0 DONE: BC 59, AgentEvol iter-1/2/3 = 64/62/66 (base 62).
 - rai GPU1: mechanism run on k5s0-t400k (pid 1513532) — FCE probing. rai GPU3: free after probes run 1.
 - Codex (pid 1609910): MECHANISM_PLAN amendment 5 (procedural coverage) in analysis/mechanism.
+- **User 11:30 CDT: widen K to the whole few-shot range** → proposed K ∈ {1, 2, 5, 10, 20, 50, 100} (nested; K=1/2 subsets of K=5;
+  K=50/100 by extending the K=20 collections, ~350 more teacher attempts, ~8–10 h TPM-bound). Codex stage 2f (pid 1633979): K=100
+  selections, --extend-from collector, subset views with exact K=20/10/5 identity checks, dose grid v2, scripts/rai_collect_k100.sh.
 - User 11:28 CDT: plots must show each baseline as its own line (distinct colours), separate from Seed-SFT/teacher/base.
 - Interim report sent 10:0x CDT: reports/interim_1005_ZH.md (+ seedsft_sweep.png).
 - Codex 4f (pid 1474865): plan §4 — needed-step coverage from the shortest teacher takeover at t*, absorption probe on the seed states that
