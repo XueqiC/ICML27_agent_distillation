@@ -9,14 +9,13 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   log logs/teacher-dev140.log. Slow: the limiter reserves prompt UTF-8 bytes + 2,048 output tokens (≈5x real input tokens) against
   tpm 400k, so calls wait 40–55 s (no 429s). Provider headers (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key.
   Fix queued after stage 3a (token-count estimate, limits 500/200k). Not restarting (valid, only slow). 54/140 at 20:15 CDT.
-- rai GPU1: K=10 then K=5 Seed-SFT s0 (scripts/rai_train_k10_k5_s0.sh, started 21:24 CDT from frozen worktree ICML27_run_e70fa64)
-  → reports/runs/train/seedsft-k{10,5}-s0-rai; log logs/rai_train_k10_k5_s0.log. First attempt (20:53) failed at once: subset views had
-  no provenance.json (fixed in 944263c, merged e70fa64). ~30 min. Then: dev140 re-eval of k20s0-p05/p10/p20 + k10/k5 checkpoints
-  with the schema-2 gate.
+- rai GPU1: K=10 s0 done 21:46 CDT (reports/runs/train/seedsft-k10-s0-rai, ckpts 3/5/10/20 passes); K=5 s0 training since 21:46
+  (scripts/rai_train_k10_k5_s0.sh, worktree ICML27_run_e70fa64). Queued behind it: **K-ladder eval** scripts/rai_eval_ladder_s0.sh
+  (pid 481960, worktree ICML27_run_57ae004): base + k20/k10/k5 s0 × 3/5/10/20 passes (12 adapters) on one server, schema-2 gate,
+  32 workers → reports/runs/eval/ladder-s0-rai-dev140, log logs/rai_eval_ladder_s0.log. ~2.5 h (~01:00 CDT).
 - Merged today: c96fc4e equivalence gate schema 2 (tolerance = max(0.05, 1.5 × measured HF-vs-vLLM base noise)), 944263c subset
   provenance fix, dc30492 stage 3a (baselines/common + ETO port; GPU/FSDP paths not yet run; hpg needed for full FT).
-- Codex (pid 448710, main tree): test_suite schema-2 fixture + teacher limiter fix (chars/4 + output cap; limits 450 RPM / 180k TPM =
-  90% of provider 500/200k).
+- Teacher limiter fixed in 57ae004 (chars/4 + 8/message + output cap; 450 RPM / 180k TPM; provider headers logged).
 - **First dev140 numbers (rai GPU1, 20:3x CDT):** base 59/140 = 42.1%; Seed-SFT K=20 s0 3 passes 44/140 = 31.4% (paired 41/18/3/78,
   McNemar p = 0.0015). Parser errors 23 → 0, inadmissible 283 → 499. p05 check failed (one 34-token prompt 0.056 > 0.05; pooled 0.031,
   effect 0.84) → launcher stopped before p05/p10/p20. Output reports/runs/eval/k20s0-rai-dev140 (base + p03 valid).
