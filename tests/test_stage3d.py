@@ -174,18 +174,34 @@ def test_failures_parser_rejections_and_resume_cannot_expand_attempt_cap(tmp_pat
     assert all("private-secret" not in p.read_text() for p in tmp_path.rglob("*") if p.is_file())
 
 
-def test_unsupported_sampling_falls_back_within_same_three_attempts(tmp_path, task):
+@pytest.mark.parametrize("param", ["temperature", "top_p"])
+@pytest.mark.parametrize("code", [None, "unsupported_parameter", "unsupported_value"])
+@pytest.mark.parametrize("kind", ["extract", "privileged"])
+def test_unsupported_sampling_falls_back_within_same_three_attempts(tmp_path, task, param, code, kind):
     class Unsupported(Exception):
         status_code = 400
-        body = {"error": {"param": "temperature", "code": "unsupported_parameter", "message": "SECRET"}}
-    client = FakeClient([Unsupported("SECRET"), response(correction())])
-    limited, task = budget(tmp_path, task, client)
-    result = limited.request(task, render("privileged", trajectory(episode()), STATE), length=2, privileged_state=STATE)
-    assert result["status"] == "accepted" and len(client.requests) == 2
-    assert client.requests[0]["temperature"] == .3
+        body = {"error": {"type": "invalid_request_error", "param": param, "code": code,
+                          "message": "PRIVATE_PROVIDER_MESSAGE"}}
+    client = FakeClient([Unsupported("PRIVATE_PROVIDER_MESSAGE"), response(STATE if kind == "extract" else correction())])
+    limited, task = budget(tmp_path, task, client, kind=kind)
+    messages = render(kind, trajectory(episode()), STATE if kind == "privileged" else None)
+    kwargs = {"length": 2, "privileged_state": STATE} if kind == "privileged" else {}
+    result = limited.request(task, messages, **kwargs)
+    assert result["status"] == "accepted" and result["attempts_reserved"] == len(client.requests) == 2
+    assert client.requests[0]["temperature"] == .3 and client.requests[0]["top_p"] == 1
     assert "temperature" not in client.requests[1] and "top_p" not in client.requests[1]
-    assert read(tmp_path / "sampling.json")["mode"] == "configured_default"
-    assert read(Path(result["directory"]) / "attempt-0/failure.json")["unsupported_sampling"]
+    decision = read(tmp_path / "sampling.json")
+    assert decision["mode"] == "configured_default" and decision["parameter"] == param
+    directory = Path(result["directory"])
+    assert decision["evidence"] == str((directory / "attempt-0/usage.jsonl").resolve())
+    assert read(directory / "attempt-0/failure.json")["unsupported_sampling"]
+    assert read(directory / "attempt-0/start.json")["mode"] == "official_unconfirmed"
+    default = dict(limited.config["models"]["teacher"]["sampling"], max_output_tokens=4096)
+    start = read(directory / "attempt-1/start.json")
+    assert start["mode"] == "configured_default" and start["sampling"] == default
+    assert client.requests[1] == {k: v for k, v in client.requests[0].items()
+                                  if k not in ("temperature", "top_p")} | default
+    assert all("PRIVATE_PROVIDER" not in p.read_text() for p in tmp_path.rglob("*") if p.is_file())
 
 
 def test_interruption_reserves_a_slot_and_incomplete_response_is_not_cached(tmp_path, task):

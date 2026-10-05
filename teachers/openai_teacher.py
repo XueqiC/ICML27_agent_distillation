@@ -278,13 +278,14 @@ class Teacher:
                 failure = {"error_type": type(exc).__name__,
                            "http_status": getattr(exc, "status_code", None),
                            "request_id": self._redact(getattr(exc, "request_id", None))}
-                # Only these two non-sensitive enums support LEAP's optional
-                # sampling fallback. Never retain a provider body/message.
+                # Inspect only structured fields for LEAP's optional sampling
+                # fallback. Never retain a provider body/message.
                 body = getattr(exc, "body", None)
                 error = body.get("error", body) if isinstance(body, dict) else {}
                 if (isinstance(error, dict) and failure["http_status"] == 400
                         and error.get("param") in ("temperature", "top_p")
-                        and error.get("code") in ("unsupported_parameter", "unsupported_value")):
+                        and (error.get("code") in ("unsupported_parameter", "unsupported_value")
+                             or error.get("type") == "invalid_request_error" and error.get("code") is None)):
                     failure["unsupported_sampling_parameter"] = error["param"]
                 status = failure["http_status"]
                 retryable = (status in {408, 409, 429} or isinstance(status, int) and 500 <= status < 600

@@ -98,6 +98,48 @@ def test_bounded_retries_account_for_every_attempt_without_secrets(tmp_path, tas
     assert all(r["prompt_ref"].startswith("sha256:") for r in rows)
 
 
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("status,param,error_type,code,unsupported", [
+    (400, "temperature", "invalid_request_error", None, True),
+    (400, "top_p", "invalid_request_error", None, True),
+    (400, "temperature", None, "unsupported_parameter", True),
+    (400, "top_p", None, "unsupported_value", True),
+    (400, "input", "invalid_request_error", None, False),
+    (400, "temperature", "other_error", None, False),
+    (400, "top_p", "other_error", None, False),
+    (400, "temperature", None, None, False),
+    (400, "temperature", "invalid_request_error", "other_code", False),
+    (422, "temperature", "invalid_request_error", None, False),
+])
+def test_sampling_fallback_flag_is_narrow_sanitized_and_not_retryable(
+        tmp_path, task, visible, capsys, nested, status, param, error_type, code, unsupported):
+    class FakeAPIError(Exception):
+        status_code = status
+    failure = FakeAPIError("PRIVATE_PROVIDER_MESSAGE")
+    error_body = {"type": error_type, "param": param, "code": code,
+                  "message": "PRIVATE_PROVIDER_MESSAGE", "extra": "PRIVATE_PROVIDER_BODY"}
+    failure.body = {"error": error_body} if nested else error_body
+    client = FakeClient([failure, response()])
+    with pytest.raises(TeacherCallError) as caught:
+        teacher(tmp_path, client=client, max_attempts=3).generate([], task, visible)
+    assert len(client.requests) == 1
+    rows = [json.loads(r) for r in (tmp_path / "usage.jsonl").read_text().splitlines()]
+    assert [r["status"] for r in rows] == ["started", "failed"]
+    failed = rows[-1]
+    if unsupported:
+        assert failed["unsupported_sampling_parameter"] == param
+    else:
+        assert "unsupported_sampling_parameter" not in failed
+    assert not failed["retryable"] and not failed["will_retry"]
+    assert failed["wait_seconds"] == failed["provider_wait_seconds"] == 0
+    assert failed["usage"] is None
+    assert "body" not in failed and "message" not in failed
+    assert "PRIVATE_PROVIDER" not in str(caught.value)
+    captured = capsys.readouterr()
+    assert "PRIVATE_PROVIDER" not in captured.out + captured.err
+    assert all("PRIVATE_PROVIDER" not in p.read_text() for p in tmp_path.rglob("*") if p.is_file())
+
+
 def test_echoed_secret_is_redacted(tmp_path, task, visible, monkeypatch):
     secret = "sk-test-echo-123456"
     monkeypatch.setenv("OPENAI_API_KEY", secret)
