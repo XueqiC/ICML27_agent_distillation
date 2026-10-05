@@ -9,10 +9,13 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   log logs/teacher-dev140.log. Slow: the limiter reserves prompt UTF-8 bytes + 2,048 output tokens (≈5x real input tokens) against
   tpm 400k, so calls wait 40–55 s (no 429s). Provider headers (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key.
   Fix queued after stage 3a (token-count estimate, limits 500/200k). Not restarting (valid, only slow). 54/140 at 20:15 CDT.
-- rai GPU1: **dev140 eval of base + k20s0-p03/p05/p10/p20** (unmerged LoRA, equivalence-gated), pid 366276 started 20:24 CDT, 16 workers,
-  run from the frozen worktree ~/hq/projects/ICML27_run_d8b0eea (commit 92db249) because Codex 3a edits eval/serve code in the main
-  tree → reports/runs/eval/k20s0-rai-dev140, log logs/eval_k20s0_rai_dev140.log. First launch (pid 362633) stopped for that reason,
-  output in _trash/. rai Blackwell numbers are preliminary; paper columns go on hpg B200.
+- rai GPU1: K=10 then K=5 Seed-SFT s0 (scripts/rai_train_k10_k5_s0.sh, pid 405315, started 20:53 CDT, frozen worktree ICML27_run_d8b0eea)
+  → reports/runs/train/seedsft-k{10,5}-s0-rai; log logs/rai_train_k10_k5_s0.log. ~30 min.
+- Codex gate amendment (pid 404380, worktree ~/hq/projects/ICML27_gate, branch gate-noise-floor): equivalence gate relative to the
+  measured HF-vs-vLLM base kernel noise (per prompt ≤ max(0.05, 1.5×base noise)); then re-evaluate k20s0-p05/p10/p20 on dev140.
+- **First dev140 numbers (rai GPU1, 20:3x CDT):** base 59/140 = 42.1%; Seed-SFT K=20 s0 3 passes 44/140 = 31.4% (paired 41/18/3/78,
+  McNemar p = 0.0015). Parser errors 23 → 0, inadmissible 283 → 499. p05 check failed (one 34-token prompt 0.056 > 0.05; pooled 0.031,
+  effect 0.84) → launcher stopped before p05/p10/p20. Output reports/runs/eval/k20s0-rai-dev140 (base + p03 valid).
 - Codex stage 3a (rai pid 260921, started 19:42 CDT): baselines/common (conversation rendering, train-task exploration, X5 shrink
   rule, HF schedules, FSDP2 full-FT SFT/DPO trainer) + faithful ETO pipeline (pairs, 3 iterations, hpg 4xB200 slurm, DEVIATIONS.md).
   Spec: scratchpad codex_stage3a_eto.md.
