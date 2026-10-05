@@ -5,10 +5,12 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg 44777524** (array 0–8%4, dept, 1×B200 each, frozen tree /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/e1bad3f via git archive):
-  paper-grade Seed-SFT, configs/seedsft_dose_grid.json (K 5/10/20 × support seeds 0/1/2; checkpoints = passes {3,5,10,20,30,40} ∪
-  tokens {100k,200k,400k}) → /blue/.../ICML27_agent_distillation/reports/runs/train/seedsft-k{K}s{S}-hpg. Submitted 23:51 CDT; task 0 (k5s0) done 28 min; others pending on dept QOSGrpMemLimit (burst QOS has gpu=0, group account full).
-  Preflight: all 9 datasets reproduce the rai per-pass token counts.
+- **hpg 44777524 + 44780233 DONE** (Seed-SFT sweep + BI dev140 evals, B200): base 62/140 = 44.3%; **K=20 s0 at 40 passes 115/140 = 82.1%
+  ≈ teacher 114/140**; K20 s1 110; K10 best 95 (s0, 400k tokens); K5 best 101 (s1, 400k tokens). Low dose (3–10 passes) ≤ base at every K.
+  Gate failures: low-dose k5 p03 (effect within noise) and high-dose s2 cells (k20s2 p30/p40/t400k, k10s2 p30/p40/t200k/t400k): pooled error
+  0.04–0.045 OK but 6–7 tokens with |Δ| > 0.5 nats vs B200 base noise 0 (tolerance 2). Hypothesis: vLLM serves LoRA in bf16 while
+  HF/PEFT (and training) keep fp32 adapters; large adapters diverge at sensitive tokens (e.g. vLLM −4.29 ≈ base −4.32 vs HF −0.44).
+  Next: robustness check adapter-served vs merged-served dev140 for 2 high-dose checkpoints; then decide the gate (relative outlier rule).
 - **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
 - rai BI dev140 done: base 60/140 = 42.9%, k20s0-p20 96/140 = 68.6% → reports/runs/eval/bi-dev140-rai. Gap set G = 24, R = 7.
@@ -22,10 +24,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (5e14289; expert MC values from the repo's commented-out official block — tell the user; WebShop-cut sampler bug fixed). Codex 3d
   (pid 1034548): LEAP faithful (privileged handcoded-expert summaries, K tasks only) + 0%-privileged ablation; trains on all K (85/15
   split only serves eval-loss selection that cannot trigger at this dose — registered). Codex 3c's first attempt hit "model at capacity".
-- **hpg 44780233** (array 0–8%4, dept, 1×B200, 14 CPU / 48G, tree ICML27_runs/3aea2aa, --dependency=aftercorr:44777524): batch-invariant
-  dev140 eval of every dose checkpoint of the matching training task (task 0 also evaluates base) → /blue/.../reports/runs/eval/
-  seedsft-sweep-bi/<name>. Pending.
-- **hpg tunnel down again ~01:0x CDT 10-05** (told the user once); submitted jobs unaffected — resume monitoring when back.
+- hpg tunnel was down ~01:00–04:50 CDT 10-05; back now.
 - hpg data: data/verified synced (checksums equal). hpg git cannot fetch GitHub (no credentials) → code goes by `git archive <sha> |
   ssh hpg tar -x`, one tree per commit under /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/<sha> with .venv symlinked to the base tree.
 - **Protocol: batch-invariant serving (VLLM_BATCH_INVARIANT=1) for every paper evaluation** — base 40/40 and LoRA 40/40 identical
