@@ -12,8 +12,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (again), **k20s0-p10 66/140 = 47.1%** (0 parser errors, 192 inadmissible); then k20s0-p20's check failed (single-token bf16 outliers:
   2.72 / 1.02 nats on prompts 2 and 5; pooled error 0.031 < base noise 0.046; effect 1.307) and set -e stopped the launcher with 10
   adapters left. GPU1 idle until gate amendment 2 lands.
-- Codex gate amendment 2 (pid 556698, worktree ICML27_gate2, branch gate-effect-relative): per-prompt error ≤ 0.1 × that prompt's effect
-  + pooled rules; launcher continues past a failed check. Then re-run the remaining 10 adapters + p20.
+- Gate amendment 2 merged (aa2fd07: schema 3, per-prompt error ≤ 0.1 × effect; launcher continues past a failed check).
+  **Ladder part b** (scripts/rai_eval_ladder_s0_b.sh, pid 574762, worktree ICML27_run_aa2fd07, started 23:38 CDT): the other 11 adapters
+  (k20 p03/p05/p20, k10 ×4, k5 ×4), no base → reports/runs/eval/ladder-s0-rai-dev140-b, log logs/rai_eval_ladder_s0_b.log. ~1.5 h.
+- **Serving noise (23:3x CDT):** base on two server instances: 59/140 both, but only 8/140 identical trajectories (median first
+  divergence step 2), 12 outcome flips (6/6). → MECHANISM_PLAN amendment 2 (07af904): I0 = paired control arm; report base-vs-base
+  discordance with every McNemar. Next on GPU1: pilot VLLM_BATCH_INVARIANT=1 (base dev40 twice: identical? speed? LoRA OK?).
 - Codex taxonomy amendment (pid 559827, main tree): MECHANISM_PLAN amendment 1 (862eaed).
 - Stage 4a committed (035cd0a): analysis/mechanism (taxonomy, branch, FCE, I0–I5, readout, scripts/rai_mechanism.sh).
 - Merged today: c96fc4e equivalence gate schema 2 (tolerance = max(0.05, 1.5 × measured HF-vs-vLLM base noise)), 944263c subset
