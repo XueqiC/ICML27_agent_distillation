@@ -8,7 +8,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - rai (nohup scripts/rai_collect_parallel.sh, log logs/rai_collect_parallel.log): collect K=20 verified seeds → data/verified/seeds_k20_s{0,1,2}
   (K=5/10 nested subsets), then teacher dev140 (8 workers) → reports/runs/teacher-dev140. s0 done (20 / 29 attempts), s2 done (20 / 24),
   s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
-  19:27 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
+  19:19 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
   pid 204961, 8 workers, shared rate limiter → reports/runs/teacher-dev140, log logs/teacher-dev140.log.
 - Codex stage 2e (rai pid 202161): LoRA-adapter serving in serve_student.py (no merged copies; rai disk 97 GB free), equivalence check
   tools/check_lora_serving.py, scripts/rai_eval_student.sh with free-port selection. Spec: scratchpad codex_lora_serve.md.
