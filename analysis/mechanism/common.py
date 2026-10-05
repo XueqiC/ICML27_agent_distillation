@@ -6,7 +6,7 @@ from pathlib import Path
 from analysis.mechanism.goals import refuse_sealed
 from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_files
 from sed.provenance import code_hashes, safe_config, versions, write_provenance
-from sed.storage import BlobStore, digest, file_hash, write_json
+from sed.storage import BlobStore, digest, file_hash, locked, write_json
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN = ROOT / "docs/MECHANISM_PLAN.md"
@@ -136,7 +136,9 @@ def workspace(output, *, config, command, identity, inputs=(), details=None):
 
 
 def compatible_identity(saved, current):
-    """Only the explicitly pinned Stage 4c engineering transition may resume."""
+    """Allow the pinned Stage 4c transition and scoped Amendment 5 probe resumes."""
+    if saved.get("command") in {"probes", "probe_launcher"}:
+        return compatible_probe_identity(saved, current)
     if saved.get("command") not in {"launcher", "fce", "interventions"}:
         return False
     registry = read_json(ROOT/"analysis/mechanism/resume_compatibility.json")
@@ -154,6 +156,39 @@ def compatible_identity(saved, current):
                                   for p, sha in identity["inputs"].items()}
         return identity
     return semantic(saved) == semantic(current)
+
+
+def compatible_probe_identity(saved, current):
+    """Allow coverage/readout engineering changes, never changed policy inputs.
+
+    Amendment 5 reuses exact seed-state responses. Config, dependencies, model,
+    adapter, training states and all non-coverage inputs must remain identical.
+    The original identity and every response stay immutable; workspace() records
+    both identities, and probes revalidate the request, receipt and parser.
+    """
+    analysis_files = {
+        "analysis/mechanism/common.py", "analysis/mechanism/coverage.py",
+        "analysis/mechanism/probes.py", "analysis/mechanism/readout.py",
+        "analysis/mechanism/probe_launcher.py", "scripts/rai_mechanism_probes.sh",
+        "docs/MECHANISM_PLAN.md", "tests/test_mechanism_probes.py", "tests/test_mechanism.py",
+    }
+    def semantic(identity):
+        value = deepcopy(identity)
+        value["code_sha256"] = {p: sha for p, sha in value["code_sha256"].items() if p not in analysis_files}
+        value["inputs"] = {p: sha for p, sha in value["inputs"].items()
+                           if not p.endswith("/docs/MECHANISM_PLAN.md")
+                           and not (value["command"] == "probes" and Path(p).name == "coverage.json")}
+        return value
+    return semantic(saved) == semantic(current)
+
+
+def new_attempt(root, *, config, command, inputs=(), details=None):
+    """Append an immutable analysis attempt, including under an older workspace."""
+    root = output_guard(root, inputs=inputs, config=config)
+    root.mkdir(parents=True, exist_ok=True)
+    with locked(root/".allocate.lock"):
+        return new_output(attempt_path(root, "."), config=config, command=command,
+                          inputs=inputs, details=details)
 
 
 def budget_directory(requested, own):

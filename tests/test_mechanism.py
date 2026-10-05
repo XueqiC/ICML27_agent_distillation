@@ -644,6 +644,9 @@ def test_readout_coverage_format_and_unknown_stay_separate():
     assert result["episodes"][0]["label"] == "M1_requires_coverage"
     assert result["decision_cells"]["M1_cell"]["count"] == 1
     result = build_readout(tax, fce, interventions, {TASK_ID: {"covered": True, "evidence": "seed take/heat pattern"}})
+    assert result["episodes"][0]["label"] == "M1_requires_coverage"  # Legacy level is unspecified.
+    result = build_readout(tax, fce, interventions, {
+        TASK_ID: {"procedural": {"covered": True, "evidence": "seed take/heat role pattern"}}})
     assert result["episodes"][0]["label"] == "M1"
     row.update(primary="F-inadmissible", labels=["F-inadmissible"])
     result = build_readout(tax, fce, interventions)

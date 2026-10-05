@@ -1,11 +1,13 @@
 #!/bin/bash
-# Later authorized live use only. GPU SOURCE_RUN VERIFIED NEW_OUT NAME=ADAPTER
+# Later authorized live use only. GPU SOURCE_RUN VERIFIED OUT NAME=ADAPTER
+# OUT may be an existing probe workspace: responses are validated and reused;
+# each launch writes new coverage/probe summaries and queries only missing states.
 set -euo pipefail
 BATCH_INVARIANT=${BATCH_INVARIANT:-1}
 [[ "$BATCH_INVARIANT" == 1 ]] || { echo 'Stage 4f requires BATCH_INVARIANT=1' >&2; exit 2; }
 export VLLM_BATCH_INVARIANT=1
 [[ $# == 5 && "$1" =~ ^[0-9]+$ && "$5" == *=* ]] || {
-    echo 'Usage: rai_mechanism_probes.sh GPU SOURCE_RUN VERIFIED NEW_OUT NAME=ADAPTER' >&2; exit 2;
+    echo 'Usage: rai_mechanism_probes.sh GPU SOURCE_RUN VERIFIED OUT NAME=ADAPTER' >&2; exit 2;
 }
 gpu=$1
 SOURCE_RUN=$2
@@ -58,7 +60,12 @@ PY
 )
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.coverage \
     --config "$CONFIG" --gap-set "$GAP_SET" --fce "$SOURCE_RUN/fce/fce.json" \
-    --verified "$VERIFIED" --output "$OUT/coverage"
+    --verified "$VERIFIED" --output "$OUT/coverage" >"$launch/coverage-command.json"
+coverage_output=$(CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$launch/coverage-command.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["output"])
+PY
+)
 run_work "$TRAIN_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
     --snapshot "$MODEL_PATH" --adapter "$adapter_path" --verified "$VERIFIED" --model-name "$name" \
     --hf-only --output "$launch/hf"
@@ -83,13 +90,18 @@ CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --con
     --server-provenance "$launch/server/provenance.json" --output "$launch/check"
 probe_status=0
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.probes \
-    --config "$CONFIG" --coverage "$OUT/coverage/coverage.json" --output "$OUT/probes" \
+    --config "$CONFIG" --coverage "$coverage_output/coverage.json" --output "$OUT/probes" \
     --endpoint "$endpoint" --model-name "$name" --server-provenance "$launch/server/provenance.json" \
-    --lora-check "$launch/check/report.json" || probe_status=$?
+    --lora-check "$launch/check/report.json" >"$launch/probes-command.json" || probe_status=$?
 # Partial probe outcomes remain unknown in a reviewable readout; restart retries only failed states.
 [[ "$probe_status" == 0 || "$probe_status" == 2 ]] || exit "$probe_status"
+probe_output=$(CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$launch/probes-command.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["output"])
+PY
+)
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.readout \
     --config "$CONFIG" --gap-set "$GAP_SET" --fce "$SOURCE_RUN/fce/fce.json" \
     --interventions "$SOURCE_RUN/interventions/interventions.json" \
-    --coverage "$OUT/coverage/coverage.json" --probes "$OUT/probes/probes.json" --output "$launch/readout"
+    --coverage "$coverage_output/coverage.json" --probes "$probe_output/probes.json" --output "$launch/readout"
 exit "$probe_status"

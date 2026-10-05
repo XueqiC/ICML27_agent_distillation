@@ -131,12 +131,14 @@ def build_readout(taxonomy, fce, interventions, coverage=None, probes=None):
         excess_by_task[task_id] = excess
         cell = decision_cell(excess)
         cells[cell] += 1
-        covered = coverage.get(task_id, {}).get("covered", "unknown")
         cov, probe = coverage.get(task_id, {}), probes.get(task_id, {})
+        procedural_cov, instance_cov = cov.get("procedural", {}), cov.get("instance", {})
+        procedural_probe, instance_probe = probe.get("procedural", {}), probe.get("instance", {})
+        covered = procedural_cov.get("covered")
         for evidence in (cov, probe):
             if "t_star" in evidence and evidence["t_star"] != f["t_star"]:
                 raise ValueError("Coverage/probe state differs from closest approach")
-        absorbed = probe.get("absorbed")
+        absorbed = procedural_probe.get("absorbed")
         label = {"both": "both_mechanisms_cell", "M1_cell": "M1_requires_coverage",
                  "M2_cell": "M2", "neither": "unresolved", "incomplete": "incomplete"}[cell]
         if cell in {"both", "M1_cell"} and covered is True:
@@ -150,11 +152,14 @@ def build_readout(taxonomy, fce, interventions, coverage=None, probes=None):
         elif cell == "neither" and excess["I4"] is None:
             label = "incomplete_I4"
         rows.append({**distance_diagnostics(f), "cell": cell, "label": label, "needed_step_coverage": covered,
-                     "coverage_status": cov.get("status", "missing"),
-                     "coverage_same_task_type": cov.get("covered_same_task_type"),
-                     "coverage_any_task_type": cov.get("covered_any_task_type", covered),
-                     "absorbed": absorbed, "probe_status": probe.get("status", "missing"),
-                     "absorbed_same_task_type": probe.get("absorbed_same_task_type"),
+                     "coverage_level": "procedural",
+                     "procedural": {"coverage": procedural_cov, "absorption": procedural_probe},
+                     "instance": {"coverage": instance_cov, "absorption": instance_probe},
+                     "coverage_status": procedural_cov.get("status", "missing"),
+                     "coverage_same_task_type": procedural_cov.get("covered_same_task_type"),
+                     "coverage_any_task_type": procedural_cov.get("covered_any_task_type", covered),
+                     "absorbed": absorbed, "probe_status": procedural_probe.get("status", "missing"),
+                     "absorbed_same_task_type": procedural_probe.get("absorbed_same_task_type"),
                      "M1_subtype": ("M1b" if absorbed else "M1a") if covered is True and type(absorbed) is bool
                                       and cell in {"both", "M1_cell"} else None,
                      "task_type_covered": e.get("task_type_covered"), "arms": arms,
@@ -214,10 +219,11 @@ def build_readout(taxonomy, fce, interventions, coverage=None, probes=None):
             "episodes": rows, "arms_by_task": arms_by_task, "paired_excess_by_task": excess_by_task,
             "rescue_rule": "greedy succeeds AND at least 3 of 4 T=0.7 samples succeed",
             "paired_excess_rule": "arm rescues AND I0 does not rescue on the same t* state; both outcomes must be known",
-            "decision_rule": "Section 6 uses paired excess rescues",
-            "coverage_rule": "Task-type overlap alone is not needed-step coverage. No M1 attribution without explicit coverage evidence.",
+            "decision_rule": "Section 6 uses paired excess rescues; procedural coverage gates M1 and procedural seed-state agreement decides M1a/M1b.",
+            "coverage_level": "procedural",
+            "coverage_rule": "Amendment 5: procedural coverage (object role + verb + receptacle/appliance type) gates M1; instance coverage (Amendment 4 object types) is reported separately. Task-type overlap alone is not needed-step coverage.",
             "limits": ["Descriptive engineering readout; no mechanism claim.",
-                       "M1a/M1b use exact seed-state action agreement, not a general knowledge or causal test; absent probes remain unknown.",
+                       "M1a/M1b use exact seed-state action agreement on procedurally matched states, not a general knowledge or causal test; absent probes remain unknown.",
                        "Typed action coverage does not establish matching preconditions. Dose controls remain required before interpretation.",
                        "Wilson intervals use task instances; groups are also reported and may contain dependent trials.",
                        "Missing/unknown continuations are excluded from available-arm denominators and explicitly retained.",
@@ -314,7 +320,7 @@ def markdown(result):
     def coverage_cell(key, label):
         counts = result["coverage_decision_cells"][key]
         return cell(key, label) + ("; " + "; ".join(f"{k}: {v['count']}" for k, v in counts.items()) if counts else "")
-    lines += ["", "Section 6: all rescues below are paired excess rescues over I0.", "",
+    lines += ["", "Section 6: all rescues below are paired excess rescues over I0; M1 and M1a/M1b use the procedural level.", "",
         "| | I5 or I1 rescues | Neither rescues |", "|---|---|---|",
         "| I3 or I2 rescues | " + coverage_cell("both", "Both rescue signals") + " | " + cell("M2_cell", "M2 cell") + " |",
         "| Neither rescues | " + coverage_cell("M1_cell", "Experience rescue signal") + " | " + cell("neither", "I4-only: execution/capacity; else unresolved") + " |",
@@ -323,16 +329,28 @@ def markdown(result):
         "", f"Non-deterministic I0 greedy replays retained: {result['non_deterministic']['count']}.",
         "", result["coverage_rule"], "", *result["limits"]]
     lines += ["", "Coverage and absorption (all gap episodes; navigation excluded from both gates):", "",
-              "| Task | Coverage status | Same type | Any type | Absorbed | M1 subtype | Attribution |",
-              "|---|---|---|---|---|---|---|"]
+              "| Task | Level | Coverage status | Same type | Any type | Absorbed | M1 subtype (procedural) | Attribution |",
+              "|---|---|---|---|---|---|---|---|"]
     attributed = {r["task_id"]: r for r in result["episodes"]}
     for row in result["knowledge_evidence"]:
         cov, probe = row["coverage"] or {}, row["probe"] or {}
         label = attributed.get(row["task_id"], {})
-        lines.append("| " + " | ".join(str(x) if x is not None else "unknown" for x in (
-            row["task_id"], cov.get("status", "missing"), cov.get("covered_same_task_type"),
-            cov.get("covered_any_task_type", cov.get("covered")), probe.get("absorbed"),
-            label.get("M1_subtype"), label.get("label", "excluded/pending"))) + " |")
+        for level in ("procedural", "instance"):
+            c, p = cov.get(level, {}), probe.get(level, {})
+            lines.append("| " + " | ".join(str(x) if x is not None else "unknown" for x in (
+                row["task_id"], level, c.get("status", "missing"), c.get("covered_same_task_type"),
+                c.get("covered_any_task_type", c.get("covered")), p.get("absorbed"),
+                label.get("M1_subtype") if level == "procedural" else "—",
+                label.get("label", "excluded/pending") if level == "procedural" else "—")) + " |")
+    lines += ["", "Needed-step coverage (any task type):", "",
+              "| Task | Step | Procedural pattern | Covered | Instance pattern | Covered | Navigation |",
+              "|---|---:|---|---|---|---|---|"]
+    for row in result["knowledge_evidence"]:
+        for step in (row["coverage"] or {}).get("needed_steps", []):
+            p, i = step.get("procedural", {}), step.get("instance", {})
+            lines.append("| " + " | ".join(str(x) if x is not None else "unknown" for x in (
+                row["task_id"], step["step"], p.get("pattern"), p.get("covered_any_task_type"),
+                i.get("pattern"), i.get("covered_any_task_type"), step["navigation_only"])) + " |")
     lines += ["", "Coverage-qualified attributions (all frozen gap episodes):", "",
               "| Attribution | Count / gap size (95% Wilson) |", "|---|---|"]
     for label, row in result["mechanism_attribution"].items():

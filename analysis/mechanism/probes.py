@@ -4,8 +4,8 @@ from collections import defaultdict
 import json
 from pathlib import Path
 
-from analysis.mechanism.common import attempt_path, gap_episodes, new_output, read_json, workspace
-from analysis.mechanism.coverage import load_training_states, state_evidence, validate_coverage
+from analysis.mechanism.common import attempt_path, gap_episodes, new_attempt, new_output, read_json, workspace
+from analysis.mechanism.coverage import LEVELS, load_training_states, state_evidence, validate_coverage
 from analysis.mechanism.policies import add_student_args, student_spec, validate_continuation
 from sed.config import load_config
 from sed.react import action_outcome, build_messages
@@ -35,36 +35,40 @@ def summarize(coverage, states):
         types[row["task_type"]].append(row)
     episodes = []
     for ep in coverage["episodes"]:
-        patterns = []
-        seen = set()
-        for needed in ep["needed_steps"]:
-            pattern = needed["pattern"]
-            if pattern in seen or pattern is None:
-                continue
-            seen.add(pattern)
-            scopes = {}
-            for scope in ("same_task_type", "any_task_type"):
-                ids = [r["state_id"] for r in needed[scope]]
-                if any(key not in by_id for key in ids):
-                    raise ValueError("Coverage references a missing training state")
-                scopes[scope] = {**agreement([by_id[key] for key in ids], absorption=True), "state_ids": ids}
-            patterns.append({"pattern": pattern, "navigation_only": needed["navigation_only"], **scopes})
-        def absorbed(scope):
-            if ep["covered_"+scope] is not True:
-                return None
-            values = [p[scope]["absorbed"] for p in patterns if not p["navigation_only"]]
-            if not values or any(v is None for v in values):
-                return None
-            return all(values)
-        value = absorbed("any_task_type")
-        episodes.append({"task_id": ep["task_id"], "t_star": ep["t_star"], "patterns": patterns,
-                         "absorbed": value, "absorbed_any_task_type": value,
-                         "absorbed_same_task_type": absorbed("same_task_type"),
-                         "status": ("not_covered" if ep["covered"] is False else
-                                    "absorbed" if value is True else "not_absorbed" if value is False else "unknown")})
+        levels = {level: summarize_level(ep, by_id, level) for level in LEVELS}
+        episodes.append({"task_id": ep["task_id"], "t_star": ep["t_star"], **levels, **levels["procedural"]})
     return {"episodes": episodes, "training_set_fit": {
         "overall": agreement(states), "per_task_type": {k: agreement(v) for k, v in sorted(types.items())},
         "scope": "All logged teacher-forced seed training states, including navigation and invalid teacher targets; no fresh rollouts"}}
+
+
+def summarize_level(ep, by_id, level):
+    patterns, seen = [], set()
+    for step in ep["needed_steps"]:
+        needed = step[level]
+        pattern = needed["pattern"]
+        if pattern in seen or pattern is None:
+            continue
+        seen.add(pattern)
+        scopes = {}
+        for scope in ("same_task_type", "any_task_type"):
+            ids = [r["state_id"] for r in needed[scope]]
+            if any(key not in by_id for key in ids):
+                raise ValueError("Coverage references a missing training state")
+            scopes[scope] = {**agreement([by_id[key] for key in ids], absorption=True), "state_ids": ids}
+        patterns.append({"pattern": pattern, "navigation_only": needed["navigation_only"], **scopes})
+    def absorbed(scope):
+        if ep[level]["covered_"+scope] is not True:
+            return None
+        values = [p[scope]["absorbed"] for p in patterns if not p["navigation_only"]]
+        if not values or any(v is None for v in values):
+            return None
+        return all(values)
+    value = absorbed("any_task_type")
+    return {"patterns": patterns, "absorbed": value, "absorbed_any_task_type": value,
+            "absorbed_same_task_type": absorbed("same_task_type"),
+            "status": ("not_covered" if ep[level]["covered"] is False else
+                       "absorbed" if value is True else "not_absorbed" if value is False else "unknown")}
 
 
 def completed_state(root, state):
@@ -77,7 +81,8 @@ def completed_state(root, state):
         if result["state"] != state_evidence(state):
             raise ValueError("Probe state differs from training evidence")
         request = BlobStore(payload/"student_calls/blobs").get(result["metadata"]["request_ref"])
-        if (request["messages"] != build_messages(state["history"], {}, state["visible"])
+        if (digest(request["messages"]) != state["messages_sha256"]
+                or request["messages"] != build_messages(state["history"], {}, state["visible"])
                 or request["temperature"] != 0 or request["max_tokens"] != 1024
                 or request["chat_template_kwargs"] != {"enable_thinking": False}
                 or request["model"] != result["metadata"]["returned_model_id"]):
@@ -98,6 +103,9 @@ def query_states(states, *, output, config, spec, inputs=(), student_factory=Stu
         root = Path(output)/"states"/state["state_id"]
         completed = completed_state(root, state)
         if completed is not None:
+            if (completed["metadata"]["returned_model_id"] != spec["model"]
+                    or completed["metadata"]["student_revision"] != spec["revision"]):
+                raise ValueError("Cached response differs from configured student")
             rows.append(completed)
             continue
         attempt = attempt_path(root, ".")
@@ -144,14 +152,17 @@ def run_probes(*, coverage_path, output, config, spec, student_factory=Student):
     inputs = [coverage_path, *inputs]
     output = workspace(output, config=config, command="probes", identity=identity, inputs=inputs)
     with locked(output/".orchestrator.lock"):
+        attempt = new_attempt(output, config=config, command="probes", inputs=inputs,
+                              details={"identity": identity, "coverage_sha256": digest(coverage)})
         rows = query_states(states, output=output, config=config, spec=spec, inputs=inputs, student_factory=student_factory)
-        result = {"schema_version": 1, "purpose": "diagnosis", "coverage_path": str(Path(coverage_path).resolve()),
+        result = {"schema_version": 2, "amendment": 5, "coverage_level": "procedural",
+                  "output": str(attempt), "purpose": "diagnosis", "coverage_path": str(Path(coverage_path).resolve()),
                   "coverage_sha256": digest(coverage), "coverage_file_sha256": file_hash(coverage_path), "student": stable_spec,
                   "student_binding": coverage["student_binding"], "training_collection": collection,
                   "complete": all(r["status"] == "ok" for r in rows), "states": rows, **summarize(coverage, rows),
-                  "absorption_rule": "Each non-navigation needed pattern: exact parsed action agreement >= 1/2 of ALL matching seed states. Episode absorbed iff all needed patterns pass; unknown calls stay unknown.",
+                  "absorption_rule": "Each non-navigation needed procedural pattern: exact parsed action agreement with the seed action >= 1/2 of ALL procedurally matching seed states. Episode absorbed iff all needed patterns pass; unknown calls stay unknown. Instance matches are scored separately using the same responses.",
                   "environment_steps": 0, "teacher_calls": 0, "training_exposure": 0}
-        write_json(output/"probes.json", result)
+        write_json(attempt/"probes.json", result, exclusive=True)
     return result
 
 
@@ -194,7 +205,7 @@ def main(argv=None):
     config = load_config(args.config)
     spec = student_spec(config, args)
     result = run_probes(coverage_path=args.coverage, output=args.output, config=config, spec=spec)
-    print(json.dumps({"output": args.output, "complete": result["complete"], "training_set_fit": result["training_set_fit"]}))
+    print(json.dumps({"output": result["output"], "complete": result["complete"], "training_set_fit": result["training_set_fit"]}))
     return 0 if result["complete"] else 2
 
 

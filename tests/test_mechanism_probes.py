@@ -10,7 +10,8 @@ import httpx
 import pytest
 
 from analysis.mechanism import coverage, probes
-from analysis.mechanism.common import read_json
+from analysis.mechanism.common import compatible_probe_identity, read_json
+from analysis.mechanism.goals import Goal, parse_goal
 from analysis.mechanism.readout import build_readout, markdown
 from analysis.mechanism.taxonomy import classify, shares
 from sed.config import load_config
@@ -49,30 +50,76 @@ def test_typed_patterns(action, pattern, nav):
     assert coverage.action_pattern(action) == {"pattern": pattern, "navigation_only": nav}
 
 
+@pytest.mark.parametrize("action,object_type,expected", [
+    ("clean dishsponge 9 with sinkbasin 2", "DishSponge", "clean {goal} with {sinkbasin}"),
+    ("clean dishsponge 9 with sinkbasin 2", "Mug", "clean {other} with {sinkbasin}"),
+    ("take mug 77 from countertop 3", "MugType", "take {goal} from {countertop}"),
+    ("move bowl 2 to cart 9", "Bowl", "move {goal} to {cart}"),
+    ("put bowl 2 in/on cart 9", "Mug", "move {other} to {cart}"),
+    ("heat mug 2 with microwave 7", "Mug", "heat {goal} with {microwave}"),
+    ("cool mug 2 with fridge 7", "Mug", "cool {goal} with {fridge}"),
+    ("slice apple 2 with knife 1", "AppleSliced", "slice {other} with {knife}"),
+    ("take applesliced 2 from countertop 3", "AppleSliced", "take {goal} from {countertop}"),
+    ("use desklamp 8", "DeskLamp", "use {desklamp}"),
+    ("open cabinet 7", "Cabinet", "open {cabinet}"),
+    ("go to cabinet 7", "Cabinet", "go to {cabinet}"),
+    ("examine mug 3", "Mug", "examine {mug}"),
+    ("look", "Mug", "look"), (None, "Mug", None), ("invent mug", "Mug", None),
+])
+def test_procedural_roles_use_type_equality_and_preserve_receptacle(action, object_type, expected):
+    goal = Goal("pick_and_place_simple", object_type, None, "CounterTop")
+    pattern = coverage.procedural_pattern(action, goal)
+    assert pattern["pattern"] == expected
+    assert pattern["navigation_only"] == coverage.action_pattern(action)["navigation_only"]
+
+
+def test_procedural_matches_use_each_seeds_own_goal_and_appliance():
+    needed = seed(["clean dishsponge 2 with sinkbasin 1"], kind="pick_clean_then_place_in_recep")
+    goal = Goal("pick_clean_then_place_in_recep", "DishSponge", None, "Cart")
+    training = seed(["clean mug 5 with sinkbasin 7"])
+    states = coverage.seed_states(training)
+    result = coverage.cover_steps(needed["steps"], 0, goal, states)
+    assert result["covered"] is True and result["instance"]["covered"] is False
+    assert result["covered_same_task_type"] is False  # Any task type decides.
+    assert result["needed_steps"][0]["pattern"] == "clean {goal} with {sinkbasin}"
+    # Changing the seed's goal makes its mug an 'other' despite the same action.
+    training["task_id"] = training["task_id"].replace("-Mug-", "-Bowl-")
+    assert coverage.cover_steps(needed["steps"], 0, goal, coverage.seed_states(training))["covered"] is False
+    # Instance match alone cannot override a mismatched procedural role.
+    training["steps"][0]["action_raw"] = "Action: clean dishsponge 2 with sinkbasin 1"
+    training["steps"][0]["action_parsed"] = "clean dishsponge 2 with sinkbasin 1"
+    training["initial"]["visible"]["admissible_commands"].append(training["steps"][0]["action_parsed"])
+    result = coverage.cover_steps(needed["steps"], 0, goal, coverage.seed_states(training))
+    assert result["covered"] is False and result["instance"]["covered"] is True
+    needed["steps"][0]["action_parsed"] = "clean mug 1 with bathtubbasin 1"
+    assert coverage.cover_steps(needed["steps"], 0, parse_goal(seed()["task_id"]), states)["covered"] is False
+
+
 def test_coverage_all_substantive_patterns_and_scopes():
     one = seed()
+    goal = parse_goal(one["task_id"])
     states = coverage.seed_states(one)
     other = coverage.seed_states(seed(kind="pick_and_place_simple", seed_id="other"))
     # Prefer same-task evidence even when it is later in collection order.
-    result = coverage.cover_steps(one["steps"], 7, "pick_heat_then_place_in_recep", other + states)
+    result = coverage.cover_steps(one["steps"], 7, goal, other + states)
     assert result["covered"] and result["covered_same_task_type"]
     take = result["needed_steps"][2]
     assert take["step"] == 10 and take["takeover_step"] == 3
     assert take["preferred_evidence"]["seed_episode_id"] == "seed"
     assert len(take["any_task_type"]) == 2 and len(take["same_task_type"]) == 1
-    result = coverage.cover_steps(one["steps"], 0, "pick_heat_then_place_in_recep", other)
+    result = coverage.cover_steps(one["steps"], 0, goal, other)
     assert result["covered"] and not result["covered_same_task_type"]
     missing = deepcopy(one["steps"])
     missing[0]["action_parsed"] = "go to sidetable 9"  # Unseen navigation cannot veto coverage.
-    assert coverage.cover_steps(missing, 0, "x", states)["covered"] is True
+    assert coverage.cover_steps(missing, 0, goal, states)["covered"] is True
     missing[-1]["action_parsed"] = "heat bowl 1 with microwave 1"
-    assert coverage.cover_steps(missing, 0, "x", states)["covered"] is False
+    assert coverage.cover_steps(missing, 0, goal, states)["covered"] is False
     invalid = deepcopy(states)
     invalid[-1]["demonstrated"] = False
-    assert coverage.cover_steps(one["steps"], 0, "x", invalid)["covered"] is False
-    assert coverage.cover_steps(one["steps"][:1], 0, "x", states)["status"] == "navigation_only"
+    assert coverage.cover_steps(one["steps"], 0, goal, invalid)["covered"] is False
+    assert coverage.cover_steps(one["steps"][:1], 0, goal, states)["status"] == "navigation_only"
     missing[-1]["action_parsed"] = "unknown command"
-    assert coverage.cover_steps(missing, 0, "x", states)["covered"] is None
+    assert coverage.cover_steps(missing, 0, goal, states)["covered"] is None
 
 
 def test_seed_prefixes_match_training_and_never_include_oracles(monkeypatch):
@@ -174,7 +221,7 @@ def test_absorption_half_threshold_all_patterns_and_unknowns():
     one = seed(["take mug 1 from drawer 1", "take mug 1 from drawer 1", "heat mug 1 with microwave 1"])
     states = coverage.seed_states(one)
     cov = {"episodes": [{"task_id": TASK_ID, "t_star": 0,
-                          **coverage.cover_steps(one["steps"], 0, "pick_heat_then_place_in_recep", states)}]}
+                          **coverage.cover_steps(one["steps"], 0, parse_goal(one["task_id"]), states)}]}
     rows = [dict(coverage.state_evidence(s), agrees=a) for s, a in zip(states, [True, False, True])]
     report = probes.summarize(cov, rows)
     assert report["episodes"][0]["absorbed"] is True  # Exactly 1/2 for take.
@@ -188,6 +235,25 @@ def test_absorption_half_threshold_all_patterns_and_unknowns():
     assert result["training_set_fit"]["overall"]["agreement"] is None
 
 
+def test_absorption_reports_both_levels_from_exact_seed_action_agreement():
+    one = seed(["take mug 1 from countertop 1"])
+    other = seed(["take bowl 1 from countertop 2", "take bowl 1 from countertop 2"], seed_id="other")
+    other["task_id"] = other["task_id"].replace("-Mug-", "-Bowl-")
+    states = coverage.seed_states(one) + coverage.seed_states(other)
+    cov = {"episodes": [{"task_id": TASK_ID, "t_star": 0,
+                          **coverage.cover_steps(one["steps"], 0, parse_goal(one["task_id"]), states)}]}
+    # The mug seed action fails, both bowl seed actions pass on their own states.
+    rows = [dict(coverage.state_evidence(s), agrees=a) for s, a in zip(states, [False, True, True])]
+    result = probes.summarize(cov, rows)["episodes"][0]
+    assert result["absorbed"] is result["procedural"]["absorbed"] is True
+    assert result["instance"]["absorbed"] is False
+    assert result["procedural"]["patterns"][0]["any_task_type"]["agreement"] == 2/3
+    assert result["instance"]["patterns"][0]["any_task_type"]["agreement"] == 0
+    rows[-1]["agrees"] = None
+    result = probes.summarize(cov, rows)["episodes"][0]
+    assert result["absorbed"] is None and result["instance"]["absorbed"] is False
+
+
 def test_probe_workspace_end_to_end_resume_identity_and_readout_validation(tmp_path, monkeypatch):
     ep = seed()
     states = coverage.seed_states(ep)
@@ -195,7 +261,7 @@ def test_probe_workspace_end_to_end_resume_identity_and_readout_validation(tmp_p
     spec = dict(SPEC, revision=config["models"]["student"]["revision"])
     collection = {"path": str(tmp_path/"seeds"), "K": 1}
     cov = {"episodes": [{"task_id": TASK_ID, "t_star": 2,
-                          **coverage.cover_steps(ep["steps"], 2, "pick_heat_then_place_in_recep", states)}],
+                          **coverage.cover_steps(ep["steps"], 2, parse_goal(ep["task_id"]), states)}],
            "gap_path": "unused", "student_binding": {"model": "student", "adapter": "fake"},
            "training_collection": collection}
     coverage_path = tmp_path/"coverage.json"
@@ -217,10 +283,14 @@ def test_probe_workspace_end_to_end_resume_identity_and_readout_validation(tmp_p
     result = probes.run_probes(**args)
     assert result["complete"] and result["episodes"][0]["absorbed"]
     assert len(calls) == len(states) and bindings == [{"verified": collection["path"]}]
-    path = tmp_path/"workspace/probes.json"
+    path = Path(result["output"])/"probes.json"
+    original_hash = file_hash(path)
     assert probes.validate_probes(path, cov, config) == result
     args["spec"] = dict(spec, endpoint="http://new-port/v1")
-    assert probes.run_probes(**args) == result and len(calls) == len(states)
+    resumed = probes.run_probes(**args)
+    assert resumed["output"] != result["output"]
+    assert {k: v for k, v in resumed.items() if k != "output"} == {k: v for k, v in result.items() if k != "output"}
+    assert len(calls) == len(states) and file_hash(path) == original_hash
     config["server_provenance"] = {"config": {"server": {"batch_invariant": True}}}
     with pytest.raises(ValueError, match="Resume identity changed"):
         probes.run_probes(**args)
@@ -229,6 +299,88 @@ def test_probe_workspace_end_to_end_resume_identity_and_readout_validation(tmp_p
     write_json(path, changed)
     with pytest.raises(ValueError, match="scoring changed"):
         probes.validate_probes(path, cov, config)
+
+
+def test_amendment4_workspace_reuses_calls_and_queries_only_missing_matches(tmp_path, monkeypatch):
+    ep = seed(["take mug 1 from countertop 1"])
+    other = seed(["take bowl 1 from countertop 2"], seed_id="other")
+    other["task_id"] = other["task_id"].replace("-Mug-", "-Bowl-")
+    states = coverage.seed_states(ep) + coverage.seed_states(other)
+    config = load_config()
+    config["server_provenance"] = {"config": {"server": {"batch_invariant": True}}}
+    spec = dict(SPEC, revision=config["models"]["student"]["revision"])
+    collection = {"path": str(tmp_path/"seeds"), "K": 2}
+    cov = {"episodes": [{"task_id": TASK_ID, "t_star": 0,
+                         **coverage.cover_steps(ep["steps"], 0, parse_goal(ep["task_id"]), states)}],
+           "gap_path": "unused", "student_binding": {"model": "student", "adapter": "fake"},
+           "training_collection": collection}
+    old_path, new_path = tmp_path/"coverage/coverage.json", tmp_path/"coverage/attempt-000/coverage.json"
+    write_json(old_path, cov)
+    monkeypatch.setattr(probes, "validate_coverage", lambda *a: cov)
+    monkeypatch.setattr(probes, "gap_episodes", lambda *a: ({}, [({"episode_path": "unused"}, {}, {})]))
+    monkeypatch.setattr(probes, "validate_continuation", lambda *a, **k: None)
+    monkeypatch.setattr(probes, "load_training_states", lambda *a: (states, collection, []))
+    queried = []
+    def handler(request):
+        messages = json.loads(request.content)["messages"]
+        index = next(i for i, s in enumerate(states)
+                     if messages == build_messages(s["history"], {}, s["visible"]))
+        queried.append(index)
+        if len(queried) == 2:
+            return httpx.Response(500, text="failed attempt")
+        return httpx.Response(200, json={"model": "student", "choices": [{"message": {
+            "content": "Action: "+states[index]["seed_action"]}, "finish_reason": "stop"}]})
+    args = dict(coverage_path=old_path, output=tmp_path/"workspace", config=config,
+                spec=spec, student_factory=fake_factory(handler))
+    first = probes.run_probes(**args)
+    assert not first["complete"] and queried == [0, 1]
+    # Recreate the old summary location and pre-amendment identity; no old file
+    # is rewritten by the resume. State 1 is newly matched at procedural level.
+    write_json(tmp_path/"workspace/probes.json", first)
+    identity_path = tmp_path/"workspace/identity.json"
+    identity = read_json(identity_path)
+    identity["code_sha256"]["analysis/mechanism/coverage.py"] = "old-code"
+    identity["code_sha256"]["docs/MECHANISM_PLAN.md"] = "amendment4"
+    for path in identity["inputs"]:
+        if path.endswith("/docs/MECHANISM_PLAN.md"):
+            identity["inputs"][path] = "amendment4"
+    write_json(identity_path, identity)
+    protected = [p for p in (tmp_path/"workspace").rglob("*") if p.is_file()]
+    hashes = {p: file_hash(p) for p in protected}
+    write_json(new_path, cov)
+    args.update(coverage_path=new_path, spec=dict(spec, endpoint="http://new-port/v1"))
+    resumed = probes.run_probes(**args)
+    assert resumed["complete"] and queried == [0, 1, 1]
+    assert resumed["states"][0]["receipt_path"] == first["states"][0]["receipt_path"]
+    assert Path(resumed["output"]).name == "attempt-001"
+    assert probes.validate_probes(Path(resumed["output"])/"probes.json", cov, config) == resumed
+    assert all(file_hash(p) == sha for p, sha in hashes.items())
+    assert len(list((tmp_path/"workspace/resume_compatibility").glob("*.json"))) == 1
+
+
+@pytest.mark.parametrize("command", ["probe_launcher", "probes"])
+def test_probe_resume_preserves_policy_binding_and_inputs(command):
+    root = Path("reports/runs/mechanism/k20s0-p20-bi/probes")
+    path = root/("identity.json" if command == "probe_launcher" else "probes/identity.json")
+    if not path.exists():
+        pytest.skip("Local read-only probe workspace not present")
+    from sed.provenance import code_hashes
+    from analysis.mechanism.common import ROOT
+    saved = read_json(path)
+    current = deepcopy(saved)
+    # Apply only this engineering transition to the historical identity. Other
+    # checkout work must still be rejected, not silently allowed by this test.
+    hashes = code_hashes(ROOT)
+    for name in ("analysis/mechanism/common.py", "analysis/mechanism/coverage.py",
+                 "analysis/mechanism/probes.py", "analysis/mechanism/readout.py",
+                 "scripts/rai_mechanism_probes.sh", "tests/test_mechanism.py",
+                 "tests/test_mechanism_probes.py", "docs/MECHANISM_PLAN.md"):
+        current["code_sha256"][name] = hashes[name]
+    assert compatible_probe_identity(saved, current)
+    for mutation in ("settings", "config", "dependencies", "inputs", "code_sha256"):
+        wrong = deepcopy(current)
+        wrong[mutation]["changed-policy-input"] = "changed"
+        assert not compatible_probe_identity(saved, wrong)
 
 
 @pytest.mark.parametrize("covered,absorbed,label", [(True, False, "M1a"), (True, True, "M1b"),
@@ -240,8 +392,11 @@ def test_coverage_qualified_decision_table(covered, absorbed, label):
     fce = {"episodes": [{"task_id": TASK_ID, "status": "closest_approach_found", "t_star": 0, "episode_length": 1}]}
     arms = {f"I{a}": {"samples": [{"sample_index": i, "success": a == 1} for i in range(5)]} for a in range(6)}
     interventions = {"episodes": [{"task_id": TASK_ID, "t": 0, "arms": arms, "task_type_covered": True}]}
-    cov = {"episodes": [{"task_id": TASK_ID, "t_star": 0, "covered": covered}]}
-    probe = {"episodes": [{"task_id": TASK_ID, "t_star": 0, "absorbed": absorbed}]}
+    # Instance evidence and legacy aliases disagree: only procedural evidence decides.
+    cov = {"episodes": [{"task_id": TASK_ID, "t_star": 0, "covered": not covered,
+                         "procedural": {"covered": covered}, "instance": {"covered": not covered}}]}
+    probe = {"episodes": [{"task_id": TASK_ID, "t_star": 0, "absorbed": not absorbed,
+                           "procedural": {"absorbed": absorbed}, "instance": {"absorbed": not absorbed}}]}
     result = build_readout(tax, fce, interventions, cov, probe)
     assert result["episodes"][0]["label"] == label
     assert result["coverage_decision_cells"]["M1_cell"][label]["count"] == 1
@@ -260,10 +415,11 @@ def test_coverage_qualified_decision_table(covered, absorbed, label):
 def test_real_run2_coverage_cpu_every_gap_has_status(tmp_path):
     source = Path("reports/runs/mechanism/k20s0-p20-bi/run2")
     verified = Path("data/verified/seeds_k20_s0")
-    if not (source/"fce/fce.json").exists() or not (verified/"manifest.json").exists():
+    old_path = Path("reports/runs/mechanism/k20s0-p20-bi/probes/coverage/coverage.json")
+    if not (source/"fce/fce.json").exists() or not (verified/"manifest.json").exists() or not old_path.exists():
         pytest.skip("Local read-only run2 artifacts not present")
     inputs = [source/"fce/fce.json", source/"interventions/interventions.json",
-              source/"launches/attempt-000/readout/readout.json", verified/"manifest.json"]
+              source/"launches/attempt-000/readout/readout.json", verified/"manifest.json", old_path]
     before = {str(p): file_hash(p) for p in inputs}
     result = coverage.main(["--fce", str(inputs[0]), "--verified", str(verified), "--output", str(tmp_path/"coverage")])
     gap = read_json(result["gap_path"])
@@ -271,6 +427,29 @@ def test_real_run2_coverage_cpu_every_gap_has_status(tmp_path):
     assert len(result["episodes"]) == len(gap["G"]["task_ids"])
     assert all(r["status"] for r in result["episodes"])
     assert result["student_calls"] == result["teacher_calls"] == result["environment_steps"] == 0
+    old = read_json(old_path)
+    assert result["status_counts_by_level"]["instance"] == old["status_counts"]
+    assert result["status_counts"]["covered"] > old["status_counts"]["covered"]
+    old_episodes = {r["task_id"]: r for r in old["episodes"]}
+    examples = {"clean {goal} with {sinkbasin}", "take {goal} from {countertop}", "move {goal} to {cart}"}
+    changed = set()
+    for ep in result["episodes"]:
+        previous = old_episodes[ep["task_id"]]
+        assert ep["instance"]["status"] == previous["status"]
+        for step, prev_step in zip(ep["needed_steps"], previous["needed_steps"], strict=True):
+            assert step["instance"]["pattern"] == prev_step["pattern"]
+            assert step["instance"]["covered_any_task_type"] == prev_step["covered_any_task_type"]
+            if step["pattern"] in examples and not prev_step["covered_any_task_type"]:
+                assert step["covered_any_task_type"] is True
+                changed.add(step["pattern"])
+    assert changed == examples
+    # A second coverage invocation appends a new attempt, preserving the first.
+    first = tmp_path/"coverage/attempt-000/coverage.json"
+    saved_hash = file_hash(first)
+    assert coverage.main(["--fce", str(inputs[0]), "--verified", str(verified),
+                          "--output", str(tmp_path/"coverage")]) == result
+    assert (tmp_path/"coverage/attempt-001/coverage.json").exists()
+    assert file_hash(first) == saved_hash
     assert {str(p): file_hash(p) for p in inputs} == before
     # Coverage alone can recompute the existing table; absent probes must remain unknown.
     readout = build_readout(gap, read_json(inputs[0]), read_json(inputs[1]), result)
@@ -291,7 +470,7 @@ def record(kind):
         f.write(json.dumps({"kind":kind,"args":args,"cuda":os.environ.get("CUDA_VISIBLE_DEVICES"),
                            "bi":os.environ.get("VLLM_BATCH_INVARIANT")})+"\n")
 if args[0]=="-":
-    data=json.loads(Path(args[1]).read_text());print(data.get("endpoint",data.get("gap_path")));sys.exit(0)
+    data=json.loads(Path(args[1]).read_text());print(data.get("endpoint",data.get("gap_path",data.get("output"))));sys.exit(0)
 out=Path(value("--output"))
 if args[:2]==["-m","analysis.mechanism.probe_launcher"]:
     record("preflight");out.mkdir(parents=True,exist_ok=True)
@@ -311,6 +490,9 @@ elif args[0]=="tools/check_lora_serving.py":
     (out/("reference.json" if kind=="hf" else "report.json")).write_text("{}")
 elif args[0]=="-m":
     kind=args[1].rsplit(".",1)[1];record(kind)
+    if kind in {"coverage","probes"}:
+        out=out/("attempt-%03d" % len(list(out.glob("attempt-*"))))
+        out.mkdir();print(json.dumps({"output":str(out)}))
     (out/(kind+".json")).write_text("{}")
     if kind==os.environ["FAKE_FAIL"]:sys.exit(2)
 else:raise AssertionError("Unexpected fake command")
@@ -344,4 +526,9 @@ else:raise AssertionError("Unexpected fake command")
             assert row["args"][row["args"].index("--port")+1] == "0"
     outputs = [r["args"][r["args"].index("--output")+1] for r in rows if r["kind"] == "readout"]
     assert len(set(outputs)) == len(outputs)
+    for row in rows:
+        if row["kind"] in {"probes", "readout"}:
+            assert "/coverage/attempt-" in row["args"][row["args"].index("--coverage")+1]
+        if row["kind"] == "readout":
+            assert "/probes/attempt-" in row["args"][row["args"].index("--probes")+1]
     assert file_hash(source/"fce/fce.json") == before

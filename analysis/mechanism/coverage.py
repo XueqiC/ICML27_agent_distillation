@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 
 from analysis.mechanism.common import (audit_states, completed_branch, gap_episodes, load_episode,
-                                      outcome, read_json, workspace)
+                                      new_attempt, outcome, read_json)
 from analysis.mechanism.fce import sample_distance
 from analysis.mechanism.goals import normal_type, parse_goal
 from analysis.mechanism.policies import validate_continuation
@@ -18,7 +18,8 @@ from sed.storage import digest, file_hash, write_json
 from sed.thinking import split_thinking
 from sed.visibility import visible_observation
 
-RULE = "Every non-navigation pattern occurs in at least one executed legal seed step; any task type decides coverage."
+LEVELS = ("procedural", "instance")
+RULE = "Every non-navigation procedural pattern occurs in at least one executed legal seed step; any task type decides coverage and the M1 gate."
 
 
 def action_pattern(action):
@@ -49,6 +50,21 @@ def action_pattern(action):
     if action in {"look", "inventory"}:
         return {"pattern": action, "navigation_only": True}
     return {"pattern": None, "navigation_only": False}
+
+
+def procedural_pattern(action, goal):
+    """Amendment 5: abstract the object slot relative to this action's own task.
+
+    Type equality, not instance identity, decides the role. Receptacles and
+    appliances (including unary use/open commands) retain their types.
+    """
+    result = action_pattern(action)
+    if result["pattern"] is not None:
+        goal_types = {normal_type(goal.object_type)}
+        result["pattern"] = re.sub(
+            r"\{obj:([^}]+)\}",
+            lambda m: "{goal}" if m[1] in goal_types else "{other}", result["pattern"])
+    return result
 
 
 def seed_states(episode, *, episode_path=None, receipt_sha256=None):
@@ -153,22 +169,33 @@ def shortest_takeover(fce_path, row, parent):
     return (selection, ep["steps"][t:]), "ok", samples
 
 
-def cover_steps(steps, t, task_type, states):
-    index = defaultdict(list)
+def cover_steps(steps, t, goal, states):
+    indices = {level: defaultdict(list) for level in LEVELS}
     for state in states:
         if state["demonstrated"] and state["pattern"] is not None:
-            index[state["pattern"]].append(state_evidence(state))
+            indices["instance"][state["pattern"]].append(state_evidence(state))
+            pattern = procedural_pattern(state["seed_action"], parse_goal(state["task_id"]))["pattern"]
+            indices["procedural"][pattern].append(state_evidence(state))
     needed = []
     for offset, step in enumerate(steps, 1):
-        pattern = action_pattern(step["action_parsed"])
-        matches = index[pattern["pattern"]] if pattern["pattern"] else []
-        same = [s for s in matches if s["task_type"] == task_type]
-        preferred = same or matches
+        patterns = {"instance": action_pattern(step["action_parsed"]),
+                    "procedural": procedural_pattern(step["action_parsed"], goal)}
+        levels = {}
+        for level, pattern in patterns.items():
+            matches = indices[level][pattern["pattern"]] if pattern["pattern"] else []
+            same = [s for s in matches if s["task_type"] == goal.task_type]
+            preferred = same or matches
+            levels[level] = {**pattern,
+                            "covered_same_task_type": bool(same), "covered_any_task_type": bool(matches),
+                            "same_task_type": same, "any_task_type": matches,
+                            "preferred_evidence": preferred[0] if preferred else None}
         needed.append({"step": t+offset, "takeover_step": offset, "action": step["action_parsed"],
-                       "action_outcome": step["action_outcome"], **pattern,
-                       "covered_same_task_type": bool(same), "covered_any_task_type": bool(matches),
-                       "same_task_type": same, "any_task_type": matches,
-                       "preferred_evidence": preferred[0] if preferred else None})
+                       "action_outcome": step["action_outcome"], **levels, **levels["procedural"]})
+    levels = {level: coverage_summary([r[level] for r in needed]) for level in LEVELS}
+    return {"needed_steps": needed, **levels, **levels["procedural"]}
+
+
+def coverage_summary(needed):
     relevant = [r for r in needed if not r["navigation_only"]]
     def covered(key):
         # No substantive step gives no evidence for M1 (avoid vacuous attribution).
@@ -178,8 +205,8 @@ def cover_steps(steps, t, task_type, states):
             return False
         return None if any(r["pattern"] is None for r in relevant) else True
     any_type, same_type = covered("covered_any_task_type"), covered("covered_same_task_type")
-    return {"needed_steps": needed, "non_navigation_steps": len(relevant),
-            "covered": any_type, "covered_any_task_type": any_type, "covered_same_task_type": same_type,
+    return {"non_navigation_steps": len(relevant), "covered": any_type,
+            "covered_any_task_type": any_type, "covered_same_task_type": same_type,
             "status": ("covered" if any_type is True else "not_covered" if any_type is False else
                        "navigation_only" if not relevant else "unknown_pattern")}
 
@@ -212,15 +239,21 @@ def compute_coverage(*, fce_path, verified, config, gap_path=None):
             entry.update(status=status, takeover_samples=samples)
             if chosen:
                 selection, steps = chosen
-                entry.update(cover_steps(steps, row["t_star"], entry["task_type"], states), selected_takeover=selection)
+                entry.update(cover_steps(steps, row["t_star"], parse_goal(task_id), states), selected_takeover=selection)
+        for level in LEVELS:
+            entry.setdefault(level, {k: entry[k] for k in (
+                "covered", "covered_same_task_type", "covered_any_task_type", "status")})
         results.append(entry)
-    return {"schema_version": 1, "purpose": "diagnosis", "rule": RULE,
-            "pattern_definition": "verb + object type + receptacle/appliance type; instance numbers removed; put aliases move",
+    return {"schema_version": 2, "amendment": 5, "coverage_level": "procedural", "purpose": "diagnosis", "rule": RULE,
+            "pattern_definition": {
+                "procedural": "verb + object role ({goal} iff its normalized type equals the task goal object type, else {other}) + receptacle/appliance type",
+                "instance": "Amendment 4: verb + object type + receptacle/appliance type; instance numbers removed; put aliases move"},
             "preference": "same task type evidence first; report both scopes; any task type is the coverage gate",
             "gap_path": str(Path(gap_path).resolve()), "gap_sha256": file_hash(gap_path),
             "fce_path": str(Path(fce_path).resolve()), "fce_sha256": file_hash(fce_path),
             "student_binding": binding, "training_collection": collection,
             "episodes": results, "status_counts": dict(Counter(e["status"] for e in results)),
+            "status_counts_by_level": {level: dict(Counter(e[level]["status"] for e in results)) for level in LEVELS},
             "environment_steps": 0, "teacher_calls": 0, "student_calls": 0, "training_exposure": 0}, inputs
 
 
@@ -242,18 +275,14 @@ def main(argv=None):
     parser.add_argument("--fce", required=True)
     parser.add_argument("--gap-set")
     parser.add_argument("--verified", required=True)
-    parser.add_argument("--output", required=True, help="Owned analysis directory; identical coverage can resume")
+    parser.add_argument("--output", required=True, help="Analysis workspace; every invocation writes a new attempt directory")
     args = parser.parse_args(argv)
     config = load_config(args.config)
     result, seed_inputs = compute_coverage(fce_path=args.fce, verified=args.verified, config=config, gap_path=args.gap_set)
-    output = workspace(args.output, config=config, command="coverage", identity={"coverage_sha256": digest(result)},
+    output = new_attempt(args.output, config=config, command="coverage",
                         inputs=[args.config, result["gap_path"], args.fce, *seed_inputs],
                         details={"student_binding": result["student_binding"], "training_collection": result["training_collection"]})
-    if (output/"coverage.json").exists():
-        if read_json(output/"coverage.json") != result:
-            raise ValueError("Existing coverage changed")
-    else:
-        write_json(output/"coverage.json", result, exclusive=True)
+    write_json(output/"coverage.json", result, exclusive=True)
     print(json.dumps({"output": str(output), "episodes": len(result["episodes"]), "status_counts": result["status_counts"]}))
     return result
 
