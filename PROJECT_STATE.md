@@ -14,7 +14,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **hpg tree 57c9365**: K=1/2 Seed-SFT — 44842264 train array (6 runs k1s0,k2s0,k1s1,k2s1,k1s2,k2s2, %3; grid
   configs/seedsft_dose_grid_v2_k12_ready.json prepared on hpg, committed), 44842265 BI dev140 eval array (aftercorr) →
   $B/reports/runs/train/seedsft-k{1,2}s*-hpg, $B/reports/runs/eval/seedsft-sweep-bi-v2k12 (add as --sweep-root/--grid in main_results).
-- Kang cells (official + SAG): K5 57/98/68, K10 80/(s1 running)/85, K20 63/75/110 (base 62). 10–20 updates per cell (lr 2e-4 r64).
+- **Kang cells DONE** (official + SAG): K5 57/98/68 (mean 74.3), K10 80/71/85 (78.7), K20 63/75/110 (82.7) (base 62). 10–20 updates per cell (lr 2e-4 r64).
   Per-type table reports/figs/coverage-by-type/coverage_by_type.md: gains come from heat/cool (base 1/16, 1/25); K5 s1 omits only the
   easy type (best cell for both methods), K5 s0 omits cool (cool stays at base); coverage necessary not sufficient (s0 heat seed does
   not transfer). Kang K20 s0/s1 collapse on heat/cool/two with s2's coverage → suspected recipe instability.
