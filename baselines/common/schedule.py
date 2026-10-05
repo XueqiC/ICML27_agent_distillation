@@ -13,17 +13,30 @@ def dose(n_examples, original_batch, *, epochs=3):
             "last_batch": n_examples % batch or batch}
 
 
-def lr_multiplier(step, *, scheduler, total_steps, warmup_ratio):
-    if scheduler not in {"cosine", "constant_with_warmup"}:
+def warmup_count(total_steps, warmup_ratio, warmup_steps=None):
+    """Ratio uses HF ceil; an explicit integer also permits AgentGym's floor."""
+    if total_steps < 1 or not 0 <= warmup_ratio <= 1:
+        raise ValueError("Invalid scheduler configuration")
+    if warmup_steps is not None:
+        if type(warmup_steps) is not int or warmup_steps < 0:
+            raise ValueError("warmup_steps must be a nonnegative integer")
+        return warmup_steps
+    return math.ceil(total_steps * warmup_ratio)
+
+
+def lr_multiplier(step, *, scheduler, total_steps, warmup_ratio, warmup_steps=None):
+    if scheduler not in {"cosine", "constant_with_warmup", "linear"}:
         raise ValueError("Unsupported scheduler")
     if total_steps < 1 or not 0 <= warmup_ratio <= 1 or step < 0:
         raise ValueError("Invalid scheduler configuration")
     # TrainingArguments.get_warmup_steps uses ceil, not floor/round.
-    warmup = math.ceil(total_steps * warmup_ratio)
+    warmup = warmup_count(total_steps, warmup_ratio, warmup_steps)
     if step < warmup:
         return float(step) / max(1, warmup)
     if scheduler == "constant_with_warmup":
         return 1.0
+    if scheduler == "linear":
+        return max(0.0, float(total_steps - step) / max(1, total_steps - warmup))
     progress = float(step - warmup) / max(1, total_steps - warmup)
     return max(0.0, 0.5 * (1.0 + math.cos(math.pi * progress)))
 

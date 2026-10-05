@@ -545,6 +545,73 @@ with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
 See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
 standalone commands, artifacts and the remaining GPU acceptance boundary.
 
+## Baselines: Stage 3b AgentGym BC / AgentEvol and Kang SFT + SAG
+
+`baselines/agentgym/` and `baselines/kang/` use the Stage 3a infrastructure.
+These are engineering ports, with offline validation and no learning results.
+See [AgentGym deviations](baselines/agentgym/DEVIATIONS.md),
+[Kang deviations](baselines/kang/DEVIATIONS.md), and
+[Stage 3b validation and exact HPG commands](reports/stage3b_validation.md).
+
+AgentGym BC is iteration 0. AgentEvol trains **from the base model** on D0..D3,
+one epoch each, lr 1e-5, linear decay, `int(.1 * total_steps)` warmup, wd 0,
+clip 1, full text-parameter FSDP2 on four B200s. The X5 batch shrinks from 32
+using the current dataset's trajectory count. After each training, one greedy
+rollout runs on each of the **K seed TRAIN tasks only**. Filter reward >.99,
+keep the first success per task within that round, prepend Fm to all of Dm,
+and preserve duplicate tasks/trajectories across rounds. Empty Fm still runs
+the next round. D4 is produced and never trained. Evaluation is separate.
+
+Kang trains a PEFT LoRA adapter from K seeds: r64/alpha128/dropout .05 on
+q/k/v/o/gate/up/down text projections, lr 2e-4, two epochs, X5 batch from 8,
+linear decay and zero warmup. One full trajectory is one sequence. The shared
+trainer keeps every assistant reply plus native 106 supervised, uses SDPA,
+training seed 0, and rejects lengths above 32768 without truncation. There is
+**no first-thought prefix**: missing upstream generation components are neither
+run nor recreated. The official repo pins TRL 0.19.1 but only bounds Transformers
+`>=4.0.0`; the deviation registry records this dependency-verification limit.
+
+SAG is opt-in: `eval/run_suite.py --policy student --decoding sag`. It requests
+eight samples per step at temperature .4, top_p .8, max1024. Candidates pass
+the unchanged parser plus the current admissible-action check (Thought remains
+optional). The largest action-string group wins, ties favor the earliest group,
+all singletons choose the first passing sample, and no passing samples choose
+sample 0. Only the winner reaches the environment. Step metadata retains every
+candidate, parsing decision and vote; total usage includes all samples. Default
+greedy requests, prompt, parser, template and caps are unchanged.
+
+Both pipelines use hash-bound resumable stages and preserve failed attempts.
+`disclosure.json` includes exposure across retries; K stays the original trusted
+trajectory count. AgentGym additionally writes `datasets.json` (D0..D4 paths),
+`models.json`, and per-iteration Dm/Fm/exposure records. A partial stage restarts
+in a new attempt; completed stages are hash checked and reused. Unknown or
+incomplete exploration stops its stage, retaining evidence and unknown costs.
+
+For later HPG execution, with paths adjusted to the desired K/support seed:
+
+```bash
+source configs/hpg.env
+cd "$PROJECT_ROOT"
+export VERIFIED="$PROJECT_ROOT/data/verified/seeds_k20_s0"
+export BATCH_INVARIANT=1
+export AGENTGYM_OUT="$PROJECT_ROOT/reports/runs/agentgym/k20-s0"
+sbatch --export=ALL scripts/hpg_agentgym.slurm
+# BC only: export AGENTGYM_THROUGH=train-0 before submission.
+# Separate evaluation of every completed full checkpoint:
+sbatch --gpus=1 --cpus-per-task=8 --mem=48G \
+  --export=ALL,AGENTGYM_MODE=evaluate scripts/hpg_agentgym.slurm
+
+export KANG_OUT="$PROJECT_ROOT/reports/runs/kang/k20-s0"
+sbatch --export=ALL scripts/hpg_kang.slurm
+```
+
+Kang evaluates through `scripts/hpg_eval_adapters.slurm` with `DECODING=sag`,
+`BATCH_INVARIANT=1`, and `ADAPTERS=kang-sft=CHECKPOINT_PATH` from `models.json`.
+The existing HF+PEFT/vLLM equivalence gate remains mandatory. Both new launchers
+enforce `VLLM_BATCH_INVARIANT=1` through `BATCH_INVARIANT=1`; no jobs were submitted
+during implementation. Full commands, including adapter-path extraction and
+resume boundaries, are in the validation report.
+
 ## Stages 4a–4d: mechanism analysis tooling
 
 `analysis/mechanism/` implements the fixed measurements and I0–I5 arms in

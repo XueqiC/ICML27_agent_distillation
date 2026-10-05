@@ -56,6 +56,9 @@ class Student:
     def sampling(self):
         return {"temperature": 0}
 
+    def select_choice(self, result, visible_context, blobs):
+        return result["choices"][0], {}
+
     def generate(self, history, task, visible_context):
         import httpx
         messages = self.messages(history, task, visible_context)
@@ -77,7 +80,7 @@ class Student:
             response = self.client.post(self.spec["endpoint"] + "/chat/completions", json=body)
             response.raise_for_status()
             result = response.json()
-            choice = result["choices"][0]
+            choice, selection_metadata = self.select_choice(result, visible_context, blobs)
             identity.update(returned_model_id=result.get("model"), response_id=result.get("id"),
                             response_created=result.get("created"),
                             raw_response_ref=blobs.put({k: choice["message"].get(k) for k in
@@ -104,6 +107,7 @@ class Student:
                             **self.sampling(), max_tokens=self.spec["max_tokens"],
                             parser_error="ActionParseError" if parsed is None else None,
                             action_outcome=outcome, policy="student")
+            metadata.update(selection_metadata)
             ledger.append(dict(metadata, status="completed"))
             return TeacherResult(reply, parsed, metadata)
         except Exception as exc:

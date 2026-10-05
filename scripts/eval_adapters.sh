@@ -12,6 +12,11 @@ MAX_TOKENS=${MAX_TOKENS:-1024}
 READY_TIMEOUT=${READY_TIMEOUT:-900}
 LORA_CONVERSION=${LORA_CONVERSION:-none}
 CONFIG=${CONFIG:-configs/base.yaml}
+DECODING=${DECODING:-greedy}
+case "$DECODING" in greedy|sag) ;; *) echo 'DECODING must be greedy or sag' >&2; exit 2 ;; esac
+if [[ "$DECODING" == sag && "$BATCH_INVARIANT" != 1 ]]; then
+    echo 'Stage 3b SAG requires BATCH_INVARIANT=1' >&2; exit 2
+fi
 MERGED_MODEL_PATH=${MERGED_MODEL_PATH:-}
 FULL_CHECKPOINT_NAME=${FULL_CHECKPOINT_NAME:-full-checkpoint}
 if [[ -n "$MERGED_MODEL_PATH" ]]; then
@@ -119,7 +124,7 @@ eval_model() {
     if [[ -n "$MERGED_MODEL_PATH" ]]; then output_name=$FULL_CHECKPOINT_NAME; fi
     shift
     CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" eval/run_suite.py --config "$CONFIG" \
-        --policy student --endpoint "$endpoint" --model-name "$request_model" \
+        --policy student --decoding "$DECODING" --endpoint "$endpoint" --model-name "$request_model" \
         --enable-thinking off --max-tokens 1024 --tasks "$TASKS" --workers "$WORKERS" \
         --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "$@"
 }

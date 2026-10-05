@@ -14,7 +14,7 @@ import time
 from types import SimpleNamespace
 
 from baselines.common.conversation import conversation, preference_conversation
-from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots
+from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots, warmup_count
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
@@ -133,7 +133,7 @@ def dpo_objective(model, reference, pair, device, *, beta):
 
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
-               reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu"):
+               reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None):
     import torch
     import torch.distributed as dist
     if objective not in {"sft", "dpo"} or not math.isfinite(learning_rate) or learning_rate <= 0:
@@ -149,7 +149,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     optimizer = torch.optim.AdamW(parameters, lr=learning_rate, betas=(0.9, 0.999), eps=1e-8,
                                  weight_decay=weight_decay, foreach=False, fused=False)
     lr_schedule = torch.optim.lr_scheduler.LambdaLR(optimizer, partial(lr_multiplier,
-                  scheduler=scheduler, total_steps=plan["total_steps"], warmup_ratio=warmup_ratio))
+                  scheduler=scheduler, total_steps=plan["total_steps"], warmup_ratio=warmup_ratio,
+                  warmup_steps=warmup_steps))
     model.train()
     if objective == "dpo":
         # Official DPOMultiTrainer disables dropout in both policy/reference.
@@ -299,19 +300,97 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
             "artifact_sha256": artifact_hashes(destination), "text_export_dtype": "bfloat16"}
 
 
+def prepare_lora_model(snapshot, *, device="cuda"):
+    """Kang's all-linear recipe restricted to the seven text projections."""
+    from train.modeling import attach_lora
+    model = load_student(snapshot, device=device, dtype="bfloat16" if device != "cpu" else "float32")
+    model.set_attn_implementation("sdpa")
+    return attach_lora(model, rank=64, alpha=128, dropout=0.05)
+
+
+def export_adapter(model, destination, provenance, state):
+    """PEFT artifacts with the existing serve_student/equivalence-gate schema."""
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=False)
+    model.save_pretrained(destination, safe_serialization=True)
+    state = {**state, "identity_sha256": digest(provenance), "final": True,
+             "artifact_sha256": artifact_hashes(destination), "packing": "episode",
+             "passes": state["epochs"], "supervised_tokens": state["supervised_tokens_seen"]}
+    write_json(destination / "training_state.json", state)
+    return state
+
+
+def train_lora(args):
+    """Single-GPU LoRA branch; the full-parameter FSDP path stays separate."""
+    import torch
+    from transformers import set_seed
+    if not torch.cuda.is_available() or int(os.environ.get("WORLD_SIZE", "1")) != 1:
+        raise RuntimeError("Kang LoRA production training requires one allocated GPU")
+    if Path(args.snapshot).resolve() != Path(args.base_snapshot).resolve():
+        raise ValueError("Kang SFT must start from the configured base snapshot")
+    started = time.monotonic()
+    set_seed(args.seed)
+    config = load_config(args.config)
+    if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
+            or config["environment"]["max_episode_steps"] != 40):
+        raise ValueError("Baseline harness protocol differs")
+    config["training"]["adaptation"] = "kang_lora"
+    manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+    collection, _, root = load_verified_collection(args.verified, manifest, freeze)
+    tokenizer = load_tokenizer(args.snapshot)
+    examples = [conversation(checked_episode(root, r), tokenizer, source="trusted_teacher_seed")
+                for r in collection["verified"]]
+    plan = dose(len(examples), args.original_batch, epochs=args.epochs)
+    model = prepare_lora_model(args.snapshot)
+    peft_config = model.peft_config["default"]
+    peft_config.revision = config["models"]["student"]["revision"]
+    base = snapshot_metadata(args.base_snapshot)
+    config["sft"] = {"base_snapshot": base, "packing": "episode", "rank": 64,
+                     "alpha": 128, "dropout": 0.05, "targets": sorted(peft_config.target_modules)}
+    config["baseline_training"] = {**vars(args), **plan, "world_size": 1,
+        "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
+        "examples_sha256": digest(examples), "template_sha256": digest(tokenizer.chat_template),
+        "attention": "sdpa", "compute_dtype": "bfloat16", "adapter_master_dtype": "float32",
+        "frozen_base_dtype": "bfloat16", "gradient_checkpointing": True, "no_truncation": True,
+        "packing": "episode", "microbatch": 1, "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
+        "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
+        "K": collection["K"], "unique_instances": collection["unique_instances"], "task_groups": collection["task_groups"]}
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=False)
+    provenance = write_provenance(output, command="baseline_kang_lora_train", config=config,
+        inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
+                Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"])
+    write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        state = train_loop(model, examples, output, objective="sft", learning_rate=args.learning_rate,
+            scheduler=args.scheduler, warmup_ratio=args.warmup_ratio, warmup_steps=args.warmup_steps,
+            original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
+            weight_decay=args.weight_decay, device="cuda")
+    state.update(adaptation="kang_lora", frozen_base_dtype="bfloat16")
+    staging = output / ".checkpoint.partial"
+    state = export_adapter(model, staging, provenance, state)
+    os.rename(staging, output / "checkpoint")
+    fsync_dir(output)
+    write_json(output / "result.json", {**state, "checkpoint": "checkpoint",
+               "wall_time_with_preparation_and_export_seconds": time.monotonic() - started})
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--objective", choices=["sft", "dpo"], required=True)
+    parser.add_argument("--adaptation", choices=["full", "kang_lora"], default="full")
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
     parser.add_argument("--reference")
     parser.add_argument("--verified")
+    parser.add_argument("--sft-data", help="Checked AgentGym accumulated dataset; excludes --verified")
     parser.add_argument("--pairs")
     parser.add_argument("--output", required=True)
     parser.add_argument("--learning-rate", type=float, required=True)
-    parser.add_argument("--scheduler", choices=["cosine", "constant_with_warmup"], required=True)
+    parser.add_argument("--scheduler", choices=["cosine", "constant_with_warmup", "linear"], required=True)
     parser.add_argument("--warmup-ratio", type=float, required=True)
+    parser.add_argument("--warmup-steps", type=int, help="Explicit integer, including zero; overrides ratio")
     parser.add_argument("--original-batch", type=int, required=True)
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--weight-decay", type=float, default=0.0)
@@ -322,6 +401,12 @@ def main(argv=None):
     preparation_started = time.monotonic()
     if args.max_length != 32768:
         parser.error("Registered no-truncation limit is 32768")
+    if args.objective == "sft" and bool(args.verified) == bool(args.sft_data):
+        parser.error("SFT requires exactly one of --verified or --sft-data")
+    if args.adaptation == "kang_lora":
+        if args.objective != "sft" or not args.verified or args.sft_data:
+            parser.error("Kang LoRA requires seed SFT")
+        return train_lora(args)
     if args.objective == "dpo" and (not args.reference or Path(args.reference).resolve() != Path(args.snapshot).resolve()):
         parser.error("Reference must be the iteration-start policy snapshot")
     import torch
@@ -348,10 +433,15 @@ def main(argv=None):
         tokenizer = load_tokenizer(args.snapshot)
         inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
         if args.objective == "sft":
-            collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-            examples = [conversation(checked_episode(root, receipt), tokenizer, source="trusted_teacher_seed")
-                        for receipt in collection["verified"]]
-            inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
+            if args.sft_data:
+                from baselines.agentgym.data import training_examples
+                examples = training_examples(args.sft_data, config, tokenizer)
+                inputs += [args.sft_data, Path(args.sft_data).parent / "provenance.json"]
+            else:
+                collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
+                examples = [conversation(checked_episode(root, receipt), tokenizer, source="trusted_teacher_seed")
+                            for receipt in collection["verified"]]
+                inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
         else:
             from baselines.eto.pairs import load_pair_data
             pairs = load_pair_data(args.pairs, config)
@@ -371,7 +461,7 @@ def main(argv=None):
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": "episode", "microbatch": 1,
-                "warmup_steps": math.ceil(plan["total_steps"] * args.warmup_ratio),
+                "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": "iteration_start" if args.objective == "dpo" else None,
                 "label_smoothing": 0.0, "sft_term_in_dpo": False}
             provenance = write_provenance(output, command="baseline_fsdp_train", config=config, inputs=inputs)
@@ -384,7 +474,8 @@ def main(argv=None):
         state = train_loop(model, examples, output, objective=args.objective,
                     learning_rate=args.learning_rate, scheduler=args.scheduler, warmup_ratio=args.warmup_ratio,
                     original_batch=args.original_batch, epochs=args.epochs, seed=args.seed, beta=args.beta,
-                    reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device)
+                    reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device,
+                    warmup_steps=args.warmup_steps)
         # Release reference before gathering the final standalone policy.
         del reference
         torch.cuda.empty_cache()

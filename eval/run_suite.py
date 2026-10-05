@@ -51,7 +51,8 @@ def policy_condition(policy, spec, config):
         name = "full_parameter_student"
     if spec["model"] != config["models"]["student"]["requested_repo"]:
         name = "lora_student"
-    return name + "_thinking_" + str(spec["enable_thinking"]).lower()
+    condition = name + "_thinking_" + str(spec["enable_thinking"]).lower()
+    return condition + "_sag" if spec.get("decoding") == "sag" else condition
 
 
 def _worker(job):
@@ -61,7 +62,13 @@ def _worker(job):
     try:
         verify_task_files(config["environment"]["data_root"], task)
         if policy_name == "student":
-            policy = Student(log_dir=output / "student_calls", **spec)
+            student_spec = dict(spec)
+            decoding = student_spec.pop("decoding", "greedy")
+            if decoding == "sag":
+                from students.sag_student import SAGStudent
+                policy = SAGStudent(log_dir=output / "student_calls", **student_spec)
+            else:
+                policy = Student(log_dir=output / "student_calls", **student_spec)
         else:
             teacher_spec = config["models"]["teacher"]
             policy = Teacher(cache_dir=output / "teacher_cache", usage_ledger=output / "teacher_usage.jsonl",
@@ -140,11 +147,15 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("workers must be positive")
     if policy not in {"student", "teacher"}:
         raise ValueError("Unknown suite policy")
+    if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag"}:
+        raise ValueError("Unknown student decoding")
     # The evaluated server is authoritative; the CPU worker's environment is not.
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
     batch_invariant = server.get("batch_invariant") if policy == "student" else None
     if batch_invariant is not None and type(batch_invariant) is not bool:
         raise ValueError("Server batch_invariant must be a boolean or unknown (null)")
+    if policy == "student" and spec.get("decoding") == "sag" and batch_invariant is not True:
+        raise ValueError("SAG requires batch-invariant server provenance")
     if policy == "student" and spec["model"] != config["models"]["student"]["requested_repo"]:
         from tools.check_lora_serving import validate_report
         if not config.get("server_provenance") or not config.get("lora_equivalence"):
@@ -196,6 +207,7 @@ def main(argv=None):
     parser.add_argument("--tasks", default="data/manifest/dev40.json")
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
+    parser.add_argument("--decoding", choices=("greedy", "sag"), default="greedy")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--model-name", help="Request model: base served name (default) or adapter NAME")
     parser.add_argument("--lora-check", help="Passing check_lora_serving report.json for this server/adapter")
@@ -206,6 +218,8 @@ def main(argv=None):
     parser.add_argument("--sealed-final", action="store_true")
     parser.add_argument("--server-provenance", help="Hash/copy the launcher provenance into this run")
     args = parser.parse_args(argv)
+    if args.decoding == "sag" and args.policy != "student":
+        parser.error("SAG is a student-only test-time policy")
     if args.max_tokens != 1024:
         parser.error("Stage 2b fixes the student per-step cap at 1024 tokens")
     config = load_config(args.config)
@@ -215,6 +229,8 @@ def main(argv=None):
     spec = dict(endpoint=args.endpoint, model=args.model_name or model["requested_repo"], revision=model["revision"],
                 enable_thinking=args.enable_thinking == "on", max_tokens=args.max_tokens,
                 timeout_seconds=args.timeout)
+    if args.decoding == "sag":
+        spec["decoding"] = "sag"
     inputs = [args.config]
     if args.server_provenance:
         inputs.append(args.server_provenance)

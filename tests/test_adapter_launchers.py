@@ -14,7 +14,7 @@ import pytest
     for scenario, include_base in (("pass", True), ("pass", False), ("check_a", True),
                                    ("check_a", False), ("check_b", True), ("check_all", True),
                                    ("check_error", True), ("hf_a", True))
-] + [("hpg_full", "pass", True)])
+] + [("hpg_full", "pass", True), ("hpg_sag", "pass", False), ("hpg_sag", "check_a", False)])
 def test_launcher_lifecycle(tmp_path, platform, scenario, include_base):
     fake = tmp_path / "fake-python"
     fake.write_text("#!" + sys.executable + "\n" + r'''
@@ -78,7 +78,7 @@ else:
     out = tmp_path / "out"
     env = os.environ.copy()  # Never log the complete environment.
     env.pop("BATCH_INVARIANT", None)
-    expected_bi = "0" if scenario == "pass" and not include_base else "1"
+    expected_bi = "0" if scenario == "pass" and not include_base and platform != "hpg_sag" else "1"
     if expected_bi == "0" or platform == "hpg_full":
         env["BATCH_INVARIANT"] = expected_bi
     env["VLLM_BATCH_INVARIANT"] = "1" if expected_bi == "0" else "0"
@@ -87,6 +87,7 @@ else:
                VERIFIED=str(tmp_path / "verified"), FAKE_LEDGER=str(ledger),
                FAKE_SCENARIO=scenario, ENABLE_THINKING="off",
                MAX_TOKENS="1024", READY_TIMEOUT="10", WORKERS="8", INCLUDE_BASE=str(int(include_base)))
+    env["DECODING"] = "sag" if platform == "hpg_sag" else "greedy"
     if platform == "rai":
         command = ["bash", "scripts/rai_eval_student.sh", "3", str(tasks), str(out)]
         if include_base:
@@ -101,6 +102,9 @@ else:
     result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
     assert result.returncode == int(scenario != "pass"), result.stderr
     rows = [json.loads(line) for line in ledger.read_text().splitlines()]
+    for row in rows:
+        if row["kind"] == "eval":
+            assert row["args"][row["args"].index("--decoding") + 1] == env["DECODING"]
     expected = ["hf", "hf", "server"] + (["eval"] if include_base else [])
     failed_names = ({"a", "b"} if scenario == "check_all" else
                     {"b"} if scenario == "check_b" else {"a"} if scenario != "pass" else set())
