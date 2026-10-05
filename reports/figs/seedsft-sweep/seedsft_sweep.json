@@ -2809,7 +2809,48 @@
    "label": "p30",
    "tokens": 140820,
    "passes": 30.0,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 86,
+   "rate": 0.6142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 29,
+    "only_b": 5,
+    "neither": 49,
+    "p": 3.8558151572942734e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 78,
+    "only_a": 8,
+    "only_b": 36,
+    "neither": 18,
+    "p": 2.5448598648836196e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 10,
@@ -2817,7 +2858,48 @@
    "label": "p40",
    "tokens": 187760,
    "passes": 40.0,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 98,
+   "rate": 0.7,
+   "vs_base": {
+    "n": 140,
+    "both": 58,
+    "only_a": 40,
+    "only_b": 4,
+    "neither": 38,
+    "p": 1.7051434042514302e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 89,
+    "only_a": 9,
+    "only_b": 25,
+    "neither": 17,
+    "p": 0.00904118549078703,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 10,
@@ -2825,7 +2907,48 @@
    "label": "t200k",
    "tokens": 200000,
    "passes": 42.61,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 104,
+   "rate": 0.7428571428571429,
+   "vs_base": {
+    "n": 140,
+    "both": 58,
+    "only_a": 46,
+    "only_b": 4,
+    "neither": 32,
+    "p": 4.461782054931973e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 95,
+    "only_a": 9,
+    "only_b": 19,
+    "neither": 17,
+    "p": 0.08715855330228806,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 10,
@@ -2833,7 +2956,48 @@
    "label": "t400k",
    "tokens": 400000,
    "passes": 85.22,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 103,
+   "rate": 0.7357142857142858,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 46,
+    "only_b": 5,
+    "neither": 32,
+    "p": 2.3280151140170346e-09,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 92,
+    "only_a": 11,
+    "only_b": 22,
+    "neither": 15,
+    "p": 0.08014331245794892,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 20,
@@ -3129,7 +3293,48 @@
    "label": "p30",
    "tokens": 271980,
    "passes": 30.0,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 92,
+   "rate": 0.6571428571428571,
+   "vs_base": {
+    "n": 140,
+    "both": 55,
+    "only_a": 37,
+    "only_b": 7,
+    "neither": 41,
+    "p": 5.299581744111492e-06,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 86,
+    "only_a": 6,
+    "only_b": 28,
+    "neither": 20,
+    "p": 0.00019512558355927467,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 20,
@@ -3137,7 +3342,48 @@
    "label": "p40",
    "tokens": 362640,
    "passes": 40.0,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 98,
+   "rate": 0.7,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 41,
+    "only_b": 5,
+    "neither": 37,
+    "p": 4.405936238072172e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 91,
+    "only_a": 7,
+    "only_b": 23,
+    "neither": 19,
+    "p": 0.005222879350185394,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   },
   {
    "K": 20,
@@ -3145,7 +3391,48 @@
    "label": "t400k",
    "tokens": 400000,
    "passes": 44.12,
-   "status": "gate_failed"
+   "status": "ok",
+   "reevaluated": "reports/runs/eval/hpg-seedsft-sweep-bi-reeval-s5",
+   "successes": 98,
+   "rate": 0.7,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 42,
+    "only_b": 6,
+    "neither": 36,
+    "p": 1.0087482138487758e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 92,
+    "only_a": 6,
+    "only_b": 22,
+    "neither": 20,
+    "p": 0.0037191659212112427,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
   }
  ]
 }

@@ -22,6 +22,8 @@ def main():
     parser.add_argument("--teacher", required=True)
     parser.add_argument("--grid", default="configs/seedsft_dose_grid.json")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--extra-root", action="append", default=[],
+                        help="re-evaluation roots (<root>/<run>-<label>/eval); used only for cells whose gate failed in --root")
     args = parser.parse_args()
     root, out = Path(args.root), Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -40,7 +42,13 @@ def main():
                      "passes": c["passes"], "status": "missing"}
             if (cell_dir / "check" / "FAILED").exists():
                 entry["status"] = "gate_failed"
-            elif (cell_dir / "eval" / "summary.json").exists():
+                for extra in args.extra_root:
+                    alt = Path(extra) / f"{run['name']}-{c['label']}"
+                    if (alt / "eval" / "summary.json").exists():
+                        cell_dir, entry["reevaluated"] = alt, str(Path(extra))
+                        entry["status"] = "pending_ok"
+                        break
+            if entry["status"] in ("missing", "pending_ok") and (cell_dir / "eval" / "summary.json").exists():
                 outcomes = load_run(cell_dir / "eval")["outcomes"]
                 s = sum(outcomes.values())
                 entry.update(status="ok", successes=s, rate=s / len(outcomes), vs_base=mcnemar(outcomes, base),
@@ -52,14 +60,15 @@ def main():
     labels = ["p03", "p05", "p10", "p20", "p30", "p40", "t100k", "t200k", "t400k"]
     lines = [f"Base {sum(base.values())}/{n} = {100 * sum(base.values()) / n:.1f}%; teacher {sum(teacher.values())}/{n} = "
              f"{100 * sum(teacher.values()) / n:.1f}%. Cells: successes/140; F = equivalence gate failed (not evaluated); "
-             "· = merged into a nearby pass point (within 5%).", "",
+             "· = merged into a nearby pass point (within 5%); † = evaluated after gate amendment 4 (schema 5).", "",
              "| K | support seed | " + " | ".join(labels) + " |", "|---|---|" + "---|" * len(labels)]
     for run in grid:
         row = []
         for label in labels:
             cell = next((c for c in cells if c["K"] == run["K"] and c["seed"] == run["support_seed"] and c["label"] == label), None)
             row.append("·" if cell is None else "F" if cell["status"] == "gate_failed" else
-                       "?" if cell["status"] == "missing" else str(cell["successes"]))
+                       "?" if cell["status"] == "missing" else
+                       str(cell["successes"]) + ("†" if cell.get("reevaluated") else ""))
         lines.append(f"| {run['K']} | s{run['support_seed']} | " + " | ".join(row) + " |")
     lines += ["", "Per-K means over the support seeds that have an evaluated cell (n seeds in brackets):", "",
               "| K | 3 passes | 10 passes | 20 passes | 40 passes | ~400k tokens | best cell (seed, dose): success, vs base only-row/only-base, p |",
