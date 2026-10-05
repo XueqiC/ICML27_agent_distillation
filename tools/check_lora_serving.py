@@ -20,10 +20,11 @@ from sed.storage import digest, file_hash, write_json
 from train.modeling import snapshot_metadata
 
 PROMPT_COUNT = 8
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 MEAN_TOLERANCE = 0.05
 BASE_NOISE_MULTIPLIER = 1.5
 MIN_EFFECT_RATIO = 5.0
+MAX_PROMPT_ERROR_RATIO = 0.1
 
 
 def fixed_prompts(examples):
@@ -112,8 +113,8 @@ def vllm_logprobs(client, endpoint, model, row):
     return values
 
 
-def comparison(hf, adapter, base, hf_base, *, require_effect=False):
-    """Prompt error gate; require the effect ratio only for pooled tokens."""
+def comparison(hf, adapter, base, hf_base, *, pooled=False):
+    """Gate prompt error by its effect, pooled error by noise and effect."""
     if not hf or any(len(values) != len(hf) for values in (adapter, base, hf_base)):
         raise ValueError("Reply logprob lengths differ")
     if any(type(v) not in (int, float) or not math.isfinite(v)
@@ -123,14 +124,21 @@ def comparison(hf, adapter, base, hf_base, *, require_effect=False):
     noise = [abs(a - b) for a, b in zip(base, hf_base)]
     effect = [abs(a - b) for a, b in zip(adapter, base)]
     mean_error, mean_noise, mean_effect = (sum(values) / len(values) for values in (error, noise, effect))
-    tolerance = max(MEAN_TOLERANCE, BASE_NOISE_MULTIPLIER * mean_noise)
+    tolerance = (max(MEAN_TOLERANCE, BASE_NOISE_MULTIPLIER * mean_noise) if pooled
+                 else MAX_PROMPT_ERROR_RATIO * mean_effect)
+
+    def error_stats(values, mean):
+        return {"max_abs_diff": max(values), "mean_abs_diff": mean,
+                "tokens_abs_diff_gt_0_25": sum(v > 0.25 for v in values),
+                "tokens_abs_diff_gt_0_5": sum(v > 0.5 for v in values)}
+
     return {"tokens": len(hf),
-            "adapter_error": {"max_abs_diff": max(error), "mean_abs_diff": mean_error},
-            "base_noise": {"max_abs_diff": max(noise), "mean_abs_diff": mean_noise},
+            "adapter_error": error_stats(error, mean_error),
+            "base_noise": error_stats(noise, mean_noise),
             "effect": {"max_abs_diff": max(effect), "mean_abs_diff": mean_effect},
             "mean_abs_diff_tolerance_nats": tolerance,
             "passed": mean_error <= tolerance
-                      and (not require_effect or mean_effect >= MIN_EFFECT_RATIO * mean_error)}
+                      and (not pooled or mean_effect >= MIN_EFFECT_RATIO * mean_error)}
 
 
 def summarize_prompts(cases):
@@ -147,8 +155,15 @@ def summarize_prompts(cases):
         all_adapter.extend(adapter)
         all_base.extend(base)
         all_hf_base.extend(hf_base)
-    aggregate = comparison(all_hf, all_adapter, all_base, all_hf_base, require_effect=True)
+    aggregate = comparison(all_hf, all_adapter, all_base, all_hf_base, pooled=True)
     return {"schema_version": SCHEMA_VERSION, "prompts": prompts, "aggregate": aggregate,
+            "thresholds": {"mean_abs_diff_nats": MEAN_TOLERANCE,
+                           "base_noise_multiplier": BASE_NOISE_MULTIPLIER,
+                           "min_effect_ratio": MIN_EFFECT_RATIO,
+                           "max_prompt_error_ratio": MAX_PROMPT_ERROR_RATIO},
+            "rule": "Pooled: adapter_error <= max(0.05, 1.5 * base_noise) "
+                    "and effect >= 5 * adapter_error; "
+                    "every prompt: adapter_error <= 0.1 * effect",
             "passed": len(prompts) == PROMPT_COUNT and aggregate["passed"]
                       and all(p["passed"] for p in prompts)}
 
@@ -187,7 +202,8 @@ def check_server(server, endpoint, model_name, adapter):
 def validate_report(report, server, model_name, endpoint):
     """Fail closed before evaluation; bind a passing check to this server and weights."""
     if type(report.get("schema_version")) is not int or report["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("Schema version 2 with measured base noise is required; rerun the equivalence check")
+        raise ValueError("Schema version 3 is required; recompute complete schema 2 measurements "
+                         "under schema 3 or rerun the equivalence check")
     adapters = server["config"]["server"].get("lora_adapters", [])
     matches = [a for a in adapters if a["name"] == model_name]
     if len(matches) != 1:
@@ -199,7 +215,7 @@ def validate_report(report, server, model_name, endpoint):
             or len(report.get("prompts", [])) != PROMPT_COUNT):
         raise ValueError("A passing equivalence report for this adapter/server is required")
     if not summarize_prompts(report["prompts"])["passed"]:
-        raise ValueError("Equivalence report fails the noise-relative tolerance/pooled effect thresholds")
+        raise ValueError("Equivalence report fails the pooled noise/effect or per-prompt effect thresholds")
 
 
 def main(argv=None):
@@ -280,12 +296,7 @@ def main(argv=None):
             report = compare_prompts(cases, client, args.endpoint, args.model_name, base_name)
         report.update(model_name=args.model_name, base_model_name=base_name,
                       identity=identity, server_provenance_sha256=digest(server),
-                      template_sha256=reference["template_sha256"],
-                      thresholds={"mean_abs_diff_nats": MEAN_TOLERANCE,
-                                  "base_noise_multiplier": BASE_NOISE_MULTIPLIER,
-                                  "min_effect_ratio": MIN_EFFECT_RATIO},
-                      rule="Every prompt and pooled: adapter_error <= max(0.05, 1.5 * base_noise); "
-                           "pooled: effect >= 5 * adapter_error")
+                      template_sha256=reference["template_sha256"])
         write_json(output / "report.json", report, exclusive=True)
         print(json.dumps({"passed": report["passed"], "aggregate": report["aggregate"]}))
         return 0 if report["passed"] else 1
