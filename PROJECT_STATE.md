@@ -7,7 +7,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
   all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
-- **hpg 44806889** (dept, 2×B200): AgentGym K=20 s0 — iteration 1 (explore-1) at 08:4x CDT.
+- AgentGym K=20 s0 training DONE (44806889, 1:07; F_m 8/12/7). **hpg 44815253** (dept, 1×B200): AgentGym evaluate mode — dev140 of bc / iter-1..3, one model per server (canonical).
 - rai GPU1 mechanism run2: **FCE done** (24/24 closest approach; median D(t*) ≈ 5, ≈ 25 turns left; look_at_obj D(t*) = 1 in 3/4) →
   I0–I5 interventions running since ~08:35 CDT (290/720 continuations at 09:10) → readout ~10:00 CDT.
 - Contamination tests done: no server-state contamination (k10s2 check fails identically alone → OOD check prompts); but **BI determinism
