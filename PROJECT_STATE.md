@@ -5,7 +5,7 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg (tree 74cdb97)**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept, pending QOSGrpMemLimit); 44826360/44826361 LEAP privileged/zero
+- **hpg (tree 74cdb97)**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept, pending QOSGrpMemLimit); 44836718/44836719 LEAP privileged/zero (resubmitted after shipping third_party/leap_llm templates; first attempts died in 10 s)
   K20 s0 (moved to the group account 12:3x CDT, pending Priority).
 - **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT) extends
   seeds_k20_s{0,1,2} → data/verified/seeds_k100_s{0,1,2} (+ subsets k1/k2/k5/k10/k20/k50 with exact identity checks); logs
