@@ -115,12 +115,45 @@ def workspace(output, *, config, command, identity, inputs=()):
     identity["config"].pop("server_provenance", None)
     identity["config"].pop("lora_equivalence", None)
     if output.exists():
-        if not (output / "identity.json").is_file() or read_json(output / "identity.json") != identity:
+        if not (output / "identity.json").is_file():
             raise ValueError("Resume identity changed; use a new analysis workspace")
+        saved = read_json(output / "identity.json")
+        if saved != identity:
+            if not compatible_identity(saved, identity):
+                raise ValueError("Resume identity changed; use a new analysis workspace")
+            # Preserve the original identity and record the exact engineering
+            # transition. Individual resumed attempts retain current provenance.
+            proof = output/"resume_compatibility"/(digest(identity) + ".json")
+            try:
+                write_json(proof, {"original_identity": saved, "execution_identity": identity}, exclusive=True)
+            except FileExistsError:
+                if read_json(proof) != {"original_identity": saved, "execution_identity": identity}:
+                    raise ValueError("Resume compatibility evidence changed") from None
     else:
         new_output(output, config=config, command=command, inputs=inputs)
         write_json(output / "identity.json", identity, exclusive=True)
     return output
+
+
+def compatible_identity(saved, current):
+    """Only the explicitly pinned Stage 4c engineering transition may resume."""
+    if saved.get("command") not in {"launcher", "fce", "interventions"}:
+        return False
+    registry = read_json(ROOT/"analysis/mechanism/resume_compatibility.json")
+    if {"from": digest(saved.get("code_sha256")), "to": digest(current.get("code_sha256"))} not in registry["transitions"]:
+        return False
+    def semantic(identity):
+        identity = deepcopy(identity)
+        identity.pop("code_sha256")
+        # Only checkout-local input locations move. Their exact content hashes,
+        # all config/settings, external data paths and dependencies still match.
+        plans = [p for p in identity["inputs"] if p.endswith("/docs/MECHANISM_PLAN.md")]
+        if len(plans) == 1:
+            checkout = str(Path(plans[0]).parents[1]) + "/"
+            identity["inputs"] = {("checkout:"+p[len(checkout):] if p.startswith(checkout) else p): sha
+                                  for p, sha in identity["inputs"].items()}
+        return identity
+    return semantic(saved) == semantic(current)
 
 
 def budget_directory(requested, own):

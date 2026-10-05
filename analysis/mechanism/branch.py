@@ -6,7 +6,7 @@ from pathlib import Path
 from analysis.mechanism.common import (analysis_inputs, authorize_episode, budget_directory, frozen_episode, output_guard,
                                       read_json, new_output)
 from analysis.mechanism.examples import load_seeds, render_example, select_example
-from analysis.mechanism.policies import (ADVICE_INSTRUCTION, ADVICE_PROMPT_TEMPLATE, BranchStudent, TeacherBudget,
+from analysis.mechanism.policies import (ADVICE_INSTRUCTION, ADVICE_PROMPT_TEMPLATE, BranchStudent, BudgetExceeded, TeacherBudget,
     add_budget_args, add_student_args, make_teacher, student_spec, validate_continuation)
 from analysis.mechanism.visible import information_action, restatement
 from harness.alfworld_env import ReplayMismatch
@@ -177,6 +177,10 @@ def run_branch(env, continuation, task, config, parent, t, output, *, arm="takeo
                               purpose="diagnosis",
                               parent_seed_ids=[example["episode"]["episode_id"]] if arm == "I5" and example else [],
                               input_paths=analysis_inputs(config, [*inputs, *([parent_path] if parent_path else [])]))
+    except Exception:
+        if controller.failure == "BudgetExceeded":
+            raise BudgetExceeded("Teacher cap reached; branch remains incomplete") from None
+        raise
     finally:
         if (output / "episode.json").exists():
             episode = read_json(output / "episode.json")

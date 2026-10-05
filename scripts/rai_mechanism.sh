@@ -2,6 +2,8 @@
 # Later authorized live use only. GPU GAP_JSON VERIFIED OUT NAME=ADAPTER
 set -euo pipefail
 BATCH_INVARIANT=${BATCH_INVARIANT:-1}
+WORKERS=${WORKERS:-8}
+[[ "$WORKERS" =~ ^[1-9][0-9]*$ ]] || { echo 'WORKERS must be a positive integer' >&2; exit 2; }
 case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2; exit 2 ;; esac
 export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 [[ $# == 5 && "$1" =~ ^[0-9]+$ && "$5" == *=* ]] || {
@@ -80,7 +82,7 @@ CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --con
     --hf-reference "$launch/hf/reference.json" --endpoint "$endpoint" \
     --server-provenance "$launch/server/provenance.json" --output "$launch/check"
 common=(--config "$CONFIG" --gap-set "$GAP_SET" --max-teacher-calls "$MAX_TEACHER_CALLS"
-        --max-teacher-calls-run "$MAX_TEACHER_CALLS_RUN" --budget-dir "$OUT")
+        --max-teacher-calls-run "$MAX_TEACHER_CALLS_RUN" --budget-dir "$OUT" --workers "$WORKERS")
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.fce "${common[@]}" --output "$OUT/fce"
 CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m analysis.mechanism.interventions "${common[@]}" \
     --fce "$OUT/fce/fce.json" --verified "$VERIFIED" --output "$OUT/interventions" \

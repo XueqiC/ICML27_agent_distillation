@@ -7,6 +7,7 @@ from analysis.mechanism.branch import run_branch
 from analysis.mechanism.common import (attempt_path, budget_directory, completed_branch, gap_episodes, read_json,
                                       seal_branch, workspace)
 from analysis.mechanism.examples import load_seeds, select_example
+from analysis.mechanism.parallel import run_units, validate_workers
 from analysis.mechanism.policies import (BranchStudent, TeacherBudget, add_budget_args,
                                       add_student_args, make_teacher, student_spec, validate_continuation)
 from sed.config import load_config
@@ -31,6 +32,10 @@ class SharedInterventionTeacher(Teacher):
         self.spec = teacher.spec
 
     def generate(self, history, task, current):
+        with locked(str(self.path) + ".lock"):
+            return self._generate_shared(history, task, current)
+
+    def _generate_shared(self, history, task, current):
         key = digest({"messages": build_messages(history, task, current), "advice": self.advice})
         if self.path.exists():
             row = read_json(self.path)
@@ -58,10 +63,54 @@ def arm_outcome(samples):
             "sample_successes": count, "greedy_success": by_index[0]["success"]}
 
 
+class SharedOutputIncomplete(RuntimeError):
+    incomplete = True
+
+
+def _continuation(unit):
+    (row, parent, task, t, arm, index, root, output, config, spec, budget, sampling_seed,
+     subject, gap_path, fce_path, seed_inputs, example, env_factory, teacher_factory,
+     student_factory, branch_fn) = unit
+    name = f"{arm}/sample{index}"
+    receipt = completed_branch(root/name)
+    if receipt is not None:
+        return {"sample_index": index, **receipt}
+    attempt = attempt_path(root, name)
+    attempt.mkdir(parents=True, exist_ok=False)
+    seed = int(digest([sampling_seed, task["task_id"], index])[:8], 16)
+    try:
+        shared = root/arm/"shared_teacher_output.json"
+        # The scheduler completes sample zero first. Never let a follower steal
+        # its billed output or repeat a rejected/interrupted producer call.
+        if arm in {"I3", "I4"} and index and not shared.exists():
+            raise SharedOutputIncomplete("Shared teacher producer is incomplete")
+        student = student_factory(**spec, log_dir=attempt/"episode/student_calls",
+                                  sample_index=index, sampling_seed=seed)
+        teacher = None
+        if arm in {"I3", "I4"}:
+            teacher = SharedInterventionTeacher(teacher_factory(config, output, budget, parent["episode_id"],
+                namespace=digest([parent["episode_id"], t, arm, subject]), sample_index=0, advice=arm == "I3"),
+                shared, arm == "I3")
+        ep = branch_fn(env_factory(config, task), student, task, config, parent, t,
+            attempt/"episode", arm=arm, sample_index=index, sampling_seed=seed,
+            teacher=teacher, example=example, parent_path=row["episode_path"],
+            inputs=[gap_path, fce_path, "docs/MECHANISM_PLAN.md", *seed_inputs],
+            replay_check=subject == "student")
+        return {"sample_index": index, **seal_branch(attempt, ep)}
+    except Exception as exc:
+        incomplete = getattr(exc, "incomplete", False)
+        status = "incomplete" if incomplete else "error"
+        write_json(attempt/("incomplete.json" if incomplete else "failure.json"),
+            {"error_type": type(exc).__name__, "arm": arm, "sample_index": index,
+             "status": status, "success": "unknown"}, exclusive=True)
+        return {"sample_index": index, "success": "unknown", "status": status}
+
+
 def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max_episode, max_run,
-                      budget_dir=None, sampling_seed=0, subject="student", env_factory=_environment,
+                      budget_dir=None, sampling_seed=0, subject="student", workers=1, env_factory=_environment,
                       teacher_factory=make_teacher, student_factory=BranchStudent, branch_fn=run_branch,
                       seeds=None):
+    validate_workers(workers)
     _, population = gap_episodes(gap_path, config)
     fce = read_json(fce_path)
     if Path(fce["gap_path"]).resolve() != Path(gap_path).resolve():
@@ -87,7 +136,7 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
     output = workspace(output, config=config, command="interventions", identity=identity,
                        inputs=[gap_path, fce_path, *seed_inputs])
     budget = TeacherBudget(budget_directory(budget_dir, output)/"budget.json", max_episode=max_episode, max_run=max_run)
-    results = []
+    results, units, costs, dependencies, groups = [], [], [], {}, []
     with locked(output / ".orchestrator.lock"):
         for row, parent, task in population:
             verify_task_files(config["environment"]["data_root"], task)
@@ -109,50 +158,34 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
                 if arm == "I5" and example is None:
                     entry["arms"][arm] = {"status": "no_same_type_seed", "rescue": None, "samples": []}
                     continue
-                samples = []
+                start = len(units)
+                groups.append((entry, arm, start))
                 for index in range(5):
-                    name = f"{arm}/sample{index}"
-                    receipt = completed_branch(root/name)
-                    if receipt is None:
-                        attempt = attempt_path(root, name)
-                        attempt.mkdir(parents=True, exist_ok=False)
-                        seed = int(digest([sampling_seed, task["task_id"], index])[:8], 16)
-                        student = student_factory(**spec, log_dir=attempt/"episode/student_calls",
-                                                  sample_index=index, sampling_seed=seed)
-                        teacher = None
-                        if arm in {"I3", "I4"}:
-                            teacher = SharedInterventionTeacher(teacher_factory(config, output, budget, parent["episode_id"],
-                                namespace=digest([parent["episode_id"], t, arm, subject]), sample_index=0, advice=arm == "I3"),
-                                root/arm/"shared_teacher_output.json", arm == "I3")
-                        try:
-                            ep = branch_fn(env_factory(config, task), student, task, config, parent, t,
-                                attempt/"episode", arm=arm, sample_index=index, sampling_seed=seed,
-                                teacher=teacher, example=example, parent_path=row["episode_path"],
-                                inputs=[gap_path, fce_path, "docs/MECHANISM_PLAN.md", *seed_inputs],
-                                replay_check=subject == "student")
-                            receipt = seal_branch(attempt, ep)
-                        except Exception as exc:
-                            write_json(attempt/"failure.json", {"error_type": type(exc).__name__,
-                                "arm": arm, "sample_index": index, "success": "unknown"}, exclusive=True)
-                            samples.append({"sample_index": index, "success": "unknown", "status": "error"})
-                            break
-                    samples.append({"sample_index": index, **receipt})
-                    if arm == "I0" and index == 0 and subject == "student":
-                        entry["non_deterministic"] = receipt["branch"].get("non_deterministic", False)
-                summary = arm_outcome(samples)
-                entry["arms"][arm] = {**summary, "samples": samples, "status": "ok" if summary["complete"] else "incomplete"}
-                # Amendment 2: I0 divergence is audit metadata, not an exclusion.
-                # Incomplete controls remain unknown in the paired readout.
+                    units.append((row, parent, task, t, arm, index, root, output, config, spec, budget,
+                        sampling_seed, subject, gap_path, fce_path, seed_inputs, example, env_factory,
+                        teacher_factory, student_factory, branch_fn))
+                    bound = 0
+                    if arm in {"I3", "I4"}:
+                        if index:
+                            dependencies[len(units)-1] = [start]
+                        elif not (root/arm/"shared_teacher_output.json").exists():
+                            bound = config["models"]["teacher"]["max_attempts"]
+                    costs.append((parent["episode_id"], bound))
             results.append(entry)
-            root.mkdir(parents=True, exist_ok=True)
-            write_json(root/"result.json", entry)
-            write_json(output/"interventions.json", {"gap_path": str(Path(gap_path).resolve()),
-                "fce_path": str(Path(fce_path).resolve()), "subject": subject, "student": stable_spec,
-                "episodes": results, "budget": budget.read(),
-                "shared_teacher_output": "one I3/I4 output per arm, reused across the five student continuations"})
+        receipts = run_units(_continuation, units, workers=workers, budget=budget,
+                             costs=costs, dependencies=dependencies)
+        for entry, arm, start in groups:
+            samples = receipts[start:start+5]
+            if arm == "I0" and subject == "student":
+                entry["non_deterministic"] = samples[0].get("branch", {}).get("non_deterministic", False)
+            summary = arm_outcome(samples)
+            entry["arms"][arm] = {**summary, "samples": samples, "status": "ok" if summary["complete"] else "incomplete"}
+        for entry in results:
+            if entry["status"] != "no_fce":
+                write_json(output/"tasks"/digest(entry["task_id"])[:16]/"result.json", entry)
         write_json(output/"interventions.json", {"gap_path": str(Path(gap_path).resolve()),
             "fce_path": str(Path(fce_path).resolve()), "subject": subject, "student": stable_spec,
-            "episodes": results, "budget": budget.read(),
+            "episodes": results, "budget": budget.snapshot(),
             "shared_teacher_output": "one I3/I4 output per arm, reused across the five student continuations"})
     return read_json(output/"interventions.json")
 
@@ -166,15 +199,18 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--subject", choices=["student", "base"], default="student")
     parser.add_argument("--sampling-seed", type=int, default=0)
+    parser.add_argument("--workers", type=int, default=1, help="Concurrent state/arm/sample continuations")
     add_student_args(parser)
     add_budget_args(parser)
     args = parser.parse_args(argv)
+    if args.workers < 1:
+        parser.error("workers must be positive")
     config = load_config(args.config)
     spec = student_spec(config, args)
     result = run_interventions(gap_path=args.gap_set, fce_path=args.fce, verified=args.verified,
         output=args.output, config=config, spec=spec, max_episode=args.max_teacher_calls,
         max_run=args.max_teacher_calls_run, budget_dir=args.budget_dir,
-        subject=args.subject, sampling_seed=args.sampling_seed)
+        subject=args.subject, sampling_seed=args.sampling_seed, workers=args.workers)
     incomplete = sum(e.get("status") == "incomplete_replay_check" or any(
         a["status"] == "incomplete" for a in e.get("arms", {}).values()) for e in result["episodes"])
     print(json.dumps({"output": args.output, "incomplete_episodes": incomplete, "budget_used": result["budget"]["total"]}))

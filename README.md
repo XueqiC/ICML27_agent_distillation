@@ -628,6 +628,41 @@ The existing teacher cache, usage ledger and shared rate limiter remain in use.
 Caps are fixed on resume; exhaustion is recorded as incomplete, never failure.
 Use `--budget-dir OWNED_MECHANISM_WORKSPACE` to share caps across FCE and arms.
 
+Stage 4c adds `--workers N` to both `fce` and `interventions` (default **1**).
+FCE uses an episode process pool; with N > 1, each episode can run its two
+teacher samples concurrently in separate processes. Its adaptive probe and
+refinement order remains sequential. Interventions pool individual
+(state, arm, sample) continuations. Every branch creates its own environment;
+spawned processes isolate ALFWorld's Python/NumPy RNG state. I3/I4 sample zero
+produces the shared output before that arm's other samples start, preserving
+which sample records the billed usage; a file lock also protects the output.
+
+Seeds, cache keys, sample indices and attempt paths do not use N. Summaries
+are written in frozen episode/arm/sample order after workers finish. Their
+budget reservation lists are sorted; the durable budget and usage ledgers
+retain actual arrival order. HTTP-attempt reservation is atomic across
+processes, including retries. Conservative scheduling headroom preserves
+serial budget priority: if concurrent units could hit a cap, dispatch narrows
+until earlier units finish. This can reduce concurrency with small caps or
+large retry limits. Scheduling headroom is never billed. Denied units retain
+unknown outcomes and `incomplete.json`, and remain incomplete in episode and
+teacher usage records. Completed attempts are validated and skipped on resume.
+
+Worker count is excluded from both workspace and resume identities. An exact
+hash-pinned compatibility entry in
+`analysis/mechanism/resume_compatibility.json` permits the Stage 4b code at
+`3045b60` to resume with this engineering implementation, including checkout
+relocation of content-identical inputs. Config, dependencies, caps, model and
+data identities still must match. Original identity/provenance and completed
+receipts remain intact; `resume_compatibility/` records the transition and new
+attempts record current source hashes. Unlisted code changes still refuse
+resume. A workspace frozen under Amendment 2 cannot resume against Amendment 3's
+different plan hash; this engineering compatibility entry does not authorize a
+protocol change. Offline fake-pipeline tests compare byte-identical receipts and
+summaries for N=1/4 with fixed clocks/IDs and test interrupted-workspace resume
+and contended caps. Live API samples, timestamps and latency retain their real
+values; this engineering validation makes no new model reproducibility claim.
+
 `branch` accepts `--episode FILE --t N --policy teacher|student --arm takeover|I0|…|I5`.
 Student continuation requires `--endpoint URL --model-name NAME`; adapters also
 require `--server-provenance FILE --lora-check FILE`. `--sample-index 0` is
@@ -684,7 +719,7 @@ The resumable launcher runs one checked vLLM server for S and optional base:
 
 ```bash
 # Later live execution only; not part of Stage 4a validation.
-MAX_TEACHER_CALLS=400 MAX_TEACHER_CALLS_RUN=12000 INCLUDE_BASE=1 \
+MAX_TEACHER_CALLS=400 MAX_TEACHER_CALLS_RUN=12000 INCLUDE_BASE=1 WORKERS=8 \
   bash scripts/rai_mechanism.sh 1 reports/runs/my-mechanism-taxonomy/taxonomy.json \
   data/verified/seeds_k20_s0 reports/runs/my-mechanism \
   k20s0-p03=/path/to/checkpoint-tokens-31221
@@ -693,7 +728,9 @@ MAX_TEACHER_CALLS=400 MAX_TEACHER_CALLS_RUN=12000 INCLUDE_BASE=1 \
 It validates the gap/adapter/seed identity before GPU work, generates HF
 references before serving, allocates a free port via `serve_student.py --port 0`,
 and requires the existing equivalence gate before FCE → arms → readout. Runtime
-and model-path overrides match `rai_eval_student.sh`. Every restart uses new
+and model-path overrides match `rai_eval_student.sh`. `WORKERS` defaults to
+**8** and is passed to FCE and both student/base intervention runs; set it to
+1 for serial execution. Every restart uses new
 server/check directories. Only owned, hash-bound analysis workspaces resume;
 completed branch attempts are checked and skipped, interrupted attempts are
 preserved and retried in new directories. Original evaluations and seed data

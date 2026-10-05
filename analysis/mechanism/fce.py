@@ -7,6 +7,7 @@ from analysis.mechanism.branch import run_branch
 from analysis.mechanism.common import (attempt_path, budget_directory, completed_branch, gap_episodes, read_json,
                                       seal_branch, workspace)
 from analysis.mechanism.policies import TeacherBudget, add_budget_args, make_teacher
+from analysis.mechanism.parallel import process_pool, run_units, validate_workers
 from sed.config import load_config
 from sed.manifest import verify_task_files
 from sed.runner import _environment
@@ -63,14 +64,62 @@ def locate_fce(length, probe):
         return dict(result, status="incomplete")
 
 
-def run_fce(*, gap_path, output, config, max_episode, max_run, budget_dir=None,
+def _probe_sample(unit):
+    row, parent, task, t, index, root, output, config, budget, gap_path, env_factory, teacher_factory, branch_fn = unit
+    name = f"probes/t{t:02d}/sample{index}"
+    receipt = completed_branch(root / name)
+    if receipt is not None:
+        return receipt
+    attempt = attempt_path(root, name)
+    attempt.mkdir(parents=True, exist_ok=False)
+    try:
+        teacher = teacher_factory(config, output, budget, parent["episode_id"],
+            namespace=digest([parent["episode_id"], t, "takeover"]), sample_index=index)
+        ep = branch_fn(env_factory(config, task), teacher, task, config, parent, t,
+            attempt/"episode", arm="takeover", sample_index=index,
+            parent_path=row["episode_path"], inputs=[gap_path, "docs/MECHANISM_PLAN.md"])
+        return seal_branch(attempt, ep)
+    except Exception as exc:
+        incomplete = getattr(exc, "incomplete", False)
+        write_json(attempt/("incomplete.json" if incomplete else "failure.json"),
+            {"error_type": type(exc).__name__, "t": t, "sample_index": index,
+             "status": "incomplete" if incomplete else "error", "success": "unknown"}, exclusive=True)
+        return {"success": "unknown"}
+
+
+def _gap_episode(unit):
+    row, parent, task, output, config, budget, gap_path, workers, env_factory, teacher_factory, branch_fn = unit
+    verify_task_files(config["environment"]["data_root"], task)
+    root = output / "tasks" / digest(task["task_id"])[:16]
+    root.mkdir(parents=True, exist_ok=True)
+    sample_workers = 1 if workers == 1 else 2
+    def probe(t):
+        units = [(row, parent, task, t, index, root, output, config, budget, gap_path,
+                  env_factory, teacher_factory, branch_fn) for index in range(2)]
+        bound = (40-t)*config["models"]["teacher"]["max_attempts"]
+        costs = [(parent["episode_id"], 0 if completed_branch(root/f"probes/t{t:02d}/sample{i}")
+                  else bound) for i in range(2)]
+        samples = run_units(_probe_sample, units, workers=sample_workers,
+                            budget=budget, costs=costs, executor=pool)
+        if any(type(r["success"]) is not bool for r in samples):
+            raise IncompleteProbe("Probe has unknown outcome")
+        return any(r["success"] for r in samples)
+    with process_pool(sample_workers) as pool:
+        result = locate_fce(len(parent["steps"]), probe)
+    result.update(task_id=task["task_id"], parent_episode=parent["episode_id"],
+                  parent_path=row["episode_path"], episode_length=len(parent["steps"]),
+                  taxonomy_primary=row["primary"], taxonomy_labels=row["labels"])
+    return result
+
+
+def run_fce(*, gap_path, output, config, max_episode, max_run, budget_dir=None, workers=1,
             env_factory=_environment, teacher_factory=make_teacher, branch_fn=run_branch):
+    validate_workers(workers)
     _, population = gap_episodes(gap_path, config)
     identity = {"gap_path": str(Path(gap_path).resolve()), "max_episode": max_episode, "max_run": max_run,
                 "budget_dir": str(Path(budget_dir).resolve()) if budget_dir else None}
     output = workspace(output, config=config, command="fce", identity=identity, inputs=[gap_path])
     budget = TeacherBudget(budget_directory(budget_dir, output)/"budget.json", max_episode=max_episode, max_run=max_run)
-    results = []
     with locked(output / ".orchestrator.lock"):
         if (output/"fce.json").exists():
             saved = read_json(output/"fce.json")
@@ -82,46 +131,18 @@ def run_fce(*, gap_path, output, config, max_episode, max_run, budget_dir=None,
                             if completed_branch(root/f"probes/t{int(t):02d}/sample{index}") is None:
                                 raise ValueError("Completed FCE summary lacks its probe receipts")
                 return saved
-        for row, parent, task in population:
-            verify_task_files(config["environment"]["data_root"], task)
-            root = output / "tasks" / digest(task["task_id"])[:16]
-            root.mkdir(parents=True, exist_ok=True)
-            def probe(t):
-                samples = []
-                for index in range(2):
-                    name = f"probes/t{t:02d}/sample{index}"
-                    receipt = completed_branch(root / name)
-                    if receipt is None:
-                        attempt = attempt_path(root, name)
-                        attempt.mkdir(parents=True, exist_ok=False)
-                        teacher = teacher_factory(config, output, budget, parent["episode_id"],
-                            namespace=digest([parent["episode_id"], t, "takeover"]), sample_index=index)
-                        try:
-                            ep = branch_fn(env_factory(config, task), teacher, task, config, parent, t,
-                                attempt/"episode", arm="takeover", sample_index=index,
-                                parent_path=row["episode_path"], inputs=[gap_path, "docs/MECHANISM_PLAN.md"])
-                            receipt = seal_branch(attempt, ep)
-                        except Exception as exc:
-                            write_json(attempt/"failure.json", {"error_type": type(exc).__name__,
-                                "t": t, "sample_index": index, "success": "unknown"}, exclusive=True)
-                            raise IncompleteProbe("Probe interrupted; preserve unknown") from None
-                    if type(receipt["success"]) is not bool:
-                        raise IncompleteProbe("Probe has unknown outcome")
-                    samples.append(receipt)
-                return any(r["success"] for r in samples)
-            result = locate_fce(len(parent["steps"]), probe)
-            result.update(task_id=task["task_id"], parent_episode=parent["episode_id"],
-                          parent_path=row["episode_path"], episode_length=len(parent["steps"]),
-                          taxonomy_primary=row["primary"], taxonomy_labels=row["labels"])
-            # Workspace summaries may advance. All actual episode attempts are immutable.
-            write_json(root / "result.json", result)
-            results.append(result)
-            write_json(output/"fce.json", {"gap_path": str(Path(gap_path).resolve()),
-                "gap_size": len(population), "episodes": results, "budget": budget.read(),
-                "complete": len(results) == len(population) and all(r["status"] != "incomplete" for r in results)})
-        if not population:
-            write_json(output/"fce.json", {"gap_path": str(Path(gap_path).resolve()), "gap_size": 0,
-                "episodes": [], "budget": budget.read(), "complete": True})
+        state = budget.read()
+        units = [(row, parent, task, output, config, budget, gap_path, workers,
+                  env_factory, teacher_factory, branch_fn) for row, parent, task in population]
+        costs = [(parent["episode_id"], max(0, max_episode-state["episodes"].get(parent["episode_id"], 0)))
+                 for _, parent, _ in population]
+        results = run_units(_gap_episode, units, workers=workers, budget=budget, costs=costs)
+        # Only publish summaries after all workers finish, in frozen population order.
+        for result in results:
+            write_json(output/"tasks"/digest(result["task_id"])[:16]/"result.json", result)
+        write_json(output/"fce.json", {"gap_path": str(Path(gap_path).resolve()),
+            "gap_size": len(population), "episodes": results, "budget": budget.snapshot(),
+            "complete": all(r["status"] != "incomplete" for r in results)})
     return read_json(output/"fce.json")
 
 
@@ -131,8 +152,11 @@ def main(argv=None):
     parser.add_argument("--gap-set", required=True, help="taxonomy.json with teacher comparison")
     parser.add_argument("--output", required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--workers", type=int, default=1, help="Concurrent gap episodes (two samples per probe)")
     add_budget_args(parser)
     args = parser.parse_args(argv)
+    if args.workers < 1:
+        parser.error("workers must be positive")
     if min(args.max_teacher_calls, args.max_teacher_calls_run) <= 0:
         parser.error("Teacher caps must be positive")
     config = load_config(args.config)
@@ -146,7 +170,7 @@ def main(argv=None):
         return 0
     result = run_fce(gap_path=args.gap_set, output=args.output, config=config,
                      max_episode=args.max_teacher_calls, max_run=args.max_teacher_calls_run,
-                     budget_dir=args.budget_dir)
+                     budget_dir=args.budget_dir, workers=args.workers)
     print(json.dumps({"output": args.output, "complete": result["complete"], "budget_used": result["budget"]["total"]}))
     return 0 if result["complete"] else 2
 

@@ -79,7 +79,8 @@ def test_fce_caps_unknown_and_resume_completed_probes(pipeline, tmp_path):
     result = run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
                      env_factory=env, teacher_factory=teacher)
     assert len(calls) == 1
-    assert len(list((tmp_path/"capped").rglob("failure.json"))) == 2
+    assert len(list((tmp_path/"capped").rglob("incomplete.json"))) == 2
+    assert not list((tmp_path/"capped").rglob("failure.json"))
 
 
 @pytest.mark.parametrize("control_rescues", [False, True])
@@ -185,6 +186,7 @@ else:raise AssertionError("Unexpected command")
     fake.chmod(0o755)
     (tmp_path/"snapshot").mkdir()
     env = os.environ.copy()  # Never logged; only selected test flags are recorded.
+    env.pop("WORKERS", None)
     env.pop("BATCH_INVARIANT", None)
     if batch_invariant is not None:
         env["BATCH_INVARIANT"] = batch_invariant
@@ -205,7 +207,13 @@ else:raise AssertionError("Unexpected command")
     for row in rows:
         assert row["batch_invariant"] == (batch_invariant or "1")
         assert row["cuda"] == ("3" if row["kind"] in {"server", "hf", "stopped"} else "")
+        if row["kind"] in {"fce", "interventions"}:
+            assert row["args"][row["args"].index("--workers")+1] == "8"
     if not fail_check:
+        env["WORKERS"] = "4"
         again = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
         assert again.returncode == 0, again.stderr
         assert len(list((tmp_path/"out/launches").glob("*"))) == 2
+        resumed = [json.loads(line) for line in (tmp_path/"ledger.jsonl").read_text().splitlines()][len(rows):]
+        assert all(r["args"][r["args"].index("--workers")+1] == "4"
+                   for r in resumed if r["kind"] in {"fce", "interventions"})

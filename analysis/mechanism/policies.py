@@ -59,7 +59,7 @@ class BranchStudent(Student):
 
 
 class BudgetExceeded(RuntimeError):
-    pass
+    incomplete = True
 
 
 class TeacherBudget:
@@ -88,6 +88,12 @@ class TeacherBudget:
             state["episodes"][episode_id] = count + 1
             state["reservations"].append({"episode": episode_id, "namespace": namespace})
             write_json(self.path, state)
+
+    def snapshot(self):
+        """Stable aggregate view; keep the durable accounting log in arrival order."""
+        state = self.read()
+        state["reservations"] = sorted(state["reservations"], key=lambda r: (r["episode"], digest(r["namespace"])))
+        return state
 
 
 class CappedLimiter:

@@ -72,7 +72,7 @@ class Event:
             raise ValueError("Invalid action outcome")
         if self.split not in {"train", "dev", "test"}:
             raise ValueError("Invalid logical split")
-        if self.status not in {"ok", "error", "rejected"}:
+        if self.status not in {"ok", "error", "rejected", "incomplete"}:
             raise ValueError("Invalid status")
         if self.status != "ok" and not self.error_type:
             raise ValueError("Non-success event needs an error type")

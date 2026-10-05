@@ -132,7 +132,8 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
             teacher_tokens_in=usage.get("input_tokens", 0), teacher_tokens_out=usage.get("output_tokens", 0),
             environment_steps=env_steps, latency_seconds=elapsed,
             terminated=terminated, truncated=truncated,
-            status="rejected" if parser_error else "ok" if error is None else "error", error_type=error,
+            status=("incomplete" if error == "budget_exhausted" else
+                    "rejected" if parser_error else "ok" if error is None else "error"), error_type=error,
             action_outcome=outcome, inadmissible=outcome == "inadmissible",
             policy_metadata_ref=writer.blobs.put(metadata))
         writer.append(event)
@@ -198,17 +199,19 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                        success=audit.get("won", "unknown"))
         return episode
     except Exception as exc:
-        error = "ActionParseError" if isinstance(exc, ActionParseError) else f"{phase}_error"
+        incomplete = getattr(exc, "incomplete", False)
+        error = "budget_exhausted" if incomplete else "ActionParseError" if isinstance(exc, ActionParseError) else f"{phase}_error"
         if len(episode["policy_calls"]) < episode["policy_turns_attempted"]:
             episode["policy_calls"].append({"latency_seconds": time.monotonic() - started,
-                                            "status": "failed", "usage": None})
+                                            "status": "incomplete" if incomplete else "failed", "usage": None})
         failed = (visible, 0.0, False, False,
                   {"phase": phase, "error_type": type(exc).__name__, "won": "unknown"})
         record(visible, failed, raw, action, metadata, time.monotonic() - started,
                error=error, env_steps=1 if phase == "step" else 0, outcome=outcome)
-        episode.update(status="error", error_type=error, failed_action=action, complete=False,
+        episode.update(status="incomplete" if incomplete else "error", error_type=error, failed_action=action, complete=False,
                        success="unknown")
-        raise RuntimeError(f"Episode failed ({error}); inspect sanitized run artifacts") from None
+        status = "incomplete" if incomplete else "failed"
+        raise RuntimeError(f"Episode {status} ({error}); inspect sanitized run artifacts") from None
     finally:
         episode["wall_time_seconds"] = time.monotonic() - episode_started
         episode["metrics"] = episode_metrics(episode)

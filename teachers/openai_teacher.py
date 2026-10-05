@@ -235,14 +235,16 @@ class Teacher:
                         "prompt_template_sha256": digest(self.prompt_template),
                         "sampling": self.sampling, "wait_seconds": 0, "error_type": None}
             preparation_error = None
+            preparation_incomplete = False
             try:
                 client = self._client()
                 identity.update(self.limiter.acquire(reserved_tokens(
                     prompt, self.sampling["max_output_tokens"])))
             except Exception as exc:
                 preparation_error = type(exc).__name__
+                preparation_incomplete = getattr(exc, "incomplete", False)
             if preparation_error is not None:
-                self.ledger.append(dict(identity, status="failed", request_started=False,
+                self.ledger.append(dict(identity, status="incomplete" if preparation_incomplete else "failed", request_started=False,
                                         error_type=preparation_error, usage=None,
                                         latency_seconds=time.monotonic() - started))
                 raise TeacherCallError("Teacher client/rate limiter could not be initialized; see usage ledger") from None
