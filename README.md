@@ -136,9 +136,10 @@ at every point. Divergence invalidates the environment; it cannot create a
 counterfactual branch. Replay records environment seed and game hash.
 
 Real trained baselines and later SmartAD/DART-SD comparisons remain future
-experiments. `train/dataset.py` now tokenizes complete ReAct turns using the
-student's local chat template, masking the entire evaluation prompt and
-supervising the visible assistant reply plus native `<turn|>` token 106.
+experiments. `train/dataset.py` tokenizes complete ReAct episodes (default) or
+individual turns using the student's local chat template, supervising visible
+assistant replies plus their native `<turn|>` token 106 and masking everything
+else. The episode/history prefix difference is documented under Seed-SFT below.
 The old adapter and support-rollout code were read for interface reference;
 no old implementation or experimental numbers were copied wholesale.
 
@@ -236,14 +237,34 @@ later runs up to three real teacher episodes per candidate, retains every
 attempt, and promotes only real environment wins. Re-running the same command
 resumes the collection; changed code/config/dependencies require a new output.
 
-Training examples each supervise one complete assistant turn with its exact
-evaluation prefix; earlier replies remain masked context and are supervised
-once in their own examples. No observations or empty thought-prefill tokens
-enter the loss. Overlong contexts fail explicitly. Training shuffles complete
-passes deterministically, accumulates a supervised-token mean loss, and saves
-checkpoints at the first complete turn reaching each requested endpoint.
-Requested and actual token counts, overshoot, passes, updates, timing and peak
-CUDA memory are recorded. A turn exceeding the update budget runs alone.
+`train/sft.py` and `train/dataset.py` default to `--packing episode`: one sequence
+per verified episode, using exactly the last turn's full conversation and final
+generation prefix with `enable_thinking=False`. Every assistant reply and its
+closing `<turn|>`/106 receive labels once per pass; system/user observations,
+role headers, inter-turn newlines and the empty thought prefill remain masked.
+`--packing turn` preserves the previous mode: one reply per sequence, with all
+preceding conversation masked. Both modes have identical supervised tokens.
+No episode is split or truncated; exceeding `--max-length` fails explicitly.
+
+The unchanged Gemma template appends
+`<|turn>model\n<|channel>thought\n<channel|>` before a generated reply, but renders
+completed history as `<|turn>model\n<reply><turn|>` without the empty thought
+channel. Episode packing therefore supervises all **non-final** replies with
+that prefix difference; the final reply retains the evaluation generation
+prefix. `mask_report.json` records the affected count (turns minus episodes),
+turn indices, and both prefixes. Turn packing has zero affected supervised turns.
+
+Training shuffles complete examples deterministically and accumulates a
+supervised-token mean loss. In episode mode, an update closes after its whole
+episodes reach the token budget; the last episode may overshoot it. Turn mode
+retains the previous rule of fitting turns within the budget, with an oversized
+turn alone. In both modes, checkpoint endpoints and the final token limit round
+up to the first complete example reaching them, flushing the update. Requested
+and actual token counts, overshoot, example/assistant-turn exposures, passes,
+updates, timing and peak CUDA memory are recorded. `preparation.json` and the
+printed preparation report include both modes' estimated forward tokens per
+pass (input token counts, not runtime predictions), and supervised tokens per
+pass. `mask_report.json` includes the same token estimates.
 
 The trainer uses official `Gemma4UnifiedForConditionalGeneration` and PEFT LoRA,
 bf16, rank 16/alpha 32/dropout 0, all text attention/MLP projections, gradient

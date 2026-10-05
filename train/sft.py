@@ -22,16 +22,23 @@ from train.modeling import attach_lora, load_student, snapshot_metadata
 
 
 def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
-                  passes=None, checkpoint_tokens=()):
-    """Seeded exhaustive passes; ceilings rounded up to the next complete turn.
+                  passes=None, checkpoint_tokens=(), packing="turn", turn_counts=None):
+    """Seeded exhaustive passes; thresholds round up to a complete example.
 
-    Updates fit within the budget unless a single turn exceeds it. Checkpoint
-    thresholds flush the pending update on the first complete turn reaching them.
+    Episode updates close once they reach the budget; episodes are never split.
+    Legacy turn updates fit within the budget unless one turn exceeds it.
+    Checkpoint thresholds flush on the first complete example reaching them.
     With both limits supplied the first reached wins. Every final state is saved.
     """
     if (not costs or any(type(c) is not int or c < 1 for c in costs)
             or type(token_budget) is not int or token_budget < 1):
         raise ValueError("Positive costs and supervised-token update budget required")
+    if packing not in ("turn", "episode"):
+        raise ValueError("Packing must be turn or episode")
+    if turn_counts is None:
+        turn_counts = [1] * len(costs)
+    if len(turn_counts) != len(costs) or any(type(c) is not int or c < 1 for c in turn_counts):
+        raise ValueError("Positive assistant turn counts required for every example")
     if supervised_tokens is None and passes is None:
         raise ValueError("Specify cumulative supervised tokens and/or passes")
     if ((supervised_tokens is not None and (type(supervised_tokens) is not int or supervised_tokens < 1))
@@ -45,14 +52,15 @@ def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
     if passes and any(v > passes * sum(costs) for v in endpoints):
         raise ValueError("Checkpoint endpoint exceeds pass limit")
     rng = random.Random(seed)
-    batches, pending, pending_tokens, total, turns, pass_index = [], [], 0, 0, 0, 0
+    batches, pending, pending_tokens, total, turns, seen, pass_index = [], [], 0, 0, 0, 0, 0
     def flush(reached=(), final=False):
         nonlocal pending, pending_tokens
         if not pending:
             return
         batches.append({"indices": pending, "supervised_tokens": pending_tokens,
                         "cumulative_supervised_tokens": total, "turns_seen": turns,
-                        "passes": turns / len(costs), "token_equivalent_passes": total / sum(costs),
+                        "examples_seen": seen, "packing": packing,
+                        "passes": seen / len(costs), "token_equivalent_passes": total / sum(costs),
                         "requested_endpoints": list(reached), "final": final})
         pending, pending_tokens = [], 0
     while True:
@@ -60,12 +68,13 @@ def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
         rng.shuffle(order)
         for position, index in enumerate(order):
             cost = costs[index]
-            if pending and pending_tokens + cost > token_budget:
+            if packing == "turn" and pending and pending_tokens + cost > token_budget:
                 flush()
             pending.append(index)
             pending_tokens += cost
             total += cost
-            turns += 1
+            turns += turn_counts[index]
+            seen += 1
             reached = [v for v in endpoints if v <= total]
             endpoints = [v for v in endpoints if v > total]
             final = ((supervised_tokens is not None and total >= supervised_tokens)
@@ -106,6 +115,7 @@ def checkpoint_metadata(batch, *, updates, wall_seconds, update_seconds, peak_me
     return {"schema_version": 1, "supervised_tokens": batch["cumulative_supervised_tokens"],
             "passes": batch["passes"], "token_equivalent_passes": batch["token_equivalent_passes"],
             "turns_seen": batch["turns_seen"], "updates": updates,
+            "examples_seen": batch["examples_seen"], "packing": batch["packing"],
             "wall_time_seconds": wall_seconds, "optimizer_compute_seconds": update_seconds,
             "seconds_per_update": update_seconds / updates,
             "effective_supervised_tokens_per_second": batch["cumulative_supervised_tokens"] / max(wall_seconds, 1e-9),
@@ -114,7 +124,7 @@ def checkpoint_metadata(batch, *, updates, wall_seconds, update_seconds, peak_me
             "requested_token_endpoints": batch["requested_endpoints"],
             "endpoint_overshoot_tokens": {str(v): batch["cumulative_supervised_tokens"] - v
                                           for v in batch["requested_endpoints"]},
-            "checkpoint_rule": "first complete turn at/above threshold; final state always saved",
+            "checkpoint_rule": f"first complete {batch['packing']} at/above threshold; final state always saved",
             "final": batch["final"]}
 
 
@@ -144,7 +154,7 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         optimizer.zero_grad(set_to_none=True)
         total_loss = 0.0
         actual_tokens = 0
-        for index in batch["indices"]:  # microbatch = one complete turn, full history
+        for index in batch["indices"]:  # microbatch = one complete turn or episode
             row = examples[index]
             cost = sum(v != -100 for v in row["labels"])
             actual_tokens += cost
@@ -209,6 +219,7 @@ def main(argv=None):
     parser.add_argument("--alpha", type=int, default=32)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--max-length", type=int, default=32768)
+    parser.add_argument("--packing", choices=("turn", "episode"), default="episode")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args(argv)
     if args.supervised_tokens is None and args.passes is None:
@@ -229,10 +240,12 @@ def main(argv=None):
         raise RuntimeError("Production SFT requires a GPU; CPU plumbing is exercised only by unit tests")
     tokenizer = load_tokenizer(args.snapshot)
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-    examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze, max_length=args.max_length)
+    examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze,
+                                      max_length=args.max_length, packing=args.packing)
     plan = exposure_plan([e["supervised_tokens"] for e in examples], token_budget=args.tokens_per_update,
                          seed=args.seed, supervised_tokens=args.supervised_tokens, passes=args.passes,
-                         checkpoint_tokens=args.checkpoint_tokens)
+                         checkpoint_tokens=args.checkpoint_tokens, packing=args.packing,
+                         turn_counts=[e["turn_count"] for e in examples])
     report = mask_report(examples, tokenizer)
     config["sft"] = {**vars(args), "base_snapshot": metadata, "dtype": "bfloat16",
                      "enable_thinking": False, "microbatch": 1, "gradient_checkpointing": True,
@@ -249,8 +262,14 @@ def main(argv=None):
     write_json(output / "exposure_plan.json", plan, exclusive=True)
     write_json(output / "example_sources.json", [e["label_provenance"] for e in examples], exclusive=True)
     model = attach_lora(load_student(args.snapshot), rank=args.rank, alpha=args.alpha, dropout=args.dropout)
-    write_json(output / "preparation.json", {"seconds": time.monotonic() - preparation_start,
-                "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad)})
+    preparation = {"seconds": time.monotonic() - preparation_start, "packing": args.packing,
+                   "examples_per_pass": len(examples),
+                   "assistant_turns_per_pass": sum(e["turn_count"] for e in examples),
+                   "supervised_tokens_per_pass": report["supervised_tokens_per_pass"],
+                   "estimated_forward_tokens_per_pass": report["estimated_forward_tokens_per_pass"],
+                   "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad)}
+    write_json(output / "preparation.json", preparation)
+    print(json.dumps({"preparation": preparation}), flush=True)
     checkpoints = train_loop(model, examples, plan, output, learning_rate=args.learning_rate,
                              tokenizer=tokenizer, identity_sha256=digest(provenance))
     print(json.dumps({"checkpoints": [c["path"] for c in checkpoints],

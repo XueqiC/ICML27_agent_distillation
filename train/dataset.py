@@ -1,7 +1,8 @@
-"""Allowlisted ReAct SFT turns with the exact OFF evaluation generation prefix.
+"""Allowlisted ReAct SFT with complete-episode or complete-turn packing.
 
-One example teaches one complete assistant turn. Earlier assistant turns are
-context only; each reply is supervised once per pass. No context is truncated.
+Episode packing labels every reply in the last turn's full conversation.
+Turn packing retains the exact OFF evaluation prefix for each labeled reply.
+Each reply is supervised once per pass. No context is truncated.
 The legacy Stage 1 action example API is retained for its callers.
 """
 
@@ -51,7 +52,7 @@ def load_tokenizer(snapshot):
     return tokenizer
 
 
-def encode_turn(tokenizer, messages, reply, *, max_length):
+def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
     # These are exactly the messages and generation settings used by evaluation.
     prompt = tokenizer.apply_chat_template(messages, tokenize=False,
                 add_generation_prompt=True, enable_thinking=False)
@@ -71,6 +72,12 @@ def encode_turn(tokenizer, messages, reply, *, max_length):
     if any(i in tokenizer.all_special_ids for i in target_ids[:-1]):
         raise ValueError("Visible teacher reply contains a model control token")
     prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    turn_forward_tokens = len(prompt_ids) + len(target_ids)
+    if as_history:
+        # Native completed history has no empty thought prefill. Do not modify
+        # the template: locate this reply as serialized in subsequent prefixes.
+        prompt = prefix_without_thought
+        prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
     ids = tokenizer.encode(prompt + target, add_special_tokens=False)
     if ids != prompt_ids + target_ids:
         raise ValueError("Tokenizer boundary crosses prompt/assistant supervision")
@@ -81,10 +88,13 @@ def encode_turn(tokenizer, messages, reply, *, max_length):
     assert all(label == -100 for label in labels[:len(prompt_ids)])
     assert tokenizer.decode(target_ids, skip_special_tokens=False) == target
     return {"input_ids": ids, "labels": labels, "attention_mask": [1] * len(ids),
-            "supervised_tokens": len(target_ids), "prompt_tokens": len(prompt_ids)}
+            "supervised_tokens": len(target_ids), "prompt_tokens": len(prompt_ids),
+            "turn_forward_tokens": turn_forward_tokens}
 
 
-def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False):
+def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, packing="episode"):
+    if packing not in ("turn", "episode"):
+        raise ValueError("Packing must be turn or episode")
     if diagnostic:
         # Explicit report-only entry point. Sealed artifacts remain forbidden.
         authorize_task(episode, "diagnosis")
@@ -99,7 +109,15 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False):
         if thinking:
             raise ValueError("Teacher seed contains a hidden thought channel")
         messages = build_messages(history, {}, visible)
-        encoded = encode_turn(tokenizer, messages, reply, max_length=max_length)
+        final = index == len(episode["steps"]) - 1
+        encoded = encode_turn(tokenizer, messages, reply, max_length=max_length,
+                              as_history=packing == "episode" and not final)
+        encoded["packing"] = packing
+        encoded["turn_count"] = 1
+        encoded["assistant_spans"] = [{"start": encoded["prompt_tokens"],
+                                       "stop": len(encoded["input_ids"]), "turn_index": index}]
+        encoded["estimated_forward_tokens"] = {"turn": encoded.pop("turn_forward_tokens"),
+                                                "episode": len(encoded["input_ids"]) if final else 0}
         encoded["label_provenance"] = {"task_id": episode["task_id"], "turn_index": index,
                 "event_id": step["event_id"], "source": "teacher_visible_reply_real_environment",
                 "training_eligible": not diagnostic, "action_outcome": step.get("action_outcome"),
@@ -109,38 +127,91 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False):
         visible = visible_observation(step["visible"])
     if not examples:
         raise ValueError("Trajectory has no assistant turns")
+    if packing == "episode":
+        # The final row is the exact evaluation generation prefix + final target.
+        # Earlier replies have the native completed-history serialization.
+        ids = examples[-1]["input_ids"]
+        labels = [-100] * len(ids)
+        spans = []
+        for example in examples:
+            if ids[:len(example["input_ids"])] != example["input_ids"]:
+                raise ValueError("Completed assistant history differs from the final turn prefix")
+            span = example["assistant_spans"][0]
+            start, stop = span["start"], span["stop"]
+            labels[start:stop] = example["labels"][start:stop]
+            spans.append(span)
+        return [{"input_ids": ids, "labels": labels, "attention_mask": [1] * len(ids),
+                 "supervised_tokens": sum(e["supervised_tokens"] for e in examples),
+                 "prompt_tokens": spans[0]["start"], "packing": packing,
+                 "turn_count": len(examples), "assistant_spans": spans,
+                 "estimated_forward_tokens": {
+                     mode: sum(e["estimated_forward_tokens"][mode] for e in examples)
+                     for mode in ("turn", "episode")},
+                 "label_provenance": {"task_id": episode["task_id"],
+                     "source": "teacher_visible_reply_real_environment",
+                     "training_eligible": not diagnostic,
+                     "turns": [e["label_provenance"] for e in examples]}}]
     return examples
 
 
 def mask_report(examples, tokenizer, *, first=3):
     rows = []
+    packing = examples[0]["packing"]
     for index, example in enumerate(examples):
-        ids, labels, start = example["input_ids"], example["labels"], example["prompt_tokens"]
-        assert labels[:start] == [-100] * start
-        assert labels[start:] == ids[start:] and labels[-1] == TURN_ID
+        assert example["packing"] == packing
+        ids, labels = example["input_ids"], example["labels"]
+        spans = example["assistant_spans"]
+        expected = [-100] * len(ids)
+        for span in spans:
+            start, stop = span["start"], span["stop"]
+            assert 0 < start < stop <= len(ids) and ids[stop - 1] == TURN_ID
+            assert all(v == -100 for v in expected[start:stop])
+            expected[start:stop] = ids[start:stop]
+            prefix = tokenizer.decode(ids[:start], skip_special_tokens=False)
+            if span is spans[-1]:
+                assert prefix.endswith(EMPTY_THOUGHT)
+            else:
+                assert prefix.endswith("<|turn>model\n")
+        assert labels == expected
         assert sum(v != -100 for v in labels) == example["supervised_tokens"]
-        assert tokenizer.decode(ids[:start], skip_special_tokens=False).endswith(EMPTY_THOUGHT)
         row = {"index": index, "total_tokens": len(ids), "supervised_tokens": example["supervised_tokens"],
-               "masked_tokens": start, "assistant_end_label": labels[-1],
-               "assertions": {"all_prompt_system_user_observation_tokens_masked": True,
+               "masked_tokens": len(ids) - example["supervised_tokens"], "assistant_end_label": labels[-1],
+               "assistant_spans": spans, "turn_count": example["turn_count"],
+               "prefix_mismatch_turn_indices": [s["turn_index"] for s in spans[:-1]],
+               "assertions": {"all_system_user_observation_tokens_masked": True,
                               "empty_thought_channel_masked": True,
-                              "only_current_assistant_and_native_turn_end_supervised": True},
+                              "only_assistant_replies_and_native_turn_ends_supervised": True},
                "label_provenance": example["label_provenance"]}
         if index < first:
-            row["decoded_supervised_span"] = tokenizer.decode(labels[start:], skip_special_tokens=False)
+            row["decoded_supervised_spans"] = [
+                tokenizer.decode(labels[s["start"]:s["stop"]], skip_special_tokens=False) for s in spans]
+            if packing == "turn":
+                row["decoded_supervised_span"] = row["decoded_supervised_spans"][0]
         rows.append(row)
-    return {"schema_version": 1, "prompt_version": PROMPT_VERSION, "enable_thinking": False,
-            "unit": "complete assistant turn with full masked conversation prefix",
+    return {"schema_version": 2, "prompt_version": PROMPT_VERSION, "enable_thinking": False,
+            "packing": packing, "unit": "complete " + packing,
             "no_truncation": True, "supervised_tokens_per_pass": sum(r["supervised_tokens"] for r in rows),
+            "estimated_forward_tokens_per_pass": {
+                mode: sum(e["estimated_forward_tokens"][mode] for e in examples)
+                for mode in ("turn", "episode")},
+            "evaluation_prefix_mismatch": {
+                "affected_turns": sum(len(r["prefix_mismatch_turn_indices"]) for r in rows),
+                "generation_prefix": "<|turn>model\n" + EMPTY_THOUGHT,
+                "history_prefix": "<|turn>model\n",
+                "description": "Generation appends an empty thought channel before the reply; "
+                    "completed history renders <|turn>model\\n<reply><turn|> without it. "
+                    "Episode packing supervises all non-final turns in that history format; "
+                    "the final reply retains the exact evaluation generation prefix. "
+                    "Turn packing retains that prefix for every supervised reply. Template unchanged."},
             "examples": rows}
 
 
-def build_verified_dataset(root, tokenizer, manifest, freeze, *, max_length=32768):
+def build_verified_dataset(root, tokenizer, manifest, freeze, *, max_length=32768, packing="episode"):
     collection, _, evidence_root = load_verified_collection(root, manifest, freeze)
     examples = []
     for receipt in collection["verified"]:
         episode = checked_episode(evidence_root, receipt)
-        examples.extend(episode_examples(episode, tokenizer, max_length=max_length))
+        examples.extend(episode_examples(episode, tokenizer, max_length=max_length, packing=packing))
     return examples
 
 
@@ -153,6 +224,7 @@ def main(argv=None):
     parser.add_argument("--manifest", default="data/manifest/alfworld_manifest.json")
     parser.add_argument("--freeze", default="data/manifest/alfworld_split_freeze.json")
     parser.add_argument("--max-length", type=int, default=32768)
+    parser.add_argument("--packing", choices=("turn", "episode"), default="episode")
     parser.add_argument("--report", required=True)
     args = parser.parse_args(argv)
     tokenizer = load_tokenizer(args.snapshot)
@@ -163,16 +235,19 @@ def main(argv=None):
         authorize_task(task, "diagnosis")
         if episode["split"] != task["split"]:
             raise ValueError("Diagnostic episode split differs from freeze")
-        examples = episode_examples(episode, tokenizer, max_length=args.max_length, diagnostic=True)
+        examples = episode_examples(episode, tokenizer, max_length=args.max_length, diagnostic=True,
+                                    packing=args.packing)
     else:
-        examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze, max_length=args.max_length)
+        examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze,
+                                          max_length=args.max_length, packing=args.packing)
     report = mask_report(examples, tokenizer)
     report.update(training_data_created=False, diagnostic_only=bool(args.diagnostic_episode),
                   snapshot=str(Path(args.snapshot).resolve()), template_sha256=digest(tokenizer.chat_template),
                   source=args.diagnostic_episode or args.verified,
                   source_sha256=file_hash(args.diagnostic_episode or Path(args.verified) / "manifest.json"))
     write_json(args.report, report, exclusive=True)
-    print(f"Mask report: {args.report}; {len(examples)} complete turns")
+    print(f"Mask report: {args.report}; {len(examples)} complete {args.packing} examples; "
+          f"estimated forward tokens/pass: {report['estimated_forward_tokens_per_pass']}")
 
 
 if __name__ == "__main__":

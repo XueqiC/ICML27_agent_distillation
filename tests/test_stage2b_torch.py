@@ -1,6 +1,7 @@
 """CPU only. Runs in the taskeq venv when project .venv lacks torch."""
 import json
 import os
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -37,7 +38,7 @@ def trajectory():
 
 def test_real_tokenizer_native_106_mask_and_eval_prefix(tokenizer):
     episode = trajectory()
-    examples = episode_examples(episode, tokenizer)
+    examples = episode_examples(episode, tokenizer, packing="turn")
     report = mask_report(examples, tokenizer)
     history = []
     for i, (row, step) in enumerate(zip(examples, episode["steps"])):
@@ -63,6 +64,62 @@ def test_real_tokenizer_native_106_mask_and_eval_prefix(tokenizer):
     episode["split"] = "test"
     with pytest.raises(ValueError, match="Sealed"):
         episode_examples(episode, tokenizer, diagnostic=True)
+
+
+@pytest.mark.parametrize("turns", [1, 2, 5])
+def test_episode_supervised_tokens_match_turns_and_no_truncation(tokenizer, turns):
+    episode = trajectory()
+    episode["steps"] = [dict(episode["steps"][0], event_id=f"event-{i}",
+                            action_raw=f"  Thought: café, step {i} — look\nAction: look  ")
+                        for i in range(turns)]
+    template = tokenizer.chat_template
+    separate = episode_examples(episode, tokenizer, packing="turn")
+    packed, = episode_examples(episode, tokenizer, packing="episode")
+    assert tokenizer.chat_template == template
+    assert packed["input_ids"] == separate[-1]["input_ids"]
+    assert packed["supervised_tokens"] == sum(e["supervised_tokens"] for e in separate)
+    assert len(packed["assistant_spans"]) == packed["turn_count"] == turns
+    expected_labels = [-100] * len(packed["input_ids"])
+    for row, span, provenance in zip(separate, packed["assistant_spans"], packed["label_provenance"]["turns"]):
+        target = [v for v in row["labels"] if v != -100]
+        actual = packed["labels"][span["start"]:span["stop"]]
+        assert Counter(actual) == Counter(target)  # Per-turn token multisets, including native closure.
+        assert actual == target and actual[-1] == 106  # Also preserve token order.
+        expected_labels[span["start"]:span["stop"]] = target
+        assert provenance == row["label_provenance"]
+    assert packed["labels"] == expected_labels
+    decoded = tokenizer.decode(packed["input_ids"])
+    assert "PRIVATE_PDDL" not in decoded and "SECRET" not in decoded
+    turn_report = mask_report(separate, tokenizer)
+    episode_report = mask_report([packed], tokenizer)
+    estimates = {"turn": sum(len(e["input_ids"]) for e in separate), "episode": len(packed["input_ids"])}
+    assert turn_report["estimated_forward_tokens_per_pass"] == estimates
+    assert episode_report["estimated_forward_tokens_per_pass"] == estimates
+    assert episode_report["evaluation_prefix_mismatch"]["affected_turns"] == turns - 1
+    assert turn_report["evaluation_prefix_mismatch"]["affected_turns"] == 0
+    assert episode_report["examples"][0]["prefix_mismatch_turn_indices"] == list(range(turns - 1))
+    assert episode_examples(episode, tokenizer, max_length=len(packed["input_ids"])) == [packed]
+    with pytest.raises(ValueError, match="no truncation"):
+        episode_examples(episode, tokenizer, max_length=len(packed["input_ids"]) - 1)
+
+
+def test_two_turn_template_history_and_generation_prefix_difference(tokenizer):
+    episode = trajectory()
+    first, last = [s["action_raw"] for s in episode["steps"]]
+    visible = episode["initial"]["visible"]
+    messages = build_messages([{"visible": visible, "reply": first}], {}, visible)
+    history = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": last}],
+                    tokenize=False, enable_thinking=False, add_generation_prompt=False)
+    generation = tokenizer.apply_chat_template(messages, tokenize=False,
+                    enable_thinking=False, add_generation_prompt=True)
+    assert "<|turn>model\n" + first + "<turn|>\n" in history
+    assert "<|turn>model\n" + last + "<turn|>\n" in history
+    assert EMPTY_THOUGHT not in history
+    assert generation.endswith("<|turn>model\n" + EMPTY_THOUGHT)
+    assert generation[:-len(EMPTY_THOUGHT)] + last + "<turn|>\n" == history
+    packed, = episode_examples(episode, tokenizer)
+    assert packed["input_ids"] == tokenizer.encode(generation + last + "<turn|>", add_special_tokens=False)
+    assert mask_report([packed], tokenizer)["evaluation_prefix_mismatch"]["affected_turns"] == 1
 
 
 def tiny_model():
@@ -117,7 +174,8 @@ def test_official_forward_backward_checkpoint_reload_and_merge(tmp_path):
     assert not (tmp_path / "merged" / "adapter_config.json").exists()
 
 
-def test_verified_loader_checks_train_evidence_and_integrity(seed_bank, tmp_path, tokenizer):
+@pytest.mark.parametrize("packing", ["turn", "episode"])
+def test_verified_loader_checks_train_evidence_and_integrity(seed_bank, tmp_path, tokenizer, packing):
     from teachers.collect_seeds import collect
     from sed.seed_selection import select_seeds
     from train.dataset import build_verified_dataset
@@ -126,17 +184,18 @@ def test_verified_loader_checks_train_evidence_and_integrity(seed_bank, tmp_path
     output = tmp_path / "verified"
     result = collect(select_seeds(manifest, freeze, k=1), manifest, freeze, config, output,
                      env_factory=environment, teacher_factory=teacher)
-    rows = build_verified_dataset(output, tokenizer, manifest, freeze)
+    rows = build_verified_dataset(output, tokenizer, manifest, freeze, packing=packing)
     assert len(rows) == 1 and rows[0]["labels"][-1] == 106
     episode_path = output / result["verified"][0]["episode_dir"] / "episode.json"
     episode = json.loads(episode_path.read_text())
     episode["initial"]["visible"]["observation"] = "changed"
     episode_path.write_text(json.dumps(episode))
     with pytest.raises(ValueError, match="evidence changed"):
-        build_verified_dataset(output, tokenizer, manifest, freeze)
+        build_verified_dataset(output, tokenizer, manifest, freeze, packing=packing)
 
 
-def test_accumulation_is_supervised_token_mean(tmp_path):
+@pytest.mark.parametrize("packing", ["turn", "episode"])
+def test_accumulation_is_supervised_token_mean(tmp_path, packing):
     torch.set_num_threads(1)
     deterministic_seed(3)
     base = tmp_path / "base"
@@ -148,7 +207,15 @@ def test_accumulation_is_supervised_token_mean(tmp_path):
     second.load_state_dict(first.state_dict())
     rows = [{"input_ids": [2, 5, 106], "labels": [-100, -100, 106], "supervised_tokens": 1},
             {"input_ids": [2, 5, 6, 7, 106], "labels": [-100, 5, 6, 7, 106], "supervised_tokens": 4}]
-    plan = exposure_plan([1, 4], token_budget=5, passes=1)
+    if packing == "episode":
+        rows[1].update(input_ids=[2, 5, 106, 8, 9, 7, 106], labels=[-100, 5, 106, -100, -100, 7, 106])
+    plan = exposure_plan([1, 4], token_budget=5, passes=1, packing=packing)
+    model_row = rows[1]
+    second.eval()
+    with torch.no_grad():
+        native = second(input_ids=torch.tensor([model_row["input_ids"]]),
+                        labels=torch.tensor([model_row["labels"]]), use_cache=False).loss * 4
+        torch.testing.assert_close(turn_loss_sum(second, model_row, "cpu"), native)
     train_loop(first, rows, plan, tmp_path / "train", learning_rate=1e-3, identity_sha256="unit")
     second.train()
     params = [p for p in second.parameters() if p.requires_grad]
@@ -162,3 +229,27 @@ def test_accumulation_is_supervised_token_mean(tmp_path):
     diagnostic = dict(rows[0], label_provenance={"training_eligible": False})
     with pytest.raises(ValueError, match="Diagnostic"):
         train_loop(first, [diagnostic], plan, tmp_path / "bad", identity_sha256="unit")
+
+
+def test_episode_checkpoint_endpoints_saved_after_whole_episodes(tmp_path):
+    torch.set_num_threads(1)
+    deterministic_seed(7)
+    base = tmp_path / "base"
+    tiny_model().save_pretrained(base)
+    model = attach_lora(load_student(base, device="cpu", dtype="float32"), rank=2, alpha=4,
+                        gradient_checkpointing=False)
+    row = {"input_ids": [2, 5, 106, 8, 9, 7, 106],
+           "labels": [-100, 5, 106, -100, -100, 7, 106], "supervised_tokens": 4}
+    plan = exposure_plan([4], token_budget=6, supervised_tokens=9,
+                         checkpoint_tokens=[1, 3, 5, 8, 9], packing="episode", turn_counts=[2])
+    output = tmp_path / "train"
+    saved = train_loop(model, [row], plan, output, identity_sha256="unit")
+    assert [c["supervised_tokens"] for c in saved] == [4, 8, 12]
+    assert [c["requested_token_endpoints"] for c in saved] == [[1, 3], [5, 8], [9]]
+    assert [c["endpoint_overshoot_tokens"] for c in saved] == [{"1": 3, "3": 1}, {"5": 3, "8": 0}, {"9": 3}]
+    assert saved[-1]["turns_seen"] == 6 and saved[-1]["examples_seen"] == 3
+    assert saved[-1]["packing"] == "episode" and saved[-1]["final"]
+    for checkpoint in saved:
+        state = json.loads((output / checkpoint["path"] / "training_state.json").read_text())
+        assert state["requested_token_endpoints"] == checkpoint["requested_token_endpoints"]
+        assert "complete episode" in state["checkpoint_rule"]

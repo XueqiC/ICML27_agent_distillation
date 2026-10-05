@@ -255,3 +255,92 @@ and evidence that the student learns remain unmeasured. The 20,000-token command
 is a configurable profiling example, not a selected scientific training budget.
 This implementation and tiny CPU tests do not establish a trained baseline,
 faithful baseline reproduction, end-to-end GPU acceptance or scientific finding.
+
+## Episode packing follow-up — 2026-10-04
+
+`train/sft.py` and the mask-report CLI now default to `--packing episode`.
+`--packing turn` retains the original complete-turn examples and update packing
+rule described above. This engineering follow-up used no GPU, network, teacher
+API, new environment interactions, package installs, commits or pushes. The
+template, visibility whitelist, verified-collection checks and frozen splits
+were not changed.
+
+An episode example uses exactly the input IDs of its **last turn** in turn
+mode: `apply_chat_template` over the complete preceding conversation with
+`enable_thinking=False, add_generation_prompt=True`, followed by the visible
+final reply and its native `<turn|>`/106. The final target serialization is
+checked against `apply_chat_template` over the completed full conversation;
+the trailing template newline is outside the final target, as before. Earlier
+assistant replies are located in that native rendered history by checked token
+prefixes. Labels cover every visible assistant reply plus its own closing 106.
+All other positions, including inter-turn newlines, are masked. Each reply is
+supervised exactly once per pass; supervised-token exposure totals are identical
+between modes. Every turn retains its event/source provenance.
+
+There is one known prefix difference. At generation, the unmodified template
+appends `<|turn>model\n<|channel>thought\n<channel|>` before a reply. Completed
+history instead renders `<|turn>model\n<reply><turn|>` without the empty thought
+channel. A real-tokenizer two-turn test explicitly verifies both renderings.
+Episode packing supervises **all non-final turns** in this history format;
+the final turn still uses the exact evaluation generation prefix. Consequently,
+the affected count is total assistant turns minus episodes. Turn packing has
+zero affected supervised turns. The schema-v2 mask report records this
+description, both prefix strings, the affected count and per-example turn
+indices, as well as every assistant span and the prompt/observation masks.
+
+The microbatch is one whole episode. An episode-mode optimizer update closes
+once accumulated **supervised tokens** reach the requested budget; it may
+overshoot by the final whole episode. Checkpoint endpoints and the final token
+limit flush at the first complete episode reaching or crossing them. If one
+episode crosses multiple endpoints, a single checkpoint records all endpoints
+and their individual overshoots. Pass limits still stop at the first reached
+limit. No long episode is split or truncated: an overlength sequence fails with
+the existing explicit error. `turns_seen` continues to count assistant turns;
+`examples_seen` counts episodes in episode mode, and `passes` uses that example
+fraction. Token-equivalent passes and all exposure/checkpoint budgets remain
+based on supervised tokens. The loss remains the token mean per actual update.
+
+`preparation.json` and its printed JSON now contain the selected mode, examples
+and assistant turns per pass, supervised tokens per pass, and
+`estimated_forward_tokens_per_pass` for **both** modes. These estimates sum
+input sequence lengths; they do not predict attention FLOPs, memory or runtime.
+The mask report includes the same estimates.
+
+Offline tokenizer checks on the existing dev diagnostic episode
+`reports/runs/teacher-dev40/episodes/000-41f40a30d930/episode.json` give:
+
+| Mode | Sequences/pass | Supervised tokens/pass | Forward input tokens/pass | Affected turns |
+| --- | ---: | ---: | ---: | ---: |
+| turn | 16 | 473 | 36,648 | 0 |
+| episode | 1 | 473 | 4,182 | 15 |
+
+This remains diagnostic-only, with `training_eligible: false`; it was not
+trained or added to a training collection. The episode sequence matches the
+last turn's 4,182 input IDs exactly.
+
+The existing K=20 RAI mask report at
+`reports/runs/train/seedsft-k20-s0-rai/mask_report.json` contains 382 assistant
+turns in 20 episodes and 10,407 supervised tokens per pass. Summing all recorded
+turn lengths gives **1,424,355** input tokens; summing each episode's final-turn
+length gives **101,653** episode-mode input tokens, about **14.01× fewer**.
+The corresponding prefix mismatch count is 362. These are estimates derived
+from the saved report, not a new verified K=20 load or a GPU throughput result.
+The recorded first 512-token update in `updates.jsonl` took 72.7568 seconds;
+no episode-mode speedup or full-model memory fit was measured here.
+
+Validation: **142 passed, one skipped** in the project venv (torch unavailable),
+and **11 passed** in the reference venv's `tests/test_stage2b_torch.py`.
+The tests cover exact per-turn label equality and token multisets with the real
+tokenizer (one, two and five turns, including Unicode/outer whitespace), the
+two-turn history/generation difference, visibility masks, unchanged template,
+length rejection without truncation, deterministic episode budget overshoot,
+legacy turn packing, endpoint coalescing/rounding and actual CPU checkpoint
+saves. Tiny official Gemma CPU tests also verify disjoint assistant-span loss
+against native masked CE and supervised-token-weighted backward accumulation.
+CUDA is hidden and test fixtures forbid DNS, sockets and live OpenAI transport.
+
+The offline test commands in the earlier validation section still apply. Both
+`train/dataset.py --help` and `train/sft.py --help` expose `--packing`, and
+`git diff --check` passes. To reproduce the earlier turn-only mask sample, add
+`--packing turn` to its command; omit it or use `--packing episode` for the new
+default, with a fresh report path. Existing saved run artifacts are unchanged.
