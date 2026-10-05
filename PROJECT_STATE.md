@@ -12,13 +12,18 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (again), **k20s0-p10 66/140 = 47.1%** (0 parser errors, 192 inadmissible); then k20s0-p20's check failed (single-token bf16 outliers:
   2.72 / 1.02 nats on prompts 2 and 5; pooled error 0.031 < base noise 0.046; effect 1.307) and set -e stopped the launcher with 10
   adapters left. GPU1 idle until gate amendment 2 lands.
-- Gate amendment 2 merged (aa2fd07: schema 3, per-prompt error ≤ 0.1 × effect; launcher continues past a failed check).
-  **Ladder part b** (scripts/rai_eval_ladder_s0_b.sh, pid 574762, worktree ICML27_run_aa2fd07, started 23:38 CDT): the other 11 adapters
-  (k20 p03/p05/p20, k10 ×4, k5 ×4), no base → reports/runs/eval/ladder-s0-rai-dev140-b, log logs/rai_eval_ladder_s0_b.log. ~1.5 h.
-- **Serving noise (23:3x CDT):** base on two server instances: 59/140 both, but only 8/140 identical trajectories (median first
-  divergence step 2), 12 outcome flips (6/6). → MECHANISM_PLAN amendment 2 (07af904): I0 = paired control arm; report base-vs-base
-  discordance with every McNemar. Next on GPU1: pilot VLLM_BATCH_INVARIANT=1 (base dev40 twice: identical? speed? LoRA OK?).
-- Codex taxonomy amendment (pid 559827, main tree): MECHANISM_PLAN amendment 1 (862eaed).
+- Ladder part b done (aa2fd07 worktree): k20 p05 44, p20 **94**; k10 p10 46, p20 69; 7 adapters failed schema 3 (small effects) → gate
+  schema 4 merged (a0a08b0): (a) serving = HF at kernel noise, (b) adapter visibly applied; recomputed: 11/13 pass, k5s0-p03/p05 fail (b)
+  (effect within 2x noise; reported as not evaluated).
+- **Batch-invariant pilot (23:12–23:34 CDT): VLLM_BATCH_INVARIANT=1 → 40/40 identical base trajectories across two server instances on
+  dev40 (18/40 both), ~2.8x serving time.** → Protocol switch for all paper evals once LoRA is confirmed (Amendment 2 point 3).
+- rai GPU1: LoRA-under-BI determinism pilot (scripts/rai_bi_lora_pilot.sh, pid 660815, worktree ICML27_run_a0a08b0): k20s0-p20 on dev40
+  on two instances → reports/runs/eval/bi-lora-pilot-dev40-{1,2}.
+- Codex stage 4b (pid 662235, main tree): I0 paired control in readout (Amendment 2) + batch-invariant plumbing (provenance, launchers
+  default BATCH_INVARIANT=1, k_ladder guard against mixed serving).
+- Overnight plan (GPU1, sequential): if LoRA-BI deterministic → K=20 s0 dose extension to 40 passes (train ~85 min) → BI re-eval of key
+  table cells (base, k20 p10/p20/p30/p40, k10 p20, k5 p20) → mechanism analysis (FCE + I0–I5) on the best Seed-SFT student under BI.
+- Taxonomy amendment 1 implemented and committed (F-search dominates: base 42%, k20s0-p03 32%, teacher 65% of failures).
 - Stage 4a committed (035cd0a): analysis/mechanism (taxonomy, branch, FCE, I0–I5, readout, scripts/rai_mechanism.sh).
 - Merged today: c96fc4e equivalence gate schema 2 (tolerance = max(0.05, 1.5 × measured HF-vs-vLLM base noise)), 944263c subset
   provenance fix, dc30492 stage 3a (baselines/common + ETO port; GPU/FSDP paths not yet run; hpg needed for full FT).
