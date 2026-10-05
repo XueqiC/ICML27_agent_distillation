@@ -9,8 +9,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - Codex 4f (pid 1474865): plan §4 — needed-step coverage from the shortest teacher takeover at t*, absorption probe on the seed states that
   demonstrated each needed pattern (M1a not absorbed / M1b absorbed-not-invoked), training-set fit; scripts/rai_mechanism_probes.sh.
 - Copying best hpg adapters (k10s0-t400k, k5s1-t400k, k5s0-t400k, k20s0-p40) to rai reports/runs/train/hpg-adapters for the next mechanism runs.
-- **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
-  all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
+- ETO K=20 s0 tp3 (44811450, 4×B200, bf16 ref) FAILED at DPO-1 again: OOM at 169.7 GB (static ~54 GB) — the turn-packed preference graph holds
+  all turns of both continuations. P=4 this time (SFT model solved 16/20 seed tasks; the 2-GPU run's solved 9/20). Codex pid 1480242: exact
+  two-pass per-turn backward for DPO and IPR. Then resubmit ETO; IPR after ETO's DPO works.
 - AgentGym K=20 s0 training DONE (44806889, 1:07; F_m 8/12/7). **hpg 44815253** (dept, 1×B200): AgentGym evaluate mode — dev140 of bc / iter-1..3, one model per server (canonical).
 - **Mechanism run2 DONE (10:2x CDT)** on k20s0-p20 (rai-trained, BI, G=24): I0 0/24, I1 3, I2 2, **I3 advice 11**, I4 action 9, **I5 seed
   example 8**; cells M2-only 7, M1-only 4 (coverage pending), both 4, neither 9. Heat → M1 (3/6 via I5 only); look_at_obj/two_obj → M2;
