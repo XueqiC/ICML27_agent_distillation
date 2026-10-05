@@ -11,6 +11,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   0.04–0.045 OK but 6–7 tokens with |Δ| > 0.5 nats vs B200 base noise 0 (tolerance 2). Hypothesis: vLLM serves LoRA in bf16 while
   HF/PEFT (and training) keep fp32 adapters; large adapters diverge at sensitive tokens (e.g. vLLM −4.29 ≈ base −4.32 vs HF −0.44).
   Next: robustness check adapter-served vs merged-served dev140 for 2 high-dose checkpoints; then decide the gate (relative outlier rule).
+- **hpg 44798587** (array 0–1, group account yd24f, tree ICML27_runs/58a409c): serving-precision robustness — merge k20s0 p40 (gate passed,
+  115 adapter-served) and k20s2 p40 (gate failed) into bf16 weights (merge_lora logits check) → dev140 BI → reports/runs/robustness.
+- **hpg 44798591** (group account, 1×B200, tree 58a409c): Kang K=20 s0 (LoRA r64 SFT; eval + SAG afterwards) → reports/runs/baselines/kang-k20s0.
+- Dept QOS is memory-capped (~980/1000G in use by others at 05:1x CDT); group account had 2 B200 free → 1-GPU jobs go there.
 - **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
 - rai BI dev140 done: base 60/140 = 42.9%, k20s0-p20 96/140 = 68.6% → reports/runs/eval/bi-dev140-rai. Gap set G = 24, R = 7.
