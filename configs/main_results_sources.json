@@ -6,8 +6,71 @@
     "base": "reports/runs/eval/hpg-seedsft-sweep-bi/k5s0/google/gemma-4-12B-it/eval"
   },
   "baselines": [
-    {"method": "Kang (official) + SAG", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s0-tp-sag/kang-k20s0-tp/eval"},
-    {"method": "AgentGym BC", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-bc/attempt-000/output/bc/eval"},
-    {"method": "AgentEvol (final iter.)", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"}
+    {
+      "method": "Kang (official) + SAG",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s0-tp-sag/kang-k20s0-tp/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s0-tp-sag/kang-k5s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s1-tp-sag/kang-k5s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s2-tp-sag/kang-k5s2-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 10,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k10s0-tp-sag/kang-k10s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 10,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k10s1-tp-sag/kang-k10s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 10,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k10s2-tp-sag/kang-k10s2-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 20,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s1-tp-sag/kang-k20s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 20,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s2-tp-sag/kang-k20s2-tp/eval"
+    }
   ]
 }
