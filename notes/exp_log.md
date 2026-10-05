@@ -59,3 +59,4 @@ seedsft-k50-100-s0 | Seed-SFT K=50/100 s0 (partial v2 grid, 22.9k/48.3k tokens p
 baseline-cells-1005c | Kang + AgentGym official on k1s0 k2s0 k50s0 k100s0 (K1/2 = K100 views) | hpg tree c79f6e8: 44871885 Kang, 44871886 AgentGym | submitted |
 k12-s0-views-moved | hpg seeds_k20_s0/subsets/k{1,2} → $B/_trash/k20_views_k1k2_1005/seeds_k20_s0 (restores the K20 s0 tree bound by seeds_k100_s0) | 17:5x CDT | K50/100 s0 grid prepared after the move |
 k2s2-eval-rerun | k2s2 sweep eval aborted after p20 (1 error episode) → array index 5 re-run | hpg 44869648 | pending | eval/seedsft-sweep-bi-v2k12-r2
+leap-k20s0-m5 | LEAP privileged / 0% after the merged-iterate validator fix + CPU chain test (7f45f64) | hpg group 44872102/44872103 | submitted | /blue/.../leap-{privileged,zero}-k20s0-m5
