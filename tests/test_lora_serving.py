@@ -63,10 +63,19 @@ def test_adapter_identity_and_command(adapter_bank, monkeypatch):
     assert cmd[cmd.index("--max-lora-rank") + 1] == "32"
     assert cmd[cmd.index("--max-loras") + 1] == "2"
     assert cmd[cmd.index("--lora-modules") + 1:] == [f"sft={path}", f"later={path}"]
+    assert "--lora-dtype" not in cmd
+    args.lora_dtype = "bfloat16"
+    assert server_command(args, student, {"gemma4_parser": True}, [row, dict(row, name="later", rank=32)]) == cmd
+    args.lora_dtype = "float16"
+    fp16 = server_command(args, student, {"gemma4_parser": True}, [row, dict(row, name="later", rank=32)])
+    position = fp16.index("--lora-dtype")
+    assert fp16[position + 1] == "float16"
+    assert fp16[:position] + fp16[position + 2:] == cmd
     args.merged_model_path = str(snapshot)
     with pytest.raises(ValueError, match="unmerged"):
         server_command(args, student, {"gemma4_parser": False}, [row])
     assert "--enable-lora" not in server_command(args, student, {"gemma4_parser": False})
+    assert "--lora-dtype" not in server_command(args, student, {"gemma4_parser": False})
     for value in ("nan", "inf", "0", "1.1", "bad"):
         monkeypatch.setenv("VLLM_GPU_MEMORY_UTILIZATION", value)
         with pytest.raises(ValueError):
@@ -174,7 +183,8 @@ def test_listener_must_belong_to_child_group(tmp_path, monkeypatch):
     assert not owns_listener(456, 34568, proc=tmp_path)
 
 
-def test_server_provenance_and_all_models_readiness(adapter_bank, tmp_path, monkeypatch):
+@pytest.mark.parametrize("lora_dtype", [None, "bfloat16", "float16"])
+def test_server_provenance_and_all_models_readiness(adapter_bank, tmp_path, monkeypatch, lora_dtype):
     import harness.serve_student as serving
     path, snapshot, student = adapter_bank
     monkeypatch.setattr(serving, "inspect_runtime", lambda _: {
@@ -193,13 +203,27 @@ def test_server_provenance_and_all_models_readiness(adapter_bank, tmp_path, monk
     # Provenance uses subprocess.run; avoid globally replacing Popen's internals.
     monkeypatch.setattr(serving, "write_provenance", lambda out, **kw: write_json(out / "provenance.json", kw))
     out = tmp_path / "server"
+    dtype_args = ["--lora-dtype", lora_dtype] if lora_dtype else []
     assert serving.main(["--python", "fake", "--model-path", str(snapshot), "--port", "0",
-                         "--lora-adapter", "sft=" + str(path), "--output", str(out)]) == 0
+                         "--lora-adapter", "sft=" + str(path), "--output", str(out), *dtype_args]) == 0
     record = json.loads((out / "provenance.json").read_text())["config"]["server"]
     assert seen == [student["requested_repo"], "sft"]
     assert record["port"] > 0 and str(record["port"]) in record["endpoint"]
     assert record["lora_adapters"][0] == inspect_adapter("sft", path, student, snapshot)
+    assert record["lora_dtype"] == (lora_dtype or "bfloat16")
+    if lora_dtype == "float16":
+        assert record["command"][record["command"].index("--lora-dtype") + 1] == lora_dtype
+    else:
+        assert "--lora-dtype" not in record["command"]
     assert not (out / "ready.json").exists()
+
+
+def test_invalid_lora_dtype_refused_before_serving(tmp_path):
+    from harness.serve_student import main
+    with pytest.raises(SystemExit) as exc:
+        main(["--python", "unused", "--model-path", str(tmp_path), "--output", str(tmp_path / "out"),
+              "--lora-dtype", "float32"])
+    assert exc.value.code == 2 and not (tmp_path / "out").exists()
 
 
 def cases():
@@ -236,7 +260,7 @@ def bound_report(adapter_bank):
 
 def test_logprob_equivalence_and_report_gate(bound_report):
     report, server = bound_report
-    assert report["schema_version"] == 4 and report["passed"] and len(report["prompts"]) == 8
+    assert report["schema_version"] == 5 and report["passed"] and len(report["prompts"]) == 8
     for stats in [*report["prompts"], report["aggregate"]]:
         for metric, expected in (("adapter_error", 0.01), ("base_noise", 0.01), ("effect", 0.29)):
             assert stats[metric]["mean_abs_diff"] == pytest.approx(expected)
@@ -299,18 +323,21 @@ def test_threshold_equality_is_inclusive():
         assert stats[metric]["tokens_abs_diff_gt_0_5"] == 1
 
 
-@pytest.mark.parametrize("base_outliers", [0, 1, 2])
+@pytest.mark.parametrize("tokens", [32, 41, 200, 236])
+@pytest.mark.parametrize("base_outliers", [0, 1, 6])
 @pytest.mark.parametrize("excess", [0, 1])
-def test_pooled_outlier_limit_is_inclusive(base_outliers, excess):
-    count = 2 * base_outliers + 2 + excess
-    error = [0.75] * count + [0] * (200 - count)
-    noise = [0.75] * base_outliers + [0] * (200 - base_outliers)
-    stats = comparison([0] * 200, [-v for v in error], [-10] * 200,
+def test_pooled_outlier_limit_is_inclusive(tokens, base_outliers, excess):
+    # Integer ceiling is independent of the checker's floating-point formula.
+    limit = max(2 * base_outliers + 2, (tokens + 19) // 20)
+    count = limit + excess
+    error = [0.51] * count + [0] * (tokens - count)
+    noise = [1.0] * base_outliers + [0.0625 if base_outliers else 0] * (tokens - base_outliers)
+    stats = comparison([0] * tokens, [-v for v in error], [-10] * tokens,
                        [-10 + v for v in noise], pooled=True)
     assert stats["adapter_error"]["mean_abs_diff"] <= stats["mean_abs_diff_tolerance_nats"]
     assert stats["effect"]["mean_abs_diff"] >= stats["min_effect_nats"]
     assert stats["adapter_error"]["tokens_abs_diff_gt_0_5"] == count
-    assert stats["tokens_abs_diff_gt_0_5_tolerance"] == 2 * base_outliers + 2
+    assert stats["tokens_abs_diff_gt_0_5_tolerance"] == limit
     assert stats["passed"] is (excess == 0)
 
 
@@ -348,6 +375,31 @@ def measured_cases(errors, noises, effects):
         row["base_vllm_logprobs"] = [a - e for a, e in zip(row["adapter_vllm_logprobs"], effect)]
         row["hf_base_logprobs"] = [b + v for b, v in zip(row["base_vllm_logprobs"], noise)]
     return rows
+
+
+@pytest.mark.parametrize("name,outliers,pooled_error,effect", [
+    ("k20s2-p40", 7, 0.045, 0.93), ("k10s2-t400k", 6, 0.042, 0.98)])
+def test_hpg_large_adapter_rounding_passes(bound_report, name, outliers, pooled_error, effect):
+    # Synthetic measurements match supplied pooled figures, not unavailable HPG arrays.
+    lengths = [27, 34, 28, 30, 24, 34, 35, 24]
+    remainder = (236 * pooled_error - outliers * 0.75) / (236 - outliers)
+    errors = [[remainder] * n for n in lengths]
+    errors[1][:outliers] = [0.75] * outliers
+    # The pooled base-noise mean was not supplied; choose a small synthetic value.
+    rows = measured_cases(errors, [[0.01] * n for n in lengths], [[effect] * n for n in lengths])
+    report, server = bound_report
+    report.update(summarize_prompts(rows))
+    pooled = report["aggregate"]
+    assert pooled["tokens"] == 236
+    assert pooled["adapter_error"]["mean_abs_diff"] == pytest.approx(pooled_error)
+    assert pooled["effect"]["mean_abs_diff"] == pytest.approx(effect)
+    assert pooled["adapter_error"]["tokens_abs_diff_gt_0_5"] == outliers > 2
+    assert pooled["base_noise"]["tokens_abs_diff_gt_0_5"] == 0
+    assert pooled["tokens_abs_diff_gt_0_5_tolerance"] == 12
+    assert report["thresholds"]["outlier_token_fraction"] == 0.05
+    assert "ceil(0.05 * pooled_tokens)" in report["rule"]
+    assert report["passed"], name
+    validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
 def test_p20_outliers_and_token_weighted_pool(bound_report):
@@ -413,7 +465,7 @@ def test_outlier_limit_is_pooled_not_per_prompt():
     assert report["passed"]
     assert report["prompts"][0]["adapter_error"]["tokens_abs_diff_gt_0_5"] == 4
     assert report["prompts"][0]["base_noise"]["tokens_abs_diff_gt_0_5"] == 0
-    assert report["aggregate"]["tokens_abs_diff_gt_0_5_tolerance"] == 4
+    assert report["aggregate"]["tokens_abs_diff_gt_0_5_tolerance"] == 20
 
 
 @pytest.mark.parametrize("failure", ["prompt", "pooled_error", "pooled_effect", "pooled_outliers"])
@@ -426,7 +478,7 @@ def test_validation_recomputes_each_gate(bound_report, failure):
     elif failure == "pooled_effect":
         errors, noises, effects = [[0.01]] * 8, [[0.04]] * 8, [[0.06]] * 8
     else:
-        errors = [[0.75] + [0] * 19] * 8
+        errors = [[0.75] * 2 + [0] * 18] + [[0.75] + [0] * 19] * 7
         noises, effects = [[0.01] * 20] * 8, [[1.0] * 20] * 8
     rows = measured_cases(errors, noises, effects)
     actual = summarize_prompts(rows)
@@ -444,7 +496,8 @@ def test_validation_recomputes_each_gate(bound_report, failure):
     for row, measured in zip(report["prompts"], rows):
         row.update(measured)
     report["thresholds"] = {"mean_abs_diff_nats": 999, "min_effect_noise_multiplier": 0,
-                            "outlier_count_multiplier": 999, "outlier_count_allowance": 999}
+                            "outlier_count_multiplier": 999, "outlier_count_allowance": 999,
+                            "outlier_token_fraction": 1}
     with pytest.raises(ValueError, match="per-prompt effect"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
@@ -461,19 +514,19 @@ def test_missing_adapter_is_refused(bound_report, missing):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
-@pytest.mark.parametrize("schema", [None, 1, 2, 3, 5, "4", 4.0, True])
+@pytest.mark.parametrize("schema", [None, 1, 2, 3, 4, 6, "5", 5.0, True])
 def test_report_schema_refused(bound_report, schema):
     report, server = bound_report
     if schema is None:
         report.pop("schema_version")
     else:
         report["schema_version"] = schema
-    with pytest.raises(ValueError, match="Schema version 4"):
+    with pytest.raises(ValueError, match="Schema version 5"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
 @pytest.mark.parametrize("field", ["hf_logprobs", "hf_base_logprobs", "adapter_vllm_logprobs", "base_vllm_logprobs"])
-@pytest.mark.parametrize("schema", [2, 3, 4])
+@pytest.mark.parametrize("schema", [2, 3, 4, 5])
 def test_recomputation_requires_all_measurements(bound_report, field, schema):
     report, server = bound_report
     report["schema_version"] = schema
@@ -481,12 +534,12 @@ def test_recomputation_requires_all_measurements(bound_report, field, schema):
         row.pop(field)
     with pytest.raises((ValueError, KeyError), match=field):
         report.update(summarize_prompts(report["prompts"]))
-    if schema == 4:
+    if schema == 5:
         with pytest.raises((ValueError, KeyError), match=field):
             validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
-@pytest.mark.parametrize("schema", [2, 3])
+@pytest.mark.parametrize("schema", [2, 3, 4])
 def test_complete_legacy_report_can_be_recomputed(bound_report, schema):
     report, server = bound_report
     report.update(schema_version=schema, passed=False, rule=f"old schema {schema} rule", thresholds={})
@@ -496,10 +549,10 @@ def test_complete_legacy_report_can_be_recomputed(bound_report, schema):
         for metric in ("adapter_error", "base_noise"):
             row[metric].pop("tokens_abs_diff_gt_0_25")
             row[metric].pop("tokens_abs_diff_gt_0_5")
-    with pytest.raises(ValueError, match="Schema version 4"):
+    with pytest.raises(ValueError, match="Schema version 5"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
     report.update(summarize_prompts(report["prompts"]))
-    assert report["schema_version"] == 4 and report["passed"]
+    assert report["schema_version"] == 5 and report["passed"]
     assert report["thresholds"]["min_effect_noise_multiplier"] == 2
     assert "every prompt: effect >= base_noise" in report["rule"]
     validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
@@ -581,16 +634,17 @@ def test_hf_only_writes_both_references_with_one_model_load(adapter_bank, tmp_pa
     assert check.main(["--snapshot", str(snapshot), "--adapter", str(path), "--verified", str(verified),
                        "--model-name", "sft", "--hf-only", "--output", str(output)]) == 0
     reference = json.loads((output / "reference.json").read_text())
-    assert reference["schema_version"] == 4 and reference["prompts"] == cases()
+    assert reference["schema_version"] == 5 and reference["prompts"] == cases()
     assert reference["provenance_sha256"] == digest(json.loads((output / "provenance.json").read_text()))
     assert loads == [str(snapshot)] and not model.disabled
     assert scores == [(i, disabled) for disabled in (False, True) for i in range(8)]
     assert not (output / "report.json").exists()
 
 
+@pytest.mark.parametrize("lora_dtype", [None, "bfloat16", "float16"])
 @pytest.mark.parametrize("scenario", ["pass", "prompt_failure", "pooled_error_failure",
                                       "pooled_effect_failure", "legacy_reference"])
-def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypatch, scenario):
+def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypatch, scenario, lora_dtype):
     import tools.check_lora_serving as check
     from sed.provenance import write_provenance
     path, snapshot, student = adapter_bank
@@ -614,6 +668,8 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
     server = {"config": {"server": {"lora_adapters": [adapter], "served_model_name": "base",
                                     "endpoint": "http://127.0.0.1:34567/v1", "merged_model": False}}}
     server_file = tmp_path / "server.json"
+    if lora_dtype is not None:
+        server["config"]["server"]["lora_dtype"] = lora_dtype
     write_json(server_file, server)
     prompt_index = 0
     def completion(request):
@@ -647,11 +703,14 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
         assert json.loads((output / "failure.json").read_text()) == {"passed": False, "error_type": "ValueError"}
         return
     report = json.loads((output / "report.json").read_text())
+    assert report["lora_dtype"] == (lora_dtype or "bfloat16")
+    assert report["server_provenance_sha256"] == digest(server)
     assert report["passed"] is passes and len(report["prompts"]) == 8
-    assert report["schema_version"] == 4 and report["thresholds"]["base_noise_multiplier"] == 1.5
+    assert report["schema_version"] == 5 and report["thresholds"]["base_noise_multiplier"] == 1.5
     assert report["thresholds"]["min_effect_noise_multiplier"] == 2
     assert report["thresholds"]["outlier_count_multiplier"] == 2
     assert report["thresholds"]["outlier_count_allowance"] == 2
+    assert report["thresholds"]["outlier_token_fraction"] == 0.05
     assert "every prompt: effect >= base_noise" in report["rule"]
     assert report["aggregate"]["adapter_error"]["tokens_abs_diff_gt_0_25"] == (
         8 if scenario == "pooled_error_failure" else 0)

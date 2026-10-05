@@ -11,9 +11,14 @@
 #SBATCH --time=12:00:00
 #SBATCH --output=slurm-%j.out
 #SBATCH --signal=B:TERM@60
+# Override both allocation and ranks together, e.g.:
+# sbatch --gpus=2 --export=ALL,NGPUS=2 scripts/hpg_agentgym.slurm
+# NGPUS alone cannot change a #SBATCH resource request.
 set -euo pipefail
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
+NGPUS=${NGPUS:-4}
+case "$NGPUS" in 2|4|8) ;; *) echo 'NGPUS must be 2, 4, or 8' >&2; exit 2 ;; esac
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export CUDA_DEVICE_ORDER=PCI_BUS_ID OMP_NUM_THREADS=8
@@ -35,7 +40,7 @@ trap 'exit 130' INT
 "$ENV_PYTHON" -m baselines.agentgym.pipeline --config "${CONFIG:-configs/base.yaml}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$AGENTGYM_OUT" \
     --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" --vllm-python "$VLLM_PYTHON" \
-    --gpus 4 --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \
+    --gpus "$NGPUS" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \
     --mode "${AGENTGYM_MODE:-train}" --through "${AGENTGYM_THROUGH:-all}" &
 child=$!
 wait "$child"

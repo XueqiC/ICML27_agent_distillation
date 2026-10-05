@@ -375,3 +375,125 @@ appended amendment changed. The existing suite fixture and torch tests needed
 no edits. Earlier report text is unchanged. No GPU, real server, network/API
 call, submitted job, commit, or push was used. No new inference or environment
 evaluation was performed, and no scientific finding is claimed.
+
+## Amendment 4: pooled outlier floor, GPU counts, and LoRA dtype — 2026-10-05
+
+Schema 5 changes only the pooled outlier allowance from schema 4. All four
+inclusive requirements are now:
+
+1. Pooled `adapter_error <= max(0.05, 1.5 * base_noise)`.
+2. Pooled adapter-error `count(abs_diff > 0.5) <= max(2 * base_noise_count(abs_diff > 0.5) + 2, ceil(0.05 * pooled_tokens))`.
+3. Pooled `effect >= 2 * base_noise`.
+4. Every prompt's `effect >= base_noise`, using that prompt's means.
+
+Pooling still weights each token equally, and outlier counts still use strict
+greater-than comparisons. The eight fixed verified TRAIN turns, scoring,
+identity bindings, diagnostics, and all remaining schema 4 rules are unchanged.
+New reports and HF references carry `schema_version: 5`; report thresholds
+include `outlier_token_fraction: 0.05` and the aggregate records the resulting
+integer allowance. Prompt error/outlier tolerance fields remain null.
+
+The following evidence was supplied by the user. HPG's real reports were not
+accessible and were neither inspected nor recomputed in this worktree. On HPG
+B200, base kernel noise has zero tokens above 0.5 nats, so schema 4 allowed
+only two adapter outliers. The supplied high-dose adapter measurements are:
+
+| Adapter | Pooled tokens | Adapter outliers >0.5 nats | Pooled error (nats) | Effect (nats) |
+|---|---:|---:|---:|---:|
+| k20s2-p40 | 236 | 7 | 0.045 | 0.93 |
+| k10s2-t400k | 236 | 6 | 0.042 | 0.98 |
+
+Both pooled errors are below 0.05. The new allowance is
+`max(2, ceil(0.05 * 236)) = 12`, accommodating both outlier counts. The supplied
+diagnosis is rounding of large adapters at sensitive tokens. Merging these
+adapters into bf16 weights was substantially less faithful to PEFT: supplied
+all-vocabulary logits mean absolute differences were 1.13–1.41. Those logits
+measurements are a different diagnostic from the reply-logprob errors above.
+Together with the supplied constraint that vLLM LoRA supports fp16/bf16 only,
+this supports retaining unmerged bf16 LoRA as the most faithful serving path
+among the supplied comparisons. No new inference or complete real-report pass
+is claimed; the remaining effect/noise gates still require all measurements.
+
+`validate_report` requires schema 5 and recomputes all gates from the four
+stored token arrays. Stored summary statistics or threshold overrides cannot
+bypass a failing measurement; failed-report and adapter/server/endpoint
+rejection remain enforced. Complete schema 2–4 reports may be explicitly
+recomputed in memory before validation:
+
+```python
+recomputed = {**old_report, **summarize_prompts(old_report["prompts"])}
+validate_report(recomputed, server, model_name, endpoint)
+```
+
+This refreshes the schema, summaries, flags, counts, thresholds, and rule while
+preserving identity metadata. Schema 1 is refused; missing or invalid
+measurements require regeneration. Original reports need not be overwritten.
+
+ETO, IPR, and AgentGym accept `--gpus {2,4,8}`, defaulting to four. Every
+training command forwards that value to `torch.distributed.run`; IPR's
+previously hard-coded four-rank command is removed. The existing global batch
+`b_prime`, update order, dose, and zero-weight padding semantics are unchanged.
+GPU count remains part of the frozen pipeline identity, so changing it requires
+a distinct output tree. Their Slurm launchers accept `NGPUS`, default four,
+and retain the four-GPU resource default. Override both the allocation and the
+rank count at submission; setting an environment variable alone does not change
+a `#SBATCH` directive:
+
+```bash
+sbatch --gpus=2 --export=ALL,NGPUS=2 scripts/hpg_eto.slurm
+sbatch --gpus=2 --export=ALL,NGPUS=2 scripts/hpg_ipr.slurm
+sbatch --gpus=2 --export=ALL,NGPUS=2 scripts/hpg_agentgym.slurm
+```
+
+These are documented examples only; no jobs were submitted. Eight GPUs use
+the same paired override with `--gpus=8` and `NGPUS=8`.
+
+`harness/serve_student.py` accepts `--lora-dtype {bfloat16,float16}`, default
+`bfloat16`. Default and explicit bf16 preserve the existing vLLM command byte
+for byte, relying on this base checkpoint's bf16 default. Choosing `float16`
+adds `--lora-dtype float16` to the unmerged adapter command. Server provenance
+records `config.server.lora_dtype`, and new check reports record `lora_dtype`
+from the bound server provenance. Older server records without that field use
+the historical bf16 default. HF reference dtype remains bf16/eager.
+`eval_adapters.sh`, `hpg_eval_adapters.slurm`, and `rai_eval_student.sh` accept
+`LORA_DTYPE`, default `bfloat16`, and forward it through the serving launcher.
+
+Regression tests synthesize the supplied 236-token means, effects, and outlier
+counts; they use explicitly synthetic base-noise means and per-prompt arrays.
+They also cover the ceiling boundary, both branches of the maximum, independent
+failures of all four gates, complete schema 2–4 recomputation, stale summaries,
+and missing measurements. GPU tests compare every update's exact example list
+across two, four, and eight ranks, including partial and smaller-than-world
+batches. CPU torch checks compare the resulting objective and gradients with
+the global batch mean. Fake launcher tests exercise GPU counts, dtype defaults
+and overrides, command construction, and provenance without real servers.
+
+Offline validation commands:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m pytest -q
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_lora_serving_torch.py tests/test_stage2b_torch.py \
+  tests/test_stage3a_torch.py tests/test_stage3b_torch.py \
+  tests/test_stage3c_torch.py tests/test_stage3d_torch.py
+```
+
+The full project suite passed **592 tests, 7 skipped**: six torch modules are
+unavailable in the project venv and real ALFWorld integration is optional.
+The separate torch suite passed **59 tests, 1 skipped** (the optional real seed
+collection is absent), with the existing PEFT warning about the synthetic
+model's absent source config. Shell syntax checks for all six modified
+launchers and `git diff --check` passed.
+
+This worktree lacked the upstream reference files used by existing tests.
+Eight ignored file symlinks under `third_party/` point to the local
+`/home/xueqi/hq/projects/ICML27_agent_distillation/third_party/` checkout:
+ETO's DPO trainer; IPR's pair builder and DPO trainer; AgentGym's filter; and
+LEAP's SFT script and three registered prompt templates. Each file's bytes
+were checked against `git show` at the official commit recorded in its
+baseline's `DEVIATIONS.md`. No upstream repository was copied or downloaded.
+
+Earlier report text is unchanged. No GPU, real server, network/API call, job,
+commit, or push was used. No production training or environment evaluation was
+run, real run artifacts were unchanged, and no scientific finding is claimed.

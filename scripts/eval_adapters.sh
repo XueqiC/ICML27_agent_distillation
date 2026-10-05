@@ -11,6 +11,8 @@ ENABLE_THINKING=${ENABLE_THINKING:-off}
 MAX_TOKENS=${MAX_TOKENS:-1024}
 READY_TIMEOUT=${READY_TIMEOUT:-900}
 LORA_CONVERSION=${LORA_CONVERSION:-none}
+LORA_DTYPE=${LORA_DTYPE:-bfloat16}
+case "$LORA_DTYPE" in bfloat16|float16) ;; *) echo 'LORA_DTYPE must be bfloat16 or float16' >&2; exit 2 ;; esac
 CONFIG=${CONFIG:-configs/base.yaml}
 DECODING=${DECODING:-greedy}
 case "$DECODING" in greedy|sag) ;; *) echo 'DECODING must be greedy or sag' >&2; exit 2 ;; esac
@@ -105,6 +107,7 @@ for pair in "${adapters[@]}"; do lora_args+=(--lora-adapter "$pair"); done
 # persisted in server provenance and ready.json; no guessed/hardcoded endpoint.
 "$ENV_PYTHON" harness/serve_student.py --config "$CONFIG" --python "$VLLM_PYTHON" \
     --model-path "$MODEL_PATH" "${lora_args[@]}" --lora-conversion "$LORA_CONVERSION" \
+    --lora-dtype "$LORA_DTYPE" \
     --port 0 --ready-timeout "$READY_TIMEOUT" --output "$OUT/server" &
 launcher_pid=$!
 deadline=$((SECONDS + READY_TIMEOUT + 30))

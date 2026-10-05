@@ -77,6 +77,10 @@ else:
     ledger = tmp_path / "ledger.jsonl"
     out = tmp_path / "out"
     env = os.environ.copy()  # Never log the complete environment.
+    env.pop("LORA_DTYPE", None)
+    expected_dtype = "float16" if scenario == "pass" and not include_base else "bfloat16"
+    if expected_dtype == "float16":
+        env["LORA_DTYPE"] = expected_dtype
     env.pop("BATCH_INVARIANT", None)
     expected_bi = "0" if scenario == "pass" and not include_base and platform != "hpg_sag" else "1"
     if expected_bi == "0" or platform == "hpg_full":
@@ -103,6 +107,8 @@ else:
     assert result.returncode == int(scenario != "pass"), result.stderr
     rows = [json.loads(line) for line in ledger.read_text().splitlines()]
     for row in rows:
+        if row["kind"] == "server":
+            assert row["args"][row["args"].index("--lora-dtype") + 1] == expected_dtype
         if row["kind"] == "eval":
             assert row["args"][row["args"].index("--decoding") + 1] == env["DECODING"]
     expected = ["hf", "hf", "server"] + (["eval"] if include_base else [])

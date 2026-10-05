@@ -240,7 +240,7 @@ def test_pipeline_six_iterations_fixed_reference_resume_and_carry(tmp_path,monke
     monkeypatch.setattr(pipeline,"run_command",run)
     monkeypatch.setattr(pipeline,"rollout_stage",rollout)
     monkeypatch.setattr(pipeline,"prepare_pairs",pairs)
-    args = SimpleNamespace(output=str(tmp_path),snapshot="base",verified="seeds",config="cfg",train_python="train",
+    args = SimpleNamespace(output=str(tmp_path),snapshot="base",verified="seeds",config="cfg",train_python="train",gpus=4,
                            through="all",workers=1)
     identity = {"K":5,"unique_instances":5,"task_groups":5}
     pipeline.train_pipeline(args,identity,{})
@@ -262,7 +262,7 @@ def test_pipeline_six_iterations_fixed_reference_resume_and_carry(tmp_path,monke
 
 
 def test_ipr_training_recipe():
-    args = SimpleNamespace(train_python="TRAIN",config="cfg",snapshot="base",verified="seeds")
+    args = SimpleNamespace(train_python="TRAIN",config="cfg",snapshot="base",verified="seeds",gpus=4)
     for objective in ("sft","ipr"):
         cmd = pipeline.training_command(args,objective=objective,snapshot="current",output="out",reference="sft",pairs="p")
         opts = {cmd[i]:cmd[i+1] for i in range(len(cmd)-1) if cmd[i].startswith("--")}

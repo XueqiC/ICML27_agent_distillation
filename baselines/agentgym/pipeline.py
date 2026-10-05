@@ -99,14 +99,14 @@ def main(argv=None):
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
     parser.add_argument("--through", choices=["all"] + [f"{s}-{i}" for i in range(4)
                         for s in ("train", "explore", "filter")], default="all")
-    parser.add_argument("--gpus", type=int, default=4)
+    parser.add_argument("--gpus", type=int, choices=(2, 4, 8), default=4)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("env", "train", "vllm"):
         parser.add_argument(f"--{name}-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
-    if args.gpus != 4 or args.workers < 1:
-        parser.error("AgentGym registers four training GPUs and positive workers")
+    if args.workers < 1:
+        parser.error("AgentGym requires positive workers")
     batch_invariant()
     for name in ("snapshot", "verified", "output"):
         setattr(args, name, str(Path(getattr(args, name)).resolve()))

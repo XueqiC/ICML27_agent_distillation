@@ -70,6 +70,10 @@ def server_command(args, student, runtime, adapters=()):
     if adapters:
         if args.merged_model_path:
             raise ValueError("LoRA adapters require the unmerged base snapshot")
+        # Keep the existing bf16 default command byte-identical; vLLM infers
+        # bf16 from this base checkpoint when no LoRA dtype override is given.
+        if getattr(args, "lora_dtype", "bfloat16") != "bfloat16":
+            command += ["--lora-dtype", args.lora_dtype]
         command += ["--enable-lora", "--max-lora-rank", str(max(a["rank"] for a in adapters)),
                     "--max-loras", str(len(adapters)), "--lora-modules"]
         command += [a["name"] + "=" + a["served_path"] for a in adapters]
@@ -146,6 +150,7 @@ def main(argv=None):
     parser.add_argument("--model-path", default=os.environ.get("MODEL_PATH"), required=not os.environ.get("MODEL_PATH"))
     parser.add_argument("--merged-model-path", help="Standalone HF checkpoint (merged LoRA or full fine-tuning)")
     parser.add_argument("--lora-adapter", action="append", default=[], metavar="NAME=PATH")
+    parser.add_argument("--lora-dtype", choices=("bfloat16", "float16"), default="bfloat16")
     parser.add_argument("--lora-conversion", choices=("none", "targets", "gemma4"), default="none",
                         help="Explicit fallback after a naming rejection; writes only under server output")
     parser.add_argument("--port", type=int)
@@ -196,6 +201,7 @@ def main(argv=None):
                         "port": args.port, "endpoint": f"http://127.0.0.1:{args.port}/v1",
                         "readiness_identity": "all model IDs plus listening socket owned by child process group",
                         "served_model_name": student["requested_repo"], "lora_adapters": adapters,
+                        "lora_dtype": args.lora_dtype,
                         "model_path": str(model), "merged_model": bool(args.merged_model_path),
                         "checkpoint_kind": checkpoint_kind,
                         "training_provenance_sha256": training_provenance,
