@@ -5,21 +5,26 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- rai (nohup scripts/rai_collect_parallel.sh, log logs/rai_collect_parallel.log): collect K=20 verified seeds → data/verified/seeds_k20_s{0,1,2}
-  (K=5/10 nested subsets), then teacher dev140 (8 workers) → reports/runs/teacher-dev140. s0 done (20 / 29 attempts), s2 done (20 / 24),
-  s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
-  19:19 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
-  pid 204961, 8 workers, shared rate limiter → reports/runs/teacher-dev140, log logs/teacher-dev140.log.
-- Teacher dev140 is slow (31/140 episodes at 19:50 CDT, ~2–3 episodes progress at once): the run-local limiter reserves prompt UTF-8 bytes
-  + 2,048 output tokens (≈5x the real input tokens) against tpm 400k, so calls wait 40–55 s in the limiter (no 429s). Provider headers
-  (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key. Fix queued after stage 3a: token-count estimate (tiktoken) and
-  config limits 500/200k. Not restarting the current run (valid, only slow; ETA ~22:00 CDT).
-- Seed collection complete for all three support seeds: s0 20/29 attempts, s1 20/38 (19:38 CDT), s2 20/24.
-- Codex stage 2e done and committed (d8b0eea): unmerged LoRA serving + HF/vLLM equivalence gate + scripts/rai_eval_student.sh.
+- rai CPU + OpenAI: **teacher dev140** pid 204961 (started 19:19 CDT, 8 workers, run-local limiter) → reports/runs/teacher-dev140,
+  log logs/teacher-dev140.log. Slow: the limiter reserves prompt UTF-8 bytes + 2,048 output tokens (≈5x real input tokens) against
+  tpm 400k, so calls wait 40–55 s (no 429s). Provider headers (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key.
+  Fix queued after stage 3a (token-count estimate, limits 500/200k). Not restarting (valid, only slow). 54/140 at 20:15 CDT.
+- rai GPU1: **dev140 eval of base + k20s0-p03/p05/p10/p20** (unmerged LoRA, equivalence-gated), pid 366276 started 20:24 CDT, 16 workers,
+  run from the frozen worktree ~/hq/projects/ICML27_run_d8b0eea (commit 92db249) because Codex 3a edits eval/serve code in the main
+  tree → reports/runs/eval/k20s0-rai-dev140, log logs/eval_k20s0_rai_dev140.log. First launch (pid 362633) stopped for that reason,
+  output in _trash/. rai Blackwell numbers are preliminary; paper columns go on hpg B200.
 - Codex stage 3a (rai pid 260921, started 19:42 CDT): baselines/common (conversation rendering, train-task exploration, X5 shrink
   rule, HF schedules, FSDP2 full-FT SFT/DPO trainer) + faithful ETO pipeline (pairs, 3 iterations, hpg 4xB200 slurm, DEVIATIONS.md).
   Spec: scratchpad codex_stage3a_eto.md.
 - hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
+
+## Done today (moved from RUNNING JOBS)
+- Seeds: s0 20/29 attempts, s1 20/38 (done 19:38 CDT), s2 20/24 → data/verified/seeds_k20_s{0,1,2} with subsets/k5, subsets/k10.
+- Seed-SFT K=20 s0 (rai GPU1, episode packing 96531ed): first run OOM at update 120/233 (fragmentation; eager attention on the
+  14,005-token episode) → reports/runs/train/seedsft-k20-s0-rai-oom; rerun with PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  19:37–20:21 CDT → reports/runs/train/seedsft-k20-s0-rai, 233 updates, checkpoints 3/5/10/20 passes; 3/5/10 adapters byte-identical
+  to the OOM run (determinism confirmed). ~10 s/update; episodes are never split so updates carry 512–~1,200 supervised tokens.
+- Codex stage 2e committed (d8b0eea): unmerged LoRA serving, HF/vLLM equivalence gate, rai/hpg adapter eval launchers.
 
 ## Stage 2c implementation (2026-10-04)
 
