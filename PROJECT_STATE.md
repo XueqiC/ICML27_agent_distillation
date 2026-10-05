@@ -10,6 +10,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
   19:19 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
   pid 204961, 8 workers, shared rate limiter → reports/runs/teacher-dev140, log logs/teacher-dev140.log.
+- Teacher dev140 is slow (31/140 episodes at 19:50 CDT, ~2–3 episodes progress at once): the run-local limiter reserves prompt UTF-8 bytes
+  + 2,048 output tokens (≈5x the real input tokens) against tpm 400k, so calls wait 40–55 s in the limiter (no 429s). Provider headers
+  (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key. Fix queued after stage 3a: token-count estimate (tiktoken) and
+  config limits 500/200k. Not restarting the current run (valid, only slow; ETA ~22:00 CDT).
 - Seed collection complete for all three support seeds: s0 20/29 attempts, s1 20/38 (19:38 CDT), s2 20/24.
 - Codex stage 2e done and committed (d8b0eea): unmerged LoRA serving + HF/vLLM equivalence gate + scripts/rai_eval_student.sh.
 - Codex stage 3a (rai pid 260921, started 19:42 CDT): baselines/common (conversation rendering, train-task exploration, X5 shrink
