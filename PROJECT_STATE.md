@@ -10,15 +10,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
   19:19 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
   pid 204961, 8 workers, shared rate limiter → reports/runs/teacher-dev140, log logs/teacher-dev140.log.
-- Codex stage 2e (rai pid 202161): LoRA-adapter serving in serve_student.py (no merged copies; rai disk 97 GB free), equivalence check
-  tools/check_lora_serving.py, scripts/rai_eval_student.sh with free-port selection. Spec: scratchpad codex_lora_serve.md.
-- Background agent: per-repo porting specs for ETO / IPR / AgentEvol / WKM / LEAP / Kang → reports/baseline_port_specs_1004.md
-  (repos cloned under third_party/, gitignored; ETO a2fc5da, IPR 93335a3).
-- rai GPU1 (Blackwell): Seed-SFT K=20 s0, episode packing (96531ed). First run (pid 194800, 19:14 CDT) saved checkpoints at 3/5/10 passes,
-  then died at update 120/233 with CUDA OOM (11.7 GiB request, 23 GiB reserved-but-unallocated = fragmentation; eager attention on the
-  14,005-token episode; peak allocated 84 GB) → kept as reports/runs/train/seedsft-k20-s0-rai-oom. **Rerun** pid 252436 at 19:37 CDT with
-  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True → reports/runs/train/seedsft-k20-s0-rai (same args; training is deterministic, so the
-  3/5/10-pass adapters should be byte-identical to the OOM run — check). ETA ~20:20 CDT.
+- Seed collection complete for all three support seeds: s0 20/29 attempts, s1 20/38 (19:38 CDT), s2 20/24.
+- Codex stage 2e done and committed (d8b0eea): unmerged LoRA serving + HF/vLLM equivalence gate + scripts/rai_eval_student.sh.
+- Codex stage 3a (rai pid 260921, started 19:42 CDT): baselines/common (conversation rendering, train-task exploration, X5 shrink
+  rule, HF schedules, FSDP2 full-FT SFT/DPO trainer) + faithful ETO pipeline (pairs, 3 iterations, hpg 4xB200 slurm, DEVIATIONS.md).
+  Spec: scratchpad codex_stage3a_eto.md.
 - hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
 
 ## Stage 2c implementation (2026-10-04)
@@ -92,6 +88,13 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - 2026-10-04 16:48 Codex stage 2b started (seed selection/collection, SFT dataset + masks, LoRA trainer, merge check, hpg scripts).
 
 ## Open decisions (asked the user)
+0. **Baseline porting (asked 19:40 CDT 10-04, reports/baseline_port_specs_1004.md attached).** Decided by me (engineering): port algorithms
+   into our stack; one harness for all stages (X3); each repo's own adaptation type (ETO/IPR/AgentGym full FT, LEAP/Kang LoRA);
+   batch shrink b' = min(b_orig, max(1, floor(N/8))) with lr/epochs/scheduler/beta unchanged; dev selection over iterations, official
+   final also reported; fix + disclose the IPR MC-sampler bug (WebShop file copy); Kang = SFT + SAG faithful core, FTP emulated variant.
+   Asked the user: A) WKM incomplete code → drop from main table? B) LEAP faithful (privileged handcoded-expert summaries at training
+   time, flagged) + 0%-privileged ablation? C) AgentEvol/LEAP explore all 3,553 train games as official, with env/teacher counts per row?
+
 1. Interaction format: **ReAct accepted** (user, 2026-10-04 15:39). Gemma `enable_thinking`: the user asked why off. I explained
    (teacher reasoning is not returned, so the only supervisable reasoning is its visible Thought; the Gemma template strips earlier-turn
    thinking via `strip_thinking`, while ReAct Thought stays in history; one fixed mode for all methods). I proposed a pilot: base student,
