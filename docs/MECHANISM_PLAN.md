@@ -99,3 +99,21 @@ per K, with intervals, and how the shares move as K grows.
 Teacher calls: about 6 probe points × 2 samples × ~10 steps per gap episode for the FCE, plus one call per I3/I4
 arm. With ~40–60 gap episodes per student this is a few thousand calls per student, cached, with the usage ledger.
 Student branch replays run on our own GPUs.
+
+## Amendment 1 (2026-10-04 22:40 CDT) — taxonomy definitions, before any FCE or intervention result
+
+Made after reviewing the Stage 4a classifier's labelled samples on the real base / K=20 s0 3-pass / teacher dev140 runs
+(reports/stage4a_validation.md). Only the descriptive taxonomy (Section 2) changes; populations, FCE, interventions,
+confounds and the Section 6 readout are unchanged.
+
+1. **F-format = parser errors only**: ≥3 consecutive parser errors at the end, or ≥25% of steps are parser errors.
+   Well-formed but inadmissible commands are not a format failure (reviewed example: "go to drawer 5" repeated while
+   already at drawer 5, 80% of steps).
+2. **New F-inadmissible**, placed after F-format: ≥25% of steps are inadmissible commands.
+3. **F-goal counts executed (legal) actions only**, and excludes the task type's own transformation appliance:
+   a legal move of a goal-type object into a receptacle whose type is neither the target receptacle nor, for heat /
+   cool / clean tasks, the microwave / fridge / sinkbasin; or a legal heat / cool / clean / use applied to an object of
+   the wrong type. Reviewed examples that the old rule mislabelled: an inadmissible "move plate 1 to stoveburner 1"
+   (never executed), and "move tomato 3 to microwave 1" on a heat task (a procedure error → F-precondition).
+
+New order: F-format, F-inadmissible, F-goal, F-search, F-precondition, F-loop, F-cap.
