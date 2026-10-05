@@ -189,7 +189,7 @@ def main(argv=None):
         if state.get("text_export_dtype") == "bfloat16":
             from baselines.common.fsdp_train import validate_checkpoint
             validate_checkpoint(model, student)
-            checkpoint_kind = "full_parameter"
+            checkpoint_kind = state.get("checkpoint_kind", "full_parameter")
             training_provenance = file_hash(model.parent / "provenance.json")
     config["server"] = {"command": command, "runtime": runtime,
                         "batch_invariant": batch_invariant == "1",
@@ -202,7 +202,7 @@ def main(argv=None):
                         "model_metadata_sha256": model_files,
                         "model_revision_verification": (
                             "training_artifact_hashes; original_HF_base_weight_bytes_not_certified"
-                            if checkpoint_kind == "full_parameter" else
+                            if training_provenance is not None else
                             "local_path_and_metadata; weight_bytes_not_verified"),
                         "environment": {"VLLM_ATTENTION_BACKEND": "FLASH_ATTN",
                                         "VLLM_BATCH_INVARIANT": batch_invariant,

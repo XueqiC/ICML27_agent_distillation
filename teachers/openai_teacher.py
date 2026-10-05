@@ -188,6 +188,13 @@ class Teacher:
     def prompt(self, history, task, visible_context):
         return build_messages(history, task, visible_context, prompt_template=self.prompt_template)
 
+    def parse_response(self, raw):
+        """Default action parser; training-only structured teachers override this."""
+        try:
+            return parse_action(raw), None
+        except ActionParseError:
+            return None, "ActionParseError"
+
     def cache_key(self, history, task, visible_context):
         return digest({"schema_version": 2, "prompt_version": PROMPT_VERSION,
                        "provider_model_id": self.provider_model_id,
@@ -271,6 +278,14 @@ class Teacher:
                 failure = {"error_type": type(exc).__name__,
                            "http_status": getattr(exc, "status_code", None),
                            "request_id": self._redact(getattr(exc, "request_id", None))}
+                # Only these two non-sensitive enums support LEAP's optional
+                # sampling fallback. Never retain a provider body/message.
+                body = getattr(exc, "body", None)
+                error = body.get("error", body) if isinstance(body, dict) else {}
+                if (isinstance(error, dict) and failure["http_status"] == 400
+                        and error.get("param") in ("temperature", "top_p")
+                        and error.get("code") in ("unsupported_parameter", "unsupported_value")):
+                    failure["unsupported_sampling_parameter"] = error["param"]
                 status = failure["http_status"]
                 retryable = (status in {408, 409, 429} or isinstance(status, int) and 500 <= status < 600
                              or status is None and (isinstance(exc, (TimeoutError, ConnectionError))
@@ -295,11 +310,7 @@ class Teacher:
                 raise TeacherCallError("Teacher request failed; see sanitized usage ledger") from None
             raw = self._redact(_field(response, "output_text", ""))
             usage = _usage(response)
-            parser_error = None
-            try:
-                parsed = parse_action(raw)
-            except ActionParseError:
-                parsed, parser_error = None, "ActionParseError"
+            parsed, parser_error = self.parse_response(raw)
             response_status = _field(response, "status", "completed")
             metadata = self._redact({
                 "provider_model_id": self.provider_model_id,
@@ -319,7 +330,7 @@ class Teacher:
                                     request_id=metadata["request_id"], response_id=metadata["response_id"],
                                     latency_seconds=latency, error_type=parser_error))
             # Raw rejected responses stay in the ledger/blob store, not reusable cache.
-            if parser_error is None:
+            if parser_error is None and response_status == "completed":
                 write_json(path, {"cache_key": key, "result": result,
                                   "result_sha256": digest(result)}, exclusive=True)
             return TeacherResult(raw, parsed, deepcopy(metadata))

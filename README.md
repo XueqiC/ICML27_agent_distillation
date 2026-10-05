@@ -15,6 +15,11 @@ sampled text and accounting metadata through the [official Responses API](https:
 it does not request logprobs or hidden reasoning. No API call was made during
 Stage 1 implementation or validation.
 
+Stage 3d adds an explicitly flagged exception for the **LEAP training teacher**:
+an executed handcoded-expert trajectory supplies an extracted privileged summary
+to the correction teacher only. Student prompts and training contexts retain the
+visible-field whitelist. The separate 0%-privileged ablation uses no such summary.
+
 The student is `google/gemma-4-12B-it` at revision
 `707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7`. The teacher is `gpt-6-luna`.
 The configuration records the user-reported canary at 2026-10-04 15:00 CDT,
@@ -659,6 +664,63 @@ The existing HF+PEFT/vLLM equivalence gate remains mandatory. Both new launchers
 enforce `VLLM_BATCH_INVARIANT=1` through `BATCH_INVARIANT=1`; no jobs were submitted
 during implementation. Full commands, including adapter-path extraction and
 resume boundaries, are in the validation report.
+
+## Baselines: Stage 3d LEAP engineering port
+
+`baselines/leap/` implements **LEAP (privileged teacher)** and **LEAP (0% privileged
+ablation)** from `a3376d8`. See [deviations](baselines/leap/DEVIATIONS.md) and
+[validation, exact HPG commands and cost estimates](reports/stage3d_validation.md).
+This is offline engineering validation, with no learning result claimed.
+
+Iteration 0 trains on all K verified teacher seeds, using their existing visible
+Thoughts. Each step is a separate Gemma OFF conversation, with only its final
+assistant reply and native token 106 supervised. No `annotate_reason` call or
+85/15 holdout is used in this registered dose regime; eval/save step 200 cannot
+be reached. Every later iteration explores only the seeds' TRAIN tasks, once
+each, through the unchanged greedy 40-turn/1024-token harness and replay checks.
+
+The privileged variant first executes ALFWorld 0.4.2's `AlfredExpert(handcoded)`
+through a LEAP-only backend, then requests one extracted summary per successful
+expert episode. Availability and failures are recorded under `audit/`. Tasks
+without an executed expert win/extracted state are excluded from privileged
+correction, while remaining in BC and student exploration. The 0% variant skips
+unused oracle collection and corrects all known failed seed-task rollouts with
+the official no-privileged template. Its learning pipeline is otherwise the same.
+
+One logical teacher request corrects every step of a failed trajectory. Training
+context always comes from the **original student history**; teacher echoes,
+summaries, state fields and audit data are excluded. Corrected actions remain
+unfiltered by admissibility, with counts recorded. These are sampled labels with
+unknown execution verification. The official correction prompt prohibits hidden
+facts in reasons; structural isolation and literal-summary rejection do not
+establish semantic absence of privileged knowledge from generated labels.
+
+Iterations 1–3 load example sets 0..i, independently shuffle each with seed 0,
+subsample each to the smallest set, then shuffle the aggregate. An empty set
+stops with an explicit empty-aggregate result. Each iteration attaches a fresh
+LoRA to the previous **merged** model: r128/alpha64/dropout .05, text q/v only,
+lr 3e-5, cosine, warmup 10, clip .3, one epoch, fused AdamW, bf16 and SDPA.
+Global batch shrinks from 32 by X5; the official microbatch four shrinks only
+when needed to fit that batch. Full context is retained up to 32768; longer
+examples fail. Every merge passes an all-vocabulary logit/reload check before
+publication and serving through `--merged-model-path`.
+
+The shared teacher adapter supplies cache, sanitized raw text, usage ledger and
+limiter. Each task has at most three durably reserved API attempts per extraction
+or correction stage, including parse failures and interruptions. Official
+T=.3/top_p=1 is tried on an actual request; explicit unsupported-parameter errors
+switch subsequent requests to configured default sampling. Live acceptance has
+not been tested. Extraction/correction output caps default to 4096/16384 tokens,
+separate from the unchanged 1024-token student cap.
+
+For later authorized execution on one B200, use `scripts/hpg_leap.slurm` with
+`VERIFIED`, `LEAP_OUT` on `/blue`, and `LEAP_VARIANT=privileged` or `zero` in
+distinct output trees. Budget roughly 24 GB per merged checkpoint, four per
+variant, plus retained adapters/attempts. `LEAP_MODE=prepare` freezes inputs only;
+`LEAP_THROUGH=merge-0`, `explore-1`, `correct-1`, `data-1`, `train-1`, etc. stop at
+resumable stage boundaries. `LEAP_MODE=evaluate` evaluates published iter0..3
+on dev140 separately, with batch-invariant serving and no training updates.
+No jobs, servers, GPU work or API calls were performed for this port.
 
 ## Stages 4a–4d: mechanism analysis tooling
 

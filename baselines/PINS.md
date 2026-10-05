@@ -4,7 +4,8 @@ Transcribed from [the local port specification](../reports/baseline_port_specs_1
 2026-10-04. These are source-code references, not permission to load any repo's
 models or datasets. ETO is implemented in Stage 3a; AgentGym BC/AgentEvol and
 Kang non-FTP SFT + SAG are implemented in Stage 3b; IPR and seeded SAG requests
-are implemented in Stage 3c. No upstream files are modified.
+are implemented in Stage 3c; LEAP with privileged training teacher and its
+0%-privileged ablation are implemented in Stage 3d. No upstream files are modified.
 
 | Method | Official repository | Commit |
 | --- | --- | --- |
@@ -12,7 +13,7 @@ are implemented in Stage 3c. No upstream files are modified.
 | [IPR](ipr/DEVIATIONS.md) | https://github.com/WeiminXiong/IPR | `93335a3a818b46c1d0e081cd76288cf1cbf7dee4` |
 | [AgentGym BC / AgentEvol](agentgym/DEVIATIONS.md) | https://github.com/WooooDyy/AgentGym | `3ef9235d23e68e7c2920c5422ad957dc8ced5c6c` |
 | WKM | https://github.com/zjunlp/WKM | `f1fe28fc189c59801a98cabda01188bc9b64eae6` |
-| LEAP | https://github.com/sanjibanc/leap_llm | `a3376d89a2eeee88f03555a4174a0bdf7faf8be6` |
+| [LEAP / 0% privileged ablation](leap/DEVIATIONS.md) | https://github.com/sanjibanc/leap_llm | `a3376d89a2eeee88f03555a4174a0bdf7faf8be6` |
 | [Kang SFT + SAG (no FTP)](kang/DEVIATIONS.md) | https://github.com/Nardien/agent-distillation | `8884b80ea3d22e53a2e1e4b9fd324600d13e0430` |
 
 `eto/official_loss.py` contains exactly two methods from ETO's FastChat/TRL fork:

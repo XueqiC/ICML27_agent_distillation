@@ -13,6 +13,7 @@ dependencies = ["PyYAML==6.0.3"]
 teacher = ["openai==2.8.1"]
 student = ["httpx==0.28.1"]
 training = ["transformers==5.14.1", "peft==0.20.0", "accelerate==1.14.0"]
+leap = ["Jinja2==3.1.6", "numpy==2.4.6"]
 alfworld = ["alfworld==0.4.2", "textworld[pddl]==1.7.0"]
 test = ["pytest==7.4.0"]
 
