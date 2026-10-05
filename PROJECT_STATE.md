@@ -12,9 +12,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
 - rai BI dev140 done: base 60/140 = 42.9%, k20s0-p20 96/140 = 68.6% → reports/runs/eval/bi-dev140-rai. Gap set G = 24, R = 7.
-- **rai GPU1: first mechanism run** (scripts/rai_mechanism.sh from worktree ICML27_run_3045b60, pid 781961, started ~00:35 CDT 10-05):
-  student k20s0-p20 (rai-trained, BI), G = 24 → FCE by teacher takeover (2 samples/probe) → I0–I5 (greedy + 4 samples) → readout.
-  Caps: 700 teacher HTTP attempts/episode, 15,000/run. Output reports/runs/mechanism/k20s0-p20-bi/run, log logs/mechanism_k20s0_p20_bi.log.
+- **rai GPU1: first mechanism run** (pid 781961, worktree 3045b60, serial, old FCE definition) — still probing; its probes feed the
+  restart via teacher-cache seeding. Finding on task 1 (look_at_obj Bowl 301): D(t) ≈ 20 turns for t = 4…20, D = 1 from t = 24 (bowl put
+  down, lamp on; one "take bowl" wins) while the student types "look" 16 times; budget FCE = 39 → **MECHANISM_PLAN amendment 3 (510d002):
+  interventions at the closest-approach state t* = earliest prefix with minimum teacher steps-to-go**, dense probe around the minimum.
+  Stage 4c (parallel --workers, 0d61e72) committed; Codex 4d (pid 864360) implements amendment 3 + --seed-teacher-cache-from. Then: stop
+  the serial run, relaunch in a new workspace with WORKERS=8 and the seeded cache.
 - **hpg 44780233** (array 0–8%4, dept, 1×B200, 14 CPU / 48G, tree ICML27_runs/3aea2aa, --dependency=aftercorr:44777524): batch-invariant
   dev140 eval of every dose checkpoint of the matching training task (task 0 also evaluates base) → /blue/.../reports/runs/eval/
   seedsft-sweep-bi/<name>. Pending.
