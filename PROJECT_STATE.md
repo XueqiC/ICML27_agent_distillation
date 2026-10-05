@@ -11,7 +11,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   seeds_k20_s{0,1,2} → data/verified/seeds_k100_s{0,1,2} (+ subsets k1/k2/k5/k10/k20/k50 with exact identity checks); logs
   logs/collect_k100_s*.log. Shares the 200k TPM with the K5 mechanism run.
 - rai GPU1: mechanism run on k5s0-t400k (pid 1513532), FCE probing (145 probe episodes at 12:01 CDT).
-- rai GPU3: amendment-5 probes for run 2 (pid 1732458) resuming reports/runs/mechanism/k20s0-p20-bi/probes (procedural coverage 13/24).
+- **Run 2 coverage-qualified attribution (amendment 5)**: M1b 4/24 (absorbed but not invoked), **M1a 0**, M2 7/24, both 4, execution 1, unresolved 8; training fit 93.7% → experience-side failures are invocation/transfer, not absorption. reports/runs/mechanism/k20s0-p20-bi/probes-a5.
 - Committed: c723ae8 amendment 5; 0834361 stage 2f (K ladder 1..100); MECHANISM_PLAN header times corrected to commit times.
 - **OpenAI key on hpg** (user approved 11:28 CDT): only the OPENAI_API_KEY line, /blue/fsu-compsci-dept/xc25.fsu/hq/secrets/openai.env
   (600, dir 700), used via SED_SECRETS_FILE by LEAP jobs only. Compute nodes reach api.openai.com (HTTP 401 without key).
