@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "note": "Evaluated cells for analysis/main_results.py (dev140, batch-invariant, hpg B200 unless noted). Add one entry per cell.",
+  "references": {
+    "teacher": "reports/runs/teacher-dev140",
+    "base": "reports/runs/eval/hpg-seedsft-sweep-bi/k5s0/google/gemma-4-12B-it/eval"
+  },
+  "baselines": [
+    {"method": "Kang (official) + SAG", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s0-tp-sag/kang-k20s0-tp/eval"},
+    {"method": "AgentGym BC", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-bc/attempt-000/output/bc/eval"},
+    {"method": "AgentEvol (final iter.)", "K": 20, "seed": 0, "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"}
+  ]
+}
