@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "created": "2026-10-05",
+  "status": "requires_collection_tokenization",
+  "rule": "union of passes {3,5,10,20,30,40} and token budgets {100k,200k,400k}; token points within 5% of a pass point are merged into it; training runs to the largest point; LoRA r16/a32, AdamW 1e-5, 512 tokens/update, episode packing, training seed 0",
+  "pass_checkpoints": [
+    3,
+    5,
+    10,
+    20,
+    30,
+    40
+  ],
+  "token_checkpoints": [
+    100000,
+    200000,
+    400000
+  ],
+  "merge_relative_to": "token_budget",
+  "merge_fraction": 0.05,
+  "runs": [
+    {
+      "name": "k1s0",
+      "K": 1,
+      "support_seed": 0,
+      "verified": "data/verified/seeds_k100_s0/subsets/k1",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k2s0",
+      "K": 2,
+      "support_seed": 0,
+      "verified": "data/verified/seeds_k100_s0/subsets/k2",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k50s0",
+      "K": 50,
+      "support_seed": 0,
+      "verified": "data/verified/seeds_k100_s0/subsets/k50",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k100s0",
+      "K": 100,
+      "support_seed": 0,
+      "verified": "data/verified/seeds_k100_s0",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k1s1",
+      "K": 1,
+      "support_seed": 1,
+      "verified": "data/verified/seeds_k100_s1/subsets/k1",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k2s1",
+      "K": 2,
+      "support_seed": 1,
+      "verified": "data/verified/seeds_k100_s1/subsets/k2",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k50s1",
+      "K": 50,
+      "support_seed": 1,
+      "verified": "data/verified/seeds_k100_s1/subsets/k50",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k100s1",
+      "K": 100,
+      "support_seed": 1,
+      "verified": "data/verified/seeds_k100_s1",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k1s2",
+      "K": 1,
+      "support_seed": 2,
+      "verified": "data/verified/seeds_k100_s2/subsets/k1",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k2s2",
+      "K": 2,
+      "support_seed": 2,
+      "verified": "data/verified/seeds_k100_s2/subsets/k2",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k50s2",
+      "K": 50,
+      "support_seed": 2,
+      "verified": "data/verified/seeds_k100_s2/subsets/k50",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    },
+    {
+      "name": "k100s2",
+      "K": 100,
+      "support_seed": 2,
+      "verified": "data/verified/seeds_k100_s2",
+      "supervised_tokens_per_pass": null,
+      "total_tokens": null,
+      "checkpoints": null
+    }
+  ]
+}

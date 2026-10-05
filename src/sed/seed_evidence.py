@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 
 from sed.manifest import authorize_task, resolve_task, frozen_write
-from sed.seed_selection import select_seeds, validate_selection
+from sed.seed_selection import select_seeds, validate_selection, validate_extension_selection
 from sed.storage import BlobStore, file_hash, digest, locked
 
 
@@ -46,10 +46,7 @@ def receipt_path(root, receipt):
 
 
 def _subset_values(root, source, large, small):
-    if (small["seed"] != large["seed"] or small["K"] >= large["K"]
-            or any(small["selected"][kind] != large["selected"][kind][:small["quotas"][kind]]
-                   for kind in small["type_order"])):
-        raise ValueError("Selections are not nested per-type prefixes")
+    validate_extension_selection(small, large)
     parents = {r["task_id"] for rows in small["selected"].values() for r in rows}
     verified = [r for r in source["verified"] if r["selection_parent_task_id"] in parents]
     attempts = [r for r in source["attempts"] if r["selection_parent_task_id"] in parents]
@@ -99,10 +96,13 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
             raise ValueError("Nested collection differs from shared source receipts")
     else:
         evidence_root = root
+        from sed.seed_extension import check_inherited_views
+        check_inherited_views(root, collection, selection, manifest, freeze, _subset_values)
     candidates = {r["task_id"] for kind in selection["type_order"]
                   for r in selection["selected"][kind] + selection["replacements"][kind]}
     parents = {r["task_id"]: kind for kind in selection["type_order"] for r in selection["selected"][kind]}
     # Every failed/interrupted attempt remains referenced and checked too.
+    seen_attempts = {}
     for receipt in collection["attempts"]:
         if json.loads(receipt_path(evidence_root, receipt).read_text()) != receipt:
             raise ValueError("Stored receipt differs from collection")
@@ -110,6 +110,14 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
         if (artifact_hashes(directory) != receipt["episode_hashes"]
                 or artifact_hashes(directory.parent / "teacher") != receipt["teacher_hashes"]):
             raise ValueError("Attempt evidence changed")
+        prior = seen_attempts.setdefault(receipt["task_id"], [])
+        episode_file = directory / "episode.json"
+        episode = json.loads(episode_file.read_text()) if episode_file.exists() else {}
+        if (type(receipt["attempt"]) is not int or receipt["attempt"] != len(prior) + 1
+                or receipt["attempt"] > 3 or any(r["won"] for r in prior)
+                or receipt["won"] != environment_won(directory, episode)):
+            raise ValueError("Attempt sequence/win disagrees with environment evidence")
+        prior.append(receipt)
         task = resolve_task(manifest, freeze, receipt["task_id"])
         authorize_task(task, "generation")
         if (task["source_split"] != "train" or receipt["task_id"] not in candidates
@@ -141,9 +149,20 @@ def verified_collection_inputs(root, manifest, freeze):
     root = Path(root)
     collection, _, evidence_root = load_verified_collection(root, manifest, freeze)
     if "source_collection" in collection:
-        return [root / "manifest.json", root / "identity.json", root / "selection.json",
-                evidence_root / "manifest.json", evidence_root / "provenance.json"]
-    return [root / "manifest.json", root / "provenance.json"]
+        inputs = [root / "manifest.json", root / "identity.json", root / "selection.json",
+                  evidence_root / "manifest.json", evidence_root / "provenance.json"]
+    else:
+        inputs = [root / "manifest.json", root / "provenance.json"]
+    identity = json.loads((evidence_root / "identity.json").read_text())
+    if "extension_source" in identity:
+        origin = (evidence_root / identity["extension_source"]["path"]).resolve()
+        inputs.extend([evidence_root / "identity.json", evidence_root / "selection.json",
+                       origin / "manifest.json", origin / "identity.json", origin / "selection.json",
+                       origin / "provenance.json"])
+        if identity["extension_source"]["K"] == 20:
+            inputs.extend(origin / "subsets" / f"k{k}" / name
+                          for k in (5, 10) for name in ("manifest.json", "identity.json", "selection.json"))
+    return inputs
 
 
 def materialize_subsets(root, manifest, freeze, ks):

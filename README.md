@@ -487,6 +487,102 @@ ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/
 
 See [Stage 2c validation](reports/stage2c_validation.md) for evidence and limits.
 
+## Stage 2f: extend the nested seed ladder to K=100
+
+The engineering ladder covers **K in {1, 2, 5, 10, 20, 50, 100}** for support
+seeds 0/1/2. The three frozen `data/manifest/seeds_k100_sN.json` selections use
+the unchanged `stratified_groups_v1`: in seeded type order, quota i is
+`K // 6 + (i < K % 6)`. Each type's selected-plus-replacements list is identical
+to its K=20 list; only the boundary moves. These files claim zero new verified
+trajectories. Rebuild and check them offline with:
+
+```bash
+for seed in 0 1 2; do
+  CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python data/seeds/select_seeds.py \
+    --k 100 --seed "$seed" --extend-selection "data/manifest/seeds_k20_s${seed}.json"
+done
+```
+
+**Ordering clarification:** existing K=5/K=10 views use original selection slots,
+including a slot's replacement. They are not sorted by successful candidate rank:
+for example, s0's first type retains successful candidate ranks 4, 5, 2, 3 for
+slots 0, 1, 2, 3. Sorting those successes by candidate rank would change the old
+K=5/K=10 receipts. Stage 2f prioritizes the requested hard receipt-identity check:
+preserve old slots, then fill new slots with unattempted candidates in the frozen
+per-type order. K=1/K=2 inherit the first one/two types' first K=5 receipts.
+
+The extension command reads the completed K=20 source, verifies its K=5/K=10
+views, and copies every attempt's receipt, trajectory, raw teacher evidence and
+cache to the fresh K=100 output. Copies are atomic and independent files; the
+source tree is never modified. All attempted source instances, including failures,
+are skipped. Each new candidate has at most three attempts; its first real win
+fills the next slot, and exhausted failures advance to the next same-type
+candidate. Interrupted requests remain disclosed. Resume checks source hashes,
+copied evidence, config, code and dependencies before continuing. Sampling,
+teacher/student identity and environment protocol must match the source; host
+paths and rate limits may change and both configs remain recorded.
+
+Commands for a **later live run on rai** (not run during this engineering stage):
+
+```bash
+export ALFWORLD_DATA_ROOT=/path/to/alfworld/data/json_2.1.1
+bash scripts/rai_collect_k100.sh
+# After an interruption, with the same frozen code/config:
+bash scripts/rai_collect_k100.sh --resume
+```
+
+The launcher runs s0, s1, s2 sequentially with CUDA disabled and separate logs
+under `logs/`. It checks all three outputs before making any call and refuses
+existing outputs unless `--resume` is supplied. `PROJECT_ROOT`, `ENV_PYTHON`,
+`COLLECT_CONFIG`, `COLLECTION_ROOT` and `LOG_ROOT` are optional overrides.
+The equivalent single-seed command is:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python teachers/collect_seeds.py \
+  --config configs/base.yaml --selection data/manifest/seeds_k100_s0.json \
+  --extend-from data/verified/seeds_k20_s0 --output data/verified/seeds_k100_s0 \
+  --attempts 3 --subset-k 1 2 5 10 20 50
+```
+
+A completed extension creates views at `seeds_k100_sN/subsets/k{1,2,5,10,20,50}`.
+Before publishing completion or materializing/loading a view, validation requires
+exact original K=20/K=10/K=5 verified receipts (including task IDs, attempt numbers
+and trajectory hashes), and preserves their failure receipts too. Mismatches
+raise errors. Training/evaluation consumers use these paths via the existing
+verified loader; K=100 uses the collection root. Keep the original K=20 tree and
+its subsets beside K=100 when copying to another host: the extension's relative
+source reference binds original provenance and the old identity anchors.
+
+The extension manifest separates inherited and new attempts/trajectories and
+retains all original token usage, failures and real transitions. Views create no
+new calls or interactions. Overlapping collections/views are not independent
+costs; disclose the complete K=100 collection's experience even for small-K runs.
+
+`configs/seedsft_dose_grid.json` remains v1. The v2 template,
+`configs/seedsft_dose_grid_v2.json`, adds twelve runs: K=1/2/50/100 x s0/1/2.
+Its counts and endpoints intentionally remain unresolved until the collections
+exist. At submission time, measure them on CPU using the pinned local student
+tokenizer and the actual training loader (assistant labels including closure,
+episode packing, max length 32768, no truncation):
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python scripts/prepare_seedsft_dose_grid.py \
+  --snapshot /path/to/pinned/local/gemma-4-12B-it \
+  --data-root /path/to/tree/containing/data \
+  --output /path/to/fresh/seedsft_dose_grid_v2_final.json
+```
+
+This helper loads local tokenizer files only; it performs no model training or
+job submission. It records data/tokenizer/code hashes and versions. Checkpoints
+are passes {3,5,10,20,30,40} union tokens {100k,200k,400k}; a token point within
+5% of its token budget from a pass point merges into that pass point. Merged
+labels are disclosed, and run length is the largest remaining endpoint.
+Both HPG sweep scripts accept `DOSE_GRID=/path/to/seedsft_dose_grid_v2_final.json`
+and reject the unresolved template. For a later v2 array submission, override
+the v1 default with `--array=0-11%4`; analysis accepts the same file via `--grid`.
+Neither the collections nor final measured grid are produced by this engineering
+change. Required validation is the offline full test suite shown above.
+
 ## Baselines: Stage 3a ETO engineering port
 
 `baselines/common/` supplies allowlisted episode conversations, frozen TRAIN

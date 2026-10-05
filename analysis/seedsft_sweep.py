@@ -91,7 +91,8 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     ink, muted, grid_c = "#0b0b0b", "#52514e", "#e4e3df"
-    colour = {5: "#2a78d6", 10: "#eb6834", 20: "#1baf7a"}
+    colour = {1: "#9467bd", 2: "#8c564b", 5: "#2a78d6", 10: "#eb6834",
+              20: "#1baf7a", 50: "#d62728", 100: "#17becf"}
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.8), dpi=150)
     for ax, key, xlabel, title in ((axes[0], "tokens", "supervised tokens seen (log scale)", "Success vs training exposure"),
                                    (axes[1], "passes", "passes over the K seeds (log scale)", "Success vs passes")):

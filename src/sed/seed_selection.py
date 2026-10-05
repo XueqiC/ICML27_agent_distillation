@@ -65,6 +65,18 @@ def validate_selection(selection, manifest, freeze):
             authorize_task(resolve_task(manifest, freeze, row["task_id"]), "generation")
 
 
+def validate_extension_selection(small, large):
+    """Changing K may move the selected/replacement boundary, never candidates."""
+    keys = ("seed", "selection_rule", "type_order", "manifest_sha256", "split_freeze_sha256")
+    if (small["K"] >= large["K"] or any(small[key] != large[key] for key in keys)
+            or any(small["quotas"][kind] > large["quotas"][kind]
+                   or small["selected"][kind] != large["selected"][kind][:small["quotas"][kind]]
+                   or small["selected"][kind] + small["replacements"][kind]
+                   != large["selected"][kind] + large["replacements"][kind]
+                   for kind in small["type_order"])):
+        raise ValueError("Selections are not nested per-type prefixes with identical candidate order")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", default="data/manifest/alfworld_manifest.json")
@@ -73,9 +85,16 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--rule", choices=[RULE], default=RULE)
     parser.add_argument("--output")
+    parser.add_argument("--extend-selection", help="Check the smaller frozen selection before writing")
     args = parser.parse_args(argv)
     manifest, freeze = load_frozen(args.manifest, args.freeze)
     selected = select_seeds(manifest, freeze, k=args.k, seed=args.seed, rule=args.rule)
+    if args.extend_selection:
+        import json
+        from pathlib import Path
+        small = json.loads(Path(args.extend_selection).read_text())
+        validate_selection(small, manifest, freeze)
+        validate_extension_selection(small, selected)
     path = args.output or f"data/manifest/seeds_k{args.k}_s{args.seed}.json"
     frozen_write(path, selected)
     print(f"Selected {args.k} TRAIN groups; verified trajectories: 0; {path}")

@@ -10,6 +10,7 @@ from sed.manifest import load_frozen, resolve_task, verify_task_files
 from sed.provenance import write_provenance, utc_now, code_hashes, versions, safe_config
 from sed.runner import _environment, run_episode
 from sed.seed_evidence import artifact_hashes, environment_won, materialize_subsets
+from sed.seed_extension import extension_source, copy_inherited_attempts, check_inherited_views
 from sed.seed_selection import validate_selection
 from sed.storage import digest, locked, write_json
 from teachers.openai_teacher import Teacher, rate_limit_options
@@ -28,10 +29,10 @@ def usage_summary(path):
 
 
 def collect(selection, manifest, freeze, config, output, *, attempts=3,
-            env_factory=None, teacher_factory=None, input_paths=()):
+            env_factory=None, teacher_factory=None, input_paths=(), extend_from=None):
     validate_selection(selection, manifest, freeze)
-    if type(attempts) is not int or attempts < 1:
-        raise ValueError("attempts must be positive")
+    if type(attempts) is not int or not 1 <= attempts <= 3:
+        raise ValueError("attempts must be between 1 and 3")
     config = deepcopy(config)
     output = Path(output)
     env_factory = env_factory or (lambda task: _environment(config, task))
@@ -46,6 +47,13 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
     identity = {"selection": selection, "config": safe_config(config), "attempts_per_candidate": attempts,
                 "code_sha256": code_hashes(Path(__file__).resolve().parents[1]),
                 "dependencies": versions()}
+    inherited = None
+    if extend_from is not None:
+        reference, inherited = extension_source(extend_from, output, selection, manifest, freeze,
+                                                attempts=attempts, config=config)
+        identity["extension_source"] = reference
+        input_paths = [*input_paths, Path(extend_from) / "manifest.json",
+                       Path(extend_from) / "identity.json", Path(extend_from) / "provenance.json"]
     with locked(output / ".collection.lock"):
         identity_path = output / "identity.json"
         if identity_path.exists():
@@ -53,11 +61,16 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                 raise ValueError("Resume identity changed (selection/config/code/dependencies)")
         else:
             write_json(identity_path, identity, exclusive=True)
+        if inherited is not None:
+            copy_inherited_attempts(extend_from, output, reference)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="collect_seeds", config=config, inputs=input_paths,
                              details={"selection_sha256": digest(selection), "attempts": attempts})
         write_json(output / "selection.json", selection)
-        verified, receipts = [], []
+        verified = list(inherited["verified"]) if inherited is not None else []
+        receipts = list(inherited["attempts"]) if inherited is not None else []
+        inherited_tasks = {r["task_id"] for r in receipts}
+        inherited_slots = {r["selection_parent_task_id"] for r in verified}
 
         def publish(status):
             value = {"schema_version": 1, "status": status, "K": selection["K"],
@@ -70,15 +83,41 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                      "attempts": receipts, "verified": verified,
                      "parent_seed_ids": [], "source": "external_frozen_train_pool",
                      "training_exposure": 0}
+            if inherited is not None:
+                value.update(extension_source=reference, source="extended_frozen_train_collection",
+                    reused_attempts=len(inherited["attempts"]),
+                    reused_trajectories=len(inherited["verified"]),
+                    reused_attempted_unique_instances=len(inherited_tasks),
+                    new_attempts=len(receipts) - len(inherited["attempts"]),
+                    new_verified_trajectories=len(verified) - len(inherited["verified"]),
+                    accounting="All inherited and new attempts retain their original usage, raw outputs, "
+                               "failures and transitions. Inherited costs are reused, not new calls. "
+                               "Do not sum this collection and its source as independent experience.")
+                if status == "complete":
+                    from sed.seed_evidence import _subset_values
+                    check_inherited_views(output, value, selection, manifest, freeze, _subset_values)
             write_json(output / "manifest.json", value)
             return value
 
         for kind in selection["type_order"]:
-            accepted = 0
-            pending = [(r, r["task_id"]) for r in selection["selected"][kind]]
-            replacements = iter(selection["replacements"][kind])
+            accepted = sum(r["task_type"] == kind for r in verified)
+            if inherited is None:
+                pending = [(r, r["task_id"]) for r in selection["selected"][kind]]
+                replacements = iter(selection["replacements"][kind])
+            else:
+                # Keep every old slot, including its replacement, byte-identical.
+                # Fill new slots from the unchanged candidate order, skipping ALL
+                # inherited attempts (failures as well as verified successes).
+                pending = [(None, r["task_id"]) for r in selection["selected"][kind]
+                           if r["task_id"] not in inherited_slots]
+                replacements = iter(r for r in selection["selected"][kind] + selection["replacements"][kind]
+                                    if r["task_id"] not in inherited_tasks)
             while pending:
                 candidate, selection_parent = pending.pop(0)
+                if candidate is None:
+                    candidate = next(replacements, None)
+                    if candidate is None:
+                        return publish("exhausted")
                 task = resolve_task(manifest, freeze, candidate["task_id"])
                 for number in range(1, attempts + 1):
                     attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
@@ -98,10 +137,13 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                             raise ValueError("Attempt receipt disagrees with environment evidence")
                     else:
                         attempt_dir.mkdir(parents=True, exist_ok=True)
-                        if not (attempt_dir / "started.json").exists():
+                        started_before = (attempt_dir / "started.json").exists()
+                        if not started_before:
                             write_json(attempt_dir / "started.json", {"timestamp": utc_now(),
                                        "task_id": task["task_id"], "attempt": number}, exclusive=True)
-                        if not episode_dir.exists():
+                        # A crash after request submission but before episode
+                        # persistence must not re-call that uncertain attempt.
+                        if not episode_dir.exists() and not started_before:
                             verify_task_files(config["environment"]["data_root"], task)
                             # A separate cache per episode attempt permits fresh samples after
                             # failure, while durable completed attempts are reused on resume.
@@ -155,18 +197,22 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--selection", required=True)
     parser.add_argument("--attempts", type=int, default=3)
-    parser.add_argument("--subset-k", nargs="+", type=int, default=[],
+    parser.add_argument("--extend-from", help="Reuse a completed collection read-only before adding new seeds")
+    parser.add_argument("--subset-k", nargs="+", type=int, default=None,
                         help="Collect the selection's largest K once, then reuse verified slots for these smaller K")
     parser.add_argument("--output")
     args = parser.parse_args(argv)
     config = load_config(args.config)
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     selection = json.loads(Path(args.selection).read_text())
+    if args.subset_k is None:
+        args.subset_k = [1, 2, 5, 10, 20, 50] if args.extend_from and selection["K"] == 100 else []
     if any(k < 1 or k >= selection["K"] for k in args.subset_k):
         parser.error("--subset-k must be positive and smaller than the selected collection K")
     output = args.output or str(Path(config["paths"]["verified"]) /
                                f"seeds_k{selection['K']}_s{selection['seed']}")
     result = collect(selection, manifest, freeze, config, output, attempts=args.attempts,
+                     extend_from=args.extend_from,
                      input_paths=[args.config, args.selection, config["paths"]["manifest"],
                                   config["paths"]["split_freeze"]])
     if result["status"] == "complete" and args.subset_k:

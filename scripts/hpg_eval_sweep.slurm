@@ -17,9 +17,12 @@ set -euo pipefail
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
 : "${TRAIN_ROOT:?}" "${EVAL_ROOT:?}" "${DATA_ROOT:?}"
-read -r name verified < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" <<'PY'
-import json, sys
-run = json.load(open("configs/seedsft_dose_grid.json"))["runs"][int(sys.argv[1])]
+: "${DOSE_GRID:=configs/seedsft_dose_grid.json}"
+export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
+read -r name verified < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" "$DOSE_GRID" <<'PY'
+import sys
+from train.dose_grid import load_ready_run
+run = load_ready_run(sys.argv[2], int(sys.argv[1]))
 print(run["name"], run["verified"])
 PY
 )
@@ -28,9 +31,10 @@ adapters=""
 while read -r label tokens; do
     [[ -d "$run_dir/checkpoint-tokens-$tokens" ]] || { echo "missing checkpoint $tokens" >&2; exit 2; }
     adapters+="$name-$label=$run_dir/checkpoint-tokens-$tokens "
-done < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" "$run_dir" <<'PY'
+done < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" "$run_dir" "$DOSE_GRID" <<'PY'
 import json, sys, pathlib
-run = json.load(open("configs/seedsft_dose_grid.json"))["runs"][int(sys.argv[1])]
+from train.dose_grid import load_ready_run
+run = load_ready_run(sys.argv[3], int(sys.argv[1]))
 saved = sorted(int(p.name.rsplit("-", 1)[1]) for p in pathlib.Path(sys.argv[2]).glob("checkpoint-tokens-*"))
 for c in run["checkpoints"]:
     # Checkpoints land on the first complete episode at/above each threshold.

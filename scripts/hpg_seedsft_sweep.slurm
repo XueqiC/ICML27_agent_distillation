@@ -16,12 +16,14 @@ source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
 : "${OUT_ROOT:?Set OUT_ROOT to the shared output directory}"
 : "${DATA_ROOT:=$PROJECT_ROOT}"
+: "${DOSE_GRID:=configs/seedsft_dose_grid.json}"
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export OMP_NUM_THREADS=4 CUBLAS_WORKSPACE_CONFIG=:4096:8 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-read -r name verified total ckpts < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" <<'PY'
-import json, sys
-run = json.load(open("configs/seedsft_dose_grid.json"))["runs"][int(sys.argv[1])]
+read -r name verified total ckpts < <("$ENV_PYTHON" - "$SLURM_ARRAY_TASK_ID" "$DOSE_GRID" <<'PY'
+import sys
+from train.dose_grid import load_ready_run
+run = load_ready_run(sys.argv[2], int(sys.argv[1]))
 print(run["name"], run["verified"], run["total_tokens"], ",".join(str(c["tokens"]) for c in run["checkpoints"]))
 PY
 )
