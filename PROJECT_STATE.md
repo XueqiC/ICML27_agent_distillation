@@ -5,10 +5,8 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- rai CPU + OpenAI: **teacher dev140** pid 204961 (started 19:19 CDT, 8 workers, run-local limiter) → reports/runs/teacher-dev140,
-  log logs/teacher-dev140.log. Slow: the limiter reserves prompt UTF-8 bytes + 2,048 output tokens (≈5x real input tokens) against
-  tpm 400k, so calls wait 40–55 s (no 429s). Provider headers (canary 19:5x CDT): **500 RPM / 200k TPM** for gpt-6-luna on this key.
-  Fix queued after stage 3a (token-count estimate, limits 500/200k). Not restarting (valid, only slow). 54/140 at 20:15 CDT.
+- **Teacher dev140 done 22:2x CDT: 114/140 = 81.4%** (0 parser errors, 82 inadmissible / 2,862 steps; 12.33M input tokens of which
+  11.14M cached, 166.7k output; 183 min, throttled by the old limiter) → reports/runs/teacher-dev140.
 - rai GPU1: K=10 s0 done 21:46 CDT (reports/runs/train/seedsft-k10-s0-rai, ckpts 3/5/10/20 passes); K=5 s0 training since 21:46
   (scripts/rai_train_k10_k5_s0.sh, worktree ICML27_run_e70fa64). Queued behind it: **K-ladder eval** scripts/rai_eval_ladder_s0.sh
   (pid 481960, worktree ICML27_run_57ae004): base + k20/k10/k5 s0 × 3/5/10/20 passes (12 adapters) on one server, schema-2 gate,
