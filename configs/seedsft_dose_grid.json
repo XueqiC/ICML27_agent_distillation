@@ -1,0 +1,462 @@
+{
+ "schema_version": 1,
+ "created": "2026-10-05",
+ "rule": "union of passes {3,5,10,20,30,40} and token budgets {100k,200k,400k}; token points within 5% of a pass point are merged into it; training runs to the largest point; LoRA r16/a32, AdamW 1e-5, 512 tokens/update, episode packing, training seed 0",
+ "runs": [
+  {
+   "name": "k5s0",
+   "K": 5,
+   "support_seed": 0,
+   "verified": "data/verified/seeds_k20_s0/subsets/k5",
+   "supervised_tokens_per_pass": 2146,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 6438,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 10730,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 21460,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 42920,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 64380,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 85840,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 46.6
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 93.2
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 186.39
+    }
+   ]
+  },
+  {
+   "name": "k10s0",
+   "K": 10,
+   "support_seed": 0,
+   "verified": "data/verified/seeds_k20_s0/subsets/k10",
+   "supervised_tokens_per_pass": 5311,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 15933,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 26555,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 53110,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 18.83
+    },
+    {
+     "tokens": 106220,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 159330,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 37.66
+    },
+    {
+     "tokens": 212440,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 75.32
+    }
+   ]
+  },
+  {
+   "name": "k20s0",
+   "K": 20,
+   "support_seed": 0,
+   "verified": "data/verified/seeds_k20_s0",
+   "supervised_tokens_per_pass": 10407,
+   "total_tokens": 416280,
+   "checkpoints": [
+    {
+     "tokens": 31221,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 52035,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 104070,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 208140,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 312210,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 416280,
+     "label": "p40",
+     "passes": 40.0
+    }
+   ]
+  },
+  {
+   "name": "k5s1",
+   "K": 5,
+   "support_seed": 1,
+   "verified": "data/verified/seeds_k20_s1/subsets/k5",
+   "supervised_tokens_per_pass": 2317,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 6951,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 11585,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 23170,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 46340,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 69510,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 92680,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 43.16
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 86.32
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 172.64
+    }
+   ]
+  },
+  {
+   "name": "k10s1",
+   "K": 10,
+   "support_seed": 1,
+   "verified": "data/verified/seeds_k20_s1/subsets/k10",
+   "supervised_tokens_per_pass": 5203,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 15609,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 26015,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 52030,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 104060,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 156090,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 208120,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 76.88
+    }
+   ]
+  },
+  {
+   "name": "k20s1",
+   "K": 20,
+   "support_seed": 1,
+   "verified": "data/verified/seeds_k20_s1",
+   "supervised_tokens_per_pass": 10185,
+   "total_tokens": 407400,
+   "checkpoints": [
+    {
+     "tokens": 30555,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 50925,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 101850,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 203700,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 305550,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 407400,
+     "label": "p40",
+     "passes": 40.0
+    }
+   ]
+  },
+  {
+   "name": "k5s2",
+   "K": 5,
+   "support_seed": 2,
+   "verified": "data/verified/seeds_k20_s2/subsets/k5",
+   "supervised_tokens_per_pass": 1834,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 5502,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 9170,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 18340,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 36680,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 55020,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 73360,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 54.53
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 109.05
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 218.1
+    }
+   ]
+  },
+  {
+   "name": "k10s2",
+   "K": 10,
+   "support_seed": 2,
+   "verified": "data/verified/seeds_k20_s2/subsets/k10",
+   "supervised_tokens_per_pass": 4694,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 14082,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 23470,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 46940,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 93880,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 21.3
+    },
+    {
+     "tokens": 140820,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 187760,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 42.61
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 85.22
+    }
+   ]
+  },
+  {
+   "name": "k20s2",
+   "K": 20,
+   "support_seed": 2,
+   "verified": "data/verified/seeds_k20_s2",
+   "supervised_tokens_per_pass": 9066,
+   "total_tokens": 400000,
+   "checkpoints": [
+    {
+     "tokens": 27198,
+     "label": "p03",
+     "passes": 3.0
+    },
+    {
+     "tokens": 45330,
+     "label": "p05",
+     "passes": 5.0
+    },
+    {
+     "tokens": 90660,
+     "label": "p10",
+     "passes": 10.0
+    },
+    {
+     "tokens": 100000,
+     "label": "t100k",
+     "passes": 11.03
+    },
+    {
+     "tokens": 181320,
+     "label": "p20",
+     "passes": 20.0
+    },
+    {
+     "tokens": 200000,
+     "label": "t200k",
+     "passes": 22.06
+    },
+    {
+     "tokens": 271980,
+     "label": "p30",
+     "passes": 30.0
+    },
+    {
+     "tokens": 362640,
+     "label": "p40",
+     "passes": 40.0
+    },
+    {
+     "tokens": 400000,
+     "label": "t400k",
+     "passes": 44.12
+    }
+   ]
+  }
+ ]
+}
