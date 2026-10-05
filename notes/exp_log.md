@@ -5,3 +5,4 @@ pilot-base-dev40-on | same as off but enable_thinking=True | hpg B200 44733715 |
 teacher-dev40 (INVALID) | gpt-6-luna ReAct, dev40, 8 workers | rai CPU + OpenAI API | 13/40 but 27 episodes aborted by 429 rate limits (151 x 429, retries 0.5 s apart); the 13 completed episodes all succeeded (13/13, 9.2 steps) | reports/runs/teacher-dev40
 seeds-k20-s0 | gpt-6-luna ReAct, stratified_groups_v1 seed 0, ≤3 attempts/task, same-type replacement; K=5/10 nested views | rai CPU + OpenAI API, 17:30–18:3x CDT 10-04 | 20 verified / 29 attempts / 23 task groups attempted | data/verified/seeds_k20_s0 (+ seeds_k10_s0, seeds_k5_s0)
 seeds-k20-s2 | same, seed 2 | rai CPU + OpenAI API, 18:02– CDT 10-04 | 20 verified / 24 attempts / 21 groups attempted | data/verified/seeds_k20_s2
+seeds-k20-s1 | same, seed 1 | rai CPU + OpenAI API, 18:02–19:38 CDT 10-04 | 20 verified / 38 attempts / 25 groups attempted (heat tasks failed most) | data/verified/seeds_k20_s1
