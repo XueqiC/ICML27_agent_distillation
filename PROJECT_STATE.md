@@ -10,7 +10,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **hpg 44806889** (dept, 2×B200): AgentGym K=20 s0 — iteration 1 (explore-1) at 08:4x CDT.
 - rai GPU1 mechanism run2: **FCE done** (24/24 closest approach; median D(t*) ≈ 5, ≈ 25 turns left; look_at_obj D(t*) = 1 in 3/4) →
   I0–I5 interventions running since ~08:35 CDT (290/720 continuations at 09:10) → readout ~10:00 CDT.
-- **hpg 44809012 / 44809013** (moved to the group account at 08:4x): contamination tests (k20s0-p40 alone; k10s2-t200k alone with s0 prompts).
+- Contamination tests done: no server-state contamination (k10s2 check fails identically alone → OOD check prompts); but **BI determinism
+  needs an identical server config**: k20s0-p40 alone (max-loras 1) 112 vs 115 on the 6-adapter sweep server, 70/140 identical
+  trajectories, 7 discordant. → Paper/sealed evals: one adapter per server. Dev sweep numbers stand with ±7/140 cross-config reference.
 - Kang K=20 s0 turn-packed (official recipe): **SAG 63/140, greedy 66/140** (0 parser errors) ≈ base 62 — official dose ≈ 2 passes.
 - **hpg 44806889** (dept, 2×B200, 240G, tree 97eb54b): AgentGym BC + AgentEvol K=20 s0 (4 iterations, explore only the K tasks) →
   reports/runs/baselines/agentgym-k20s0. Pending.
