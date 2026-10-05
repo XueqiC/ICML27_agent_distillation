@@ -47,7 +47,13 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   ("Extension source identity/evidence changed"); grid prep failed the same way. K100's own k1/k2 views are identical (s0 checked:
   verified, attempts, selection hash). Plan: wait for the K=1/2 Seed-SFT evals (they read the K20-derived views), then move
   hpg seeds_k20_s*/subsets/k{1,2} to $B/_trash/k20_views_k1k2_1005/, then K50/100 s0 grid + Seed-SFT + baseline cells
-  (wrapper bfc4cd7: K1/2 → K100 views). K1/K2 s1/s2 baselines after the s1/s2 collections. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
+  (wrapper bfc4cd7: K1/2 → K100 views). K1/K2 s1/s2 baselines after the s1/s2 collections.
+  17:5x CDT: K=1/2 Seed-SFT evals done except k2s2 (aborted after p20 on 1 error episode → re-run 44869648 →
+  eval/seedsft-sweep-bi-v2k12-r2). s0 views moved to $B/_trash/k20_views_k1k2_1005/seeds_k20_s0 (s1/s2 views stay until the k2s2
+  re-run is done and before K100 s1/s2 reach hpg). K50/100 s0 grid preparation restarted on hpg (tree b521a4e).
+  **K=1/2 Seed-SFT results** (hpg BI; p03/p05 gate-fail = effect within serving noise): k1s0 peak 72 (t200k), k2s0 71 (t200k),
+  k1s1 ≤60, **k2s1 85–87 (t100k–t400k)**, k1s2 ≤63, k2s2 pending. k2s1 = clean Fork + cool Bread: adding the cool seed to k1s1 gives
+  +28 → hard-type coverage again. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
 - **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
   k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
