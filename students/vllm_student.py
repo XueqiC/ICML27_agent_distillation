@@ -50,10 +50,16 @@ class Student:
                      "timeout_seconds": timeout_seconds, "prompt_version": PROMPT_VERSION}
         self.log_dir, self.transport, self.client = Path(log_dir), transport, None
 
+    def messages(self, history, task, visible_context):
+        return build_messages(history, task, visible_context)
+
+    def sampling(self):
+        return {"temperature": 0}
+
     def generate(self, history, task, visible_context):
         import httpx
-        messages = build_messages(history, task, visible_context)
-        body = {"model": self.spec["model"], "messages": messages, "temperature": 0,
+        messages = self.messages(history, task, visible_context)
+        body = {"model": self.spec["model"], "messages": messages, **self.sampling(),
                 "max_tokens": self.spec["max_tokens"], "stream": False,
                 "chat_template_kwargs": self.spec["chat_template_kwargs"],
                 # Preserve raw thought boundaries if the server has no parser.
@@ -95,7 +101,7 @@ class Student:
                             thinking_tokens=thinking_tokens, thinking_chars=len(thinking),
                             thinking_return_shape=shape, thinking_ref=blobs.put(thinking),
                             chat_template_kwargs=self.spec["chat_template_kwargs"],
-                            temperature=0, max_tokens=self.spec["max_tokens"],
+                            **self.sampling(), max_tokens=self.spec["max_tokens"],
                             parser_error="ActionParseError" if parsed is None else None,
                             action_outcome=outcome, policy="student")
             ledger.append(dict(metadata, status="completed"))

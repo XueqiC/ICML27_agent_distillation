@@ -112,14 +112,15 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                         "environment_steps_confirmed": env_steps if error is None or parser_error else "unknown",
                         "failure_reason": error, "action_outcome": outcome,
                         "inadmissible": outcome == "inadmissible"}
-        usage = (metadata.get("billed_usage") or {}) if isinstance(policy, Teacher) else {}
+        usage = metadata.get("mechanism_teacher_billed_usage") or (
+            (metadata.get("billed_usage") or {}) if isinstance(policy, Teacher) else {})
         event = Event(
             run_id=run_id, episode_id=episode_id, event_id=event_id, split=task["split"],
             task_family=task.get("task_type", "alfworld"), task_id=task["task_id"],
             parent_seed_ids=list(parent_seed_ids), mechanism_id="audit_only",
             student_revision=config["models"]["student"]["revision"],
             teacher_provider_id=(config["models"]["teacher"]["provider_model_id"]
-                                 if isinstance(policy, Teacher) else None),
+                                 if isinstance(policy, Teacher) else metadata.get("mechanism_teacher_provider_id")),
             environment_revision=environment_revision, policy_condition=policy_condition,
             history_ref=writer.blobs.put(visible_history(history)),
             visible_context_ref=writer.blobs.put(visible_observation(before)),
@@ -217,6 +218,16 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
             policy.close()
 
 
+def check_replay_result(result, expected, index, max_episode_steps):
+    """Shared exact transition check for diagnostic replay and real branches."""
+    visible, reward, terminated, truncated, audit = result
+    truncated = (truncated or index >= max_episode_steps) and not terminated
+    if (visible_observation(visible) != expected["visible"] or reward != expected["reward"] or
+            terminated != expected["terminated"] or truncated != expected["truncated"] or
+            digest(audit) != expected["audit_sha256"]):
+        raise ReplayMismatch(f"Episode diverges at step {index}")
+
+
 def replay_episode(env, episode):
     if episode.get("sealed") or episode["split"] == "test":
         raise ValueError("Sealed episodes cannot be used for diagnostic replay")
@@ -238,12 +249,7 @@ def replay_episode(env, episode):
                 else:
                     result = env.step(expected["action_parsed"])
                     executed += 1
-            visible, reward, terminated, truncated, audit = result
-            truncated = (truncated or index >= env.max_episode_steps) and not terminated
-            if (visible_observation(visible) != expected["visible"] or reward != expected["reward"] or
-                    terminated != expected["terminated"] or truncated != expected["truncated"] or
-                    digest(audit) != expected["audit_sha256"]):
-                raise ReplayMismatch(f"Episode diverges at step {index}")
+            check_replay_result(result, expected, index, env.max_episode_steps)
         return {"matched": True, "steps_replayed": executed, "policy_turns": len(episode["steps"]),
                 "complete_episode": episode["complete"]}
     finally:

@@ -544,3 +544,163 @@ with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
 
 See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
 standalone commands, artifacts and the remaining GPU acceptance boundary.
+
+## Stage 4a: mechanism analysis tooling
+
+`analysis/mechanism/` implements the fixed measurements and I0–I5 arms in
+[MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md). These are diagnostic tools, with
+`purpose=diagnosis`, zero training exposure, and no sealed-task access. The
+Stage 4a validation uses offline fakes and reads existing dev artifacts; it
+does not run a live FCE or intervention experiment.
+
+Start by freezing a taxonomy snapshot into a **new** output directory. `--run`
+is S; `--compare` is a teacher or base reference (role inferred from provenance,
+or specified by `--compare-role`). Supplying both references emits both G and R:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.taxonomy \
+  --run reports/runs/eval/k20s0-rai-dev140/k20s0-p03/eval \
+  --teacher-run reports/runs/teacher-dev140 \
+  --base-run reports/runs/eval/k20s0-rai-dev140/google/gemma-4-12B-it/eval \
+  --output reports/runs/my-mechanism-taxonomy
+```
+
+This writes `taxonomy.json`, `shares.md`, `review_samples.json` (up to ten
+seed-0 samples per matching label per run, with triggering steps/evidence), and
+provenance. An unfinished reference remains an explicitly partial snapshot:
+unknown/missing outcomes do not become failures or enter G/R. A later snapshot
+needs a new output. Shares use known failed episodes as their denominator;
+all matching labels and primary labels are reported separately. Successes
+remain unlabelled. Indices are reset=0 and actions=1..N.
+
+The classifier uses typed PDDL facts only for labels. F-search searches visible
+observation text, excluding the `Your task is to:` instruction, which names the
+goal by construction. Admissible commands, actions and audit facts are not
+sightings. Navigation/open/examine of other receptacles are search operations;
+F-goal checks object manipulation, placement destinations, and lamp selection.
+F-precondition checks actual holds, placements, transformation predicates and
+lamp toggles. Evidence records both missing predicates and the relevant state.
+An unsuccessful episode matching no rule below the cap remains unclassified.
+
+Inspect a goal/fact mapping without opening an environment:
+
+```bash
+PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.goals \
+  --task-id 'valid_seen/pick_heat_then_place_in_recep-Apple-None-CounterTop-1/trial_0'
+```
+
+Plan FCE probes without constructing clients or environments:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.fce \
+  --gap-set reports/runs/my-mechanism-taxonomy/taxonomy.json \
+  --output reports/runs/my-mechanism-fce --dry-run \
+  --max-teacher-calls 400 --max-teacher-calls-run 12000
+```
+
+The dry run reports coarse points (including the episode endpoint), adaptive
+refinement and worst-case call estimates. Live use of the same command without
+`--dry-run` is a separate experiment. Each probe executes two teacher samples;
+their sample indices enter the cache key. A completed probe is true if either
+sample wins. Incomplete probes stay unknown. The scan refines the first coarse
+1→0 interval; it does not claim to find unprobed transient drops between two
+successful coarse points. T(0)=0 is reported separately.
+
+Every teacher HTTP attempt, including retries and interrupted reservations,
+counts against explicit episode/run caps. Cache hits consume no new attempt.
+The existing teacher cache, usage ledger and shared rate limiter remain in use.
+Caps are fixed on resume; exhaustion is recorded as incomplete, never failure.
+Use `--budget-dir OWNED_MECHANISM_WORKSPACE` to share caps across FCE and arms.
+
+`branch` accepts `--episode FILE --t N --policy teacher|student --arm takeover|I0|…|I5`.
+Student continuation requires `--endpoint URL --model-name NAME`; adapters also
+require `--server-provenance FILE --lora-check FILE`. `--sample-index 0` is
+greedy; positive indices use temperature 0.7, with distinct seeds derived from
+`--sampling-seed N`, the parent, prefix and sample index. Caps and
+a fresh `--output` are required. Every branch resets and executes the prefix,
+using the shared replay checks for observations, admissible commands, rewards,
+termination and audit hashes. Parser errors consume turns without environment
+steps, exactly as in evaluation. Prefix turns and I2's extra real information
+action count toward the unchanged 40-turn limit. The output contains normal
+`episode.json`, events, blobs and provenance plus the branch parent/t/arm/sample.
+
+For a later authorized run against an already checked server:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.interventions \
+  --gap-set reports/runs/my-mechanism-taxonomy/taxonomy.json \
+  --fce reports/runs/my-mechanism-fce/fce.json \
+  --verified data/verified/seeds_k20_s0 --output reports/runs/my-mechanism-arms \
+  --endpoint http://127.0.0.1:PORT/v1 --model-name k20s0-p03 \
+  --server-provenance SERVER/provenance.json --lora-check CHECK/report.json \
+  --max-teacher-calls 400 --max-teacher-calls-run 12000
+```
+
+Each arm has greedy + four seeded samples. I0 checks S's logged next action and
+failure; non-deterministic cases are flagged and excluded from other arms.
+I1 restates only visible feedback, with the latest explicit contents observation
+winning. I2 prioritizes inventory after `Nothing happens.` when visible feedback
+shows a held object; otherwise it examines the current receptacle when legal,
+or uses look. Its real action/feedback become an ordinary additional turn.
+I3 uses an advice-only teacher system template, appends `Advice:` to S's user
+message, and records both template and instruction hashes; action-bearing
+advice is rejected and retained. I4 inserts the teacher action. One I3/I4 output
+is fixed across that arm's five student continuations, with reuse explicitly
+recorded and billed once. I5 uses the same task type, then the greatest number
+of shared object/movable/target types, then verified seed order. It renders only
+observation/action text. The exact seed collection is checked against S's
+training provenance; absent task types are reported separately. The supplied
+adapter must match the evaluated S. Add `--subject base` with the configured
+base model to repeat the arms on the same S states and seeds; base I0 is a
+control, without requiring the base to reproduce S's action.
+
+I1/I3/I5 append text to just the intervened user message. The exact appended
+message remains in subsequent request histories. I2 adds its actual information
+turn, and I4 replaces just the next assistant action. Shared evaluation prompts,
+the parser, OFF template, 1,024-token cap and default greedy decoding are unchanged.
+All prompts retain the visible-field whitelist. Teacher text is advice, never
+verification. Usage, raw responses, rejected attempts and failures are retained.
+
+The resumable launcher runs one checked vLLM server for S and optional base:
+
+```bash
+# Later live execution only; not part of Stage 4a validation.
+MAX_TEACHER_CALLS=400 MAX_TEACHER_CALLS_RUN=12000 INCLUDE_BASE=1 \
+  bash scripts/rai_mechanism.sh 1 reports/runs/my-mechanism-taxonomy/taxonomy.json \
+  data/verified/seeds_k20_s0 reports/runs/my-mechanism \
+  k20s0-p03=/path/to/checkpoint-tokens-31221
+```
+
+It validates the gap/adapter/seed identity before GPU work, generates HF
+references before serving, allocates a free port via `serve_student.py --port 0`,
+and requires the existing equivalence gate before FCE → arms → readout. Runtime
+and model-path overrides match `rai_eval_student.sh`. Every restart uses new
+server/check directories. Only owned, hash-bound analysis workspaces resume;
+completed branch attempts are checked and skipped, interrupted attempts are
+preserved and retried in new directories. Original evaluations and seed data
+are never edited. The launcher stops its server/workers on exit or gate failure.
+
+Read an existing experiment without model/environment calls:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.readout \
+  --gap-set reports/runs/my-mechanism-taxonomy/taxonomy.json \
+  --fce reports/runs/my-mechanism-fce/fce.json \
+  --interventions reports/runs/my-mechanism-arms/interventions.json \
+  --output reports/runs/my-mechanism-readout
+```
+
+The JSON and Markdown give |G|, taxonomy shares, FCE positions, rescue rates and
+95% Wilson intervals, and the fixed 2×2 table. Rescue requires greedy success
+**and ≥3/4 sampled successes**. F-format, missing seed task types, replay noise,
+teacher-unsolvable cases and incomplete outcomes are separate. Cells use |G|
+as denominator; available-arm intervals disclose missing outcomes. Optional
+`--compare-interventions FILE` adds exact paired McNemar tests. Optional
+`--coverage FILE` accepts `{task_id: {"covered": true, "evidence": ...}}` audit
+labels. Task-type overlap alone never establishes needed-step coverage, and
+M1 stays conditional without it. Section-4 knowledge probes, training fit and
+earlier/later checkpoint controls are still required before interpretation;
+this engineering stage makes no mechanism claim.
+
+See [Stage 4a validation](reports/stage4a_validation.md) for the offline test
+results and real-run taxonomy sanity check.
