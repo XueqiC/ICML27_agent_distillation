@@ -9,7 +9,7 @@ from analysis.mechanism.common import (completed_branch, gap_episodes, load_epis
                                       read_json)
 from analysis.mechanism.goals import refuse_sealed
 from analysis.mechanism.interventions import ARMS, arm_outcome
-from analysis.mechanism.taxonomy import shares
+from analysis.mechanism.taxonomy import LABELS, shares
 from sed.config import load_config
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, write_json
@@ -187,7 +187,8 @@ def markdown(result):
         lines.append(f"| {arm} | {row['count']}/{row['n']} | {rate} | {ci} | {row['unknown']} |")
     lines += ["", "Taxonomy on the frozen gap set:", "", "| Label | Primary count | Share of known gap failures |",
               "|---|---:|---:|"]
-    for label, row in result["taxonomy_gap"]["primary"].items():
+    for label in LABELS:
+        row = result["taxonomy_gap"]["primary"][label]
         share = f"{row['share']:.1%}" if row["share"] is not None else "n/a"
         lines.append(f"| {label} | {row['count']} | {share} |")
     cells = result["decision_cells"]

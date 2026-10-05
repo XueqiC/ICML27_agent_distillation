@@ -15,7 +15,7 @@ from analysis.mechanism.goals import Facts, object_types, parse_goal
 from analysis.mechanism.interventions import SharedInterventionTeacher, arm_outcome
 from analysis.mechanism.policies import (ADVICE_INSTRUCTION, ADVICE_PROMPT_TEMPLATE, BranchStudent, BranchTeacher, BudgetExceeded,
                                        Overlay, TeacherBudget, validate_continuation)
-from analysis.mechanism.readout import build_readout, decision_cell, paired_mcnemar, wilson
+from analysis.mechanism.readout import build_readout, decision_cell, markdown, paired_mcnemar, wilson
 from analysis.mechanism.taxonomy import LABELS, classify, comparison, shares
 from analysis.mechanism.visible import information_action, restatement, summarize_visible
 from harness.alfworld_env import Environment
@@ -77,15 +77,121 @@ def test_goal_refuses_sealed_and_unsafe_paths(task_id):
 
 
 def test_taxonomy_order_all_rules_and_indices():
-    ep, audits = episode(["take mug 1 from drawer 1", "look", "look", "look", None, None, None],
-        observations=["You see apple 1."]+["nothing"]*6)
-    ep["steps"][0]["action_outcome"] = "inadmissible"
+    assert LABELS == ("F-format", "F-inadmissible", "F-goal", "F-search", "F-precondition", "F-loop", "F-cap")
+    ep, audits = episode(["heat mug 1 with microwave 1", "look", "look", "look", "look", None, None, None],
+        observations=["You see apple 1."]+["nothing"]*7)
+    for step in ep["steps"][1:3]:
+        step["action_outcome"] = "inadmissible"
     result = classify(ep, audits)
     assert result["primary"] == "F-format"
-    assert result["labels"] == ["F-format", "F-goal", "F-loop"]
-    assert result["triggers"]["F-format"] == [1, 5, 6, 7]
+    assert result["labels"] == ["F-format", "F-inadmissible", "F-goal", "F-loop"]
+    assert result["triggers"]["F-format"] == [6, 7, 8]
+    assert result["triggers"]["F-inadmissible"] == [2, 3]
     assert result["triggers"]["F-goal"] == [1]
     assert set(result["evidence"]) == set(result["labels"])
+
+
+@pytest.mark.parametrize("parser, inadmissible, expected", [
+    (0, 9, []), (9, 0, []), (5, 5, []),
+    (10, 0, ["F-format"]), (0, 10, ["F-inadmissible"]),
+    (10, 10, ["F-format", "F-inadmissible"]), (0, 32, ["F-inadmissible"]),
+])
+def test_amend1_error_fractions_are_separate(parser, inadmissible, expected):
+    ep, audits = episode(["look"]*40)
+    for step in ep["steps"][:parser]:
+        step.update(action_parsed=None, action_outcome="parser_error")
+    for step in ep["steps"][parser:parser+inadmissible]:
+        step.update(action_parsed="go to drawer 5", action_outcome="inadmissible")
+    result = classify(ep, audits)
+    assert [k for k in result["labels"] if k in LABELS[:2]] == expected
+    assert result["parser_errors"] == parser and result["inadmissible"] == inadmissible
+    if expected:
+        assert result["primary"] == expected[0]
+    for label in expected:
+        expected_indices = range(1, parser+1) if label == "F-format" else range(parser+1, parser+inadmissible+1)
+        assert result["triggers"][label] == list(expected_indices)
+
+
+@pytest.mark.parametrize("tail, expected", [(2, False), (3, True)])
+def test_amend1_trailing_parser_errors_below_fraction_threshold(tail, expected):
+    ep, audits = episode(["look"]*(40-tail) + [None]*tail)
+    result = classify(ep, audits)
+    assert ("F-format" in result["labels"]) is expected
+    if expected:
+        assert result["triggers"]["F-format"] == [38, 39, 40]
+        assert [e["rule"] for e in result["evidence"]["F-format"]] == ["ends_with_at_least_3_parser_errors"]
+
+
+@pytest.mark.parametrize("verb, appliance, predicate", [
+    ("heat", "microwave", "ishot"), ("cool", "fridge", "iscool"), ("clean", "sinkbasin", "isclean"),
+])
+@pytest.mark.parametrize("placement", ["move", "put"])
+def test_amend1_only_own_transformation_appliance_is_excluded(verb, appliance, predicate, placement):
+    held = ["holds(agent1: agent, a: object)"]
+    tid = f"valid_seen/pick_{verb}_then_place_in_recep-Apple-None-CounterTop-1/trial_0"
+    ep, audits = episode([f"{placement} apple 1 to {appliance} 1"], facts=[held, []], task_id=tid)
+    for audit in audits:
+        audit["internal_facts"] += ["receptacletype(f: receptacle, fridgetype: rtype)",
+                                    "receptacletype(s: receptacle, sinkbasintype: rtype)"]
+    result = classify(ep, audits)
+    assert result["primary"] == "F-precondition" and "F-goal" not in result["labels"]
+    assert result["evidence"]["F-precondition"][0]["missing"] == {"a": [predicate]}
+    for destination in ("countertop", "microwave", "fridge", "sinkbasin", "drawer"):
+        ep["steps"][0]["action_parsed"] = f"{placement} apple 1 to {destination} 1"
+        result = classify(ep, audits)
+        assert ("F-goal" in result["labels"]) is (destination not in {"countertop", appliance})
+    ep["task_id"] = tid.replace(f"pick_{verb}_then_place_in_recep", "pick_and_place_simple")
+    ep["steps"][0]["action_parsed"] = f"{placement} apple 1 to {appliance} 1"
+    assert classify(ep, audits)["primary"] == "F-goal"
+
+
+@pytest.mark.parametrize("action, task_id", [
+    ("move apple 1 to drawer 1", TASK_ID),
+    ("heat mug 1 with microwave 1", TASK_ID),
+    ("cool mug 1 with fridge 1", TASK_ID.replace("_heat_", "_cool_")),
+    ("clean mug 1 with sinkbasin 1", TASK_ID.replace("_heat_", "_clean_")),
+    ("use mug 1", TASK_ID),
+    ("use mug 1", "valid_seen/look_at_obj_in_light-Apple-None-DeskLamp-1/trial_0"),
+    ("toggle mug 1", "valid_seen/look_at_obj_in_light-Apple-None-DeskLamp-1/trial_0"),
+])
+@pytest.mark.parametrize("outcome", ["legal", "inadmissible", "parser_error", "environment_error", None])
+def test_amend1_goal_mismatches_require_legal_execution(action, task_id, outcome):
+    ep, audits = episode([action], task_id=task_id)
+    ep["steps"][0]["action_outcome"] = outcome
+    result = classify(ep, audits)
+    assert ("F-goal" in result["labels"]) is (outcome == "legal")
+    if outcome == "legal":
+        assert result["triggers"]["F-goal"] == [1]
+
+
+def test_amend1_wrong_object_pickup_or_placement_alone_is_not_goal_evidence():
+    ep, audits = episode(["take mug 1 from drawer 1", "move mug 1 to microwave 1"])
+    assert "F-goal" not in classify(ep, audits)["labels"]
+
+
+@pytest.mark.parametrize("index, expected_labels", [
+    (0, ["F-precondition"]),
+    (1, ["F-inadmissible", "F-precondition", "F-loop"]),
+])
+def test_amend1_reviewed_real_episodes(index, expected_labels):
+    fixture = json.loads(Path("tests/fixtures/mechanism_amend1_episodes.json").read_text())
+    row = fixture["episodes"][index]
+    ep = row["episode"]
+    audits = [row["audit_states"][i] for i in row["audit_indices"]]
+    assert len(ep["steps"]) == 40 and len(audits) == 41
+    assert len(row["source_episode_sha256"]) == 64 and len(row["source_audit_sha256"]) == 41
+    result = classify(ep, audits)
+    assert result["labels"] == expected_labels and result["primary"] == expected_labels[0]
+    assert result["parser_errors"] == 0
+    if index == 0:
+        assert ep["steps"][39]["action_parsed"] == "move plate 1 to stoveburner 1"
+        assert ep["steps"][39]["action_outcome"] == "inadmissible"
+        assert result["inadmissible"] == 1 and result["triggers"]["F-precondition"] == [40]
+    else:
+        assert ep["steps"][5]["action_parsed"] == "move tomato 3 to microwave 1"
+        assert ep["steps"][5]["action_outcome"] == "legal"
+        assert 6 in result["triggers"]["F-precondition"] and result["inadmissible"] == 10
+        assert result["triggers"]["F-inadmissible"] == [7, 9, 11, 13, 18, 21, 32, 34, 37, 39]
 
 
 def test_search_uses_only_observations_not_goal_actions_commands_or_audit():
@@ -538,6 +644,14 @@ def test_readout_coverage_format_and_unknown_stay_separate():
     assert result["decision_cells"]["M1_cell"]["count"] == 1
     result = build_readout(tax, fce, interventions, {TASK_ID: {"covered": True, "evidence": "seed take/heat pattern"}})
     assert result["episodes"][0]["label"] == "M1"
+    row.update(primary="F-inadmissible", labels=["F-inadmissible"])
+    result = build_readout(tax, fce, interventions)
+    assert result["arm_rescue"]["primary"]["I1"]["n"] == 1
+    assert result["taxonomy_gap"]["primary"]["F-inadmissible"]["count"] == 1
+    # Storage sorts JSON keys; Markdown must restore the registered label order.
+    text = markdown(json.loads(json.dumps(result, sort_keys=True)))
+    positions = [text.index(f"| {label} |") for label in LABELS]
+    assert positions == sorted(positions)
     interventions["episodes"][0]["taxonomy_labels"] = ["F-format"]
     tax["runs"]["student"]["episodes"][0]["labels"] = ["F-format"]
     result = build_readout(tax, fce, interventions)

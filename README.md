@@ -548,7 +548,11 @@ standalone commands, artifacts and the remaining GPU acceptance boundary.
 ## Stage 4a: mechanism analysis tooling
 
 `analysis/mechanism/` implements the fixed measurements and I0–I5 arms in
-[MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md). These are diagnostic tools, with
+[MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md), including Amendment 1 (commit
+`862eaed`; validated plan SHA-256
+`ca177ad227c36db4ef4f3ec0dc5f05f64ebb7b4dc797cac1b4314b729f4ba9cd`).
+The later Amendment 2's I0/control changes are outside this taxonomy update.
+These are diagnostic tools, with
 `purpose=diagnosis`, zero training exposure, and no sealed-task access. The
 Stage 4a validation uses offline fakes and reads existing dev artifacts; it
 does not run a live FCE or intervention experiment.
@@ -561,7 +565,7 @@ or specified by `--compare-role`). Supplying both references emits both G and R:
 CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.taxonomy \
   --run reports/runs/eval/k20s0-rai-dev140/k20s0-p03/eval \
   --teacher-run reports/runs/teacher-dev140 \
-  --base-run reports/runs/eval/k20s0-rai-dev140/google/gemma-4-12B-it/eval \
+  --base-run reports/runs/eval/ladder-s0-rai-dev140/google/gemma-4-12B-it/eval \
   --output reports/runs/my-mechanism-taxonomy
 ```
 
@@ -573,11 +577,23 @@ needs a new output. Shares use known failed episodes as their denominator;
 all matching labels and primary labels are reported separately. Successes
 remain unlabelled. Indices are reset=0 and actions=1..N.
 
+Primary labels follow this order: F-format, F-inadmissible, F-goal, F-search,
+F-precondition, F-loop, F-cap. F-format requires at least three trailing parser
+errors or parser errors on at least 25% of steps. F-inadmissible separately
+requires inadmissible commands on at least 25% of steps; neither fraction pools
+the two outcomes. Only F-format enters the separate format-confound cohort.
+
 The classifier uses typed PDDL facts only for labels. F-search searches visible
 observation text, excluding the `Your task is to:` instruction, which names the
 goal by construction. Admissible commands, actions and audit facts are not
 sightings. Navigation/open/examine of other receptacles are search operations;
-F-goal checks object manipulation, placement destinations, and lamp selection.
+F-goal counts legal executed actions: moving a goal-type object to the wrong
+destination, or heat/cool/clean/use on the wrong object type (use/toggle selects
+the target lamp for light tasks). Placement into the task's own transformation
+appliance is excluded: microwave for heat, fridge for cool, sinkbasin for clean.
+These exclusions do not exempt wrong-type transformation/use actions. Target
+and required movable receptacles are also allowed destinations. Taking an
+object alone and inadmissible attempts do not trigger F-goal.
 F-precondition checks actual holds, placements, transformation predicates and
 lamp toggles. Evidence records both missing predicates and the relevant state.
 An unsuccessful episode matching no rule below the cap remains unclassified.

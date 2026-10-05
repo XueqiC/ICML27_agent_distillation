@@ -1,4 +1,4 @@
-"""Automatic, auditable section-2 labels; no model calls or environment steps."""
+"""Automatic, auditable section-2 / Amendment 1 labels; no model calls or environment steps."""
 import argparse
 from collections import Counter, defaultdict
 from dataclasses import asdict
@@ -14,7 +14,7 @@ from sed.config import load_config
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.storage import file_hash, write_json
 
-LABELS = ("F-format", "F-goal", "F-search", "F-precondition", "F-loop", "F-cap")
+LABELS = ("F-format", "F-inadmissible", "F-goal", "F-search", "F-precondition", "F-loop", "F-cap")
 
 
 def observed_text(text):
@@ -48,13 +48,13 @@ def classify(episode, audits):
     success = outcome(episode, audits)
     steps = episode["steps"]
     evidence = {name: [] for name in LABELS}
-    bad = [i for i, s in enumerate(steps, 1) if s.get("action_outcome") in {"parser_error", "inadmissible"}]
     parser_indices = [i for i, s in enumerate(steps, 1) if s.get("action_outcome") == "parser_error"]
+    inadmissible_indices = [i for i, s in enumerate(steps, 1) if s.get("action_outcome") == "inadmissible"]
     base = {"task_id": episode["task_id"], "episode_id": episode["episode_id"],
             "success": success, "steps": len(steps), "goal": asdict(goal),
             "seed": episode.get("seed"), "game_sha256": episode.get("game_sha256"),
             "max_episode_steps": episode.get("max_episode_steps"),
-            "parser_errors": len(parser_indices), "inadmissible": len(bad) - len(parser_indices)}
+            "parser_errors": len(parser_indices), "inadmissible": len(inadmissible_indices)}
     if success is not False:
         return dict(base, primary=None, labels=[], triggers={}, evidence={},
                     classification_status="success" if success is True else "unknown")
@@ -69,17 +69,15 @@ def classify(episode, audits):
         tail.append(i)
     if len(tail) >= 3:
         add("F-format", sorted(tail), "ends_with_at_least_3_parser_errors")
-    if steps and len(bad) / len(steps) >= .25:
-        add("F-format", bad, "parser_or_inadmissible_fraction_at_least_0.25", fraction=len(bad)/len(steps))
+    if steps and len(parser_indices) / len(steps) >= .25:
+        add("F-format", parser_indices, "parser_fraction_at_least_0.25", fraction=len(parser_indices)/len(steps))
+    if steps and len(inadmissible_indices) / len(steps) >= .25:
+        add("F-inadmissible", inadmissible_indices, "inadmissible_fraction_at_least_0.25",
+            fraction=len(inadmissible_indices)/len(steps))
 
     facts = [Facts(a["internal_facts"]) for a in audits]
     goal_type = goal.base_object
     target = normal_type(goal.target_receptacle)
-    allowed_objects = {goal_type}
-    if goal.movable_receptacle:
-        allowed_objects.add(normal_type(goal.movable_receptacle))
-    if "issliced" in goal.required:
-        allowed_objects.update({"knife", "butterknife"})
     held_steps = defaultdict(list)
     for i, state in enumerate(facts):
         for obj in state.held():
@@ -88,24 +86,35 @@ def classify(episode, audits):
     placements = {"move", "put"}
     transforms = {"heat": ("ishot", "microwave"), "cool": ("iscool", "fridge"),
                   "clean": ("isclean", "sinkbasin"), "slice": ("issliced", "knife")}
+    allowed_destinations = {target}
+    if goal.movable_receptacle:
+        allowed_destinations.add(normal_type(goal.movable_receptacle))
+    allowed_destinations.update(tool for verb, (pred, tool) in transforms.items()
+                                if verb != "slice" and pred in goal.required)
     for i, step in enumerate(steps, 1):
         before, after = facts[i-1:i+1]
         verb, obj, receptacle = action_parts(step.get("action_parsed"))
         obj_type, recep_type = entity_type(obj), entity_type(receptacle)
         known_types = set(before.types.values()) | set(after.types.values())
         relevant = before.evidence({"holds", "objecttype", "receptacletype"})
-        # Navigation/open/examine are search, not commitments to a goal type.
-        if verb in {"take", *placements, *transforms} and obj_type in known_types and obj_type not in allowed_objects:
+        # Amendment 1: only executed placements of the goal object and
+        # heat/cool/clean/use commitments count. Failed attempts can still
+        # supply precondition evidence below.
+        legal = step.get("action_outcome") == "legal"
+        if legal and verb in {"heat", "cool", "clean"} and obj_type in known_types and obj_type != goal_type:
             add("F-goal", [i], "manipulated_object_type_mismatch", action=step["action_parsed"],
-                actual_type=obj_type, expected_types=sorted(allowed_objects),
+                actual_type=obj_type, expected_types=[goal_type],
                 facts=[f for f in relevant if f"{obj_type}type:" in f.lower()])
-        if verb in placements and recep_type in known_types and recep_type not in {target, normal_type(goal.movable_receptacle or "")}:
+        if (legal and verb in placements and obj_type == goal_type
+                and recep_type in known_types and recep_type not in allowed_destinations):
             add("F-goal", [i], "placement_receptacle_type_mismatch", action=step["action_parsed"],
-                actual_type=recep_type, expected_type=target,
+                actual_type=recep_type, expected_type=target, allowed_types=sorted(allowed_destinations),
                 facts=after.evidence({"inreceptacle"}) if after.get("inreceptacle") != before.get("inreceptacle") else
                 [f for f in relevant if f"{recep_type}type:" in f.lower()])
-        if verb in {"use", "toggle"} and goal.task_type.startswith("look_at_obj") and obj_type in known_types and obj_type != target:
-            add("F-goal", [i], "lamp_type_mismatch", action=step["action_parsed"], actual_type=obj_type, expected_type=target,
+        use_type = target if goal.task_type.startswith("look_at_obj") else goal_type
+        if legal and verb in {"use", "toggle"} and obj_type in known_types and obj_type != use_type:
+            add("F-goal", [i], "lamp_type_mismatch" if goal.task_type.startswith("look_at_obj") else "used_object_type_mismatch",
+                action=step["action_parsed"], actual_type=obj_type, expected_type=use_type,
                 facts=[f for f in relevant if f"{obj_type}type:" in f.lower()])
         held = {o for o in before.held() if before.types.get(o) == goal_type}
         if verb in placements and obj_type == goal_type:

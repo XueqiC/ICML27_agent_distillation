@@ -1,1 +1,1 @@
-"""Engineering implementation of docs/MECHANISM_PLAN.md (no protocol amendments)."""
+"""Engineering implementation of docs/MECHANISM_PLAN.md, including Amendment 1."""
