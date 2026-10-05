@@ -169,3 +169,8 @@ initial audit state (never from any policy's outcome), frozen to a file before t
 Readout per trait bucket: success of each row with Wilson 95% intervals and the paired difference against base and teacher
 with exact McNemar p-values. dev140 buckets are small (often 15–50 games), so only differences whose interval excludes zero
 AND whose direction repeats across support seeds are stated as findings; everything else is a hypothesis for the sealed test.
+
+**Amendment 2, point 3 executed (2026-10-05 00:00 CDT):** VLLM_BATCH_INVARIANT=1 verified on rai GPU1 — base on dev40: 40/40 identical
+trajectories across two server instances (18/40 both); LoRA k20s0-p20 on dev40: 40/40 identical (27/40 both), equivalence gate
+passes (error 0.040 vs noise 0.051). All paper evaluations and all branch replays use batch-invariant serving from now on; every
+number reported earlier without it (rai ladder, first dev140 rows) is preliminary and is re-run under it.
