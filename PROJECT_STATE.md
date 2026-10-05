@@ -5,6 +5,15 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **hpg (tree ICML27_runs/74cdb97, two-pass DPO + bf16 reference)**: 44826292 ETO K20 s0 (2 GPUs, 200G) → baselines/eto-k20s0-tp4; 44826293 IPR
+  K20 s0 (2 GPUs, 200G, 24 h) → baselines/ipr-k20s0; 44826360 LEAP privileged and 44826361 LEAP 0%-privileged K20 s0 (1 GPU each) →
+  baselines/leap-{privileged,zero}-k20s0. ETO/IPR pending on dept QOSGrpMemLimit.
+- **OpenAI key on hpg** (user approved 11:28 CDT): only the OPENAI_API_KEY line, /blue/fsu-compsci-dept/xc25.fsu/hq/secrets/openai.env
+  (600, dir 700), used via SED_SECRETS_FILE by LEAP jobs only. Compute nodes reach api.openai.com (HTTP 401 without key).
+- AgentGym K20 s0 DONE: BC 59, AgentEvol iter-1/2/3 = 64/62/66 (base 62).
+- rai GPU1: mechanism run on k5s0-t400k (pid 1513532) — FCE probing. rai GPU3: free after probes run 1.
+- Codex (pid 1609910): MECHANISM_PLAN amendment 5 (procedural coverage) in analysis/mechanism.
+- User 11:28 CDT: plots must show each baseline as its own line (distinct colours), separate from Seed-SFT/teacher/base.
 - Interim report sent 10:0x CDT: reports/interim_1005_ZH.md (+ seedsft_sweep.png).
 - Codex 4f (pid 1474865): plan §4 — needed-step coverage from the shortest teacher takeover at t*, absorption probe on the seed states that
   demonstrated each needed pattern (M1a not absorbed / M1b absorbed-not-invoked), training-set fit; scripts/rai_mechanism_probes.sh.
