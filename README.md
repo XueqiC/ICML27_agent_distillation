@@ -1020,3 +1020,80 @@ labels identify each setting. The black-box teacher is marked not applicable
 and does not participate in this guard. Historical artifacts are unchanged;
 affected paper evaluations and branch replays must be re-run under the new
 protocol in separate experiment worktrees.
+
+## Stage 4e: frozen environment traits and stratified readout
+
+`analysis/traits.py` implements [Addendum A](docs/MECHANISM_PLAN.md) for the
+frozen dev140 population. It resets each game once, executes zero actions, and
+reads the initial observation and audit facts. The audit-only output is
+[`data/manifest/dev140_traits.json`](data/manifest/dev140_traits.json), with a
+canonical content hash, code hashes, dependency versions, environment seed,
+game/input hashes and the original split/list identity. Existing output is
+refused, including an identical file. This file is not a training input.
+
+Task type has six values and family has four. Hidden target requires **every**
+goal-type object to be directly in a receptacle marked `openable` and not
+`opened` in the initial facts. Room size counts distinct named receptacles in
+the initial room inventory sentence, excluding the task instruction. Distractors
+count all goal-type objects minus one required object, or minus two for
+`pick_two_obj_and_place`. State change is yes/no, with heat/cool/clean retained
+separately. Minimum length alone uses policy outcomes: the fewest logged steps
+in a successful teacher dev trajectory, verified against its final environment
+win audit; failed, incomplete or absent successes remain unknown. This is a
+teacher trajectory length, not an environment-optimal path length.
+
+Room size uses all 140 values for tertiles; minimum length uses known values
+only. Cutoffs are the empirical quantiles at ceiling ranks `n/3` and `2n/3`:
+low `<= q1`, middle `q1 < value <= q2`, high `> q2`. Equal values stay together,
+so bucket sizes need not match; empty and unknown buckets are retained.
+Coverage counts verified executed trajectories of the same task type for
+all nine K=5/10/20, support-seed=0/1/2 collections. Nested subsets reference
+their original evidence. Counts, unique instances and task groups are separate.
+
+The initial build command (refuses to run again at the frozen destination):
+
+```bash
+CUDA_VISIBLE_DEVICES='' \
+ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1 \
+PYTHONPATH=src:. .venv/bin/python -m analysis.traits
+```
+
+`analysis/stratified.py` accepts repeatable `--row LABEL=EVAL_DIR` arguments for
+teacher, base, students or baselines. Labels beginning `k{K}s{S}-...` select
+their frozen coverage context. Each context contains matching method rows and
+the base/teacher references on exactly that context's games. Labels without
+K/support seed participate in the other traits; no coverage is inferred for
+them. `--base-label` and `--teacher-label` can name alternative reference labels.
+
+JSON and Markdown contain per-bucket game/group counts, success counts and
+rates with Wilson 95% intervals, paired row-minus-reference differences against
+base and teacher, exact two-sided McNemar p-values, and teacher-minus-row gaps.
+Paired difference intervals subtract Bonferroni-Wilson 97.5% intervals for the
+two discordant probabilities (nominal conservative 95%). Rates are proportions;
+p-values are unadjusted. Statistics use game instances and also disclose group
+counts. Missing/incomplete/unknown outcomes are counted separately and omitted
+from known denominators; comparisons use their own known paired denominator.
+The reader reuses `analysis.k_ladder` and records episode success as the outcome
+source; sweep copies need not contain audit blobs. Duplicate tasks, sealed tasks,
+game-hash/seed mismatches and unsupported coverage contexts are refused. Mixed
+serving settings require `--allow-mixed-serving`; the historical non-invariant
+12/140 serving-noise reference accompanies the paired tests.
+
+The real-data sanity readout uses these explicit, read-only inputs:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.stratified \
+  --traits data/manifest/dev140_traits.json \
+  --row teacher=reports/runs/teacher-dev140 \
+  --row base=reports/runs/eval/hpg-seedsft-sweep-bi/k5s0/google/gemma-4-12B-it/eval \
+  --row k20s0-p40=reports/runs/eval/hpg-seedsft-sweep-bi/k20s0/k20s0-p40/eval \
+  --row k10s0-t400k=reports/runs/eval/hpg-seedsft-sweep-bi/k10s0/k10s0-t400k/eval \
+  --row k5s1-t400k=reports/runs/eval/hpg-seedsft-sweep-bi/k5s1/k5s1-t400k/eval \
+  --row k5s0-t400k=reports/runs/eval/hpg-seedsft-sweep-bi/k5s0/k5s0-t400k/eval \
+  --out reports/figs/stratified-seedsft
+```
+
+Readout destinations also refuse overwrites. Use a new destination for a later
+readout of the same frozen traits. Neither command writes to `reports/runs/`
+or `data/verified/`. Numerical artifacts and offline test results are recorded
+in [Stage 4e validation](reports/stage4e_validation.md).
