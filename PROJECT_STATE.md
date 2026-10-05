@@ -5,8 +5,10 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg 44806752** (group, 2×B200, tree ICML27_runs/97eb54b with the export fix): ETO K=20 s0, turn packing, all stages → reports/runs/
-  baselines/eto-k20s0-tp2. (First attempt 44802334 trained but failed at export: key names; fixed in 97eb54b.)
+- **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
+  all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
+- **hpg 44806889** (dept, 2×B200): AgentGym K=20 s0 — iteration 1 (explore-1) at 08:4x CDT.
+- **hpg 44809012 / 44809013** (moved to the group account at 08:4x): contamination tests (k20s0-p40 alone; k10s2-t200k alone with s0 prompts).
 - Kang K=20 s0 turn-packed (official recipe): **SAG 63/140, greedy 66/140** (0 parser errors) ≈ base 62 — official dose ≈ 2 passes.
 - **hpg 44806889** (dept, 2×B200, 240G, tree 97eb54b): AgentGym BC + AgentEvol K=20 s0 (4 iterations, explore only the K tasks) →
   reports/runs/baselines/agentgym-k20s0. Pending.
