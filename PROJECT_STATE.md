@@ -5,15 +5,14 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- rai (nohup, pid of scripts/rai_collect_and_teacher_eval.sh, started 17:30 CDT 10-04): collect K=20 verified seeds for support seeds 0/1/2
-  (K=5/10 nested subsets) → data/verified/seeds_k20_s{0,1,2}; then teacher dev140 → reports/runs/teacher-dev140. Logs: logs/collect_k20_s*.log,
-  logs/teacher-dev140.log, logs/rai_collect_and_teacher_eval.log.
-  18:02: chain replaced by scripts/rai_collect_parallel.sh (seeds 1 and 2 in parallel with seed 0; teacher dev140 after all three).
-  18:32: s0 complete (20 verified / 29 attempts; k5/k10 subsets built), s2 17/20, s1 4/20.
-- rai GPU1 (Blackwell): Seed-SFT K=20 s0 profiling/training run → reports/runs/train/seedsft-k20-s0-rai, 208,140 supervised tokens
-  (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv). Started ~18:35 CDT. First update 72.8 s (18 turns, each with its full conversation as context) → ~8 h for 20 passes;
-  one non-fatal CUDA OOM warning (7.1 GB allocation) at start. Codex is adding `--packing episode` (one sequence per episode, all assistant
-  spans labelled; documented difference: history turns lack the empty thought-channel marker the generation prompt has) — ~15x cheaper.
+- rai (nohup scripts/rai_collect_parallel.sh, log logs/rai_collect_parallel.log): collect K=20 verified seeds → data/verified/seeds_k20_s{0,1,2}
+  (K=5/10 nested subsets), then teacher dev140 (8 workers) → reports/runs/teacher-dev140. s0 done (20 / 29 attempts), s2 done (20 / 24),
+  s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
+- rai GPU1 (Blackwell): Seed-SFT K=20 s0, **episode packing** (96531ed), pid 194800, started 19:15 CDT → reports/runs/train/seedsft-k20-s0-rai,
+  208,140 supervised tokens (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv, PYTHONPATH=src:.).
+  ~10 s/update (turn mode was 70 s), ETA ~20:00 CDT. Episodes are never split, so updates carry 512–~1,200 supervised tokens and there are
+  ~40% fewer updates than in turn mode; checkpoints are keyed by cumulative supervised tokens. The turn-mode run (29 updates) is in _trash/.
+- hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
 
 ## Stage 2c implementation (2026-10-04)
 
