@@ -11,8 +11,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   Preflight: all 9 datasets reproduce the rai per-pass token counts.
 - **hpg 44777572** (dept, 4×B200, 480G, same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
-- **rai GPU1** pid 736875 (worktree ICML27_run_3045b60, BATCH_INVARIANT=1): dev140 base + k20s0-p20 (rai-trained) → reports/runs/eval/
-  bi-dev140-rai; defines the gap set for the first mechanism run (FCE + I0–I5 on k20s0-p20). ~45 min.
+- rai BI dev140 done: base 60/140 = 42.9%, k20s0-p20 96/140 = 68.6% → reports/runs/eval/bi-dev140-rai. Gap set G = 24, R = 7.
+- **rai GPU1: first mechanism run** (scripts/rai_mechanism.sh from worktree ICML27_run_3045b60, pid 781961, started ~00:35 CDT 10-05):
+  student k20s0-p20 (rai-trained, BI), G = 24 → FCE by teacher takeover (2 samples/probe) → I0–I5 (greedy + 4 samples) → readout.
+  Caps: 700 teacher HTTP attempts/episode, 15,000/run. Output reports/runs/mechanism/k20s0-p20-bi/run, log logs/mechanism_k20s0_p20_bi.log.
 - hpg data: data/verified synced (checksums equal). hpg git cannot fetch GitHub (no credentials) → code goes by `git archive <sha> |
   ssh hpg tar -x`, one tree per commit under /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/<sha> with .venv symlinked to the base tree.
 - **Protocol: batch-invariant serving (VLLM_BATCH_INVARIANT=1) for every paper evaluation** — base 40/40 and LoRA 40/40 identical
