@@ -174,3 +174,20 @@ AND whose direction repeats across support seeds are stated as findings; everyth
 trajectories across two server instances (18/40 both); LoRA k20s0-p20 on dev40: 40/40 identical (27/40 both), equivalence gate
 passes (error 0.040 vs noise 0.051). All paper evaluations and all branch replays use batch-invariant serving from now on; every
 number reported earlier without it (rai ladder, first dev140 rows) is preliminary and is re-run under it.
+
+## Amendment 3 (2026-10-05 01:10 CDT) — intervention point = closest approach, not the budget drop (before any intervention result)
+
+Observed on the first live FCE task (k20s0-p20, look_at_obj_in_light-Bowl-None-DeskLamp-301): teacher takeover succeeds from every
+prefix t ≤ 39 and fails only at t = 40, where no turns remain, so Section 3's FCE = 39 marks where the 40-turn budget ran out, not an
+error. ALFWorld states are almost always recoverable given turns; students fail by wasting turns. In this episode the teacher needs
+~20 more turns from t = 4…20 (the student searches drawers for the lamp), then exactly **1** turn from t = 24 onward (lamp on, bowl
+on the dresser: "take bowl 1 from dresser 1" wins), while the student types "look" sixteen times. The informative state is t = 24.
+
+1. **Teacher steps-to-go** D(t) = the fewest turns a successful teacher takeover from prefix t used (over the samples at that probe;
+   undefined if none succeeded). Already recorded by every FCE probe.
+2. **Intervention state t\*** = the earliest probed prefix attaining the minimum D over the episode (the student's closest approach
+   to success), after a dense probe of every prefix in [t_c − 3, t_c] around the earliest coarse minimum t_c (2 samples each).
+   Ties → earliest. If no probe succeeded, the episode is "teacher-unsolvable from the student's states" and excluded.
+3. Interventions I0–I5 (Section 3 table, amendment 2 pairing) are applied at t\* instead of the budget FCE. The budget FCE, D(t) curves,
+   and the student's turns spent after t\* without progress are reported per episode (descriptive).
+4. Readout additions: D(0) (teacher distance from the start), D(t\*) (how close the student got), and turns remaining at t\*.
