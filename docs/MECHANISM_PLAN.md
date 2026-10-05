@@ -220,3 +220,18 @@ rescue cell is reported as knowledge not in experience. In the both-rescue cell,
 M2 signal with the missing-experience qualifier. Rescue cells, I0 pairing, cohort exclusions and denominators
 stay unchanged; the readout also reports the coverage-qualified decision table and attribution counts. These
 are descriptive operational tests, not proof of general knowledge, matched preconditions, or a scientific finding.
+
+## Amendment 5 (2026-10-05 12:1x CDT) — two coverage levels; the M1 gate uses procedural coverage
+
+Made after seeing the first coverage output (run 2: 2/24 covered, 21 not covered, 1 navigation-only), before seeing any probe or M1/M2
+attribution result. Inspection showed that amendment 4's patterns kept the object type for every verb, so e.g. "clean {obj:dishsponge}
+with {sinkbasin}" counted as uncovered although the seeds clean other objects in the sinkbasin. Section 4's own examples abstract the
+object for procedures ("heat X with microwave 1 after taking X") and keep it only for location knowledge ("finding X in a drawer or
+cabinet"). Therefore:
+
+1. **Procedural coverage (decides the M1 gate):** every non-navigation needed step, with the object abstracted to its role (goal object /
+   other), i.e. verb + receptacle/appliance type (e.g. "clean {goal} with {sinkbasin}", "take {goal} from {countertop}", "move {goal} to
+   {cart}", "use {desklamp}"), is demonstrated in at least one of the student's seeds (any task type).
+2. **Instance coverage (reported, stricter):** the amendment-4 patterns with the object type kept.
+3. Absorption probes run on the seed states matched at the level that decides coverage (procedural); instance-level agreement is reported
+   alongside.
