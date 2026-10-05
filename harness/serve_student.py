@@ -189,11 +189,12 @@ def main(argv=None):
                    if p.is_file() and p.suffix in {".json", ".jinja", ".jinja2"}}
     checkpoint_kind = "merged_lora" if args.merged_model_path else "base"
     training_provenance = None
-    if args.merged_model_path and (model / "training_state.json").exists():
+    if (model / "training_state.json").exists():
         state = json.loads((model / "training_state.json").read_text())
         if state.get("text_export_dtype") == "bfloat16":
             from baselines.common.fsdp_train import validate_checkpoint
-            validate_checkpoint(model, student)
+            validate_checkpoint(model, student,
+                                base_snapshot=args.model_path if args.merged_model_path else None)
             checkpoint_kind = state.get("checkpoint_kind", "full_parameter")
             training_provenance = file_hash(model.parent / "provenance.json")
     config["server"] = {"command": command, "runtime": runtime,

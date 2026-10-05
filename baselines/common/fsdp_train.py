@@ -13,6 +13,7 @@ import shutil
 import time
 from types import SimpleNamespace
 
+from baselines.common.checkpoint import checkpoint_key_map, checkpoint_layout, validate_checkpoint_layout
 from baselines.common.conversation import conversation, preference_conversation, sequence_rows
 from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots, warmup_count
 from sed.config import load_config
@@ -28,7 +29,7 @@ def text_parameter(name):
     return name.startswith("model.language_model.") or name.startswith("lm_head.")
 
 
-def validate_checkpoint(path, student=None):
+def validate_checkpoint(path, student=None, *, base_snapshot=None):
     path = Path(path)
     state = json.loads((path / "training_state.json").read_text())
     hashes = artifact_hashes(path)
@@ -40,6 +41,8 @@ def validate_checkpoint(path, student=None):
     if student is not None and provenance["config"]["models"]["student"] != student:
         raise ValueError("Full checkpoint differs from configured student identity")
     snapshot_metadata(path)
+    base = checkpoint_layout(base_snapshot if base_snapshot is not None else state["non_text_source"])
+    validate_checkpoint_layout(path, base, [key for key in base if not text_parameter(key)])
     return state
 
 
@@ -316,19 +319,18 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
 def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_bytes=2_000_000_000):
     """Gather one tensor at a time, bf16 text weights + unchanged base towers.
 
-    Every rank participates in DTensor gathers. Rank zero writes bounded CPU
-    safetensors shards, a complete HF index/config and base processor assets.
+    Every rank participates in text DTensor gathers. Rank zero writes bounded
+    CPU shards in the original base's namespace, omitting unstored tied aliases.
     """
     import torch
     from safetensors import safe_open
     from safetensors.torch import save_file
     destination, base = Path(destination), Path(base_snapshot)
+    base_layout = checkpoint_layout(base)
+    state_dict = model.state_dict()
+    key_map = checkpoint_key_map(model, base_layout, state_dict=state_dict)
     if rank == 0:
         destination.mkdir(parents=True, exist_ok=False)
-    base_map = {}
-    for path in sorted(base.glob("*.safetensors")):
-        with safe_open(path, framework="pt", device="cpu") as handle:
-            base_map.update({key: path for key in handle.keys()})
     pending, size, total, mapping, tower_hashes = {}, 0, 0, {}, {}
     def flush():
         nonlocal pending, size
@@ -338,17 +340,19 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
         save_file(pending, destination / name, metadata={"format": "pt"})
         mapping.update({key: name for key in pending})
         pending, size = {}, 0
-    for name, value in model.state_dict().items():
+    for name, file_name in key_map.items():
+        value = state_dict[name]
+        spec = base_layout[file_name]
+        if list(value.shape) != spec["shape"]:
+            raise ValueError(f"Model tensor shape differs from original base snapshot: {name}")
         # Frozen multimodal weights come from the ORIGINAL base, not a partial
         # text-only export or random initialization; no need to gather them.
         if not text_parameter(name):
-            if name not in base_map:
-                raise ValueError("Frozen checkpoint tensor missing from original base snapshot")
             if rank == 0:
-                with safe_open(base_map[name], framework="pt", device="cpu") as handle:
-                    tensor = handle.get_tensor(name).contiguous().clone()
+                with safe_open(base / spec["file"], framework="pt", device="cpu") as handle:
+                    tensor = handle.get_tensor(file_name).contiguous().clone()
                 import hashlib
-                tower_hashes[name] = hashlib.sha256(tensor.view(torch.uint8).numpy().tobytes()).hexdigest()
+                tower_hashes[file_name] = hashlib.sha256(tensor.view(torch.uint8).numpy().tobytes()).hexdigest()
         else:
             full = value.full_tensor() if hasattr(value, "full_tensor") else value.detach()
             if rank == 0:
@@ -358,13 +362,14 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
             nbytes = tensor.numel() * tensor.element_size()
             if size + nbytes > max_shard_bytes:
                 flush()
-            pending[name] = tensor
+            pending[file_name] = tensor
             size += nbytes
             total += nbytes
     if rank != 0:
         return None
     flush()
     write_json(destination / "model.safetensors.index.json", {"metadata": {"total_size": total}, "weight_map": mapping})
+    validate_checkpoint_layout(destination, base_layout, tower_hashes)
     # Preserve tokenizer/template and multimodal processor assets from the base.
     for path in base.iterdir():
         if path.is_file() and (path.suffix in {".json", ".jinja", ".jinja2", ".model", ".txt"}) and not (
@@ -514,8 +519,8 @@ def main(argv=None):
             raise ValueError("Baseline harness protocol differs")
         config["training"]["adaptation"] = "full_parameter_text_fsdp2"
         if args.objective in {"dpo", "ipr"}:
-            validate_checkpoint(args.snapshot, config["models"]["student"])
-            validate_checkpoint(args.reference, config["models"]["student"])
+            validate_checkpoint(args.snapshot, config["models"]["student"], base_snapshot=args.base_snapshot)
+            validate_checkpoint(args.reference, config["models"]["student"], base_snapshot=args.base_snapshot)
         manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
         tokenizer = load_tokenizer(args.snapshot)
         inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
