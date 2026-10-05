@@ -11,6 +11,9 @@
 #SBATCH --signal=B:TERM@60
 
 set -euo pipefail
+BATCH_INVARIANT=${BATCH_INVARIANT:-1}
+case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2; exit 2 ;; esac
+export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID

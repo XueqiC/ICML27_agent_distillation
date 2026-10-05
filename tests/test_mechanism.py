@@ -656,3 +656,55 @@ def test_readout_coverage_format_and_unknown_stay_separate():
     tax["runs"]["student"]["episodes"][0]["labels"] = ["F-format"]
     result = build_readout(tax, fce, interventions)
     assert result["episodes"] == [] and result["exclusions"]["F-format_separate"] == 1
+
+
+def test_amendment2_pairs_same_states_and_preserves_raw_unknowns():
+    from copy import deepcopy
+    # Distinct FCE states: control+arm rescue, arm-only rescue, neither,
+    # missing control samples, and missing intervention samples.
+    tax_rows, fces, entries = [], [], []
+    for index in range(5):
+        task_id = TASK_ID.rsplit("/", 1)[0] + f"/trial_{index}"
+        ep, audits = episode(["look"], task_id=task_id)
+        tax_rows.append(classify(ep, audits))
+        fces.append({"task_id": task_id, "status": "fce_found", "fce": 0, "episode_length": 1})
+        arm_rows = {arm: {"samples": [{"sample_index": i, "success": False} for i in range(5)]}
+                    for arm in ARMS_FOR_TEST}
+        # Only I1 and I4 rescue in the first two states. A noisy control cancels both in state 0.
+        for arm in (["I0", "I1", "I4"] if index == 0 else ["I1", "I4"] if index in {1, 3} else []):
+            for sample in arm_rows[arm]["samples"]:
+                sample["success"] = True
+        if index == 3:
+            arm_rows["I0"]["samples"][-1]["success"] = "unknown"
+        if index == 4:
+            arm_rows["I1"]["samples"].pop()
+        entries.append({"task_id": task_id, "arms": arm_rows, "task_type_covered": True,
+                        "non_deterministic": index == 0})
+    tax = {"G": {"task_ids": [r["task_id"] for r in tax_rows]},
+           "runs": {"student": {"episodes": tax_rows, "shares": shares(tax_rows)}}}
+    result = build_readout(tax, {"episodes": fces}, {"episodes": entries})
+    pair = result["paired_arm_rescue"]["primary"]["I1"]
+    assert pair["task_ids"] == [r["task_id"] for r in entries[:3]]
+    assert pair["arm"] == wilson(2, 3)
+    assert pair["I0"] == wilson(1, 3)
+    assert pair["paired_excess"] == wilson(1, 3)
+    assert pair["unknown_pairs"] == 2
+    assert result["arm_rescue"]["primary"]["I1"]["count"] == 3
+    assert result["arm_rescue"]["primary"]["I1"]["n"] == 4
+    assert result["decision_cells"]["M1_cell"]["count"] == 1
+    assert result["decision_cells"]["neither"]["count"] == 2
+    assert result["decision_cells"]["incomplete"]["count"] == 2
+    assert result["episodes"][0]["label"] == "unresolved"  # I4 also loses its raw rescue to I0.
+    assert result["episodes"][3]["paired_excess"]["I1"] is None
+    assert "non_deterministic" not in result["exclusions"]
+    assert result["non_deterministic"]["count"] == 1
+    # Greedy success alone does not make I0 a rescue; 2/4 samples must not cancel I1.
+    changed = deepcopy(entries)
+    for i in (3, 4):
+        changed[0]["arms"]["I0"]["samples"][i]["success"] = False
+    result = build_readout(tax, {"episodes": fces}, {"episodes": changed})
+    assert result["paired_arm_rescue"]["primary"]["I1"]["paired_excess"] == wilson(2, 3)
+    result["paired_comparison"] = {"I1": paired_mcnemar({"a": True}, {"a": False})}
+    assert result["paired_comparison"]["I1"]["serving_noise_reference"]["discordant"] == 12
+    text = markdown(result)
+    assert "I0 on same states" in text and "Paired excess" in text and "12/140" in text

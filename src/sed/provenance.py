@@ -35,6 +35,7 @@ def code_hashes(root):
                      if p.suffix in {".py", ".yaml", ".env", ".slurm", ".sh"}
                      or (folder == "baselines" and p.suffix == ".md"))
     files.extend(root / p for p in ("AGENTS.md", "pyproject.toml", "requirements.txt",
+                                    "analysis/serving.py", "analysis/k_ladder.py",
                                     "requirements-alfworld.txt", "data/manifest/build.py",
                                     "data/manifest/build_dev40.py", "data/manifest/build_dev140.py",
                                     "data/seeds/select_seeds.py", "docs/MECHANISM_PLAN.md"))

@@ -80,6 +80,7 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
     # Checkpoint hashes, not a new server UUID/port, bind resumed continuations.
     adapter = config.get("lora_equivalence", {}).get("identity", {}).get("adapter")
     identity = {"student": stable_spec, "adapter": adapter, "subject": subject,
+                "batch_invariant": config.get("server_provenance", {}).get("config", {}).get("server", {}).get("batch_invariant"),
                 "max_episode": max_episode, "max_run": max_run, "sampling_seed": sampling_seed,
                 "budget_dir": str(Path(budget_dir).resolve()) if budget_dir else None,
                 "seeds": [{k: v for k, v in s.items() if k != "episode"} for s in seeds]}
@@ -105,9 +106,6 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
                      "task_type_covered": example is not None,
                      "needed_step_coverage": "unknown", "arms": {}}
             for arm in ARMS:
-                if arm != "I0" and entry["non_deterministic"]:
-                    entry["arms"][arm] = {"status": "excluded_non_deterministic", "rescue": None, "samples": []}
-                    continue
                 if arm == "I5" and example is None:
                     entry["arms"][arm] = {"status": "no_same_type_seed", "rescue": None, "samples": []}
                     continue
@@ -143,10 +141,8 @@ def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max
                         entry["non_deterministic"] = receipt["branch"].get("non_deterministic", False)
                 summary = arm_outcome(samples)
                 entry["arms"][arm] = {**summary, "samples": samples, "status": "ok" if summary["complete"] else "incomplete"}
-                # Other interventions require a completed I0 greedy replay check.
-                if arm == "I0" and (not samples or samples[0]["success"] == "unknown"):
-                    entry["status"] = "incomplete_replay_check"
-                    break
+                # Amendment 2: I0 divergence is audit metadata, not an exclusion.
+                # Incomplete controls remain unknown in the paired readout.
             results.append(entry)
             root.mkdir(parents=True, exist_ok=True)
             write_json(root/"result.json", entry)

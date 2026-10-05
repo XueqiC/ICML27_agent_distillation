@@ -1,6 +1,9 @@
 #!/bin/bash
 # Usage: rai_eval_student.sh GPU TASKS OUT [--base] [--workers N] [NAME=PATH ...]
 set -euo pipefail
+BATCH_INVARIANT=${BATCH_INVARIANT:-1}
+case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2; exit 2 ;; esac
+export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 [[ $# -ge 3 && "$1" =~ ^[0-9]+$ ]] || {
     echo 'Usage: rai_eval_student.sh GPU TASKS OUT [--base] [--workers N] [NAME=PATH ...]' >&2; exit 2;
 }

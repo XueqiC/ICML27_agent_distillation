@@ -29,6 +29,7 @@ def record(kind, **kw):
             "order": os.environ.get("CUDA_DEVICE_ORDER"),
             "offline": os.environ.get("HF_HUB_OFFLINE"),
             "attention": os.environ.get("VLLM_ATTENTION_BACKEND"),
+            "batch_invariant": os.environ.get("VLLM_BATCH_INVARIANT"),
             "sampler": os.environ.get("VLLM_USE_FLASHINFER_SAMPLER"), **kw}) + "\n")
 def value(flag): return args[args.index(flag) + 1]
 if args[0] == "-":
@@ -76,6 +77,11 @@ else:
     ledger = tmp_path / "ledger.jsonl"
     out = tmp_path / "out"
     env = os.environ.copy()  # Never log the complete environment.
+    env.pop("BATCH_INVARIANT", None)
+    expected_bi = "0" if scenario == "pass" and not include_base else "1"
+    if expected_bi == "0" or platform == "hpg_full":
+        env["BATCH_INVARIANT"] = expected_bi
+    env["VLLM_BATCH_INVARIANT"] = "1" if expected_bi == "0" else "0"
     env.update(PROJECT_ROOT=str(Path.cwd()), ENV_PYTHON=str(fake), VLLM_PYTHON=str(fake),
                TRAIN_PYTHON=str(fake), MODEL_PATH=str(tmp_path / "snapshot"),
                VERIFIED=str(tmp_path / "verified"), FAKE_LEDGER=str(ledger),
@@ -130,6 +136,7 @@ else:
             name for name in ("a", "b") if name not in failed_names]
         assert (out / "google/gemma-4-12B-it/eval").is_dir() is include_base
     for row in rows:
+        assert row["batch_invariant"] == expected_bi
         assert row["order"] == "PCI_BUS_ID" and row["offline"] == "1"
         assert row["attention"] == "FLASH_ATTN" and row["sampler"] == "0"
         assert row["cuda"] == ("" if row["kind"] in {"check", "eval"}
@@ -145,3 +152,48 @@ else:
     before = ledger.read_bytes()
     again = subprocess.run(command, env=env, capture_output=True, text=True, timeout=10)
     assert again.returncode != 0 and ledger.read_bytes() == before
+
+
+@pytest.mark.parametrize("batch_invariant", [None, "0", "1"])
+def test_hpg_student_batch_invariant_env(tmp_path, batch_invariant):
+    fake = tmp_path / "fake-python"
+    fake.write_text("#!" + sys.executable + "\n" + r'''
+import json, os, signal, sys, time
+from pathlib import Path
+args = sys.argv[1:]
+out = Path(args[args.index("--output") + 1])
+out.mkdir(parents=True)
+with open(os.environ["FAKE_LEDGER"], "a") as handle:
+    handle.write(json.dumps({"command": args[0], "batch_invariant": os.environ.get("VLLM_BATCH_INVARIANT")}) + "\n")
+if args[0] == "harness/serve_student.py":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    (out / "ready.json").write_text("{}")
+    while True: time.sleep(.05)
+assert args[0] == "eval/run_suite.py"
+''')
+    fake.chmod(0o755)
+    (tmp_path / "snapshot").mkdir()
+    (tmp_path / "tasks.json").write_text("{}")
+    env = os.environ.copy()
+    env.pop("BATCH_INVARIANT", None)
+    if batch_invariant is not None:
+        env["BATCH_INVARIANT"] = batch_invariant
+    env.update(PROJECT_ROOT=str(Path.cwd()), HPG_CONFIG=str(Path.cwd() / "configs/hpg.env"),
+               ENV_PYTHON=str(fake), VLLM_PYTHON=str(fake), MODEL_PATH=str(tmp_path / "snapshot"),
+               TASKS=str(tmp_path / "tasks.json"), OUT=str(tmp_path / "out"), SLURM_JOB_ID="1234",
+               ENABLE_THINKING="off", MAX_TOKENS="1024", READY_TIMEOUT="5", WORKERS="1",
+               FAKE_LEDGER=str(tmp_path / "ledger.jsonl"), VLLM_BATCH_INVARIANT="stale")
+    result = subprocess.run(["bash", "scripts/hpg_eval_student.slurm"], env=env,
+                            capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines()]
+    assert [r["command"] for r in rows] == ["harness/serve_student.py", "eval/run_suite.py"]
+    assert all(r["batch_invariant"] == (batch_invariant or "1") for r in rows)
+
+
+@pytest.mark.parametrize("script", ["eval_adapters.sh", "rai_eval_student.sh", "hpg_eval_adapters.slurm",
+                                   "hpg_eval_student.slurm", "rai_mechanism.sh"])
+def test_launchers_reject_invalid_batch_invariant_before_work(script):
+    env = dict(os.environ, BATCH_INVARIANT="true")
+    result = subprocess.run(["bash", "scripts/" + script], env=env, capture_output=True, text=True, timeout=5)
+    assert result.returncode == 2 and "BATCH_INVARIANT must be 0 or 1" in result.stderr

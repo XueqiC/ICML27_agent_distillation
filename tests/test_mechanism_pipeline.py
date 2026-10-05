@@ -82,7 +82,8 @@ def test_fce_caps_unknown_and_resume_completed_probes(pipeline, tmp_path):
     assert len(list((tmp_path/"capped").rglob("failure.json"))) == 2
 
 
-def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path):
+@pytest.mark.parametrize("control_rescues", [False, True])
+def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path, control_rescues):
     config, gap, env, teacher, calls, seeds = pipeline
     fce = run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=250, max_run=250,
                   env_factory=env, teacher_factory=teacher)
@@ -96,23 +97,36 @@ def test_full_fake_fce_interventions_readout_resume(pipeline, tmp_path):
     student_calls = []
     def student_factory(**kwargs):
         student_calls.append(kwargs)
-        return FakeStudent()
+        return FakeStudent("win" if control_rescues else "look")
     args = dict(gap_path=gap, fce_path=fce_file, verified=None, output=tmp_path/"arms", config=config,
                 spec={"model": "fake", "endpoint": "http://fake/v1"}, max_episode=250, max_run=250,
                 env_factory=env, teacher_factory=teacher, student_factory=student_factory, seeds=seeds,
                 budget_dir=tmp_path/"fce")
     result = run_interventions(**args)
     assert len(student_calls) == 30
+    for arm_index in range(6):
+        group = student_calls[arm_index*5:arm_index*5+5]
+        assert [r["sample_index"] for r in group] == list(range(5))
+        assert [r["sampling_seed"] for r in group] == [r["sampling_seed"] for r in student_calls[:5]]
+    assert len({r["sampling_seed"] for r in student_calls}) == 5
     assert len(calls) == before+2  # One I3 advice and one I4 action, shared across samples.
     assert result["episodes"][0]["arms"]["I4"]["rescue"]
     validate_intervention_artifacts(result)
     readout = build_readout(json.loads(gap.read_text()), fce, result)
-    assert readout["gap_size"] == 1 and readout["episodes"][0]["label"] == "execution_or_capacity"
+    assert readout["gap_size"] == 1
+    assert readout["episodes"][0]["label"] == ("unresolved" if control_rescues else "execution_or_capacity")
+    assert readout["non_deterministic"]["count"] == int(control_rescues)
+    assert readout["paired_arm_rescue"]["primary"]["I4"]["paired_excess"]["count"] == int(not control_rescues)
     run_fce(gap_path=gap, output=tmp_path/"fce", config=config, max_episode=250, max_run=250,
             env_factory=env, teacher_factory=teacher)
     assert file_hash(fce_file) == fce_hash  # Later shared-budget use must not invalidate FCE inputs.
     run_interventions(**args)
     assert len(student_calls) == 30 and len(calls) == before+2
+    # A new server can resume only if its serving protocol is unchanged.
+    config["server_provenance"] = {"config": {"server": {"batch_invariant": True}}}
+    with pytest.raises(ValueError, match="Resume identity changed"):
+        run_interventions(**args)
+    assert len(student_calls) == 30
 
 
 def test_dry_run_never_constructs_teacher_or_environment(pipeline, tmp_path, monkeypatch, capsys):
@@ -131,7 +145,8 @@ def test_dry_run_never_constructs_teacher_or_environment(pipeline, tmp_path, mon
 
 
 @pytest.mark.parametrize("fail_check", [False, True])
-def test_launcher_gate_order_free_port_cleanup_and_resume(tmp_path, fail_check):
+@pytest.mark.parametrize("batch_invariant", [None, "0"])
+def test_launcher_gate_order_free_port_cleanup_and_resume(tmp_path, fail_check, batch_invariant):
     fake = tmp_path/"fake-python"
     fake.write_text("#!"+sys.executable+"\n"+r'''
 import json, os, signal, sys, time
@@ -140,7 +155,8 @@ args=sys.argv[1:]
 def value(flag): return args[args.index(flag)+1]
 def record(kind):
     with open(os.environ["FAKE_LEDGER"], "a") as f:
-        f.write(json.dumps({"kind":kind,"args":args,"cuda":os.environ.get("CUDA_VISIBLE_DEVICES")})+"\n")
+        f.write(json.dumps({"kind":kind,"args":args,"cuda":os.environ.get("CUDA_VISIBLE_DEVICES"),
+                           "batch_invariant":os.environ.get("VLLM_BATCH_INVARIANT")})+"\n")
 if args[0]=="-":
     p=Path(args[1]); print(json.loads(p.read_text())["endpoint"] if p.name=="ready.json" else "google/gemma-4-12B-it")
     sys.exit(0)
@@ -169,6 +185,10 @@ else:raise AssertionError("Unexpected command")
     fake.chmod(0o755)
     (tmp_path/"snapshot").mkdir()
     env = os.environ.copy()  # Never logged; only selected test flags are recorded.
+    env.pop("BATCH_INVARIANT", None)
+    if batch_invariant is not None:
+        env["BATCH_INVARIANT"] = batch_invariant
+    env["VLLM_BATCH_INVARIANT"] = "0" if batch_invariant is None else "1"
     env.update(ENV_PYTHON=str(fake), TRAIN_PYTHON=str(fake), VLLM_PYTHON=str(fake),
         MODEL_PATH=str(tmp_path/"snapshot"), FAKE_LEDGER=str(tmp_path/"ledger.jsonl"),
         FAKE_FAIL="1" if fail_check else "0", MAX_TEACHER_CALLS="300", MAX_TEACHER_CALLS_RUN="3000",
@@ -183,6 +203,7 @@ else:raise AssertionError("Unexpected command")
         expected += ["fce", "interventions", "interventions", "readout"]
     assert [r["kind"] for r in rows] == expected+["stopped"]
     for row in rows:
+        assert row["batch_invariant"] == (batch_invariant or "1")
         assert row["cuda"] == ("3" if row["kind"] in {"server", "hf", "stopped"} else "")
     if not fail_check:
         again = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)

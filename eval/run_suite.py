@@ -140,6 +140,11 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("workers must be positive")
     if policy not in {"student", "teacher"}:
         raise ValueError("Unknown suite policy")
+    # The evaluated server is authoritative; the CPU worker's environment is not.
+    server = config.get("server_provenance", {}).get("config", {}).get("server", {})
+    batch_invariant = server.get("batch_invariant") if policy == "student" else None
+    if batch_invariant is not None and type(batch_invariant) is not bool:
+        raise ValueError("Server batch_invariant must be a boolean or unknown (null)")
     if policy == "student" and spec["model"] != config["models"]["student"]["requested_repo"]:
         from tools.check_lora_serving import validate_report
         if not config.get("server_provenance") or not config.get("lora_equivalence"):
@@ -159,6 +164,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
     inputs = [*inputs, tasks_path, config["paths"]["manifest"], config["paths"]["split_freeze"]]
     effective = deepcopy(config)
     effective["suite"] = {"policy": policy, "student": spec, "workers": workers,
+                          "batch_invariant": batch_invariant,
                           "model_name": spec["model"] if spec else None,
                           "teacher_rate_limit_dir": str((output / "data/teacher_rate_limit").resolve()),
                           "sealed_final": sealed_final, "task_list_sha256": listing["list_sha256"]}
@@ -174,6 +180,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
     rows = [task_result(t, d) for t, d in zip(tasks, directories)]
     summary = summarize(rows, time.monotonic() - started)
     summary.update(task_list_sha256=listing["list_sha256"], policy=policy, student=spec,
+                   batch_invariant=batch_invariant,
                    policy_condition=policy_condition(policy, spec, config))
     write_json(output / "summary.json", summary, exclusive=True)
     with (output / "per_task.tsv").open("x", newline="") as handle:

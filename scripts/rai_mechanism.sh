@@ -1,6 +1,9 @@
 #!/bin/bash
 # Later authorized live use only. GPU GAP_JSON VERIFIED OUT NAME=ADAPTER
 set -euo pipefail
+BATCH_INVARIANT=${BATCH_INVARIANT:-1}
+case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2; exit 2 ;; esac
+export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 [[ $# == 5 && "$1" =~ ^[0-9]+$ && "$5" == *=* ]] || {
     echo 'Usage: rai_mechanism.sh GPU GAP_JSON VERIFIED OUT NAME=ADAPTER' >&2; exit 2;
 }

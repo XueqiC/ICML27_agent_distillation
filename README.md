@@ -545,13 +545,13 @@ with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
 See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
 standalone commands, artifacts and the remaining GPU acceptance boundary.
 
-## Stage 4a: mechanism analysis tooling
+## Stages 4a–4b: mechanism analysis tooling
 
 `analysis/mechanism/` implements the fixed measurements and I0–I5 arms in
-[MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md), including Amendment 1 (commit
-`862eaed`; validated plan SHA-256
-`ca177ad227c36db4ef4f3ec0dc5f05f64ebb7b4dc797cac1b4314b729f4ba9cd`).
-The later Amendment 2's I0/control changes are outside this taxonomy update.
+[MECHANISM_PLAN.md](docs/MECHANISM_PLAN.md), including Amendment 1 (taxonomy,
+commit `862eaed`) and Amendment 2 (I0 control and paired excess rescues,
+commit `07af904`). Stage 4b also records batch-invariant serving as an explicit
+protocol setting; it does not re-run any evaluation or branch experiment.
 These are diagnostic tools, with
 `purpose=diagnosis`, zero training exposure, and no sealed-task access. The
 Stage 4a validation uses offline fakes and reads existing dev artifacts; it
@@ -652,8 +652,11 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.
   --max-teacher-calls 400 --max-teacher-calls-run 12000
 ```
 
-Each arm has greedy + four seeded samples. I0 checks S's logged next action and
-failure; non-deterministic cases are flagged and excluded from other arms.
+Every arm, including I0, has greedy + four samples at T=0.7. Sample seeds are
+derived from the common sampling seed, task ID and sample index, identically
+across arms. I0 is the unmodified control. It still records whether S reproduces
+its logged next action and failure, but divergence does not exclude a state or
+skip I1–I5. Real environment prefix replay and consistency checks remain mandatory.
 I1 restates only visible feedback, with the latest explicit contents observation
 winning. I2 prioritizes inventory after `Nothing happens.` when visible feedback
 shows a held object; otherwise it examines the current receptacle when legal,
@@ -707,11 +710,21 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m analysis.mechanism.
 ```
 
 The JSON and Markdown give |G|, taxonomy shares, FCE positions, rescue rates and
-95% Wilson intervals, and the fixed 2×2 table. Rescue requires greedy success
-**and ≥3/4 sampled successes**. F-format, missing seed task types, replay noise,
-teacher-unsolvable cases and incomplete outcomes are separate. Cells use |G|
-as denominator; available-arm intervals disclose missing outcomes. Optional
-`--compare-interventions FILE` adds exact paired McNemar tests. Optional
+95% Wilson intervals, and the fixed 2×2 table. Raw rescue requires greedy success
+**and ≥3/4 sampled successes**, for I0 as well as I1–I5. Each arm is shown beside
+I0 on the same FCE states with complete results for both. A **paired excess
+rescue** counts a state only when the arm rescues and I0 does not. Wilson
+intervals use this binary state count, not a subtraction of marginal rates.
+Section 6 cells and the I4 execution/capacity label use paired excess rescues.
+F-format and missing seed task types retain separate cohorts. I0 replay noise
+is retained as audit metadata. Missing controls never count as control failures.
+Cells use |G| as denominator; paired intervals disclose unknown pairs and their
+matched task IDs. JSON retains all available raw rates under `arm_rescue`,
+arm/I0/excess rates on matched states under `paired_arm_rescue`, and raw and
+paired per-state outcomes under `arms_by_task` and `paired_excess_by_task`.
+Optional `--compare-interventions FILE` adds exact paired McNemar tests on excess
+rescues, alongside the historical 12/140 cross-server base-vs-base discordance
+reference (non-batch-invariant serving, not an estimate for the new mode). Optional
 `--coverage FILE` accepts `{task_id: {"covered": true, "evidence": ...}}` audit
 labels. Task-type overlap alone never establishes needed-step coverage, and
 M1 stays conditional without it. Section-4 knowledge probes, training fit and
@@ -720,3 +733,32 @@ this engineering stage makes no mechanism claim.
 
 See [Stage 4a validation](reports/stage4a_validation.md) for the offline test
 results and real-run taxonomy sanity check.
+
+### Stage 4b serving protocol
+
+The 2026-10-05 rai pilot reported identical base trajectories on all 40 dev40
+instances across two vLLM servers with `VLLM_BATCH_INVARIANT=1`, at approximately
+2.8× serving time. Its read-only artifacts are
+`reports/runs/eval/bi-pilot-dev40-{1,2}`. This supports the protocol switch recorded
+under Amendment 2; it does not establish reproducibility for every adapter or
+hardware configuration.
+
+`eval_adapters.sh`, `rai_eval_student.sh`, `hpg_eval_adapters.slurm`,
+`hpg_eval_student.slurm` and `rai_mechanism.sh` accept `BATCH_INVARIANT=0|1`,
+default **1**, and export `VLLM_BATCH_INVARIANT` explicitly. For a manual
+`harness/serve_student.py` invocation, set `VLLM_BATCH_INVARIANT=1`; an unset
+variable means off and is recorded as such. Server provenance contains
+`config.server.batch_invariant` (boolean) and the exact child environment flag.
+Suites copy the server's value into `config.suite.batch_invariant` and
+`summary.json`; they never infer it from the evaluation worker environment.
+Missing legacy provenance stays null/unknown. Teacher suites use null because
+they do not use this vLLM server. Mechanism resume identities bind the setting,
+so changing it requires a new workspace.
+
+`analysis/k_ladder.py` refuses to combine different student/base settings,
+including known versus unknown, before writing a table. For an explicitly
+mixed diagnostic table, pass `--allow-mixed-serving`; JSON, Markdown and plot
+labels identify each setting. The black-box teacher is marked not applicable
+and does not participate in this guard. Historical artifacts are unchanged;
+affected paper evaluations and branch replays must be re-run under the new
+protocol in separate experiment worktrees.

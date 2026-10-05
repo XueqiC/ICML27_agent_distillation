@@ -10,6 +10,7 @@ from analysis.mechanism.common import (completed_branch, gap_episodes, load_epis
 from analysis.mechanism.goals import refuse_sealed
 from analysis.mechanism.interventions import ARMS, arm_outcome
 from analysis.mechanism.taxonomy import LABELS, shares
+from analysis.serving import SERVING_NOISE_REFERENCE, SERVING_NOISE_TEXT
 from sed.config import load_config
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, write_json
@@ -33,7 +34,8 @@ def paired_mcnemar(first, second):
     c = sum(second[k] and not first[k] for k in keys)
     n = b+c
     p = min(1., 2*sum(math.comb(n, i) for i in range(min(b, c)+1))/2**n) if n else 1.
-    return {"paired_n": len(keys), "first_only": b, "second_only": c, "exact_two_sided_p": p}
+    return {"paired_n": len(keys), "first_only": b, "second_only": c, "exact_two_sided_p": p,
+            "serving_noise_reference": dict(SERVING_NOISE_REFERENCE)}
 
 
 def logical_or(a, b):
@@ -52,12 +54,20 @@ def verified_arms(entry):
 
 
 def decision_cell(arms):
+    """Section 6 uses paired excess rescues, already adjusted for each state's I0."""
     experience = logical_or(arms["I5"], arms["I1"])
     information = logical_or(arms["I3"], arms["I2"])
     if experience is None or information is None:
         return "incomplete"
     return { (True, True): "both", (True, False): "M1_cell", (False, True): "M2_cell",
              (False, False): "neither" }[experience, information]
+
+
+def paired_excess(arms):
+    """Unknown controls or arms cannot establish a paired excess rescue."""
+    return {arm: (arms[arm] and not arms["I0"]
+                  if type(arms[arm]) is bool and type(arms["I0"]) is bool else None)
+            for arm in ARMS}
 
 
 def build_readout(taxonomy, fce, interventions, coverage=None):
@@ -75,7 +85,8 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
         raise ValueError("Results include tasks outside the frozen gap set")
     cohorts = {"primary": [], "F-format": [], "no_seed_task_type": []}
     exclusions = Counter()
-    cells, rows, arms_by_task = Counter(), [], {}
+    cells, rows, arms_by_task, excess_by_task = Counter(), [], {}, {}
+    non_deterministic = []
     for task_id in sorted(gap):
         refuse_sealed(task_id)
         e, f = entries.get(task_id, {}), fces.get(task_id, {})
@@ -87,13 +98,10 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
             continue
         control = e.get("arms", {}).get("I0", {}).get("samples", [])
         greedy = next((s for s in control if s["sample_index"] == 0), None)
-        if greedy is None or type(greedy.get("success")) is not bool:
-            exclusions["incomplete_replay_check"] += 1
-            continue
-        if e.get("non_deterministic") or greedy.get("branch", {}).get("non_deterministic"):
-            exclusions["non_deterministic"] += 1
-            continue
+        if e.get("non_deterministic") or (greedy or {}).get("branch", {}).get("non_deterministic"):
+            non_deterministic.append(task_id)
         arms = verified_arms(e)
+        excess = paired_excess(arms)
         cohort = ("F-format" if "F-format" in taxonomy_by_id[task_id]["labels"] else
                   "no_seed_task_type" if e.get("task_type_covered") is False else "primary")
         cohorts[cohort].append((task_id, arms))
@@ -101,27 +109,39 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
             exclusions[cohort + "_separate"] += 1
             continue
         arms_by_task[task_id] = arms
-        cell = decision_cell(arms)
+        excess_by_task[task_id] = excess
+        cell = decision_cell(excess)
         cells[cell] += 1
         covered = coverage.get(task_id, {}).get("covered", "unknown")
         label = {"both": "both_mechanisms_cell", "M1_cell": "M1_requires_coverage",
                  "M2_cell": "M2", "neither": "unresolved", "incomplete": "incomplete"}[cell]
         if cell in {"both", "M1_cell"} and covered is True:
             label = "both_mechanisms" if cell == "both" else "M1"
-        if cell == "neither" and arms["I4"] is True:
+        if cell == "neither" and excess["I4"] is True:
             label = "execution_or_capacity"
-        elif cell == "neither" and arms["I4"] is None:
+        elif cell == "neither" and excess["I4"] is None:
             label = "incomplete_I4"
         rows.append({"task_id": task_id, "cell": cell, "label": label, "needed_step_coverage": covered,
-                     "task_type_covered": e.get("task_type_covered"), "arms": arms})
-    rates = {}
+                     "task_type_covered": e.get("task_type_covered"), "arms": arms,
+                     "paired_excess": excess, "non_deterministic": task_id in non_deterministic})
+    rates, paired_rates = {}, {}
     for cohort, values in cohorts.items():
         rates[cohort] = {}
+        paired_rates[cohort] = {}
         for arm in ARMS:
             available = [a[arm] for _, a in values if type(a[arm]) is bool]
             rates[cohort][arm] = {**wilson(sum(available), len(available)), "eligible_fce_episodes": len(values),
                                  "unknown": len(values)-len(available),
                                  "gap_denominator": wilson(sum(available), len(gap))}
+            matched = [(task, a) for task, a in values if type(a[arm]) is bool and type(a["I0"]) is bool]
+            n = len(matched)
+            paired_rates[cohort][arm] = {
+                "arm": wilson(sum(a[arm] for _, a in matched), n),
+                "I0": wilson(sum(a["I0"] for _, a in matched), n),
+                "paired_excess": wilson(sum(a[arm] and not a["I0"] for _, a in matched), n),
+                "task_ids": [task for task, _ in matched],
+                "eligible_fce_episodes": len(values), "unknown_pairs": len(values)-n,
+            }
     positions = [r["fce"] for r in fce["episodes"] if r["status"] == "fce_found"]
     return {"subject": interventions.get("subject", "student"), "student": interventions.get("student"),
             "gap_size": len(gap), "regression_size": taxonomy.get("R", {}).get("size"),
@@ -132,16 +152,22 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
                                 "fraction_of_parent": r["fce"]/r["episode_length"] if r["episode_length"] else None}
                                 for r in fce["episodes"] if r["status"] == "fce_found"]},
             "exclusions": dict(exclusions), "arm_rescue": rates,
+            "paired_arm_rescue": paired_rates,
+            "non_deterministic": {"count": len(non_deterministic), "task_ids": non_deterministic,
+                                  "excluded": False},
             "decision_cells": {k: {**wilson(cells[k], len(gap)), "denominator": "all frozen gap episodes"}
                                for k in ("both", "M1_cell", "M2_cell", "neither", "incomplete")},
-            "episodes": rows, "arms_by_task": arms_by_task,
+            "episodes": rows, "arms_by_task": arms_by_task, "paired_excess_by_task": excess_by_task,
             "rescue_rule": "greedy succeeds AND at least 3 of 4 T=0.7 samples succeed",
+            "paired_excess_rule": "arm rescues AND I0 does not rescue on the same FCE state; both outcomes must be known",
+            "decision_rule": "Section 6 uses paired excess rescues",
             "coverage_rule": "Task-type overlap alone is not needed-step coverage. No M1 attribution without explicit coverage evidence.",
             "limits": ["Descriptive engineering readout; no mechanism claim.",
                        "M1a/M1b require section-4 knowledge probes, not implemented by this stage.",
                        "Dose controls and independent coverage/probe evidence remain required before interpretation.",
                        "Wilson intervals use task instances; groups are also reported and may contain dependent trials.",
-                       "Missing/unknown continuations are excluded from available-arm denominators and explicitly retained."]}
+                       "Missing/unknown continuations are excluded from available-arm denominators and explicitly retained.",
+                       "Paired denominators include only states with complete arm and I0 outcomes; unknown I0 is never treated as failure."]}
 
 
 def validate_intervention_artifacts(value):
@@ -180,11 +206,18 @@ def validate_fce_artifacts(path, value):
 def markdown(result):
     lines = ["# Mechanism readout", "", f"Subject: {result['subject']}; |G| = {result['gap_size']}.", "",
              "Rescue requires greedy success and at least 3/4 sampled successes.", "",
-             "| Arm | Rescues / available | Rate | 95% Wilson | Unknown |", "|---|---:|---:|---|---:|"]
-    for arm, row in result["arm_rescue"]["primary"].items():
-        rate = f"{row['rate']:.1%}" if row["n"] else "n/a"
-        ci = "–".join(f"{v:.1%}" for v in row["ci95"]) if row["n"] else "n/a"
-        lines.append(f"| {arm} | {row['count']}/{row['n']} | {rate} | {ci} | {row['unknown']} |")
+             "Each row compares the arm and I0 on the same completed FCE states. Paired excess = arm rescues and I0 does not.", "",
+             "| Arm | Raw arm rescues (95% Wilson) | I0 on same states (95% Wilson) | Paired excess (95% Wilson) | Unknown pairs |",
+             "|---|---|---|---|---:|"]
+    def rate_text(row):
+        if not row["n"]:
+            return "0/0 (n/a)"
+        ci = "–".join(f"{v:.1%}" for v in row["ci95"])
+        return f"{row['count']}/{row['n']} = {row['rate']:.1%} ({ci})"
+    for arm in ARMS:
+        row = result["paired_arm_rescue"]["primary"][arm]
+        lines.append(f"| {arm} | {rate_text(row['arm'])} | {rate_text(row['I0'])} | "
+                     f"{rate_text(row['paired_excess'])} | {row['unknown_pairs']} |")
     lines += ["", "Taxonomy on the frozen gap set:", "", "| Label | Primary count | Share of known gap failures |",
               "|---|---:|---:|"]
     for label in LABELS:
@@ -196,12 +229,20 @@ def markdown(result):
         row = cells[key]
         ci = "–".join(f"{v:.1%}" for v in row["ci95"]) if row["n"] else "n/a"
         return f"{label}: {row['count']}/{row['n']} ({ci})"
-    lines += ["", "| | I5 or I1 rescues | Neither rescues |", "|---|---|---|",
+    lines += ["", "Section 6: all rescues below are paired excess rescues over I0.", "",
+        "| | I5 or I1 rescues | Neither rescues |", "|---|---|---|",
         "| I3 or I2 rescues | " + cell("both", "Both mechanisms cell") + " | " + cell("M2_cell", "M2 cell") + " |",
         "| Neither rescues | " + cell("M1_cell", "M1 cell; coverage required") + " | " + cell("neither", "I4-only: execution/capacity; else unresolved") + " |",
         "", "FCE positions: `" + json.dumps(result["fce_positions"]["histogram"], sort_keys=True) + "`.",
         "", "Exclusions/pending: `" + json.dumps(result["exclusions"], sort_keys=True) + "`.",
+        "", f"Non-deterministic I0 greedy replays retained: {result['non_deterministic']['count']}.",
         "", result["coverage_rule"], "", *result["limits"]]
+    if "paired_comparison" in result:
+        lines += ["", "Student comparison of paired excess rescues (exact McNemar):", "", SERVING_NOISE_TEXT, "",
+                  "| Arm | Paired states | First only | Second only | p |", "|---|---:|---:|---:|---:|"]
+        for arm, comparison in result["paired_comparison"].items():
+            lines.append(f"| {arm} | {comparison['paired_n']} | {comparison['first_only']} | "
+                         f"{comparison['second_only']} | {comparison['exact_two_sided_p']:.3g} |")
     return "\n".join(lines) + "\n"
 
 
@@ -236,8 +277,8 @@ def main(argv=None):
             raise ValueError("Paired comparison requires identical gap and FCE states")
         compared = build_readout(taxonomy, fce, other, coverage)
         result["paired_comparison"] = {a: paired_mcnemar(
-            {k: v[a] for k, v in result["arms_by_task"].items()},
-            {k: v[a] for k, v in compared["arms_by_task"].items()}) for a in ARMS}
+            {k: v[a] for k, v in result["paired_excess_by_task"].items()},
+            {k: v[a] for k, v in compared["paired_excess_by_task"].items()}) for a in ARMS}
         inputs.append(args.compare_interventions)
     output = new_output(args.output, config=config, command="readout", inputs=inputs)
     write_json(output/"readout.json", result, exclusive=True)

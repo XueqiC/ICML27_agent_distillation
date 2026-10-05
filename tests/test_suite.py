@@ -117,6 +117,7 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
     summary = run_suite(config=config, tasks_path=path, output=output, policy="teacher",
                         workers=2, worker_fn=fake_teacher_worker)
     assert summary["episodes"] == summary["completed_episodes"] == 4
+    assert summary["batch_invariant"] is None
     states = list(output.glob("**/teacher_rate_limit/*.json"))
     assert len(states) == 1 and states[0].parent == output / "data/teacher_rate_limit"
     state = json.loads(states[0].read_text())
@@ -128,7 +129,8 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
 
 
 @pytest.mark.parametrize("adapter", [False, True])
-def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, adapter):
+@pytest.mark.parametrize("batch_invariant", [None, False, True])
+def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, monkeypatch, adapter, batch_invariant):
     path, manifest, freeze = fixture_list(data_root, tmp_path)
     config = load_config()
     config["environment"]["data_root"] = str(data_root)
@@ -139,14 +141,20 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, ada
     student = config["models"]["student"]
     spec = {"endpoint": "http://fake/v1", "model": student["requested_repo"],
             "revision": student["revision"], "enable_thinking": True}
+    # A local launcher flag must never override recorded server provenance.
+    monkeypatch.setenv("VLLM_BATCH_INVARIANT", "0" if batch_invariant else "1")
+    server = {"config": {"server": {}}}
+    if batch_invariant is not None:
+        server["config"]["server"]["batch_invariant"] = batch_invariant
+    config["server_provenance"] = server
     if adapter:
         from harness.lora_adapters import adapter_identity
         from tools.check_lora_serving import summarize_prompts
         record = {"name": "sft", "base_model": student["requested_repo"], "revision": student["revision"],
                   "adapter_config_sha256": "c", "adapter_weights_sha256": "w",
                   "training_state_sha256": "s", "training_provenance_sha256": "p"}
-        server = {"config": {"server": {"lora_adapters": [record],
-                   "endpoint": spec["endpoint"], "served_model_name": student["requested_repo"]}}}
+        server["config"]["server"].update(lora_adapters=[record],
+                   endpoint=spec["endpoint"], served_model_name=student["requested_repo"])
         spec["model"] = "sft"
         config["server_provenance"] = server
         report = summarize_prompts([
@@ -160,6 +168,7 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, ada
     output = tmp_path / "suite"
     summary = run_suite(config=config, tasks_path=path, output=output, spec=spec, workers=2, worker_fn=fake_worker)
     assert summary["episodes"] == summary["completed_episodes"] == 4
+    assert summary["batch_invariant"] is batch_invariant
     assert summary["unique_instances"] == 4 and summary["task_groups"] == 2
     assert summary["totals"]["steps"] == summary["totals"]["legal_actions"] == 8
     assert summary["totals"]["prompt_tokens"] == 104
@@ -171,6 +180,9 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, ada
     assert not list(output.glob("**/failure.json"))
     provenance = json.loads((output / "provenance.json").read_text())
     assert provenance["config"]["suite"]["model_name"] == spec["model"]
+    assert provenance["config"]["suite"]["batch_invariant"] is batch_invariant
+    assert all(json.loads(p.read_text())["config"]["suite"]["batch_invariant"] is batch_invariant
+               for p in output.glob("episodes/*/provenance.json"))
     assert provenance["config"]["suite"]["student"]["model"] == spec["model"]
     with pytest.raises(FileExistsError):
         run_suite(config=config, tasks_path=path, output=output, spec=spec)

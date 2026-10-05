@@ -1,5 +1,6 @@
 """CPU preflight and owned, resumable workspace allocation for rai_mechanism.sh."""
 import argparse
+import os
 from pathlib import Path
 
 from analysis.mechanism.common import gap_episodes, workspace
@@ -36,6 +37,7 @@ def main(argv=None):
     for row, _, _ in population:
         validate_continuation(proof, {"model": name}, row["episode_path"], verified=args.verified)
     identity = {"adapter": adapter_identity(adapter), "model_name": name,
+                "batch_invariant": os.environ.get("VLLM_BATCH_INVARIANT", "0") == "1",
                 "max_episode": args.max_teacher_calls, "max_run": args.max_teacher_calls_run,
                 "include_base": args.include_base}
     output = workspace(args.output, config=config, command="launcher", identity=identity,

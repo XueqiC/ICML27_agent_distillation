@@ -152,6 +152,9 @@ def main(argv=None):
     parser.add_argument("--ready-timeout", type=float, default=900)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
+    batch_invariant = os.environ.get("VLLM_BATCH_INVARIANT", "0")
+    if batch_invariant not in {"0", "1"}:
+        parser.error("VLLM_BATCH_INVARIANT must be 0 or 1")
     if args.port is None:
         args.port = job_port(os.environ.get("SLURM_JOB_ID", ""))
     elif args.port == 0:
@@ -189,6 +192,7 @@ def main(argv=None):
             checkpoint_kind = "full_parameter"
             training_provenance = file_hash(model.parent / "provenance.json")
     config["server"] = {"command": command, "runtime": runtime,
+                        "batch_invariant": batch_invariant == "1",
                         "port": args.port, "endpoint": f"http://127.0.0.1:{args.port}/v1",
                         "readiness_identity": "all model IDs plus listening socket owned by child process group",
                         "served_model_name": student["requested_repo"], "lora_adapters": adapters,
@@ -201,6 +205,7 @@ def main(argv=None):
                             if checkpoint_kind == "full_parameter" else
                             "local_path_and_metadata; weight_bytes_not_verified"),
                         "environment": {"VLLM_ATTENTION_BACKEND": "FLASH_ATTN",
+                                        "VLLM_BATCH_INVARIANT": batch_invariant,
                                         "VLLM_USE_FLASHINFER_SAMPLER": "0",
                                         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
                         "slurm_job_id": os.environ.get("SLURM_JOB_ID"),

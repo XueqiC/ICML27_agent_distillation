@@ -1,6 +1,9 @@
 #!/bin/bash
 # Shared body, sourced by the rai/HPG entrypoints; adapters is a Bash array.
 set -euo pipefail
+BATCH_INVARIANT=${BATCH_INVARIANT:-1}
+case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2; exit 2 ;; esac
+export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export VLLM_ATTENTION_BACKEND=FLASH_ATTN VLLM_USE_FLASHINFER_SAMPLER=0
