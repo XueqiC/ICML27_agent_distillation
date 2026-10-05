@@ -56,13 +56,17 @@ class Student:
     def sampling(self):
         return {"temperature": 0}
 
+    def request_sampling(self, history, task):
+        return self.sampling()
+
     def select_choice(self, result, visible_context, blobs):
         return result["choices"][0], {}
 
     def generate(self, history, task, visible_context):
         import httpx
         messages = self.messages(history, task, visible_context)
-        body = {"model": self.spec["model"], "messages": messages, **self.sampling(),
+        sampling = self.request_sampling(history, task)
+        body = {"model": self.spec["model"], "messages": messages, **sampling,
                 "max_tokens": self.spec["max_tokens"], "stream": False,
                 "chat_template_kwargs": self.spec["chat_template_kwargs"],
                 # Preserve raw thought boundaries if the server has no parser.
@@ -71,6 +75,8 @@ class Student:
         ledger = JsonlLedger(self.log_dir / "calls.jsonl")
         identity = {"call_id": str(uuid.uuid4()), "timestamp": utc_now(),
                     "request_ref": blobs.put(body), "student_revision": self.spec["revision"]}
+        if "seed" in sampling:
+            identity["seed"] = sampling["seed"]
         ledger.append(dict(identity, status="started", usage=None))
         started = time.monotonic()
         try:
@@ -104,7 +110,7 @@ class Student:
                             thinking_tokens=thinking_tokens, thinking_chars=len(thinking),
                             thinking_return_shape=shape, thinking_ref=blobs.put(thinking),
                             chat_template_kwargs=self.spec["chat_template_kwargs"],
-                            **self.sampling(), max_tokens=self.spec["max_tokens"],
+                            **sampling, max_tokens=self.spec["max_tokens"],
                             parser_error="ActionParseError" if parsed is None else None,
                             action_outcome=outcome, policy="student")
             metadata.update(selection_metadata)

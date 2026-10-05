@@ -5,6 +5,7 @@ Integrity uses our shared ReAct parser (Thought is optional) and admissibility.
 Neither hidden verification nor speculative environment execution is used.
 """
 from sed.react import action_outcome
+from sed.storage import digest
 from students.vllm_student import Student, separate_response
 
 
@@ -31,14 +32,26 @@ def vote(replies, commands):
 
 
 class SAGStudent(Student):
-    def __init__(self, **kwargs):
+    def __init__(self, *, sampling_seed=0, task_id=None, **kwargs):
         super().__init__(**kwargs)
+        if type(sampling_seed) is not int:
+            raise ValueError("SAG sampling seed must be an integer")
+        self.sampling_seed = sampling_seed
+        self.task_id = task_id  # Accounting only; never added to messages.
         if self.spec["max_tokens"] != 1024 or self.spec["chat_template_kwargs"]["enable_thinking"]:
             raise ValueError("SAG fixes thinking OFF and max_tokens=1024")
-        self.spec.update(self.sampling(), decoding="sag")
+        self.spec.update(self.sampling(), decoding="sag", sampling_seed=sampling_seed,
+                         request_seed_rule="sha256([sampling_seed, task_id, zero_based_turn])[:8]")
 
     def sampling(self):
         return {"n": 8, "temperature": 0.4, "top_p": 0.8}
+
+    def request_sampling(self, history, task):
+        task_id = self.task_id or task.get("task_id")
+        if not task_id:
+            raise ValueError("SAG requires a task identity for reproducible sampling")
+        seed = int(digest([self.sampling_seed, task_id, len(history)])[:8], 16)
+        return {**self.sampling(), "seed": seed}
 
     def select_choice(self, result, visible_context, blobs):
         choices = result["choices"]

@@ -66,7 +66,7 @@ def _worker(job):
             decoding = student_spec.pop("decoding", "greedy")
             if decoding == "sag":
                 from students.sag_student import SAGStudent
-                policy = SAGStudent(log_dir=output / "student_calls", **student_spec)
+                policy = SAGStudent(log_dir=output / "student_calls", task_id=task["task_id"], **student_spec)
             else:
                 policy = Student(log_dir=output / "student_calls", **student_spec)
         else:
@@ -208,6 +208,7 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
     parser.add_argument("--decoding", choices=("greedy", "sag"), default="greedy")
+    parser.add_argument("--sag-sampling-seed", type=int, default=0)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--model-name", help="Request model: base served name (default) or adapter NAME")
     parser.add_argument("--lora-check", help="Passing check_lora_serving report.json for this server/adapter")
@@ -231,6 +232,7 @@ def main(argv=None):
                 timeout_seconds=args.timeout)
     if args.decoding == "sag":
         spec["decoding"] = "sag"
+        spec["sampling_seed"] = args.sag_sampling_seed
     inputs = [args.config]
     if args.server_provenance:
         inputs.append(args.server_provenance)

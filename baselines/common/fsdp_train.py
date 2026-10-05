@@ -112,11 +112,11 @@ def sft_objective(model, row, device):
     return -batch_logps(model, [row], device).mean() / count, {}
 
 
-def dpo_objective(model, reference, pair, device, *, beta):
+def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0):
     import torch
     from baselines.eto.official_loss import OfficialLoss
     if reference is None or reference is model or any(p.requires_grad for p in reference.parameters()):
-        raise ValueError("DPO requires a distinct frozen iteration-start reference")
+        raise ValueError("DPO requires a distinct frozen reference")
     reference.eval()
     rows = [pair["chosen"], pair["rejected"]]
     with torch.no_grad():
@@ -128,7 +128,11 @@ def dpo_objective(model, reference, pair, device, *, beta):
                "rewards/accuracies": (chosen > rejected).float().mean(),
                "rewards/margins": (chosen - rejected).mean(),
                "logps/chosen": policy[0].detach(), "logps/rejected": policy[1].detach()}
-    return losses.mean(), metrics
+    # IPR 93335a3 dpo_trainer.py:841-844: chosen NLL is SUMMED, weight 1.
+    # ETO's default remains exactly its original sigmoid-only objective.
+    if nll_weight:
+        metrics.update({"loss/dpo": losses.mean().detach(), "loss/chosen_nll": -policy[0].detach()})
+    return losses.mean() - nll_weight * policy[0], metrics
 
 
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
@@ -136,7 +140,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None):
     import torch
     import torch.distributed as dist
-    if objective not in {"sft", "dpo"} or not math.isfinite(learning_rate) or learning_rate <= 0:
+    if objective not in {"sft", "dpo", "ipr"} or not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Invalid training objective/learning rate")
     if not math.isfinite(beta) or beta <= 0:
         raise ValueError("Positive finite beta required")
@@ -152,7 +156,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                   scheduler=scheduler, total_steps=plan["total_steps"], warmup_ratio=warmup_ratio,
                   warmup_steps=warmup_steps))
     model.train()
-    if objective == "dpo":
+    if objective in {"dpo", "ipr"}:
         # Official DPOMultiTrainer disables dropout in both policy/reference.
         for candidate in (model, reference):
             for module in candidate.modules():
@@ -175,7 +179,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             active = index is not None
             row = examples[index if active else indices[0]]
             loss, metrics = (sft_objective(model, row, device) if objective == "sft" else
-                            dpo_objective(model, reference, row, device, beta=beta))
+                            dpo_objective(model, reference, row, device, beta=beta,
+                                          nll_weight=1.0 if objective == "ipr" else 0.0))
             if not torch.isfinite(loss):
                 raise ValueError("Nonfinite training loss")
             # FSDP averages across ranks. This cancels that average and divides
@@ -225,12 +230,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "supervised_tokens_seen": supervised, "logical_forward_tokens": forward_tokens,
             "physical_example_slots": physical, "zero_weight_slots": physical - exposure,
             "physical_policy_forward_tokens": physical_tokens,
-            "physical_reference_forward_tokens": physical_tokens if objective == "dpo" else 0,
+            "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
             "microbatch": 1, "microbatch_unit": "episode" if objective == "sft" else "preference pair",
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
-            "loss_reduction": "per_example_mean_then_global_batch_mean" if objective == "sft" else "sigmoid_summed_logps"}
+            "loss_reduction": ("per_example_mean_then_global_batch_mean" if objective == "sft" else
+                               "sigmoid_plus_chosen_nll_summed_logps" if objective == "ipr" else "sigmoid_summed_logps")}
 
 
 def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_bytes=2_000_000_000):
@@ -378,7 +384,7 @@ def train_lora(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--objective", choices=["sft", "dpo"], required=True)
+    parser.add_argument("--objective", choices=["sft", "dpo", "ipr"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora"], default="full")
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
@@ -409,6 +415,8 @@ def main(argv=None):
         return train_lora(args)
     if args.objective == "dpo" and (not args.reference or Path(args.reference).resolve() != Path(args.snapshot).resolve()):
         parser.error("Reference must be the iteration-start policy snapshot")
+    if args.objective == "ipr" and (not args.reference or not args.pairs):
+        parser.error("IPR requires current-iteration pairs and the fixed SFT reference")
     import torch
     import torch.distributed as dist
     from torch.distributed.device_mesh import init_device_mesh
@@ -427,8 +435,9 @@ def main(argv=None):
                 or config["environment"]["max_episode_steps"] != 40):
             raise ValueError("Baseline harness protocol differs")
         config["training"]["adaptation"] = "full_parameter_text_fsdp2"
-        if args.objective == "dpo":
+        if args.objective in {"dpo", "ipr"}:
             validate_checkpoint(args.snapshot, config["models"]["student"])
+            validate_checkpoint(args.reference, config["models"]["student"])
         manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
         tokenizer = load_tokenizer(args.snapshot)
         inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
@@ -443,10 +452,22 @@ def main(argv=None):
                             for receipt in collection["verified"]]
                 inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
         else:
-            from baselines.eto.pairs import load_pair_data
+            if args.objective == "ipr":
+                from baselines.ipr.pairs import load_pair_data, preference_conversation as encode_pair
+                details = json.loads((Path(args.pairs).parent / "provenance.json").read_text())["details"]
+                for source, checkpoint in (("expert_mc", args.reference), ("exploration", args.snapshot)):
+                    serving = json.loads((Path(details[source]) / "provenance.json").read_text())
+                    server = serving["config"]["server_provenance"]["config"]["server"]
+                    if (Path(server["model_path"]).resolve() != Path(checkpoint).resolve()
+                            or server["training_provenance_sha256"] != file_hash(Path(checkpoint).parent / "provenance.json")):
+                        raise ValueError("IPR init/reference differs from exploration/fixed SFT MC model")
+            else:
+                from baselines.eto.pairs import load_pair_data
+                encode_pair = preference_conversation
             pairs = load_pair_data(args.pairs, config)
-            examples = [preference_conversation(pair, tokenizer) for pair in pairs]
+            examples = [encode_pair(pair, tokenizer) for pair in pairs]
             inputs += [args.pairs, Path(args.pairs).parent / "provenance.json"]
+            inputs += [Path(args.reference) / "training_state.json", Path(args.reference).parent / "provenance.json"]
         plan = dose(len(examples), args.original_batch, epochs=args.epochs)
         output = Path(args.output)
         provenance = None
@@ -462,14 +483,17 @@ def main(argv=None):
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": "episode", "microbatch": 1,
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
-                "reference_policy": "iteration_start" if args.objective == "dpo" else None,
-                "label_smoothing": 0.0, "sft_term_in_dpo": False}
+                "reference_policy": ("fixed_sft" if args.objective == "ipr" else
+                                     "iteration_start" if args.objective == "dpo" else None),
+                "reference_artifact_sha256": artifact_hashes(args.reference) if args.reference else None,
+                "label_smoothing": 0.0, "sft_term_in_dpo": args.objective == "ipr",
+                "chosen_nll_weight": 1 if args.objective == "ipr" else 0}
             provenance = write_provenance(output, command="baseline_fsdp_train", config=config, inputs=inputs)
             write_json(output / "example_sources.json", [e.get("label_provenance", {"task_id": e.get("task_id")}) for e in examples])
         dist.barrier()
         mesh = init_device_mesh("cuda", (world,))
         model = shard_model(prepare_model(args.snapshot), mesh=mesh)
-        reference = shard_model(prepare_model(args.reference, reference=True), mesh=mesh) if args.objective == "dpo" else None
+        reference = shard_model(prepare_model(args.reference, reference=True), mesh=mesh) if args.objective != "sft" else None
         started = time.monotonic()
         state = train_loop(model, examples, output, objective=args.objective,
                     learning_rate=args.learning_rate, scheduler=args.scheduler, warmup_ratio=args.warmup_ratio,

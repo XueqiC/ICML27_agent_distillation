@@ -545,6 +545,54 @@ with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
 See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
 standalone commands, artifacts and the remaining GPU acceptance boundary.
 
+## Baselines: Stage 3c IPR and deterministic SAG sampling
+
+`baselines/ipr/` implements the pinned IPR algorithm on the K verified seed
+trajectories. See [deviations](baselines/ipr/DEVIATIONS.md) and
+[offline validation, HPG commands and compute estimates](reports/stage3c_validation.md).
+This engineering port makes no learning or baseline-reproduction claim.
+
+SFT uses the shared ETO training machinery with IPR's original global batch 48,
+lr 2e-5, cosine, .03 warmup and three epochs. A one-time stage measures five
+SFT-model MC continuations after every expert action using actual reset/replay.
+Each of six iterations explores all expert branch points greedily with the
+current iterate, measures five SFT-model MC continuations after each first agent
+action, then constructs official trajectory and entire-continuation pairs.
+Both thresholds are .01 and the ALFWorld shorter-continuation flag is preserved.
+The disabled upstream expert-MC block is explicitly activated; the byte-identical
+WebShop/ALFWorld sampler's erroneous ICL cut is fixed by replaying real episode
+actions only.
+
+DPO uses summed assistant log-probs plus summed chosen NLL (weight 1), beta .1,
+lr 3e-6, constant_with_warmup, .1 warmup and three epochs. Initialization is the
+current iterate; the reference remains SFT across all six iterations. Only the
+current iteration's pairs train. P and counts by kind are recorded before
+training; P=0 carries the policy forward unchanged and continues the loop.
+Both stages apply X5 batch shrinking from 48 and training seed 0. Full text
+parameters use four-GPU FSDP2, SDPA and 32768 context without truncation.
+
+Every stage uses the common harness, OFF and a 40-turn total cap, including
+replayed turns. Exploration/evaluation use the 1024-token cap; MC uses the
+specified 512-token cap, T=1/top_p=1. `--workers` parallelizes independent CPU
+environments sharing one vLLM server per stage. Batch-invariant serving is
+required. Rollout and request seeds exclude worker count. Hash-bound completed
+stages resume; partial attempts are preserved and retried in new directories.
+Raw calls, rejected/unknown outcomes, real replay costs and training exposure
+remain auditable in `disclosure.json` and stage artifacts.
+
+For a later authorized HPG run, set `VERIFIED`, `IPR_OUT`, `BATCH_INVARIANT=1`
+and submit `scripts/hpg_ipr.slurm`. `IPR_MODE=prepare` freezes inputs only;
+`IPR_THROUGH=sft`, `expert-mc`, `explore-1`, `agent-mc-1`, `pairs-1`, `dpo-1`,
+etc. stop at resumable stage boundaries. The linked validation report provides
+a staged job chain to fit the 12-hour wall limit. `IPR_MODE=evaluate` uses the
+existing dev140 full-checkpoint path with one GPU, separately from training.
+
+SAG now derives a per-request seed from `(sampling_seed, task_id, turn_index)`
+and records it in the request/call/step metadata. Sampling seed defaults to 0;
+`eval.run_suite --decoding sag --sag-sampling-seed N` can set it explicitly.
+Task identity is kept out of prompts. Default greedy evaluation requests and
+mechanism sampling seeds are unchanged; AgentEvol exploration is greedy.
+
 ## Baselines: Stage 3b AgentGym BC / AgentEvol and Kang SFT + SAG
 
 `baselines/agentgym/` and `baselines/kang/` use the Stage 3a infrastructure.

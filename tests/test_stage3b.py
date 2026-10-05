@@ -238,7 +238,7 @@ def test_sag_request_candidates_thinking_and_total_usage(tmp_path):
         return httpx.Response(200, json=value)
     student = SAGStudent(endpoint="http://fake/v1", model="gemma", revision="pinned", enable_thinking=False,
         log_dir=tmp_path, transport=httpx.MockTransport(handler))
-    result = student.generate([], {}, visible)
+    result = student.generate([], {"task_id": "train/fake"}, visible)
     assert result.raw_text == replies[2] and result.parsed_action == "look"
     assert {k: captured[0][k] for k in ("n", "temperature", "top_p", "max_tokens")} == {
         "n": 8, "temperature": .4, "top_p": .8, "max_tokens": 1024}
@@ -253,7 +253,7 @@ def test_sag_short_response_fails_and_batch_invariance_guard(tmp_path, monkeypat
     student = SAGStudent(endpoint="http://fake/v1", model="gemma", revision="pinned", enable_thinking=False,
         log_dir=tmp_path, transport=httpx.MockTransport(lambda _: httpx.Response(200, json=response(["Action: look"]))))
     with pytest.raises(StudentCallError):
-        student.generate([], {}, {"observation": "room", "admissible_commands": ["look"]})
+        student.generate([], {"task_id": "train/fake"}, {"observation": "room", "admissible_commands": ["look"]})
     student.close()
     monkeypatch.setenv("BATCH_INVARIANT", "0")
     with pytest.raises(ValueError): batch_invariant()
