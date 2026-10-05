@@ -10,8 +10,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - Kang K=20 s0 turn-packed (official recipe): **SAG 63/140, greedy 66/140** (0 parser errors) ≈ base 62 — official dose ≈ 2 passes.
 - **hpg 44806889** (dept, 2×B200, 240G, tree 97eb54b): AgentGym BC + AgentEvol K=20 s0 (4 iterations, explore only the K tasks) →
   reports/runs/baselines/agentgym-k20s0. Pending.
-- **hpg 44806873** (dept): SAG decoding on the best Seed-SFT cells (k20s0-p40, k10s2-t200k, k5s1-t400k) → isolates Kang's SAG at an
-  adequate dose (FTP not run) → reports/runs/eval/baselines/sag-on-seedsft.
+- SAG-on-Seed-SFT (44806873): k20s0-p40 + SAG **115/140 = greedy** (SAG adds nothing). k10s2-t200k / k5s1-t400k failed the check (mean
+  0.17 / 0.24 nats) with K20-s0 check prompts (out of their training distribution) → **hpg 44809012** (k20s0-p40 alone, fresh server: compare
+  trajectories with the sweep = server-state contamination test) and **hpg 44809013** (k10s2-t200k alone, same s0 prompts: prompt-OOD test).
+  vLLM prefix-cache hashes include lora_name (v1/core/kv_cache_utils.py:517-529), so cache sharing across adapters is unlikely.
+- ETO K=20 s0 (44806752, group): SFT + export OK (fix works), now explore-1. AgentGym K=20 s0 (44806889, dept): data-0/train-0 running.
 - Schema-5 re-eval 44802354 done: k10s2 p30 86 / p40 98 / t200k 104 / t400k 103; k20s2 p30 92 / p40 98 / t400k 98; k5 p03 still fail (b).
 - rai GPU1: mechanism run2 (pid 899949) — FCE probing, 660 probe episodes at 07:18 CDT.
 - hpg tunnel dropped 06:43–07:1x CDT (told the user once); back now.
