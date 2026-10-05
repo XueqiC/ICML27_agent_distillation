@@ -20,7 +20,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (allclose atol .125 / rtol .01 on all vocab logits) rejects the bf16 merge — mean |dlogit| 0.083 / 0.145, max 0.56 / 0.81, argmax
   equal. Upstream merges without any check (fp32 load + merge_and_unload; serving in bf16 gives the same bf16(W+BA)), so the gate is
   stricter than the official recipe → fix: LEAP records the report and accepts finite + argmax-equal + reload-identical merges
-  (disclosed), then resume. Queued for Codex after the partial-grid task.
+  (disclosed). Fixed in 7e26ca7 (LEAP-only policy; strict result kept as diagnostic). Resume refused by design (code hashes bound),
+  so **resubmitted fresh: 44843960 privileged / 44843961 zero** (group, 64G, tree 7e26ca7) → $B/reports/runs/baselines/leap-{privileged,zero}-k20s0-m2.
 - **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
   k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
