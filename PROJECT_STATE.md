@@ -12,8 +12,14 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   $B/reports/runs/baselines/{kang-<cell>-tp,agentgym-<cell>}, Kang SAG eval $B/reports/runs/eval/baselines/kang-<cell>-tp-sag.
   Memory right-sized from sacct MaxRSS: Kang train 2.9G / SAG eval 9.7G; AgentGym 2-GPU train 137G.
 - **hpg tree 74cdb97**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept 2×B200 200G, pending QOSGrpMemLimit — dept mem 980/1000G used);
-  44836718/44836719 LEAP privileged/zero K20 s0 (group, RUNNING since 13:1x CDT, at train-0; first attempts died in 10 s because
-  third_party/leap_llm (gitignored) was not in the git-archive tree — now shipped at pin a3376d8 in both trees).
+  44836718/44836719 LEAP privileged/zero K20 s0 FAILED 13:4x CDT at merge-0 (data-0, train-0 completed): our merge check
+  (allclose atol .125 / rtol .01 on all vocab logits) rejects the bf16 merge — mean |dlogit| 0.083 / 0.145, max 0.56 / 0.81, argmax
+  equal. Upstream merges without any check (fp32 load + merge_and_unload; serving in bf16 gives the same bf16(W+BA)), so the gate is
+  stricter than the official recipe → fix: LEAP records the report and accepts finite + argmax-equal + reload-identical merges
+  (disclosed), then resume. Queued for Codex after the partial-grid task.
+- **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
+  k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
+  (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
 - **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT), sequential
   s0→s1→s2, each extends seeds_k20_s* by 80 tasks (+ subsets k1/2/5/10/20/50). s0 at 13:05 CDT: 29 tasks / 38 attempts / 24 wins in 24 min
   → ~65 min per seed. Shares the provider TPM with the K5 mechanism run: 429s occur but every one retried (0 exhausted).
