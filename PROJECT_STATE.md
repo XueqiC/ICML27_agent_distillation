@@ -18,9 +18,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   Serial run1 (old FCE definition) stopped 01:39; kept as the cache source. Example finding (task 1): D = 1 from t = 24, student loops "look".
 - Mechanism run2 rate: TPM-bound (≈27 teacher calls/min; mean limiter wait 20 s; 4.9k input + 2,048 reserved output per call vs the
   provider's 200k TPM). FCE ETA ~08:30 CDT, then I0–I5 (student-side) — pre-registered probe grid kept.
-- Stage 3b committed (50aebcc): baselines/agentgym (BC + AgentEvol, K-task exploration only) and baselines/kang (LoRA r64 SFT + SAG,
-  no FTP). Codex stage 3c (pid 974475): IPR (expert MC values via the repo's commented-out official block — flag to the user; WebShop-cut
-  sampler bug fixed + disclosed; DPO+NLL, ref = SFT, 6 iterations) + per-request seeds for SAG/MC sampling (reproducibility).
+- Baseline ports committed: 3a ETO (dc30492), 3b AgentGym BC/AgentEvol + Kang/SAG (50aebcc), 3c IPR + deterministic SAG/MC seeds
+  (5e14289; expert MC values from the repo's commented-out official block — tell the user; WebShop-cut sampler bug fixed). Codex 3d
+  (pid 1034548): LEAP faithful (privileged handcoded-expert summaries, K tasks only) + 0%-privileged ablation; trains on all K (85/15
+  split only serves eval-loss selection that cannot trigger at this dose — registered). Codex 3c's first attempt hit "model at capacity".
 - **hpg 44780233** (array 0–8%4, dept, 1×B200, 14 CPU / 48G, tree ICML27_runs/3aea2aa, --dependency=aftercorr:44777524): batch-invariant
   dev140 eval of every dose checkpoint of the matching training task (task 0 also evaluates base) → /blue/.../reports/runs/eval/
   seedsft-sweep-bi/<name>. Pending.
