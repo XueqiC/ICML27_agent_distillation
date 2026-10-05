@@ -479,15 +479,188 @@ def test_preference_turn_training_accounts_for_padding_and_reference(tmp_path, o
     reference = deepcopy(model).eval().requires_grad_(False)
     pair = {"chosen": {"packing": "turn", "turns": rows()},
             "rejected": {"packing": "turn", "turns": [rows()[1]]}}
-    state = train_loop(model, [pair], tmp_path, objective=objective, reference=reference,
-        learning_rate=1e-5, scheduler="constant_with_warmup", warmup_ratio=0,
-        original_batch=48, epochs=1, packing="turn")
+    forwards = []
+    handle = model.register_forward_pre_hook(lambda module, args, kwargs:
+        forwards.append((torch.is_grad_enabled(), kwargs["input_ids"].numel())), with_kwargs=True)
+    try:
+        state = train_loop(model, [pair], tmp_path, objective=objective, reference=reference,
+            learning_rate=1e-5, scheduler="constant_with_warmup", warmup_ratio=0,
+            original_batch=48, epochs=1, packing="turn")
+    finally:
+        handle.remove()
     assert state["updates"] == state["examples_seen"] == 1
     assert state["supervised_tokens_seen"] == 9
     assert state["logical_forward_tokens"] == 17
-    assert state["physical_policy_forward_tokens"] == state["physical_reference_forward_tokens"] == 28
+    assert state["two_pass_turn_backward"] is True
+    assert state["physical_reference_forward_tokens"] == 28
+    assert state["physical_policy_recompute_forward_tokens"] == 24
+    assert state["physical_policy_forward_tokens"] == sum(n for _, n in forwards) == 52
+    assert [grad for grad, _ in forwards] == [False] * 2 + [True] * 4
     ledger, = [json.loads(line) for line in (tmp_path / "updates.jsonl").read_text().splitlines()]
     assert ledger["collective_rounds"] == 2 and ledger["global_batch"] == 1
-    assert ledger["physical_policy_forward_tokens"] == 28
+    assert ledger["physical_policy_forward_tokens"] == 52
+    assert ledger["physical_policy_recompute_forward_tokens"] == 24
+    assert ledger["two_pass_turn_backward"] is True
     with pytest.raises(ValueError, match="cannot omit"):
         scoring_batches([pair["chosen"], pair["rejected"]], rounds=1)
+
+
+@pytest.mark.parametrize("nll_weight", [0.0, 1.0], ids=["dpo", "ipr"])
+@pytest.mark.parametrize("checkpointing", [False, True])
+def test_two_pass_matches_all_one_graph_parameter_gradients_and_metrics(nll_weight, checkpointing):
+    torch.set_num_threads(1)
+    torch.manual_seed(41)
+    original = tiny_model().train()
+    if checkpointing:
+        original.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    streamed = deepcopy(original)
+    reference = deepcopy(original).eval().requires_grad_(False)
+    with torch.no_grad():
+        next(reference.parameters()).add_(.03)
+    pair = {"chosen": {"packing": "turn", "turns": rows()},
+            "rejected": {"packing": "turn", "turns": [rows()[1], rows()[0], rows()[1]]}}
+    kwargs = {"beta": .5, "nll_weight": nll_weight, "rounds": 5}
+    expected_loss, expected_metrics = dpo_objective(original, reference, pair, "cpu", **kwargs)
+    scale = .37  # The global batch/rank factor applies to DPO AND chosen NLL.
+    (expected_loss * scale).backward()
+    loss, metrics = dpo_objective(streamed, reference, pair, "cpu", backward_scale=scale, **kwargs)
+    assert not loss.requires_grad and loss.grad_fn is None
+    torch.testing.assert_close(loss, expected_loss, rtol=0, atol=0)
+    assert metrics.keys() == expected_metrics.keys()
+    for key in metrics:
+        assert not metrics[key].requires_grad
+        torch.testing.assert_close(metrics[key], expected_metrics[key], rtol=0, atol=0)
+    for (name, expected), (actual_name, actual) in zip(original.named_parameters(), streamed.named_parameters()):
+        assert name == actual_name
+        if expected.grad is None:
+            assert actual.grad is None
+        else:
+            # Splitting a padded pair into single turns changes fp32 GEMM
+            # reduction order (including Gemma's internal fp32 operations).
+            torch.testing.assert_close(actual.grad, expected.grad, rtol=2e-6, atol=3e-6,
+                                       msg=lambda detail: f"{name}: {detail}")
+    assert all(p.grad is None for p in reference.parameters())
+
+
+@pytest.mark.parametrize("nll_weight", [0.0, 1.0], ids=["dpo", "ipr"])
+@pytest.mark.parametrize("indices", [[0], [0, 1, 0]])
+def test_two_pass_rank_and_turn_padding_preserve_global_pair_mean(nll_weight, indices):
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    base = tiny_model().eval()
+    reference = deepcopy(base).requires_grad_(False)
+    pairs = [{"chosen": {"packing": "turn", "turns": rows()[:count]},
+              "rejected": {"packing": "turn", "turns": [rows()[1]] * (3 - count)}} for count in (1, 2)]
+    expected = sum(dpo_objective(base, reference, pairs[i], "cpu", beta=.1, nll_weight=nll_weight)[0]
+                   for i in indices) / len(indices)
+    expected.backward()
+    rank_models = [deepcopy(base) for _ in range(2)]
+    counts = []
+    for rank, model in enumerate(rank_models):
+        model.zero_grad(set_to_none=True)
+        forwards, backwards = [], []
+        handles = [model.register_forward_pre_hook(lambda module, args:
+                       forwards.append(torch.is_grad_enabled())),
+                   next(model.parameters()).register_hook(lambda grad: backwards.append(True))]
+        try:
+            for slot in rank_slots(indices, len(rank_models)):
+                index = slot[rank]
+                rounds = max(len(pairs[i if i is not None else 0][side]["turns"])
+                             for i in slot for side in ("chosen", "rejected"))
+                dpo_objective(model, reference, pairs[index if index is not None else 0], "cpu",
+                    beta=.1, nll_weight=nll_weight, rounds=rounds,
+                    backward_scale=len(rank_models) / len(indices) if index is not None else 0.0)
+        finally:
+            for handle in handles:
+                handle.remove()
+        counts.append((forwards, len(backwards)))
+        if all(slot[rank] is None for slot in rank_slots(indices, len(rank_models))):
+            assert all(p.grad is None or torch.count_nonzero(p.grad) == 0 for p in model.parameters())
+    assert counts[0] == counts[1]
+    assert counts[0][1] == sum(counts[0][0])  # Dummy forwards still backward for every rank.
+    for name, parameter in base.named_parameters():
+        grads = [dict(model.named_parameters())[name].grad for model in rank_models]
+        if parameter.grad is None:
+            assert all(grad is None for grad in grads)
+        else:
+            torch.testing.assert_close(sum(grads) / len(rank_models), parameter.grad, rtol=2e-6, atol=3e-6,
+                                       msg=lambda detail: f"{name}: {detail}")
+
+
+@pytest.mark.parametrize("nll_weight", [0.0, 1.0], ids=["dpo", "ipr"])
+def test_two_pass_chain_rule_on_float64_tiny_causal_model(nll_weight):
+    class TinyCausalModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embedding = torch.nn.Embedding(128, 8)
+            self.output = torch.nn.Linear(8, 128)
+
+        def forward(self, input_ids, attention_mask, use_cache, logits_to_keep):
+            hidden = self.embedding(input_ids).cumsum(dim=1).tanh()
+            return SimpleNamespace(logits=self.output(hidden[:, logits_to_keep]))
+
+    torch.manual_seed(44)
+    original = TinyCausalModel().double()
+    streamed = deepcopy(original)
+    reference = deepcopy(original).requires_grad_(False)
+    with torch.no_grad():
+        reference.output.weight.add_(.02 * torch.randn_like(reference.output.weight))
+    pair = {"chosen": {"packing": "turn", "turns": rows()},
+            "rejected": {"packing": "turn", "turns": [rows()[1], rows()[1], rows()[0]]}}
+    loss, _ = dpo_objective(original, reference, pair, "cpu", beta=.5, nll_weight=nll_weight, rounds=4)
+    (loss * .5).backward()
+    dpo_objective(streamed, reference, pair, "cpu", beta=.5, nll_weight=nll_weight, rounds=4,
+                  backward_scale=.5)
+    for actual, expected in zip(streamed.parameters(), original.parameters()):
+        # The production log-softmax/scorer intentionally remains fp32.
+        torch.testing.assert_close(actual.grad, expected.grad, rtol=2e-7, atol=1e-8)
+
+
+@pytest.mark.parametrize("nll_weight", [0.0, 1.0], ids=["dpo", "ipr"])
+def test_two_pass_retains_only_one_turn_graph_even_for_forty_turns(nll_weight):
+    torch.set_num_threads(1)
+    torch.manual_seed(43)
+    model = tiny_model().eval()
+    reference = deepcopy(model).requires_grad_(False)
+
+    def retained_graph_peak(turns, two_pass):
+        retained = {"live": 0, "peak": 0}
+
+        class SavedTensor:
+            def __init__(self, tensor):
+                self.tensor = tensor.detach()
+                self.size = tensor.numel() * tensor.element_size()
+                retained["live"] += self.size
+                retained["peak"] = max(retained["peak"], retained["live"])
+
+            def __del__(self):
+                retained["live"] -= self.size
+
+        def before_forward(module, args, kwargs):
+            if two_pass:
+                # The previous backward must release EVERY saved tensor
+                # before allocating the next turn's graph, on either side.
+                assert retained["live"] == 0
+                if torch.is_grad_enabled():
+                    assert kwargs["input_ids"].shape[0] == 1
+
+        pair = {side: {"packing": "turn", "turns": [row] * turns}
+                for side, row in zip(("chosen", "rejected"), rows())}
+        model.zero_grad(set_to_none=True)
+        handle = model.register_forward_pre_hook(before_forward, with_kwargs=True)
+        try:
+            with torch.autograd.graph.saved_tensors_hooks(SavedTensor, lambda saved: saved.tensor):
+                loss, _ = dpo_objective(model, reference, pair, "cpu", beta=.1, nll_weight=nll_weight,
+                                        backward_scale=1.0 if two_pass else None)
+                if not two_pass:
+                    loss.backward()
+        finally:
+            handle.remove()
+        assert retained["live"] == 0
+        return retained["peak"]
+
+    single_turn = retained_graph_peak(1, True)
+    assert single_turn > 0
+    assert retained_graph_peak(40, True) == single_turn
+    # Positive control: the old objective really retains all turn graphs.
+    assert retained_graph_peak(40, False) > 20 * single_turn

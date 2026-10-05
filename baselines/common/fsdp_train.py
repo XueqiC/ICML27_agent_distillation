@@ -169,18 +169,30 @@ def sft_objective(model, row, device):
     return -batch_logps(model, [row], device).mean() / count, {}
 
 
-def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, rounds=None):
+def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, rounds=None,
+                  backward_scale=None):
+    """Summed DPO/IPR loss and metrics; optionally backward one turn at a time.
+
+    With backward_scale, the first pass retains only no-grad continuation sums.
+    The second pass immediately backpropagates each turn's chain-rule term and
+    returns a detached loss (already backpropagated). Dropout must be disabled,
+    as in train_loop, so recomputation gives the same scores/derivatives.
+    Without backward_scale this remains the original one-graph objective.
+    """
     import torch
     from baselines.eto.official_loss import OfficialLoss
     if reference is None or reference is model or any(p.requires_grad for p in reference.parameters()):
         raise ValueError("DPO requires a distinct frozen reference")
     reference.eval()
     rows = [pair["chosen"], pair["rejected"]]
+    if backward_scale is not None and any(row.get("packing") != "turn" for row in rows):
+        raise ValueError("Two-pass backward requires turn packing")
     with torch.no_grad():
         ref = batch_logps(reference, rows, device, rounds=rounds).detach()
     # Reference activations/logits are out of scope before policy activations
     # are allocated. Only two detached continuation sums remain.
-    policy = batch_logps(model, rows, device, rounds=rounds)
+    with torch.set_grad_enabled(torch.is_grad_enabled() and backward_scale is None):
+        policy = batch_logps(model, rows, device, rounds=rounds)
     settings = SimpleNamespace(beta=beta, loss_type="sigmoid", label_smoothing=0.0)
     losses, chosen, rejected = OfficialLoss.dpo_loss(settings, policy[:1], policy[1:], ref[:1], ref[1:])
     metrics = {"rewards/chosen": chosen.mean(), "rewards/rejected": rejected.mean(),
@@ -191,7 +203,26 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
     # ETO's default remains exactly its original sigmoid-only objective.
     if nll_weight:
         metrics.update({"loss/dpo": losses.mean().detach(), "loss/chosen_nll": -policy[0].detach()})
-    return losses.mean() - nll_weight * policy[0], metrics
+    loss = losses.mean() - nll_weight * policy[0]
+    if backward_scale is not None:
+        if not torch.isfinite(loss):
+            raise ValueError("Nonfinite training loss")
+        with torch.no_grad():
+            # Match the official loss's subtraction order. Rewards/margins
+            # are diagnostics and have a different floating-point grouping.
+            delta = (policy[0] - policy[1]) - (ref[0] - ref[1])
+            rejected_coefficient = beta * torch.sigmoid(-beta * delta)
+            coefficients = torch.stack((-rejected_coefficient - nll_weight,
+                                        rejected_coefficient)) * backward_scale
+        for batch in scoring_batches(rows, rounds=rounds):
+            for side, (turn, active) in enumerate(batch):
+                # Even dummy turns/ranks must forward AND backward, in the
+                # same order, to align FSDP collectives. Never use no_sync:
+                # reduced gradients must stay sharded during accumulation.
+                turn_logp = sequence_logps(model, [turn], device)[0]
+                (coefficients[side] * active * turn_logp).backward()
+                del turn_logp
+    return loss, metrics
 
 
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
@@ -209,6 +240,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
+    two_pass_turn_backward = objective in {"dpo", "ipr"} and packing == "turn"
     for example in examples:
         for row in ([example] if objective == "sft" else [example["chosen"], example["rejected"]]):
             if any(r.get("label_provenance", {}).get("training_eligible") is False
@@ -236,6 +268,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         torch.cuda.reset_peak_memory_stats(device)
     started = time.monotonic()
     exposure = supervised = physical = physical_tokens = forward_tokens = logical_slots = 0
+    recompute_tokens = 0
     for update, batch in enumerate(epoch_batches(len(examples), plan["b_prime"], epochs=epochs, seed=seed), 1):
         optimizer.zero_grad(set_to_none=True)
         metrics_sum = {}
@@ -252,16 +285,19 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             index = slot[rank]
             active = index is not None
             row, weight = microsteps[index if active else 0]
+            # FSDP averages across ranks. Cancel that average and divide by
+            # ACTUAL trajectories/pairs, including the final partial batch.
+            scale = weight * world_size / len(indices) if active else 0.0
             loss, metrics = (sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
-                                          nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds))
+                                          nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
+                                          backward_scale=scale if two_pass_turn_backward else None))
             if not torch.isfinite(loss):
                 raise ValueError("Nonfinite training loss")
-            # FSDP averages across ranks. This cancels that average and divides
-            # by ACTUAL trajectories/pairs, including the final partial batch.
             # Turn weights preserve the per-trajectory assistant-token mean.
             # Synchronize each microstep to keep gradients sharded during accumulation.
-            (loss * (weight * world_size / len(indices) if active else 0.0)).backward()
+            if not two_pass_turn_backward:
+                (loss * scale).backward()
             for key, value in {"loss": loss.detach(), **metrics}.items():
                 metrics_sum[key] = metrics_sum.get(key, 0.0) + value.detach() * (weight if active else 0.0)
         norm = torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
@@ -277,13 +313,17 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
                     sum(len(r["input_ids"]) for r in rows),
                     sum(len(batch) * max(len(r["input_ids"]) for r, _ in batch)
-                        for batch in scoring_batches(groups, rounds=n_rounds)))
+                        for batch in scoring_batches(groups, rounds=n_rounds)),
+                    sum(len(r["input_ids"]) for batch in scoring_batches(groups, rounds=n_rounds)
+                        for r, _ in batch) if two_pass_turn_backward else 0)
         supervised += sum(costs(m)[0] for m in microsteps)
         forward_tokens += sum(costs(m)[1] for m in microsteps)
         logical_slots += len(microsteps)
         physical += len(slots) * world_size
         physical_tokens += sum(costs(microsteps[i if i is not None else 0], n_rounds)[2]
                                for slot, n_rounds in zip(slots, rounds) for i in slot)
+        recompute_tokens += sum(costs(microsteps[i if i is not None else 0], n_rounds)[3]
+                                for slot, n_rounds in zip(slots, rounds) for i in slot)
         keys = sorted(metrics_sum)
         values = torch.stack([metrics_sum[k] for k in keys])
         if world_size > 1:
@@ -299,7 +339,9 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "gradient_norm": float(norm), "examples_seen": exposure,
                            "supervised_tokens_seen": supervised,
                            "logical_forward_tokens": forward_tokens,
-                           "physical_policy_forward_tokens": physical_tokens,
+                           "two_pass_turn_backward": two_pass_turn_backward,
+                           "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
+                           "physical_policy_recompute_forward_tokens": recompute_tokens,
                            "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
                            **dict(zip(keys, values.cpu().tolist()))}, unique_key="update")
     if cuda:
@@ -315,7 +357,9 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "supervised_tokens_seen": supervised, "logical_forward_tokens": forward_tokens,
             "physical_example_slots": physical, "logical_example_slots": logical_slots,
             "zero_weight_slots": physical - logical_slots,
-            "physical_policy_forward_tokens": physical_tokens,
+            "two_pass_turn_backward": two_pass_turn_backward,
+            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
+            "physical_policy_recompute_forward_tokens": recompute_tokens,
             "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
             "packing": packing, "batch_unit": "trajectory" if objective == "sft" else "preference pair",
@@ -583,6 +627,7 @@ def main(argv=None):
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
                                      "iteration_start" if args.objective == "dpo" else None),
                 "reference_storage_dtype": "bfloat16" if args.objective in {"dpo", "ipr"} else None,
+                "two_pass_turn_backward": args.objective in {"dpo", "ipr"},
                 "reference_artifact_sha256": artifact_hashes(args.reference) if args.reference else None,
                 "label_smoothing": 0.0, "sft_term_in_dpo": args.objective == "ipr",
                 "chosen_nll_weight": 1 if args.objective == "ipr" else 0}

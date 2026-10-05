@@ -22,6 +22,7 @@ no ALFWorld learning or baseline reproduction result is claimed.
 | `fastchat/train/train.py:302`; `fastchat/train/train_dpo.py:286,294` | SDPA instead of flash-attn 2; exact Gemma4Unified wrap class verified in installed transformers 5.14.1 at `modeling_gemma4_unified.py:496`. | engineering (X7) |
 | `run_eto.sh:40,176-178`; `fastchat/train/train.py:114-120`; `fastchat/train/train_dpo.py:225,231` | Max length 32768, whole episodes, no right truncation and no fixed 4096 padding. Overlong examples fail explicitly. ALFWorld's existing no-rollout-truncation rule is preserved (`construct_preference.py:155-156`; commit `1a4c84c`). | no truncation |
 | `fastchat/train/dpo_trainer.py:737-839,860-883,934-943` | Two loss methods copied verbatim. Materialize logits only at supervised causal predecessors; call unchanged scorer with already-aligned labels, no second shift, sum all assistant log-probs. Small log-softmax chunks reduce temporary memory. Dense-vs-selected tests verify equality. Reward chosen/rejected/accuracy/margin and logps logged; full-vocabulary mean-logit diagnostic omitted. | engineering |
+| `fastchat/train/dpo_trainer.py:737-839,860-883` | Turn-packed DPO uses two passes: sum policy/reference continuation log-probs under no-grad, compute the unchanged loss/metrics and detached chain-rule coefficients, then recompute one policy turn at a time and immediately backward its coefficient-weighted log-prob sum. Coefficients are `(-beta*sigmoid(-beta*Delta), +beta*sigmoid(-beta*Delta))`, with the existing rank/global-pair normalization. Dropout remains disabled. Zero-weight turn/rank padding still runs every forward/backward; gradients remain sharded. Only one turn's activation graph is retained. Episode packing is unchanged. Record `baseline_training.two_pass_turn_backward=true`, also in training state/update ledgers. CPU tests compare every parameter gradient against the one-graph objective, metrics, rank padding and retained saved tensors through 40 turns. | engineering (exact gradient, recomputation) |
 | `run_eto.sh:154-156`; `fastchat/train/dpo_trainer.py:904-923` | Separate frozen, sharded, eval-mode reference reloaded from the exact iteration-start checkpoint; no precomputed reference and no SFT term. | engineering (explicit invariant) |
 | `fastchat/train/dpo_trainer.py:904-923` | Load and shard the frozen reference directly in bf16, retaining eval/no-grad, identical decoder/root wraps and `MixedPrecisionPolicy(param_dtype=bfloat16, reduce_dtype=float32)`. This halves reference parameter storage on host/GPU; policy fp32 masters and AdamW state are unchanged. The former fp32 reference already cast parameters to bf16 on every forward, so reference log-probs are numerically identical. CPU tiny-Gemma tests require bitwise equality using the same parameter-cast semantics and native loader buffers. Retain only detached summed reference log-probs before the policy forward; tests check activation/logit release. Record `baseline_training.reference_storage_dtype=bfloat16` in provenance. | engineering (numerically identical) |
 | `run_eto.sh:20-42,154-180` | Explicit training/sampler seed 0, epoch permutation seeded by `seed+epoch` instead of relying on HF's implicit seed 42/sampler implementation. Exhaustive, no duplicate logical exposures. All published stage checkpoints are final. | engineering (fixed user seed) |
@@ -40,12 +41,25 @@ mean over supervised tokens **per episode**, then mean over the global batch.
 DPO uses sigmoid on **summed** assistant log-probs, smoothing 0, no SFT term.
 Independent turn prefixes repeat history compute. DPO physical forward-token
 counts include sequence padding and zero-weight turn/rank padding for policy
-and reference. Long-pair memory fit remains a hardware acceptance check.
+and reference. Policy counts also include the second pass, separately reported
+as `physical_policy_recompute_forward_tokens`; reference counts remain one pass.
+The first pass batches up to one turn per side, while recomputation forwards
+one side's turn at a time without cross-side sequence padding. Recomputed turns
+do not add logical examples or supervised-token exposures.
+Long-pair memory fit remains a hardware acceptance check.
 
 This storage fix follows the reported hpg K=20/s0 iteration-1 failure: 11
 preference pairs on 2 × B200 180 GB, CUDA OOM in the policy Gemma MLP with
 170 GB allocated. CPU checks establish the storage/cast equivalence and tensor
 lifetime behavior; they do not establish that the failed GPU run now fits.
+
+The two-pass fix follows the subsequent reported hpg ETO K=20/s0 DPO-1 OOM
+on 4 × B200 with the reference already in bf16: 169.7 GB allocated during the
+policy forward versus approximately 54 GB/GPU of static policy/reference state.
+The one-graph sum retained activations across both continuations, including
+rejected rollouts of up to 40 turns with histories around 16k tokens. The exact
+chain-rule recomputation bounds retained activations to one turn; it does not
+establish GPU memory fit or throughput without a hardware run.
 
 Full-repo or paper performance equivalence is not asserted. GPU FSDP, B200
 memory fit, long-sequence throughput and live full-checkpoint serving remain
