@@ -8,9 +8,14 @@ import sys
 import pytest
 
 
-@pytest.mark.parametrize("platform,fail_check", [("rai", False), ("hpg", False), ("rai", True),
-                                                ("hpg_full", False)])
-def test_launcher_lifecycle(tmp_path, platform, fail_check):
+@pytest.mark.parametrize("platform,scenario,include_base", [
+    (platform, scenario, include_base)
+    for platform in ("rai", "hpg")
+    for scenario, include_base in (("pass", True), ("pass", False), ("check_a", True),
+                                   ("check_a", False), ("check_b", True), ("check_all", True),
+                                   ("check_error", True), ("hf_a", True))
+] + [("hpg_full", "pass", True)])
+def test_launcher_lifecycle(tmp_path, platform, scenario, include_base):
     fake = tmp_path / "fake-python"
     fake.write_text("#!" + sys.executable + "\n" + r'''
 import json, os, signal, sys, time
@@ -47,8 +52,17 @@ if args[0] == "harness/serve_student.py":
 elif args[0] == "tools/check_lora_serving.py":
     kind = "hf" if "--hf-only" in args else "check"
     record(kind)
-    if kind == "check" and os.environ.get("FAKE_FAIL_CHECK") == "1": sys.exit(1)
-    (out / ("reference.json" if kind == "hf" else "report.json")).write_text("{}")
+    scenario = os.environ["FAKE_SCENARIO"]
+    name = value("--model-name")
+    failed = ((kind == "hf" and scenario == "hf_a" and name == "a") or
+              (kind == "check" and (scenario == "check_all" or scenario == "check_" + name or
+                                    (scenario == "check_error" and name == "a"))))
+    if failed and (kind == "hf" or scenario == "check_error"):
+        (out / "failure.json").write_text(json.dumps({"passed": False, "error_type": "ValueError"}))
+    else:
+        (out / ("reference.json" if kind == "hf" else "report.json")).write_text(
+            json.dumps({"passed": not failed, "model_name": name}))
+    if failed: sys.exit(7)
 elif args[0] == "eval/run_suite.py":
     record("eval")
 else:
@@ -65,11 +79,13 @@ else:
     env.update(PROJECT_ROOT=str(Path.cwd()), ENV_PYTHON=str(fake), VLLM_PYTHON=str(fake),
                TRAIN_PYTHON=str(fake), MODEL_PATH=str(tmp_path / "snapshot"),
                VERIFIED=str(tmp_path / "verified"), FAKE_LEDGER=str(ledger),
-               FAKE_FAIL_CHECK="1" if fail_check else "0", ENABLE_THINKING="off",
-               MAX_TOKENS="1024", READY_TIMEOUT="10", WORKERS="8", INCLUDE_BASE="1")
+               FAKE_SCENARIO=scenario, ENABLE_THINKING="off",
+               MAX_TOKENS="1024", READY_TIMEOUT="10", WORKERS="8", INCLUDE_BASE=str(int(include_base)))
     if platform == "rai":
-        command = ["bash", "scripts/rai_eval_student.sh", "3", str(tasks), str(out),
-                   "--base", "--workers", "6", "a=/fake/one", "b=/fake/two"]
+        command = ["bash", "scripts/rai_eval_student.sh", "3", str(tasks), str(out)]
+        if include_base:
+            command.append("--base")
+        command += ["--workers", "6", "a=/fake/one", "b=/fake/two"]
     else:
         env.update(HPG_CONFIG=str(Path.cwd() / "configs/hpg.env"), TASKS=str(tasks), OUT=str(out),
                    ADAPTERS="a=/fake/one b=/fake/two", CUDA_VISIBLE_DEVICES="allocated")
@@ -77,14 +93,42 @@ else:
             env.update(ADAPTERS="", MERGED_MODEL_PATH=str(tmp_path / "snapshot"), FULL_CHECKPOINT_NAME="iter-1")
         command = ["bash", "scripts/hpg_eval_adapters.slurm"]
     result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
-    assert result.returncode == int(fail_check), result.stderr
+    assert result.returncode == int(scenario != "pass"), result.stderr
     rows = [json.loads(line) for line in ledger.read_text().splitlines()]
-    expected = ["hf", "hf", "server", "eval", "check"]
-    if not fail_check: expected += ["eval", "check", "eval"]
+    expected = ["hf", "hf", "server"] + (["eval"] if include_base else [])
+    failed_names = ({"a", "b"} if scenario == "check_all" else
+                    {"b"} if scenario == "check_b" else {"a"} if scenario != "pass" else set())
+    for name in ("a", "b"):
+        if scenario != "hf_a" or name != "a":
+            expected.append("check")
+        if name not in failed_names:
+            expected.append("eval")
     if platform == "hpg_full":
         expected = ["server", "eval"]
         assert "--merged-model-path" in rows[0]["args"]
     assert [r["kind"] for r in rows] == expected + ["stopped"]
+    if platform != "hpg_full":
+        for name in ("a", "b"):
+            check = out / name / "check"
+            if name in failed_names:
+                assert not (out / name / "eval").exists()
+                stage = "hf-reference" if scenario == "hf_a" else "serving-comparison"
+                assert (check / "FAILED").read_text() == f"{stage} failed (exit 7)\n"
+                if scenario in {"hf_a", "check_error"}:
+                    failure_dir = out / name / "hf" if scenario == "hf_a" else check
+                    assert json.loads((failure_dir / "failure.json").read_text()) == {
+                        "passed": False, "error_type": "ValueError"}
+                    assert not (check / "report.json").exists()
+                else:
+                    assert json.loads((check / "report.json").read_text()) == {"passed": False, "model_name": name}
+            else:
+                assert (out / name / "eval").is_dir()
+                assert not (check / "FAILED").exists()
+                assert json.loads((check / "report.json").read_text()) == {"passed": True, "model_name": name}
+        evaluated = [r["args"][r["args"].index("--model-name") + 1] for r in rows if r["kind"] == "eval"]
+        assert evaluated == (["google/gemma-4-12B-it"] if include_base else []) + [
+            name for name in ("a", "b") if name not in failed_names]
+        assert (out / "google/gemma-4-12B-it/eval").is_dir() is include_base
     for row in rows:
         assert row["order"] == "PCI_BUS_ID" and row["offline"] == "1"
         assert row["attention"] == "FLASH_ATTN" and row["sampler"] == "0"

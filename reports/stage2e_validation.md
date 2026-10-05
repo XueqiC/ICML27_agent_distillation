@@ -131,3 +131,113 @@ the original report text was verified unchanged before this appended section.
 Only the checker, its two test files, and this appended amendment were
 changed. No GPUs, serving processes, network/OpenAI calls, submitted jobs,
 commits, or pushes were used. Real run artifacts remained read-only.
+
+## Amendment 2: effect-relative prompt gate and launcher continuation — 2026-10-04
+
+This amendment supersedes the schema 2 per-prompt rule. The engineering
+gate detects missing or misapplied adapters by comparing serving error
+with the adapter's measured effect, while allowing isolated kernel-numerics
+outliers. The eight fixed verified TRAIN turns, scoring, token selection,
+model identities, and server/provenance bindings retain their definitions.
+
+Read-only inspection and recomputation used the main checkout's
+`/home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/eval/ladder-s0-rai-dev140/`
+reports, specifically `{k20s0-p20,k20s0-p10}/check/report.json` and the recorded
+`server/provenance.json`. Both reports contain all four token measurement
+arrays and 236 scored tokens. The following means are pooled over tokens;
+outlier counts use strict greater-than comparisons.
+
+| Adapter | Adapter error | Base noise | Effect | Effect/error | Adapter counts >0.25 / >0.5 | Base counts >0.25 / >0.5 | Largest prompt error/effect |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| k20s0-p20 | 0.031197812 | 0.046081653 | 1.307455978 | 41.9086 | 6 / 3 | 10 / 2 | 0.0700332 |
+| k20s0-p10 | 0.024269774 | 0.046081653 | 1.124531027 | 46.3346 | 4 / 1 | 10 / 2 | 0.0370356 |
+
+The p20 schema 2 failures were zero-based prompts 2 and 5: mean errors
+0.105254490 and 0.070331889 over 28 and 34 tokens, with maximum differences
+2.719193935 and 1.021809667 nats. Their effects were 1.502923611 and
+1.327441089 nats. The low pooled error, large effect, and similar adapter/base
+outlier frequencies motivate this numerical gate change. Recomputing the
+stored arrays under schema 3 passes both adapters, including validation
+against their recorded server identity. This is an offline reclassification;
+no new model inference or environment evaluation was performed. The original
+p20 failed report and p10 passing report remain unchanged. Their SHA256s are:
+
+- p20: `a2749a1e92bd3891aa3d21f7d63b0951cc96aa5cd2bba6cb5dc6bf5c7c400933`.
+- p10: `cd74c8dc87ba002313df3ad7256edf6afe5babce5383d1a4e4d8b4dde106b099`.
+
+Schema 3 requires all three inclusive inequalities:
+
+1. Pooled `adapter_error <= max(0.05, 1.5 * base_noise)`.
+2. Pooled `effect >= 5 * adapter_error`.
+3. Every prompt's `adapter_error <= 0.1 * effect`, using that prompt's means.
+
+Reports preserve per-prompt and pooled mean/max absolute differences for
+`adapter_error`, `base_noise`, and `effect`. Each adapter-error/base-noise
+summary now includes `tokens_abs_diff_gt_0_25` and `tokens_abs_diff_gt_0_5`;
+their aggregate values are the per-run counts. Maximum differences and
+outlier counts are diagnostics. `mean_abs_diff_tolerance_nats` records
+0.1 times the prompt effect for prompt rows and the noise-based tolerance
+for the aggregate. Pooling still weights each token equally.
+
+`validate_report` accepts only schema 3 and recomputes gates from stored
+measurements; edited summaries or threshold metadata cannot bypass them.
+Schema 1 and unconverted schema 2 reports are refused. Complete schema 2
+measurements may be explicitly recomputed with
+`{**old_report, **summarize_prompts(old_report["prompts"])}`. This refreshes
+schema, statistics, pass flags, counts, thresholds, and rule text while
+preserving adapter/server binding metadata. Missing measurements require
+regeneration. New HF references also use schema 3; complete schema 2 HF
+references remain subject to the existing identity/code provenance checks.
+
+The launcher now retains each failed check's report or sanitized failure
+artifact, writes `<OUT>/<adapter>/check/FAILED` with the failed stage and
+exit status, skips that adapter's evaluation, and continues in adapter
+order. It exits 1 after the remaining checks/evaluations when any check
+failed. HF reference failures receive the same marker and skip behavior;
+their failure artifacts remain under `<adapter>/hf/`. `run_work` explicitly
+returns the child's status so Bash conditional calls cannot mask failures.
+Base evaluation, successful-run output layout, and process cleanup retain
+their behavior. `INCLUDE_BASE=0` already supports adapter-only runs on rai
+and HPG, so no additional option or change to `INCLUDE_BASE` was needed.
+
+Final offline CPU validation:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m pytest -q
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_lora_serving_torch.py tests/test_stage2b_torch.py tests/test_stage3a_torch.py
+```
+
+The full project suite passed **269 tests, 4 skipped**: three torch modules
+are unavailable in the project venv, and real ALFWorld integration is optional.
+The separate torch command initially produced **35 passed, 1 skipped, 1 failed**
+because this worktree lacks `third_party/ETO/fastchat/train/dpo_trainer.py`,
+which an existing stage 3a test reads for its verbatim/formula comparison.
+The local main checkout has that source at the documented ETO pin
+`a2fc5da38f8d00cfaf3f9b6370d586eebaf72904`; its bytes were checked against
+`git show` at that commit (source SHA256
+`ea04bab546bb84994c0c651b1da0165382c43eb0f5c9c6309fc39a9cb5071682`).
+
+The torch command then passed **36 tests, 1 skipped** from temporary directory
+`/tmp/gate2-torch-21tj7ym6`. That directory links this worktree's code, tests,
+configuration, and data, plus only the missing ETO source file from the local
+checkout. It leaves repository files unchanged and requires no download.
+The remaining skip is the absent optional real seed collection; the existing
+PEFT warning concerns the synthetic model's absent source config.
+
+Regression coverage includes the p20-shaped 236-token outlier case, strict
+count cutoffs, inclusive gate boundaries, missing adapters on one or all
+prompts, independent pooled error/effect failures, stale-summary rejection,
+complete schema 2 recomputation, and missing-measurement/schema rejection.
+Fake launcher tests cover first/last/all check failures, operational and HF
+reference failures, retained reports/markers, later adapter evaluation,
+base inclusion/exclusion, order, output refusal, and cleanup on rai/HPG.
+`bash -n scripts/eval_adapters.sh` and `git diff --check` passed.
+
+Only `tools/check_lora_serving.py`, `scripts/eval_adapters.sh`, their two
+non-torch test files, and this appended amendment changed. The existing
+`tests/test_suite.py` fixture already provides complete measurements through
+`summarize_prompts`, so it needed no edit. Earlier report text is unchanged.
+No GPU, real server, network/OpenAI call, submitted job, commit, or push was
+used. Real run artifacts remained read-only; no scientific finding is claimed.

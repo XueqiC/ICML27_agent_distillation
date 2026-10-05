@@ -62,18 +62,33 @@ trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 run_work() {
+    local status=0
     setsid "$@" &
     work_pid=$!
-    wait "$work_pid"
+    wait "$work_pid" || status=$?
     work_pid=''
+    return "$status"
+}
+failed_checks=0
+mark_check_failed() {
+    local name=$1 stage=$2 status=$3
+    mkdir -p "$OUT/$name/check"
+    printf '%s failed (exit %s)\n' "$stage" "$status" > "$OUT/$name/check/FAILED"
+    echo "Equivalence check failed for $name; see $OUT/$name/check/FAILED" >&2
+    failed_checks=$((failed_checks + 1))
 }
 # HF references run sequentially BEFORE vLLM reserves GPU memory. No merged copy.
+ready_adapters=()
 for pair in "${adapters[@]}"; do
     name=${pair%%=*}
     path=${pair#*=}
-    run_work "$TRAIN_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
+    if run_work "$TRAIN_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
         --snapshot "$MODEL_PATH" --adapter "$path" --verified "$VERIFIED" --model-name "$name" \
-        --hf-only --output "$OUT/$name/hf"
+        --hf-only --output "$OUT/$name/hf"; then
+        ready_adapters+=("$pair")
+    else
+        mark_check_failed "$name" hf-reference "$?"
+    fi
 done
 lora_args=()
 if [[ -n "$MERGED_MODEL_PATH" ]]; then lora_args+=(--merged-model-path "$MERGED_MODEL_PATH"); fi
@@ -106,12 +121,16 @@ eval_model() {
         --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "$@"
 }
 if [[ "$INCLUDE_BASE" == 1 ]]; then eval_model "$base_name"; fi
-for pair in "${adapters[@]}"; do
+for pair in "${ready_adapters[@]}"; do
     name=${pair%%=*}
     path=${pair#*=}
-    CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
+    if CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
         --snapshot "$MODEL_PATH" --adapter "$path" --verified "$VERIFIED" --model-name "$name" \
         --hf-reference "$OUT/$name/hf/reference.json" --endpoint "$endpoint" \
-        --server-provenance "$OUT/server/provenance.json" --output "$OUT/$name/check"
-    eval_model "$name" --lora-check "$OUT/$name/check/report.json"
+        --server-provenance "$OUT/server/provenance.json" --output "$OUT/$name/check"; then
+        eval_model "$name" --lora-check "$OUT/$name/check/report.json"
+    else
+        mark_check_failed "$name" serving-comparison "$?"
+    fi
 done
+if (( failed_checks > 0 )); then exit 1; fi
