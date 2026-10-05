@@ -5,11 +5,11 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg 44805191 / 44805192** (dept, tree 96d4219): Kang K=20 s0 turn-packed — dev140 eval with SAG / greedy → reports/runs/eval/baselines/
-  kang-k20s0-tp-{sag,greedy}. (Kang turn-packed training 44802335 COMPLETED 27.5 min.)
-- ETO K=20 s0 (hpg 44802334, group 2×B200) FAILED at checkpoint export after training (key-name mismatch: transformers renames
-  model.vision_embedder.* → model.embed_vision.* on load; tied lm_head not in file). Codex fix pid 1262776 (export under base-file names,
-  exact key-set equality check). Then resubmit ETO (2 GPUs).
+- **hpg 44806752** (group, 2×B200, tree ICML27_runs/97eb54b with the export fix): ETO K=20 s0, turn packing, all stages → reports/runs/
+  baselines/eto-k20s0-tp2. (First attempt 44802334 trained but failed at export: key names; fixed in 97eb54b.)
+- **hpg 44805192** (dept): Kang turn-packed greedy eval. Kang turn-packed + SAG (44805191) = **63/140**, 0 parser errors (fix works) ≈ base.
+- **hpg 44806873** (dept): SAG decoding on the best Seed-SFT cells (k20s0-p40, k10s2-t200k, k5s1-t400k) → isolates Kang's SAG at an
+  adequate dose (FTP not run) → reports/runs/eval/baselines/sag-on-seedsft.
 - Schema-5 re-eval 44802354 done: k10s2 p30 86 / p40 98 / t200k 104 / t400k 103; k20s2 p30 92 / p40 98 / t400k 98; k5 p03 still fail (b).
 - rai GPU1: mechanism run2 (pid 899949) — FCE probing, 660 probe episodes at 07:18 CDT.
 - hpg tunnel dropped 06:43–07:1x CDT (told the user once); back now.
