@@ -19,6 +19,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   easy type (best cell for both methods), K5 s0 omits cool (cool stays at base); coverage necessary not sufficient (s0 heat seed does
   not transfer). Kang K20 s0/s1 collapse on heat/cool/two with s2's coverage → suspected recipe instability.
   **Asked user 14:48 CDT**: re-run Kang K20 s0 with 1–2 more training seeds to separate training instability from seed content?
+- **hpg 18:1x CDT**: K=50/100 s0 Seed-SFT 44871876 (train, tree b521a4e, grid configs/seedsft_dose_grid_v2_k50_100_s0_ready.json:
+  22.9k / 48.3k tokens per pass, to 916k / 1.93M) + 44871877 eval (aftercorr) → eval/seedsft-sweep-bi-v2k50.
+  Baseline cells k1s0 k2s0 k50s0 k100s0 (tree c79f6e8, K1/2 on K100 views): 44871885 Kang (%2), 44871886 AgentGym (%1).
+  K=1/2 s1/s2 baseline cells after K100 s1/s2 (and after moving s1/s2 K20 views).
 - **hpg tree 74cdb97**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept 2×B200 200G, pending QOSGrpMemLimit — dept mem 980/1000G used);
   44836718/44836719 LEAP privileged/zero K20 s0 FAILED 13:4x CDT at merge-0 (data-0, train-0 completed): our merge check
   (allclose atol .125 / rtol .01 on all vocab logits) rejects the bf16 merge — mean |dlogit| 0.083 / 0.145, max 0.56 / 0.81, argmax

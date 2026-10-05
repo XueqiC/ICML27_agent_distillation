@@ -55,3 +55,7 @@ leap-k20s0-m3 | LEAP privileged ran iter-1: 16/16 extractions HTTP 400 (luna rej
 leap-k20s0-m4 | LEAP privileged / 0% with sampling-fallback fix (e36fe93) | hpg group 44857832/44857833 | submitted | /blue/.../leap-{privileged,zero}-k20s0-m4
 collect-k100-s0 | K=100 s0 extension of K20 s0 | rai pid 1731893 | complete: 100 trusted / 117 tasks / 156 attempts, 3h37m | data/verified/seeds_k100_s0 (+ subsets k1..k50)
 baseline-cells-1005b | Kang + AgentGym official on k1s0 k2s0 k1s1 k2s1 k1s2 k2s2 k50s0 k100s0 | hpg tree b521a4e: 44857766 (Kang %2), 44857767 (AgentGym %1) | pending |
+seedsft-k50-100-s0 | Seed-SFT K=50/100 s0 (partial v2 grid, 22.9k/48.3k tokens per pass) | hpg tree b521a4e: 44871876 train, 44871877 eval | submitted | $B/reports/runs/train/seedsft-k{50,100}s0-hpg, eval/seedsft-sweep-bi-v2k50
+baseline-cells-1005c | Kang + AgentGym official on k1s0 k2s0 k50s0 k100s0 (K1/2 = K100 views) | hpg tree c79f6e8: 44871885 Kang, 44871886 AgentGym | submitted |
+k12-s0-views-moved | hpg seeds_k20_s0/subsets/k{1,2} → $B/_trash/k20_views_k1k2_1005/seeds_k20_s0 (restores the K20 s0 tree bound by seeds_k100_s0) | 17:5x CDT | K50/100 s0 grid prepared after the move |
+k2s2-eval-rerun | k2s2 sweep eval aborted after p20 (1 error episode) → array index 5 re-run | hpg 44869648 | pending | eval/seedsft-sweep-bi-v2k12-r2
