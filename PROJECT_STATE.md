@@ -15,6 +15,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **rai GPU1: first mechanism run** (scripts/rai_mechanism.sh from worktree ICML27_run_3045b60, pid 781961, started ~00:35 CDT 10-05):
   student k20s0-p20 (rai-trained, BI), G = 24 → FCE by teacher takeover (2 samples/probe) → I0–I5 (greedy + 4 samples) → readout.
   Caps: 700 teacher HTTP attempts/episode, 15,000/run. Output reports/runs/mechanism/k20s0-p20-bi/run, log logs/mechanism_k20s0_p20_bi.log.
+- **hpg 44780233** (array 0–8%4, dept, 1×B200, 14 CPU / 48G, tree ICML27_runs/3aea2aa, --dependency=aftercorr:44777524): batch-invariant
+  dev140 eval of every dose checkpoint of the matching training task (task 0 also evaluates base) → /blue/.../reports/runs/eval/
+  seedsft-sweep-bi/<name>. Pending.
 - hpg data: data/verified synced (checksums equal). hpg git cannot fetch GitHub (no credentials) → code goes by `git archive <sha> |
   ssh hpg tar -x`, one tree per commit under /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/<sha> with .venv symlinked to the base tree.
 - **Protocol: batch-invariant serving (VLLM_BATCH_INVARIANT=1) for every paper evaluation** — base 40/40 and LoRA 40/40 identical
