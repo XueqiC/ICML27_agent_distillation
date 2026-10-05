@@ -100,7 +100,7 @@ Teacher calls: about 6 probe points × 2 samples × ~10 steps per gap episode fo
 arm. With ~40–60 gap episodes per student this is a few thousand calls per student, cached, with the usage ledger.
 Student branch replays run on our own GPUs.
 
-## Amendment 1 (2026-10-04 22:40 CDT) — taxonomy definitions, before any FCE or intervention result
+## Amendment 1 (committed 2026-10-04 22:26 CDT) — taxonomy definitions, before any FCE or intervention result
 
 Made after reviewing the Stage 4a classifier's labelled samples on the real base / K=20 s0 3-pass / teacher dev140 runs
 (reports/stage4a_validation.md). Only the descriptive taxonomy (Section 2) changes; populations, FCE, interventions,
@@ -118,7 +118,7 @@ confounds and the Section 6 readout are unchanged.
 
 New order: F-format, F-inadmissible, F-goal, F-search, F-precondition, F-loop, F-cap.
 
-## Amendment 2 (2026-10-04 23:40 CDT) — serving noise; I0 becomes the control arm (before any FCE or intervention result)
+## Amendment 2 (committed 2026-10-04 22:35 CDT) — serving noise; I0 becomes the control arm (before any FCE or intervention result)
 
 Measured: the same base model on dev140 under two vLLM server instances (rai GPU1, greedy, 16–32 concurrent requests)
 gave 59/140 both times, but only 8/140 trajectories were identical (median first divergence at step 2) and 12 outcomes
@@ -149,7 +149,7 @@ both complete outcomes on the same state, with arm rescue true and I0 rescue fal
 unknown. Wilson intervals use the paired binary counts, and Section 6 uses those paired excess rescues.
 Historical non-batch-invariant base-vs-base discordance (12/140) remains labelled beside McNemar comparisons.
 
-## Addendum A (2026-10-04 23:50 CDT) — gap stratification by environment traits (user request, before any stratified result)
+## Addendum A (committed 2026-10-04 23:45 CDT) — gap stratification by environment traits (user request, before any stratified result)
 
 User, 2026-10-04: the purpose is to see honestly what current distillation baselines achieve, what our student can be trained
 to, and which gaps specific environment traits amplify or shrink. Every gap (teacher − base, each method − base, teacher −
@@ -170,12 +170,12 @@ Readout per trait bucket: success of each row with Wilson 95% intervals and the 
 with exact McNemar p-values. dev140 buckets are small (often 15–50 games), so only differences whose interval excludes zero
 AND whose direction repeats across support seeds are stated as findings; everything else is a hypothesis for the sealed test.
 
-**Amendment 2, point 3 executed (2026-10-05 00:00 CDT):** VLLM_BATCH_INVARIANT=1 verified on rai GPU1 — base on dev40: 40/40 identical
+**Amendment 2, point 3 executed (committed 2026-10-04 23:52 CDT):** VLLM_BATCH_INVARIANT=1 verified on rai GPU1 — base on dev40: 40/40 identical
 trajectories across two server instances (18/40 both); LoRA k20s0-p20 on dev40: 40/40 identical (27/40 both), equivalence gate
 passes (error 0.040 vs noise 0.051). All paper evaluations and all branch replays use batch-invariant serving from now on; every
 number reported earlier without it (rai ladder, first dev140 rows) is preliminary and is re-run under it.
 
-## Amendment 3 (2026-10-05 01:10 CDT) — intervention point = closest approach, not the budget drop (before any intervention result)
+## Amendment 3 (committed 2026-10-05 00:50 CDT) — intervention point = closest approach, not the budget drop (before any intervention result)
 
 Observed on the first live FCE task (k20s0-p20, look_at_obj_in_light-Bowl-None-DeskLamp-301): teacher takeover succeeds from every
 prefix t ≤ 39 and fails only at t = 40, where no turns remain, so Section 3's FCE = 39 marks where the 40-turn budget ran out, not an
@@ -192,7 +192,7 @@ on the dresser: "take bowl 1 from dresser 1" wins), while the student types "loo
    and the student's turns spent after t\* without progress are reported per episode (descriptive).
 4. Readout additions: D(0) (teacher distance from the start), D(t\*) (how close the student got), and turns remaining at t\*.
 
-## Amendment 4 (2026-10-05 11:40 CDT) — Section 4 operationalisation (before any coverage or probe result)
+## Amendment 4 (committed 2026-10-05 10:51 CDT) — Section 4 operationalisation (before any coverage or probe result)
 
 Decided by me (not by the implementation). Rationale for replacing Section 4's templated questions with action agreement on the exact
 seed states: the question format is not the student's input distribution (a free-text answer can be right while the policy never acts
@@ -221,7 +221,7 @@ M2 signal with the missing-experience qualifier. Rescue cells, I0 pairing, cohor
 stay unchanged; the readout also reports the coverage-qualified decision table and attribution counts. These
 are descriptive operational tests, not proof of general knowledge, matched preconditions, or a scientific finding.
 
-## Amendment 5 (2026-10-05 12:1x CDT) — two coverage levels; the M1 gate uses procedural coverage
+## Amendment 5 (committed 2026-10-05 11:14 CDT) — two coverage levels; the M1 gate uses procedural coverage
 
 Made after seeing the first coverage output (run 2: 2/24 covered, 21 not covered, 1 navigation-only), before seeing any probe or M1/M2
 attribution result. Inspection showed that amendment 4's patterns kept the object type for every verb, so e.g. "clean {obj:dishsponge}
@@ -235,3 +235,8 @@ cabinet"). Therefore:
 2. **Instance coverage (reported, stricter):** the amendment-4 patterns with the object type kept.
 3. Absorption probes run on the seed states matched at the level that decides coverage (procedural); instance-level agreement is reported
    alongside.
+
+---
+Note (2026-10-05 12:05 CDT): the time stamps in the amendment headers were first written from a misread clock (the machine runs on
+EDT) and were up to ~1 h off; they are now the git commit times in CDT, which are the authoritative pre-registration evidence
+(`git log -- docs/MECHANISM_PLAN.md`). No amendment text changed.
