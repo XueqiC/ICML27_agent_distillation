@@ -133,3 +133,39 @@ flipped (6 each way). Greedy decoding under batched serving is therefore not rep
 3. If a batch-invariant serving mode (vLLM `VLLM_BATCH_INVARIANT=1`) is verified to give identical trajectories across
    instances at acceptable cost, all paper evaluations and branch replays switch to it, all affected numbers are
    re-run under it, and this amendment records the switch.
+
+### Amendment 2 implementation update (2026-10-05): batch-invariant protocol switch
+
+The rai base dev40 pilot with `VLLM_BATCH_INVARIANT=1` reported 40/40 identical trajectories across two server
+instances, at approximately 2.8× serving time (read-only artifacts: `reports/runs/eval/bi-pilot-dev40-{1,2}`).
+Following the explicit Stage 4b instruction, evaluation and mechanism launchers now default to
+`BATCH_INVARIANT=1`. Server and suite provenance record the setting. Paper evaluations and branch replays use
+this mode; affected historical numbers require new runs. This engineering change does not re-run experiments,
+modify old artifacts, or establish reproducibility for all adapters/hardware.
+
+I0 retains action-divergence metadata but no longer excludes states or suppresses intervention arms. Raw arm
+and I0 rescues each require greedy success and at least 3/4 sampled successes. Paired excess rescues require
+both complete outcomes on the same state, with arm rescue true and I0 rescue false. Unknown I0 outcomes remain
+unknown. Wilson intervals use the paired binary counts, and Section 6 uses those paired excess rescues.
+Historical non-batch-invariant base-vs-base discordance (12/140) remains labelled beside McNemar comparisons.
+
+## Addendum A (2026-10-04 23:50 CDT) — gap stratification by environment traits (user request, before any stratified result)
+
+User, 2026-10-04: the purpose is to see honestly what current distillation baselines achieve, what our student can be trained
+to, and which gaps specific environment traits amplify or shrink. Every gap (teacher − base, each method − base, teacher −
+each method) is therefore also reported per trait bucket. Traits are computed once per dev game from the game files and the
+initial audit state (never from any policy's outcome), frozen to a file before the first stratified readout:
+
+| Trait | Definition | Buckets |
+|---|---|---|
+| task type | ALFWorld template | 6 types; also simple (pick) / transform (heat, cool, clean) / multi-object (two) / look |
+| hidden target | every goal-type object starts inside a receptacle that must be opened | yes / no |
+| room size | number of receptacles in the initial observation | tertiles over dev140 |
+| distractors | goal-type objects in the room beyond the number required | 0 / 1 / ≥2 |
+| minimum length | steps of the teacher's shortest successful dev trajectory for that game (unknown if the teacher failed) | tertiles; unknown separate |
+| state change | the goal requires heat / cool / clean | yes / no |
+| seed coverage | number of the method's K seeds of the same task type | 0 / 1 / ≥2 (per K and support seed) |
+
+Readout per trait bucket: success of each row with Wilson 95% intervals and the paired difference against base and teacher
+with exact McNemar p-values. dev140 buckets are small (often 15–50 games), so only differences whose interval excludes zero
+AND whose direction repeats across support seeds are stated as findings; everything else is a hypothesis for the sealed test.
