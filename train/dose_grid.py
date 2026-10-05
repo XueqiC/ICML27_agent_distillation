@@ -10,6 +10,9 @@ from train.dataset import build_verified_dataset
 
 PASSES = (3, 5, 10, 20, 30, 40)
 TOKENS = (100_000, 200_000, 400_000)
+REGISTERED_GRID = "configs/seedsft_dose_grid_v2.json"
+PROTOCOL_FIELDS = ("rule", "pass_checkpoints", "token_checkpoints",
+                   "merge_relative_to", "merge_fraction", "schema_version")
 
 
 def dose_checkpoints(tokens_per_pass):
@@ -30,17 +33,24 @@ def dose_checkpoints(tokens_per_pass):
 
 
 def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
-    expected = {(k, seed) for k in (1, 2, 50, 100) for seed in (0, 1, 2)}
+    registered = json.loads((Path(__file__).resolve().parents[1] / REGISTERED_GRID).read_text())
+    expected = {(r["K"], r["support_seed"]) for r in registered["runs"]}
     runs = template["runs"]
-    if (template.get("schema_version") != 2 or len(runs) != len(expected)
-            or {(r["K"], r["support_seed"]) for r in runs} != expected):
+    pairs = {(r["K"], r["support_seed"]) for r in runs}
+    partial = template.get("partial") is True
+    if partial:
+        if not runs or len(pairs) != len(runs) or not pairs <= expected:
+            raise ValueError("Partial v2 requires a nonempty subset of registered runs without duplicates")
+    elif len(runs) != len(expected) or pairs != expected:
         raise ValueError("v2 requires exactly K=1/2/50/100 x support seeds 0/1/2")
-    if (template.get("pass_checkpoints") != list(PASSES)
-            or template.get("token_checkpoints") != list(TOKENS)
-            or template.get("merge_relative_to") != "token_budget"
-            or template.get("merge_fraction") != 0.05):
+    if any(type(r["K"]) is not int or type(r["support_seed"]) is not int
+           or r.get("name") != f"k{r['K']}s{r['support_seed']}" for r in runs):
+        raise ValueError("v2 run names must be k{K}s{S} with integer K/support seed")
+    if any(template.get(field) != registered[field] for field in PROTOCOL_FIELDS):
         raise ValueError("v2 dose protocol differs from the registered grid")
     result = deepcopy(template)
+    if partial:
+        result["partial_of"] = {"path": REGISTERED_GRID, "sha256": digest(registered)}
     for run in result["runs"]:
         root = Path(data_root) / run["verified"]
         collection, selection, _ = load_verified_collection(root, manifest, freeze)
