@@ -191,3 +191,32 @@ on the dresser: "take bowl 1 from dresser 1" wins), while the student types "loo
 3. Interventions I0–I5 (Section 3 table, amendment 2 pairing) are applied at t\* instead of the budget FCE. The budget FCE, D(t) curves,
    and the student's turns spent after t\* without progress are reported per episode (descriptive).
 4. Readout additions: D(0) (teacher distance from the start), D(t\*) (how close the student got), and turns remaining at t\*.
+
+## Amendment 4 (2026-10-05 11:40 CDT) — Section 4 operationalisation (before any coverage or probe result)
+
+Decided by me (not by the implementation). Rationale for replacing Section 4's templated questions with action agreement on the exact
+seed states: the question format is not the student's input distribution (a free-text answer can be right while the policy never acts
+on it, and scoring free text needs a judge), whereas the seed states where the teacher executed the needed pattern test the trained
+policy in its own evaluation prompt. Coverage is decided on any task type because the question is whether the knowledge exists anywhere in
+the K seeds; same-type evidence is still reported. The implementation ran a CPU sanity pass that assigned coverage statuses to the 24 run-2 gap
+episodes; I had not inspected those statuses when writing this amendment. Implementation details as follows.
+
+Section 4 now uses the shortest successful executed teacher takeover at amendment-3 t* to define needed actions
+(ties: lowest sample index). Patterns retain the verb, object type and receptacle/appliance type; instance numbers
+are removed using the goals.py type normalization. Coverage requires every non-navigation pattern in the student's
+verified training seeds. Same-task-type evidence is preferred for display; both same-type and any-type coverage
+are reported, with any-type coverage deciding the gate. Go-to/look/examine/inventory patterns are reported but
+excluded from the gate. Unknown action patterns and missing execution evidence remain unknown; navigation-only
+takeovers provide no substantive knowledge evidence for M1.
+
+The requested absorption probe replaces the templated questions with greedy student action agreement on exact
+logged, teacher-forced seed prefixes, using the shared evaluation prompt. A pattern passes at >= 1/2 agreement
+over all matching seed states (same-type results also reported). An episode passes when every non-navigation
+needed pattern passes. Incomplete calls remain unknown. The same calls measure training-set fit on all seed
+states per task type; this stage performs no fresh rollouts or environment transitions.
+
+M1 attribution requires coverage: M1a = covered and not absorbed; M1b = covered and absorbed. An uncovered M1
+rescue cell is reported as knowledge not in experience. In the both-rescue cell, uncovered episodes retain the
+M2 signal with the missing-experience qualifier. Rescue cells, I0 pairing, cohort exclusions and denominators
+stay unchanged; the readout also reports the coverage-qualified decision table and attribution counts. These
+are descriptive operational tests, not proof of general knowledge, matched preconditions, or a scientific finding.

@@ -81,9 +81,15 @@ def distance_diagnostics(row):
             "budget_fce_status": row.get("budget_fce_status"), "D_curve": row.get("D_curve", {})}
 
 
-def build_readout(taxonomy, fce, interventions, coverage=None):
+def build_readout(taxonomy, fce, interventions, coverage=None, probes=None):
     coverage = coverage or {}
+    probe_report = probes or {}
+    probes = {r["task_id"]: r for r in probe_report.get("episodes", [])}
+    if "episodes" in coverage:
+        coverage = {r["task_id"]: r for r in coverage["episodes"]}
     gap = set(taxonomy["G"]["task_ids"])
+    if not set(coverage) <= gap or not set(probes) <= gap:
+        raise ValueError("Coverage/probes include tasks outside the frozen gap set")
     taxonomy_rows = taxonomy["runs"]["student"]["episodes"]
     taxonomy_by_id = {r["task_id"]: r for r in taxonomy_rows}
     for row in taxonomy_rows:
@@ -126,15 +132,31 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
         cell = decision_cell(excess)
         cells[cell] += 1
         covered = coverage.get(task_id, {}).get("covered", "unknown")
+        cov, probe = coverage.get(task_id, {}), probes.get(task_id, {})
+        for evidence in (cov, probe):
+            if "t_star" in evidence and evidence["t_star"] != f["t_star"]:
+                raise ValueError("Coverage/probe state differs from closest approach")
+        absorbed = probe.get("absorbed")
         label = {"both": "both_mechanisms_cell", "M1_cell": "M1_requires_coverage",
                  "M2_cell": "M2", "neither": "unresolved", "incomplete": "incomplete"}[cell]
         if cell in {"both", "M1_cell"} and covered is True:
             label = "both_mechanisms" if cell == "both" else "M1"
+            if cell == "M1_cell" and type(absorbed) is bool:
+                label = "M1b" if absorbed else "M1a"
+        if cell in {"both", "M1_cell"} and covered is False:
+            label = "M2_with_knowledge_not_in_experience" if cell == "both" else "knowledge_not_in_experience"
         if cell == "neither" and excess["I4"] is True:
             label = "execution_or_capacity"
         elif cell == "neither" and excess["I4"] is None:
             label = "incomplete_I4"
         rows.append({**distance_diagnostics(f), "cell": cell, "label": label, "needed_step_coverage": covered,
+                     "coverage_status": cov.get("status", "missing"),
+                     "coverage_same_task_type": cov.get("covered_same_task_type"),
+                     "coverage_any_task_type": cov.get("covered_any_task_type", covered),
+                     "absorbed": absorbed, "probe_status": probe.get("status", "missing"),
+                     "absorbed_same_task_type": probe.get("absorbed_same_task_type"),
+                     "M1_subtype": ("M1b" if absorbed else "M1a") if covered is True and type(absorbed) is bool
+                                      and cell in {"both", "M1_cell"} else None,
                      "task_type_covered": e.get("task_type_covered"), "arms": arms,
                      "paired_excess": excess, "non_deterministic": task_id in non_deterministic})
     rates, paired_rates = {}, {}
@@ -159,6 +181,14 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
             }
     budget_rows = [r for r in fce["episodes"] if r.get("budget_fce", r.get("fce")) is not None]
     positions = [r.get("budget_fce", r.get("fce")) for r in budget_rows]
+    attributions = Counter(r["label"] for r in rows)
+    coverage_cells = {}
+    for cell in ("both", "M1_cell", "M2_cell", "neither", "incomplete"):
+        values = [r for r in rows if r["cell"] == cell]
+        categories = Counter(r["label"] for r in values)
+        coverage_cells[cell] = {k: {**wilson(n, len(gap)), "denominator": "all frozen gap episodes"}
+                               for k, n in sorted(categories.items())}
+    knowledge_rows = [{"task_id": t, "coverage": coverage.get(t), "probe": probes.get(t)} for t in sorted(gap)]
     return {"subject": interventions.get("subject", "student"), "student": interventions.get("student"),
             "gap_size": len(gap), "regression_size": taxonomy.get("R", {}).get("size"),
             "taxonomy_all_failures": taxonomy["runs"]["student"]["shares"],
@@ -177,14 +207,18 @@ def build_readout(taxonomy, fce, interventions, coverage=None):
                                   "excluded": False},
             "decision_cells": {k: {**wilson(cells[k], len(gap)), "denominator": "all frozen gap episodes"}
                                for k in ("both", "M1_cell", "M2_cell", "neither", "incomplete")},
+            "coverage_decision_cells": coverage_cells,
+            "mechanism_attribution": {k: {**wilson(n, len(gap)), "denominator": "all frozen gap episodes"}
+                                      for k, n in sorted(attributions.items())},
+            "knowledge_evidence": knowledge_rows, "training_set_fit": probe_report.get("training_set_fit"),
             "episodes": rows, "arms_by_task": arms_by_task, "paired_excess_by_task": excess_by_task,
             "rescue_rule": "greedy succeeds AND at least 3 of 4 T=0.7 samples succeed",
             "paired_excess_rule": "arm rescues AND I0 does not rescue on the same t* state; both outcomes must be known",
             "decision_rule": "Section 6 uses paired excess rescues",
             "coverage_rule": "Task-type overlap alone is not needed-step coverage. No M1 attribution without explicit coverage evidence.",
             "limits": ["Descriptive engineering readout; no mechanism claim.",
-                       "M1a/M1b require section-4 knowledge probes, not implemented by this stage.",
-                       "Dose controls and independent coverage/probe evidence remain required before interpretation.",
+                       "M1a/M1b use exact seed-state action agreement, not a general knowledge or causal test; absent probes remain unknown.",
+                       "Typed action coverage does not establish matching preconditions. Dose controls remain required before interpretation.",
                        "Wilson intervals use task instances; groups are also reported and may contain dependent trials.",
                        "Missing/unknown continuations are excluded from available-arm denominators and explicitly retained.",
                        "Paired denominators include only states with complete arm and I0 outcomes; unknown I0 is never treated as failure."]}
@@ -277,14 +311,39 @@ def markdown(result):
         row = cells[key]
         ci = "–".join(f"{v:.1%}" for v in row["ci95"]) if row["n"] else "n/a"
         return f"{label}: {row['count']}/{row['n']} ({ci})"
+    def coverage_cell(key, label):
+        counts = result["coverage_decision_cells"][key]
+        return cell(key, label) + ("; " + "; ".join(f"{k}: {v['count']}" for k, v in counts.items()) if counts else "")
     lines += ["", "Section 6: all rescues below are paired excess rescues over I0.", "",
         "| | I5 or I1 rescues | Neither rescues |", "|---|---|---|",
-        "| I3 or I2 rescues | " + cell("both", "Both mechanisms cell") + " | " + cell("M2_cell", "M2 cell") + " |",
-        "| Neither rescues | " + cell("M1_cell", "M1 cell; coverage required") + " | " + cell("neither", "I4-only: execution/capacity; else unresolved") + " |",
+        "| I3 or I2 rescues | " + coverage_cell("both", "Both rescue signals") + " | " + cell("M2_cell", "M2 cell") + " |",
+        "| Neither rescues | " + coverage_cell("M1_cell", "Experience rescue signal") + " | " + cell("neither", "I4-only: execution/capacity; else unresolved") + " |",
         "", "Budget FCE positions: `" + json.dumps(result["fce_positions"]["histogram"], sort_keys=True) + "`.",
         "", "Exclusions/pending: `" + json.dumps(result["exclusions"], sort_keys=True) + "`.",
         "", f"Non-deterministic I0 greedy replays retained: {result['non_deterministic']['count']}.",
         "", result["coverage_rule"], "", *result["limits"]]
+    lines += ["", "Coverage and absorption (all gap episodes; navigation excluded from both gates):", "",
+              "| Task | Coverage status | Same type | Any type | Absorbed | M1 subtype | Attribution |",
+              "|---|---|---|---|---|---|---|"]
+    attributed = {r["task_id"]: r for r in result["episodes"]}
+    for row in result["knowledge_evidence"]:
+        cov, probe = row["coverage"] or {}, row["probe"] or {}
+        label = attributed.get(row["task_id"], {})
+        lines.append("| " + " | ".join(str(x) if x is not None else "unknown" for x in (
+            row["task_id"], cov.get("status", "missing"), cov.get("covered_same_task_type"),
+            cov.get("covered_any_task_type", cov.get("covered")), probe.get("absorbed"),
+            label.get("M1_subtype"), label.get("label", "excluded/pending"))) + " |")
+    lines += ["", "Coverage-qualified attributions (all frozen gap episodes):", "",
+              "| Attribution | Count / gap size (95% Wilson) |", "|---|---|"]
+    for label, row in result["mechanism_attribution"].items():
+        lines.append(f"| {label} | {rate_text(row)} |")
+    if result["training_set_fit"]:
+        fit = result["training_set_fit"]
+        lines += ["", "Training-set fit: " + fit["scope"], "",
+                  "| Task type | Matches | All states | Unknown | Agreement |", "|---|---:|---:|---:|---:|"]
+        for kind, row in [("overall", fit["overall"]), *fit["per_task_type"].items()]:
+            rate = f"{row['agreement']:.1%}" if row["agreement"] is not None else "unknown"
+            lines.append(f"| {kind} | {row['matches']} | {row['n']} | {row['unknown']} | {rate} |")
     lines += ["", "Closest approach per gap episode (including exclusions/pending):", "",
               "| Task | Status | t* | D(0) | D(t*) | Turns remaining at t* | Turns after t* without progress (descriptive) | Budget FCE |",
               "|---|---|---:|---:|---:|---:|---:|---:|"]
@@ -311,7 +370,8 @@ def main(argv=None):
     parser.add_argument("--gap-set", required=True)
     parser.add_argument("--fce", required=True)
     parser.add_argument("--interventions", required=True)
-    parser.add_argument("--coverage", help="JSON task_id -> {covered: bool, evidence: ...}; needed-step audit labels only")
+    parser.add_argument("--coverage", help="coverage.py coverage.json; validated against executed evidence")
+    parser.add_argument("--probes", help="probes.py probes.json; requires --coverage")
     parser.add_argument("--compare-interventions", help="Paired student/base arm comparison on the identical states")
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
@@ -322,19 +382,24 @@ def main(argv=None):
         raise ValueError("Readout inputs refer to different populations/closest-approach states")
     validate_intervention_artifacts(interventions)
     validate_fce_artifacts(args.fce, fce)
-    coverage = read_json(args.coverage) if args.coverage else {}
-    for key, row in coverage.items():
-        refuse_sealed(key)
-        if type(row.get("covered")) is not bool or not row.get("evidence"):
-            raise ValueError("Coverage labels need a boolean and auditable evidence")
-    result = build_readout(taxonomy, fce, interventions, coverage)
-    inputs = [args.gap_set, args.fce, args.interventions, *([args.coverage] if args.coverage else [])]
+    from analysis.mechanism.coverage import validate_coverage
+    from analysis.mechanism.probes import validate_probes
+    if args.probes and not args.coverage:
+        parser.error("--probes requires --coverage")
+    coverage = validate_coverage(args.coverage, config, fce_path=args.fce, gap_path=args.gap_set) if args.coverage else {}
+    probes = validate_probes(args.probes, coverage, config) if args.probes else None
+    if coverage and (interventions.get("subject", "student") != "student" or
+                     interventions.get("student", {}).get("model") != coverage["student_binding"]["model"]):
+        raise ValueError("Coverage/probes must describe the intervention student")
+    result = build_readout(taxonomy, fce, interventions, coverage, probes)
+    inputs = [args.gap_set, args.fce, args.interventions, *([args.coverage] if args.coverage else []),
+              *([args.probes] if args.probes else [])]
     if args.compare_interventions:
         other = read_json(args.compare_interventions)
         validate_intervention_artifacts(other)
         if other["fce_path"] != interventions["fce_path"] or other["gap_path"] != interventions["gap_path"]:
             raise ValueError("Paired comparison requires identical gap and closest-approach states")
-        compared = build_readout(taxonomy, fce, other, coverage)
+        compared = build_readout(taxonomy, fce, other)
         result["paired_comparison"] = {a: paired_mcnemar(
             {k: v[a] for k, v in result["paired_excess_by_task"].items()},
             {k: v[a] for k, v in compared["paired_excess_by_task"].items()}) for a in ARMS}
