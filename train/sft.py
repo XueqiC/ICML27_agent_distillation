@@ -16,7 +16,7 @@ from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
 from sed.storage import digest, write_json, JsonlLedger, fsync_dir
-from sed.seed_evidence import artifact_hashes
+from sed.seed_evidence import artifact_hashes, verified_collection_inputs
 from train.dataset import load_tokenizer, build_verified_dataset, mask_report
 from train.modeling import attach_lora, load_student, snapshot_metadata
 
@@ -255,8 +255,8 @@ def main(argv=None):
                      "betas": [0.9, 0.999], "eps": 1e-8, "gradient_clip": 1.0,
                      "scheduler": "constant", "deterministic_algorithms": True}
     provenance = write_provenance(output, command="sft", config=config,
-                      inputs=[args.config, Path(args.verified) / "manifest.json",
-                              Path(args.verified) / "provenance.json", config["paths"]["manifest"],
+                      inputs=[args.config, *verified_collection_inputs(args.verified, manifest, freeze),
+                              config["paths"]["manifest"],
                               config["paths"]["split_freeze"]])
     write_json(output / "mask_report.json", report, exclusive=True)
     write_json(output / "exposure_plan.json", plan, exclusive=True)

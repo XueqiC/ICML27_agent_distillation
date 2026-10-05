@@ -136,6 +136,16 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     return collection, selection, evidence_root
 
 
+def verified_collection_inputs(root, manifest, freeze):
+    """Return provenance inputs for a validated collection or nested subset."""
+    root = Path(root)
+    collection, _, evidence_root = load_verified_collection(root, manifest, freeze)
+    if "source_collection" in collection:
+        return [root / "manifest.json", root / "identity.json", root / "selection.json",
+                evidence_root / "manifest.json", evidence_root / "provenance.json"]
+    return [root / "manifest.json", root / "provenance.json"]
+
+
 def materialize_subsets(root, manifest, freeze, ks):
     """Write immutable views under largest-K/subsets/kK; never copy trajectories."""
     root = Path(root).resolve()

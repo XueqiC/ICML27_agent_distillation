@@ -7,7 +7,8 @@ import pytest
 from eval.run_suite import frozen_tasks
 from sed.dev_subset import build_dev140
 from sed.manifest import frozen_write, load_frozen
-from sed.seed_evidence import load_verified_collection, materialize_subsets
+from sed.provenance import write_provenance
+from sed.seed_evidence import load_verified_collection, materialize_subsets, verified_collection_inputs
 from sed.seed_selection import select_seeds
 from sed.storage import digest, file_hash, write_json
 from teachers.collect_seeds import collect
@@ -116,6 +117,33 @@ def test_collect_once_subsets_reuse_receipts_replacements_and_loader(seed_bank, 
     episode.write_text(episode.read_text() + " ")
     with pytest.raises(ValueError, match="evidence changed"):
         load_verified_collection(subpath.parent, manifest, freeze)
+
+
+def test_verified_collection_provenance_inputs(seed_bank, tmp_path, monkeypatch):
+    root, manifest, freeze, config = seed_bank
+    environment, teacher = factories(root, config, set(), [])
+    source = tmp_path / "seeds_k20_s0"
+    collect(select_seeds(manifest, freeze, k=20), manifest, freeze, config, source,
+            env_factory=environment, teacher_factory=teacher)
+    materialize_subsets(source, manifest, freeze, [5, 10])
+    monkeypatch.chdir(tmp_path)
+    for k in (20, 5, 10):
+        directory = Path(source.name) if k == 20 else Path(source.name) / "subsets" / f"k{k}"
+        expected = [directory / "manifest.json"]
+        if k == 20:
+            expected.append(directory / "provenance.json")
+        else:
+            assert {p.name for p in directory.iterdir()} == {
+                "manifest.json", "identity.json", "selection.json"}
+            expected.extend([directory / "identity.json", directory / "selection.json",
+                             source / "manifest.json", source / "provenance.json"])
+        inputs = verified_collection_inputs(str(directory), manifest, freeze)
+        assert inputs == expected
+        output = tmp_path / f"provenance_k{k}"
+        record = write_provenance(output, command="sft", config=config, inputs=inputs)
+        expected_hashes = {str(path): file_hash(path) for path in expected}
+        assert record["inputs"] == expected_hashes
+        assert json.loads((output / "provenance.json").read_text())["inputs"] == expected_hashes
 
 
 def test_partial_collection_cannot_materialize_verified_subsets(seed_bank, tmp_path):
