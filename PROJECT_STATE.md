@@ -11,6 +11,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   0.04–0.045 OK but 6–7 tokens with |Δ| > 0.5 nats vs B200 base noise 0 (tolerance 2). Hypothesis: vLLM serves LoRA in bf16 while
   HF/PEFT (and training) keep fp32 adapters; large adapters diverge at sensitive tokens (e.g. vLLM −4.29 ≈ base −4.32 vs HF −0.44).
   Next: robustness check adapter-served vs merged-served dev140 for 2 high-dose checkpoints; then decide the gate (relative outlier rule).
+- **Sweep analysis committed** (reports/figs/seedsft-sweep/: table, plot): by supervised tokens all K coincide below ~100k (dip below base
+  at 30–60k tokens, min ≈ 33%), then K separates: K20 → ~80% at 400k (= teacher), K5/K10 plateau ~60% with large seed spread. Sent to user
+  05:1x CDT (footer first sent stale "0R+3P", corrected to the script's "2R+2P").
+- Codex 4e (pid 1120214): analysis/traits.py (frozen dev140 trait table per addendum A) + analysis/stratified.py (per-bucket rows, Wilson,
+  McNemar) + sanity readout on teacher/base/4 Seed-SFT cells. Next Codex: allow --gpus 2/4/8 in ETO/IPR/AgentGym pipelines (world-size-
+  independent math) so full-FT baselines can run on 2 group GPUs.
 - **hpg 44798587** (array 0–1, group account yd24f, tree ICML27_runs/58a409c): serving-precision robustness — merge k20s0 p40 (gate passed,
   115 adapter-served) and k20s2 p40 (gate failed) into bf16 weights (merge_lora logits check) → dev140 BI → reports/runs/robustness.
 - **hpg 44798591** (group account, 1×B200, tree 58a409c): Kang K=20 s0 (LoRA r64 SFT; eval + SAG afterwards) → reports/runs/baselines/kang-k20s0.
