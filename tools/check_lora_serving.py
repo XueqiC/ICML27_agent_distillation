@@ -2,6 +2,7 @@
 
 Default: GPU HF+PEFT (bf16/eager), then the existing vLLM server. --hf-only
 and --hf-reference split the check so a single GPU need not hold both models.
+HF base scores disable the adapter on the same model to measure kernel noise.
 Only verified TRAIN turns are eligible. No environment reset or updates occur.
 """
 
@@ -19,7 +20,9 @@ from sed.storage import digest, file_hash, write_json
 from train.modeling import snapshot_metadata
 
 PROMPT_COUNT = 8
+SCHEMA_VERSION = 2
 MEAN_TOLERANCE = 0.05
+BASE_NOISE_MULTIPLIER = 1.5
 MIN_EFFECT_RATIO = 5.0
 
 
@@ -54,6 +57,15 @@ def hf_logprobs(model, row):
     return values.cpu().tolist()
 
 
+def add_hf_references(model, cases):
+    """Score the same tokens with/without LoRA on one loaded PEFT model."""
+    for row in cases:
+        row["hf_logprobs"] = hf_logprobs(model, row)
+    with model.disable_adapter():
+        for row in cases:
+            row["hf_base_logprobs"] = hf_logprobs(model, row)
+
+
 def validate_cases(cases):
     if len(cases) != PROMPT_COUNT:
         raise ValueError("Exactly eight reference prompts are required")
@@ -63,9 +75,13 @@ def validate_cases(cases):
         if (source.get("training_eligible") is not True or not source["task_id"].startswith("train/")
                 or type(start) is not int or not 0 < start < len(ids) <= 32768
                 or any(type(i) is not int or i < 0 for i in ids) or ids[-1] != 106
-                or digest(ids) != row["input_sha256"] or len(row["hf_logprobs"]) != len(ids) - start
-                or any(not math.isfinite(v) for v in row["hf_logprobs"])):
+                or digest(ids) != row["input_sha256"]):
             raise ValueError("Invalid training-eligible fixed prompt reference")
+        for field in ("hf_logprobs", "hf_base_logprobs"):
+            values = row.get(field)
+            if (not isinstance(values, list) or len(values) != len(ids) - start
+                    or any(type(v) not in (int, float) or not math.isfinite(v) for v in values)):
+                raise ValueError(f"Missing/invalid {field}; regenerate the HF reference with base noise")
         keys.add((source["task_id"], source["turn_index"]))
     if len(keys) != PROMPT_COUNT:
         raise ValueError("Duplicate fixed prompt references")
@@ -96,38 +112,53 @@ def vllm_logprobs(client, endpoint, model, row):
     return values
 
 
-def comparison(hf, adapter, base):
-    if not hf or len(hf) != len(adapter) or len(hf) != len(base):
+def comparison(hf, adapter, base, hf_base, *, require_effect=False):
+    """Prompt error gate; require the effect ratio only for pooled tokens."""
+    if not hf or any(len(values) != len(hf) for values in (adapter, base, hf_base)):
         raise ValueError("Reply logprob lengths differ")
-    if any(not math.isfinite(v) for values in (hf, adapter, base) for v in values):
+    if any(type(v) not in (int, float) or not math.isfinite(v)
+           for values in (hf, adapter, base, hf_base) for v in values):
         raise ValueError("Nonfinite logprob")
     error = [abs(a - b) for a, b in zip(adapter, hf)]
+    noise = [abs(a - b) for a, b in zip(base, hf_base)]
     effect = [abs(a - b) for a, b in zip(adapter, base)]
-    mean_error, mean_effect = sum(error) / len(error), sum(effect) / len(effect)
+    mean_error, mean_noise, mean_effect = (sum(values) / len(values) for values in (error, noise, effect))
+    tolerance = max(MEAN_TOLERANCE, BASE_NOISE_MULTIPLIER * mean_noise)
     return {"tokens": len(hf),
-            "adapter_vllm_vs_hf": {"max_abs_diff": max(error), "mean_abs_diff": mean_error},
-            "adapter_vllm_vs_base_vllm": {"max_abs_diff": max(effect), "mean_abs_diff": mean_effect},
-            "passed": mean_error <= MEAN_TOLERANCE and mean_effect > 0
-                      and mean_effect >= MIN_EFFECT_RATIO * mean_error}
+            "adapter_error": {"max_abs_diff": max(error), "mean_abs_diff": mean_error},
+            "base_noise": {"max_abs_diff": max(noise), "mean_abs_diff": mean_noise},
+            "effect": {"max_abs_diff": max(effect), "mean_abs_diff": mean_effect},
+            "mean_abs_diff_tolerance_nats": tolerance,
+            "passed": mean_error <= tolerance
+                      and (not require_effect or mean_effect >= MIN_EFFECT_RATIO * mean_error)}
 
 
-def compare_prompts(cases, client, endpoint, name, base_name):
+def summarize_prompts(cases):
+    """Recompute all statistics from token measurements, including pooled gates."""
+    validate_cases(cases)
     prompts = []
-    all_hf, all_adapter, all_base = [], [], []
+    all_hf, all_adapter, all_base, all_hf_base = [], [], [], []
     for row in cases:
-        hf = row["hf_logprobs"]
-        adapter = vllm_logprobs(client, endpoint, name, row)
-        base = vllm_logprobs(client, endpoint, base_name, row)
-        stats = comparison(hf, adapter, base)
-        prompts.append({**row, **stats, "adapter_vllm_logprobs": adapter,
-                        "base_vllm_logprobs": base})
+        hf, hf_base = row["hf_logprobs"], row["hf_base_logprobs"]
+        adapter, base = row["adapter_vllm_logprobs"], row["base_vllm_logprobs"]
+        stats = comparison(hf, adapter, base, hf_base)
+        prompts.append({**row, **stats})
         all_hf.extend(hf)
         all_adapter.extend(adapter)
         all_base.extend(base)
-    aggregate = comparison(all_hf, all_adapter, all_base)
-    return {"prompts": prompts, "aggregate": aggregate,
+        all_hf_base.extend(hf_base)
+    aggregate = comparison(all_hf, all_adapter, all_base, all_hf_base, require_effect=True)
+    return {"schema_version": SCHEMA_VERSION, "prompts": prompts, "aggregate": aggregate,
             "passed": len(prompts) == PROMPT_COUNT and aggregate["passed"]
                       and all(p["passed"] for p in prompts)}
+
+
+def compare_prompts(cases, client, endpoint, name, base_name):
+    validate_cases(cases)
+    return summarize_prompts([
+        {**row, "adapter_vllm_logprobs": vllm_logprobs(client, endpoint, name, row),
+         "base_vllm_logprobs": vllm_logprobs(client, endpoint, base_name, row)}
+        for row in cases])
 
 
 def source_identity(args, config, adapter):
@@ -155,6 +186,8 @@ def check_server(server, endpoint, model_name, adapter):
 
 def validate_report(report, server, model_name, endpoint):
     """Fail closed before evaluation; bind a passing check to this server and weights."""
+    if type(report.get("schema_version")) is not int or report["schema_version"] != SCHEMA_VERSION:
+        raise ValueError("Schema version 2 with measured base noise is required; rerun the equivalence check")
     adapters = server["config"]["server"].get("lora_adapters", [])
     matches = [a for a in adapters if a["name"] == model_name]
     if len(matches) != 1:
@@ -165,11 +198,8 @@ def validate_report(report, server, model_name, endpoint):
             or report.get("identity", {}).get("adapter") != adapter_identity(matches[0])
             or len(report.get("prompts", [])) != PROMPT_COUNT):
         raise ValueError("A passing equivalence report for this adapter/server is required")
-    validate_cases(report["prompts"])
-    for row in report["prompts"]:
-        if not comparison(row["hf_logprobs"], row["adapter_vllm_logprobs"],
-                          row["base_vllm_logprobs"])["passed"]:
-            raise ValueError("Equivalence report fails the fixed tolerance/effect thresholds")
+    if not summarize_prompts(report["prompts"])["passed"]:
+        raise ValueError("Equivalence report fails the noise-relative tolerance/pooled effect thresholds")
 
 
 def main(argv=None):
@@ -231,13 +261,12 @@ def main(argv=None):
             model = PeftModel.from_pretrained(load_student(args.snapshot), args.adapter,
                                              local_files_only=True, is_trainable=False,
                                              autocast_adapter_dtype=False)
-            for row in cases:
-                row["hf_logprobs"] = hf_logprobs(model, row)
+            add_hf_references(model, cases)
             del model
             import gc
             gc.collect()
             torch.cuda.empty_cache()
-            reference = {"identity": identity, "prompts": cases,
+            reference = {"schema_version": SCHEMA_VERSION, "identity": identity, "prompts": cases,
                          "template_sha256": digest(tokenizer.chat_template),
                          "provenance_sha256": digest(provenance)}
             write_json(output / "reference.json", reference, exclusive=True)
@@ -249,11 +278,14 @@ def main(argv=None):
         import httpx
         with httpx.Client(timeout=180, trust_env=False) as client:
             report = compare_prompts(cases, client, args.endpoint, args.model_name, base_name)
-        report.update(schema_version=1, model_name=args.model_name, base_model_name=base_name,
+        report.update(model_name=args.model_name, base_model_name=base_name,
                       identity=identity, server_provenance_sha256=digest(server),
                       template_sha256=reference["template_sha256"],
-                      thresholds={"mean_abs_diff_nats": MEAN_TOLERANCE, "min_effect_ratio": MIN_EFFECT_RATIO},
-                      rule="Every prompt and pooled reply tokens must pass; zero adapter effect fails")
+                      thresholds={"mean_abs_diff_nats": MEAN_TOLERANCE,
+                                  "base_noise_multiplier": BASE_NOISE_MULTIPLIER,
+                                  "min_effect_ratio": MIN_EFFECT_RATIO},
+                      rule="Every prompt and pooled: adapter_error <= max(0.05, 1.5 * base_noise); "
+                           "pooled: effect >= 5 * adapter_error")
         write_json(output / "report.json", report, exclusive=True)
         print(json.dumps({"passed": report["passed"], "aggregate": report["aggregate"]}))
         return 0 if report["passed"] else 1
