@@ -20,8 +20,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - hpg 44798587 robustness: both merges FAILED merge_lora's check (merged-bf16 vs PEFT all-vocab logits mean |Δ| 1.13 / 1.41) → unmerged vLLM
   LoRA (mean 0.04 nats) is the most faithful bf16 serving path; vLLM supports LoRA dtype only fp16/bf16 (no fp32). Plan: gate amendment 4
   (outlier tokens ≤ 5% instead of 2×base+2), evaluate the 8 failed high-dose cells with a flag, fp16-LoRA behavioural sensitivity on 2 ckpts.
-- Kang K=20 s0 trained (hpg 44798591 COMPLETED; FTP "not run: missing released components") → evals submitted on the group account:
-  **44799331 (SAG)** and **44799332 (greedy ablation)** → reports/runs/eval/baselines/kang-k20s0-{sag,greedy} (tree 58a409c, schema-4 gate).
+- Kang K=20 s0 (first live baseline): SAG 65/140, greedy 65/140, but 140 parser errors = step 0 of every episode → port bug: episode
+  packing supervises non-final turns after '<|turn>model\n' while eval generates after the empty thought marker; harmless at lr 1e-5
+  (Seed-SFT), breaks step 0 at Kang's lr 2e-4. Codex (pid 1168415, main tree): turn packing for baseline SFT (exact eval prefix per turn),
+  default for Kang/AgentGym/ETO/IPR SFT stages; check DPO/IPR continuation scoring and LEAP. Then re-run Kang. Result invalid until then.
+- Stage 4e committed (0ee65a1): data/manifest/dev140_traits.json + analysis/stratified.py; first readout reports/figs/stratified-seedsft
+  (e.g. look_at_obj: k20s0-p40 8/13 vs teacher 13/13 and k10s0-t400k 13/13 — seed coverage of task types).
 - Codex branch gate5-gpus-loradtype (pid 1124640, worktree ICML27_gate5): gate schema 5 (outliers ≤ max(2×base+2, 5% of tokens)),
   --gpus 2/4/8 for ETO/IPR/AgentGym, LORA_DTYPE option (fp16 sensitivity).
 - Dept QOS is memory-capped (~980/1000G in use by others at 05:1x CDT); group account had 2 B200 free → 1-GPU jobs go there.
