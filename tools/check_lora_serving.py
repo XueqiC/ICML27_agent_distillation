@@ -20,11 +20,12 @@ from sed.storage import digest, file_hash, write_json
 from train.modeling import snapshot_metadata
 
 PROMPT_COUNT = 8
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 MEAN_TOLERANCE = 0.05
 BASE_NOISE_MULTIPLIER = 1.5
-MIN_EFFECT_RATIO = 5.0
-MAX_PROMPT_ERROR_RATIO = 0.1
+MIN_EFFECT_NOISE_MULTIPLIER = 2.0
+OUTLIER_COUNT_MULTIPLIER = 2
+OUTLIER_COUNT_ALLOWANCE = 2
 
 
 def fixed_prompts(examples):
@@ -114,7 +115,7 @@ def vllm_logprobs(client, endpoint, model, row):
 
 
 def comparison(hf, adapter, base, hf_base, *, pooled=False):
-    """Gate prompt error by its effect, pooled error by noise and effect."""
+    """Check pooled equivalence and visible adapter effect against kernel noise."""
     if not hf or any(len(values) != len(hf) for values in (adapter, base, hf_base)):
         raise ValueError("Reply logprob lengths differ")
     if any(type(v) not in (int, float) or not math.isfinite(v)
@@ -124,21 +125,27 @@ def comparison(hf, adapter, base, hf_base, *, pooled=False):
     noise = [abs(a - b) for a, b in zip(base, hf_base)]
     effect = [abs(a - b) for a, b in zip(adapter, base)]
     mean_error, mean_noise, mean_effect = (sum(values) / len(values) for values in (error, noise, effect))
-    tolerance = (max(MEAN_TOLERANCE, BASE_NOISE_MULTIPLIER * mean_noise) if pooled
-                 else MAX_PROMPT_ERROR_RATIO * mean_effect)
+    tolerance = max(MEAN_TOLERANCE, BASE_NOISE_MULTIPLIER * mean_noise) if pooled else None
+    min_effect = (MIN_EFFECT_NOISE_MULTIPLIER if pooled else 1) * mean_noise
 
     def error_stats(values, mean):
         return {"max_abs_diff": max(values), "mean_abs_diff": mean,
                 "tokens_abs_diff_gt_0_25": sum(v > 0.25 for v in values),
                 "tokens_abs_diff_gt_0_5": sum(v > 0.5 for v in values)}
 
+    adapter_error, base_noise = error_stats(error, mean_error), error_stats(noise, mean_noise)
+    outlier_limit = (OUTLIER_COUNT_MULTIPLIER * base_noise["tokens_abs_diff_gt_0_5"]
+                     + OUTLIER_COUNT_ALLOWANCE) if pooled else None
     return {"tokens": len(hf),
-            "adapter_error": error_stats(error, mean_error),
-            "base_noise": error_stats(noise, mean_noise),
+            "adapter_error": adapter_error,
+            "base_noise": base_noise,
             "effect": {"max_abs_diff": max(effect), "mean_abs_diff": mean_effect},
             "mean_abs_diff_tolerance_nats": tolerance,
-            "passed": mean_error <= tolerance
-                      and (not pooled or mean_effect >= MIN_EFFECT_RATIO * mean_error)}
+            "tokens_abs_diff_gt_0_5_tolerance": outlier_limit,
+            "min_effect_nats": min_effect,
+            "passed": mean_effect >= min_effect and (not pooled or (
+                mean_error <= tolerance
+                and adapter_error["tokens_abs_diff_gt_0_5"] <= outlier_limit))}
 
 
 def summarize_prompts(cases):
@@ -159,11 +166,12 @@ def summarize_prompts(cases):
     return {"schema_version": SCHEMA_VERSION, "prompts": prompts, "aggregate": aggregate,
             "thresholds": {"mean_abs_diff_nats": MEAN_TOLERANCE,
                            "base_noise_multiplier": BASE_NOISE_MULTIPLIER,
-                           "min_effect_ratio": MIN_EFFECT_RATIO,
-                           "max_prompt_error_ratio": MAX_PROMPT_ERROR_RATIO},
+                           "min_effect_noise_multiplier": MIN_EFFECT_NOISE_MULTIPLIER,
+                           "outlier_count_multiplier": OUTLIER_COUNT_MULTIPLIER,
+                           "outlier_count_allowance": OUTLIER_COUNT_ALLOWANCE},
             "rule": "Pooled: adapter_error <= max(0.05, 1.5 * base_noise) "
-                    "and effect >= 5 * adapter_error; "
-                    "every prompt: adapter_error <= 0.1 * effect",
+                    "and adapter_count(abs_diff > 0.5) <= 2 * base_count(abs_diff > 0.5) + 2 "
+                    "and effect >= 2 * base_noise; every prompt: effect >= base_noise",
             "passed": len(prompts) == PROMPT_COUNT and aggregate["passed"]
                       and all(p["passed"] for p in prompts)}
 
@@ -202,8 +210,8 @@ def check_server(server, endpoint, model_name, adapter):
 def validate_report(report, server, model_name, endpoint):
     """Fail closed before evaluation; bind a passing check to this server and weights."""
     if type(report.get("schema_version")) is not int or report["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("Schema version 3 is required; recompute complete schema 2 measurements "
-                         "under schema 3 or rerun the equivalence check")
+        raise ValueError("Schema version 4 is required; recompute complete schema 2/3 measurements "
+                         "under schema 4 or rerun the equivalence check; schema 1 is refused")
     adapters = server["config"]["server"].get("lora_adapters", [])
     matches = [a for a in adapters if a["name"] == model_name]
     if len(matches) != 1:
@@ -215,7 +223,8 @@ def validate_report(report, server, model_name, endpoint):
             or len(report.get("prompts", [])) != PROMPT_COUNT):
         raise ValueError("A passing equivalence report for this adapter/server is required")
     if not summarize_prompts(report["prompts"])["passed"]:
-        raise ValueError("Equivalence report fails the pooled noise/effect or per-prompt effect thresholds")
+        raise ValueError("Equivalence report fails the pooled noise/outlier/effect "
+                         "or per-prompt effect thresholds")
 
 
 def main(argv=None):

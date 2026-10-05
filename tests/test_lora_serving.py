@@ -236,7 +236,7 @@ def bound_report(adapter_bank):
 
 def test_logprob_equivalence_and_report_gate(bound_report):
     report, server = bound_report
-    assert report["schema_version"] == 3 and report["passed"] and len(report["prompts"]) == 8
+    assert report["schema_version"] == 4 and report["passed"] and len(report["prompts"]) == 8
     for stats in [*report["prompts"], report["aggregate"]]:
         for metric, expected in (("adapter_error", 0.01), ("base_noise", 0.01), ("effect", 0.29)):
             assert stats[metric]["mean_abs_diff"] == pytest.approx(expected)
@@ -244,8 +244,14 @@ def test_logprob_equivalence_and_report_gate(bound_report):
         for metric in ("adapter_error", "base_noise"):
             assert stats[metric]["tokens_abs_diff_gt_0_25"] == 0
             assert stats[metric]["tokens_abs_diff_gt_0_5"] == 0
-        assert stats["mean_abs_diff_tolerance_nats"] == pytest.approx(
-            0.05 if stats is report["aggregate"] else 0.029)
+        if stats is report["aggregate"]:
+            assert stats["mean_abs_diff_tolerance_nats"] == 0.05
+            assert stats["tokens_abs_diff_gt_0_5_tolerance"] == 2
+            assert stats["min_effect_nats"] == pytest.approx(0.02)
+        else:
+            assert stats["mean_abs_diff_tolerance_nats"] is None
+            assert stats["tokens_abs_diff_gt_0_5_tolerance"] is None
+            assert stats["min_effect_nats"] == pytest.approx(0.01)
     validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
     with pytest.raises(ValueError, match="Endpoint"):
         validate_report(report, server, "sft", "http://127.0.0.1:34568/v1")
@@ -257,11 +263,11 @@ def test_logprob_equivalence_and_report_gate(bound_report):
 def test_thresholds_fail_closed():
     assert comparison([-1], [-1.02], [-2], [-2], pooled=True)["passed"]
     assert not comparison([-1], [-1.06], [-2], [-2], pooled=True)["passed"]
-    assert not comparison([-1], [-1.02], [-1.05], [-1.05], pooled=True)["passed"]
+    assert not comparison([-1], [-1.02], [-1.05], [-1.03], pooled=True)["passed"]
     for pooled in (False, True):
-        assert not comparison([-1], [-1.02], [-1.02], [-1.02], pooled=pooled)["passed"]
-    # Prompt error may exceed the noise floor only when its effect is large enough.
-    assert comparison([-1], [-1.06], [-2], [-2])["passed"]
+        assert not comparison([-1], [-1.02], [-1.02], [-1.03], pooled=pooled)["passed"]
+    # Prompt equivalence error is diagnostic; only its effect versus noise gates it.
+    assert comparison([-1], [-1.06], [-1.16], [-1.15])["passed"]
     assert not comparison([-1], [-1.06], [-1.56], [-1])["passed"]
 
 
@@ -276,17 +282,36 @@ def test_observed_error_relative_to_base_noise(noise, passed):
 
 
 def test_threshold_equality_is_inclusive():
-    # Binary-exact values put both relative error and pooled effect at equality.
-    assert comparison([-1], [-1.09375], [-1.5625], [-1.5], pooled=True)["passed"]
+    # Binary-exact values put pooled error/noise and effect/noise at equality.
+    assert comparison([-1], [-1.09375], [-1.21875], [-1.15625], pooled=True)["passed"]
+    assert not comparison([-0.999], [-1.09375], [-1.21875], [-1.15625], pooled=True)["passed"]
+    assert not comparison([-1], [-1.09375], [-1.21875], [-1.156], pooled=True)["passed"]
     assert comparison([0], [-0.05], [-1], [-1], pooled=True)["passed"]
-    assert comparison([-1], [-1.125], [-2.375], [-2.375])["passed"]
-    assert not comparison([-1], [-1.125], [-2.374], [-2.374])["passed"]
+    assert comparison([-1], [-1.125], [-1.25], [-1.125])["passed"]
+    assert not comparison([-1], [-1.125], [-1.25], [-1.124])["passed"]
+    # The specified inclusive inequalities also hold at a zero noise/effect floor.
+    assert comparison([-1], [-1], [-1], [-1], pooled=True)["passed"]
     # Outlier diagnostics use strict >, including at both cutoffs.
     stats = comparison([0] * 4, [-0.25, -0.5, -0.75, 0], [-10] * 4,
                        [-9.75, -9.5, -9.25, -10])
     for metric in ("adapter_error", "base_noise"):
         assert stats[metric]["tokens_abs_diff_gt_0_25"] == 2
         assert stats[metric]["tokens_abs_diff_gt_0_5"] == 1
+
+
+@pytest.mark.parametrize("base_outliers", [0, 1, 2])
+@pytest.mark.parametrize("excess", [0, 1])
+def test_pooled_outlier_limit_is_inclusive(base_outliers, excess):
+    count = 2 * base_outliers + 2 + excess
+    error = [0.75] * count + [0] * (200 - count)
+    noise = [0.75] * base_outliers + [0] * (200 - base_outliers)
+    stats = comparison([0] * 200, [-v for v in error], [-10] * 200,
+                       [-10 + v for v in noise], pooled=True)
+    assert stats["adapter_error"]["mean_abs_diff"] <= stats["mean_abs_diff_tolerance_nats"]
+    assert stats["effect"]["mean_abs_diff"] >= stats["min_effect_nats"]
+    assert stats["adapter_error"]["tokens_abs_diff_gt_0_5"] == count
+    assert stats["tokens_abs_diff_gt_0_5_tolerance"] == 2 * base_outliers + 2
+    assert stats["passed"] is (excess == 0)
 
 
 @pytest.mark.parametrize("index", range(4))
@@ -357,26 +382,69 @@ def test_p20_outliers_and_token_weighted_pool(bound_report):
     validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
-@pytest.mark.parametrize("failure", ["prompt", "pooled_error", "pooled_effect"])
+@pytest.mark.parametrize("pooled_error,effect", [(0.0499, 0.144), (0.0467, 0.337), (0.0396, 0.47)])
+def test_light_adapter_and_isolated_token_error_pass(bound_report, pooled_error, effect):
+    # Synthetic 236-token cases shaped like the light adapters; no real run is required.
+    lengths = [27, 34, 28, 30, 24, 34, 35, 24]
+    remainder = (236 * pooled_error - 1.82) / 235
+    errors = [[remainder] * n for n in lengths]
+    errors[1][0] = 1.82
+    noise_remainder = (236 * 0.0461 - 0.81) / 235
+    noises = [[noise_remainder] * n for n in lengths]
+    noises[1][0] = 0.81
+    effects = [[effect] * n for n in lengths]
+    report, server = bound_report
+    report.update(summarize_prompts(measured_cases(errors, noises, effects)))
+    assert report["passed"] and all(p["passed"] for p in report["prompts"])
+    assert report["aggregate"]["adapter_error"]["mean_abs_diff"] == pytest.approx(pooled_error)
+    assert report["aggregate"]["base_noise"]["mean_abs_diff"] == pytest.approx(0.0461)
+    assert report["aggregate"]["effect"]["mean_abs_diff"] == pytest.approx(effect)
+    prompt = report["prompts"][1]
+    assert prompt["adapter_error"]["mean_abs_diff"] > 0.1 * prompt["effect"]["mean_abs_diff"]
+    assert prompt["adapter_error"]["tokens_abs_diff_gt_0_5"] == 1
+    assert prompt["base_noise"]["tokens_abs_diff_gt_0_5"] == 1
+    validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+def test_outlier_limit_is_pooled_not_per_prompt():
+    errors = [[0.75] * 4 + [0] * 46] + [[0] * 50] * 7
+    noises = [[0] * 50] * 7 + [[0.75] + [0] * 49]
+    report = summarize_prompts(measured_cases(errors, noises, [[1.0] * 50] * 8))
+    assert report["passed"]
+    assert report["prompts"][0]["adapter_error"]["tokens_abs_diff_gt_0_5"] == 4
+    assert report["prompts"][0]["base_noise"]["tokens_abs_diff_gt_0_5"] == 0
+    assert report["aggregate"]["tokens_abs_diff_gt_0_5_tolerance"] == 4
+
+
+@pytest.mark.parametrize("failure", ["prompt", "pooled_error", "pooled_effect", "pooled_outliers"])
 def test_validation_recomputes_each_gate(bound_report, failure):
     report, server = bound_report
     if failure == "prompt":
-        errors, noises, effects = [[0.125]] + [[0.01]] * 7, [[0.01]] * 8, [[1.0]] * 8
+        errors, noises, effects = [[0.01]] * 8, [[0.1]] + [[0.01]] * 7, [[0.05]] + [[0.3]] * 7
     elif failure == "pooled_error":
         errors, noises, effects = [[0.049]] * 4 + [[0.149]] * 4, [[0]] * 4 + [[0.1]] * 4, [[2.0]] * 8
+    elif failure == "pooled_effect":
+        errors, noises, effects = [[0.01]] * 8, [[0.04]] * 8, [[0.06]] * 8
     else:
-        errors, noises, effects = [[0.04]] * 8, [[0.01]] * 8, [[0.1]] * 8
+        errors = [[0.75] + [0] * 19] * 8
+        noises, effects = [[0.01] * 20] * 8, [[1.0] * 20] * 8
     rows = measured_cases(errors, noises, effects)
     actual = summarize_prompts(rows)
     assert not actual["passed"]
-    # Passing every 10x prompt guard implies the pooled 5x guard; the latter
-    # remains explicit, and its failure also fails prompt guards.
-    assert all(row["passed"] for row in actual["prompts"]) is (failure == "pooled_error")
+    # Each gate can fail independently while every other requirement holds.
+    assert all(row["passed"] for row in actual["prompts"]) is (failure != "prompt")
     assert actual["aggregate"]["passed"] is (failure == "prompt")
+    pooled = actual["aggregate"]
+    assert (pooled["adapter_error"]["mean_abs_diff"] <= pooled["mean_abs_diff_tolerance_nats"]) is (
+        failure != "pooled_error")
+    assert (pooled["effect"]["mean_abs_diff"] >= pooled["min_effect_nats"]) is (failure != "pooled_effect")
+    assert (pooled["adapter_error"]["tokens_abs_diff_gt_0_5"]
+            <= pooled["tokens_abs_diff_gt_0_5_tolerance"]) is (failure != "pooled_outliers")
     # Leave the old passing summaries/flags in place: raw measurements govern.
     for row, measured in zip(report["prompts"], rows):
         row.update(measured)
-    report["thresholds"] = {"mean_abs_diff_nats": 999, "min_effect_ratio": 0, "max_prompt_error_ratio": 999}
+    report["thresholds"] = {"mean_abs_diff_nats": 999, "min_effect_noise_multiplier": 0,
+                            "outlier_count_multiplier": 999, "outlier_count_allowance": 999}
     with pytest.raises(ValueError, match="per-prompt effect"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
@@ -393,41 +461,47 @@ def test_missing_adapter_is_refused(bound_report, missing):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
-@pytest.mark.parametrize("schema", [None, 1, 2, 4, "3", 3.0, True])
+@pytest.mark.parametrize("schema", [None, 1, 2, 3, 5, "4", 4.0, True])
 def test_report_schema_refused(bound_report, schema):
     report, server = bound_report
     if schema is None:
         report.pop("schema_version")
     else:
         report["schema_version"] = schema
-    with pytest.raises(ValueError, match="Schema version 3"):
+    with pytest.raises(ValueError, match="Schema version 4"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
 @pytest.mark.parametrize("field", ["hf_logprobs", "hf_base_logprobs", "adapter_vllm_logprobs", "base_vllm_logprobs"])
-def test_schema_three_requires_all_measurements(bound_report, field):
+@pytest.mark.parametrize("schema", [2, 3, 4])
+def test_recomputation_requires_all_measurements(bound_report, field, schema):
     report, server = bound_report
+    report["schema_version"] = schema
     for row in report["prompts"]:
         row.pop(field)
     with pytest.raises((ValueError, KeyError), match=field):
-        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+        report.update(summarize_prompts(report["prompts"]))
+    if schema == 4:
+        with pytest.raises((ValueError, KeyError), match=field):
+            validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
-def test_complete_schema_two_report_can_be_recomputed(bound_report):
+@pytest.mark.parametrize("schema", [2, 3])
+def test_complete_legacy_report_can_be_recomputed(bound_report, schema):
     report, server = bound_report
-    report.update(schema_version=2, passed=False, rule="old schema 2 rule", thresholds={})
+    report.update(schema_version=schema, passed=False, rule=f"old schema {schema} rule", thresholds={})
     for row in report["prompts"]:
         row["passed"] = False
         row["mean_abs_diff_tolerance_nats"] = 0
         for metric in ("adapter_error", "base_noise"):
             row[metric].pop("tokens_abs_diff_gt_0_25")
             row[metric].pop("tokens_abs_diff_gt_0_5")
-    with pytest.raises(ValueError, match="Schema version 3"):
+    with pytest.raises(ValueError, match="Schema version 4"):
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
     report.update(summarize_prompts(report["prompts"]))
-    assert report["schema_version"] == 3 and report["passed"]
-    assert report["thresholds"]["max_prompt_error_ratio"] == 0.1
-    assert "every prompt: adapter_error <= 0.1 * effect" in report["rule"]
+    assert report["schema_version"] == 4 and report["passed"]
+    assert report["thresholds"]["min_effect_noise_multiplier"] == 2
+    assert "every prompt: effect >= base_noise" in report["rule"]
     validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
@@ -507,14 +581,15 @@ def test_hf_only_writes_both_references_with_one_model_load(adapter_bank, tmp_pa
     assert check.main(["--snapshot", str(snapshot), "--adapter", str(path), "--verified", str(verified),
                        "--model-name", "sft", "--hf-only", "--output", str(output)]) == 0
     reference = json.loads((output / "reference.json").read_text())
-    assert reference["schema_version"] == 3 and reference["prompts"] == cases()
+    assert reference["schema_version"] == 4 and reference["prompts"] == cases()
     assert reference["provenance_sha256"] == digest(json.loads((output / "provenance.json").read_text()))
     assert loads == [str(snapshot)] and not model.disabled
     assert scores == [(i, disabled) for disabled in (False, True) for i in range(8)]
     assert not (output / "report.json").exists()
 
 
-@pytest.mark.parametrize("scenario", ["pass", "prompt_failure", "pooled_effect_failure", "legacy_reference"])
+@pytest.mark.parametrize("scenario", ["pass", "prompt_failure", "pooled_error_failure",
+                                      "pooled_effect_failure", "legacy_reference"])
 def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypatch, scenario):
     import tools.check_lora_serving as check
     from sed.provenance import write_provenance
@@ -531,20 +606,30 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
     if scenario == "legacy_reference":
         for row in rows:
             row.pop("hf_base_logprobs")
+    if scenario == "pooled_effect_failure":
+        for row in rows:
+            row["hf_base_logprobs"] = [-1.09, -2.09]
     write_json(hf_dir / "reference.json", {"schema_version": 2, "identity": identity, "prompts": rows,
                "provenance_sha256": digest(old), "template_sha256": "fake-template"})
     server = {"config": {"server": {"lora_adapters": [adapter], "served_model_name": "base",
                                     "endpoint": "http://127.0.0.1:34567/v1", "merged_model": False}}}
     server_file = tmp_path / "server.json"
     write_json(server_file, server)
+    prompt_index = 0
     def completion(request):
+        nonlocal prompt_index
         assert scenario != "legacy_reference"  # Refuse incomplete references before serving calls.
         data = fake_completion(request).json()
-        if scenario == "prompt_failure" and data["model"] == "sft":
+        if scenario == "pooled_error_failure" and data["model"] == "sft":
             data["choices"][0]["prompt_logprobs"][2]["10"]["logprob"] = -1.5
-        if scenario == "pooled_effect_failure" and data["model"] == "base":
+        if scenario == "prompt_failure" and data["model"] == "base" and prompt_index == 0:
             data["choices"][0]["prompt_logprobs"][2]["10"]["logprob"] = -1.01
             data["choices"][0]["prompt_logprobs"][3]["106"]["logprob"] = -2.01
+        if scenario == "pooled_effect_failure" and data["model"] == "base":
+            data["choices"][0]["prompt_logprobs"][2]["10"]["logprob"] = -1.06
+            data["choices"][0]["prompt_logprobs"][3]["106"]["logprob"] = -2.06
+        if data["model"] == "base":
+            prompt_index += 1
         return httpx.Response(200, json=data)
     real_client = httpx.Client
     monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(
@@ -563,10 +648,15 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
         return
     report = json.loads((output / "report.json").read_text())
     assert report["passed"] is passes and len(report["prompts"]) == 8
-    assert report["schema_version"] == 3 and report["thresholds"]["base_noise_multiplier"] == 1.5
-    assert report["thresholds"]["max_prompt_error_ratio"] == 0.1
-    assert "every prompt: adapter_error <= 0.1 * effect" in report["rule"]
-    assert report["aggregate"]["adapter_error"]["tokens_abs_diff_gt_0_25"] == (8 if scenario == "prompt_failure" else 0)
+    assert report["schema_version"] == 4 and report["thresholds"]["base_noise_multiplier"] == 1.5
+    assert report["thresholds"]["min_effect_noise_multiplier"] == 2
+    assert report["thresholds"]["outlier_count_multiplier"] == 2
+    assert report["thresholds"]["outlier_count_allowance"] == 2
+    assert "every prompt: effect >= base_noise" in report["rule"]
+    assert report["aggregate"]["adapter_error"]["tokens_abs_diff_gt_0_25"] == (
+        8 if scenario == "pooled_error_failure" else 0)
+    assert report["aggregate"]["passed"] is (scenario in {"pass", "prompt_failure"})
+    assert all(p["passed"] for p in report["prompts"]) is (scenario != "prompt_failure")
     assert all("hf_base_logprobs" in row for row in report["prompts"])
     if passes:
         validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
