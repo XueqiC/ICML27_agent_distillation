@@ -14,10 +14,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   tools/check_lora_serving.py, scripts/rai_eval_student.sh with free-port selection. Spec: scratchpad codex_lora_serve.md.
 - Background agent: per-repo porting specs for ETO / IPR / AgentEvol / WKM / LEAP / Kang → reports/baseline_port_specs_1004.md
   (repos cloned under third_party/, gitignored; ETO a2fc5da, IPR 93335a3).
-- rai GPU1 (Blackwell): Seed-SFT K=20 s0, **episode packing** (96531ed), pid 194800, started 19:15 CDT → reports/runs/train/seedsft-k20-s0-rai,
-  208,140 supervised tokens (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv, PYTHONPATH=src:.).
-  ~10 s/update (turn mode was 70 s), ETA ~20:00 CDT. Episodes are never split, so updates carry 512–~1,200 supervised tokens and there are
-  ~40% fewer updates than in turn mode; checkpoints are keyed by cumulative supervised tokens. The turn-mode run (29 updates) is in _trash/.
+- rai GPU1 (Blackwell): Seed-SFT K=20 s0, episode packing (96531ed). First run (pid 194800, 19:14 CDT) saved checkpoints at 3/5/10 passes,
+  then died at update 120/233 with CUDA OOM (11.7 GiB request, 23 GiB reserved-but-unallocated = fragmentation; eager attention on the
+  14,005-token episode; peak allocated 84 GB) → kept as reports/runs/train/seedsft-k20-s0-rai-oom. **Rerun** pid 252436 at 19:37 CDT with
+  PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True → reports/runs/train/seedsft-k20-s0-rai (same args; training is deterministic, so the
+  3/5/10-pass adapters should be byte-identical to the OOM run — check). ETA ~20:20 CDT.
 - hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
 
 ## Stage 2c implementation (2026-10-04)
