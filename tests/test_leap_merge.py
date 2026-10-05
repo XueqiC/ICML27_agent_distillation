@@ -231,18 +231,16 @@ def test_leap_publication_records_policy_and_never_publishes_rejections(merge_ca
         "leap_variant": variant, "privileged_teacher": variant == "privileged"})
     monkeypatch.setattr(leap_merge, "load_tokenizer", lambda _: NS(
         apply_chat_template=lambda *a, **kw: [1, 2], save_pretrained=lambda path: None))
-    monkeypatch.setattr(leap_merge, "merge_adapter", lambda *a, **kw:
-        merge_lora.merge_adapter(*a, device="cpu", **kw))
     argv = ["--snapshot", str(case.base), "--adapter", str(case.adapter), "--output", str(case.output)]
     if failure:
         with pytest.raises(ValueError, match="checkpoint must not be served"):
-            leap_merge.main(argv)
+            leap_merge.main(argv, device="cpu")
         assert not (case.output / "checkpoint").exists()
         assert not (case.output / "result.json").exists()
         assert (case.output / ".checkpoint.partial/consistency.json").is_file()
         assert not (case.output / ".checkpoint.partial/training_state.json").exists()
         return
-    leap_merge.main(argv)
+    leap_merge.main(argv, device="cpu")
     checkpoint = case.output / "checkpoint"
     state = json.loads((checkpoint / "training_state.json").read_text())
     assert state == json.loads((case.output / "result.json").read_text())

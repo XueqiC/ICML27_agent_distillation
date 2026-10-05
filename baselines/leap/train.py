@@ -1,5 +1,6 @@
 """One-GPU LEAP SFT: fresh text q/v LoRA over the previous MERGED model."""
 import argparse
+from contextlib import nullcontext
 from copy import deepcopy
 from functools import partial
 import os
@@ -58,7 +59,9 @@ def validate_initialization(snapshot, base_snapshot, *, iteration, variant, stud
         if Path(snapshot).resolve() != Path(base_snapshot).resolve():
             raise ValueError("Iteration 0 must start from configured base")
         return
-    state = validate_checkpoint(snapshot, student)
+    # Merged LoRA exports carry merge provenance, not the full-FT exporter's
+    # non_text_source. Check their tensor layout against the configured base.
+    state = validate_checkpoint(snapshot, student, base_snapshot=base_snapshot)
     if (state.get("leap_iteration") != iteration - 1 or not state.get("fresh_lora")
             or state.get("adaptation") != "leap_merged_lora" or state.get("leap_variant") != variant):
         raise ValueError("LEAP must initialize from the previous merged iterate of the same variant")
@@ -117,7 +120,8 @@ def train_loop(model, examples, output, *, device="cpu"):
         "loss_reduction": "completion_token_mean_per_microbatch_then_mean_over_actual_accumulation_slots"}
 
 
-def main(argv=None):
+def main(argv=None, *, device="cuda"):
+    """Production CLI uses CUDA; explicit CPU execution exercises the same chain."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
     for name in ("snapshot", "base-snapshot", "verified", "output"):
@@ -149,10 +153,11 @@ def main(argv=None):
         raise ValueError("Registered dose cannot trigger eval/save step 200")
     import torch
     from transformers import set_seed
-    if not torch.cuda.is_available() or int(os.environ.get("WORLD_SIZE", "1")) != 1:
+    cuda = str(device).startswith("cuda")
+    if (device != "cpu" and not cuda) or (cuda and not torch.cuda.is_available()) or int(os.environ.get("WORLD_SIZE", "1")) != 1:
         raise RuntimeError("Production LEAP training requires one allocated GPU")
     set_seed(0)
-    model = prepare_model(args.snapshot)
+    model = prepare_model(args.snapshot, device=device)
     model.peft_config["default"].revision = config["models"]["student"]["revision"]
     effective = deepcopy(config)
     effective["sft"] = {"base_snapshot": snapshot_metadata(args.snapshot)}
@@ -160,7 +165,8 @@ def main(argv=None):
         "label": LABELS[args.variant], "privileged_teacher": args.variant == "privileged",
         "snapshot_artifact_sha256": artifact_hashes(args.snapshot), "examples_sha256": digest(examples),
         "template_sha256": digest(tokenizer.chat_template), "no_truncation": True,
-        "adapter_master_dtype": "float32", "frozen_base_dtype": "bfloat16"}
+        "adapter_master_dtype": "float32", "frozen_base_dtype": "bfloat16" if cuda else "float32",
+        "device": str(device), "cpu_test": not cuda}
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
     provenance = write_provenance(output, command="leap_sft", config=effective,
@@ -168,8 +174,8 @@ def main(argv=None):
                 config["paths"]["manifest"], config["paths"]["split_freeze"]])
     write_json(output / "aggregation.json", aggregation)
     write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        state = train_loop(model, examples, output, device="cuda")
+    with torch.autocast("cuda", dtype=torch.bfloat16) if cuda else nullcontext():
+        state = train_loop(model, examples, output, device=device)
     staging = output / ".adapter.partial"
     model.save_pretrained(staging, safe_serialization=True)
     state.update(identity_sha256=digest(provenance), final=True, adaptation="leap_lora",

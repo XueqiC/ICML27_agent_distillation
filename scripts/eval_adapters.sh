@@ -53,7 +53,7 @@ if listing.get("name") not in {"dev40", "dev140"}:
 student = config["models"]["student"]
 if sys.argv[4]:
     from baselines.common.fsdp_train import validate_checkpoint
-    validate_checkpoint(sys.argv[4], student)
+    validate_checkpoint(sys.argv[4], student, base_snapshot=sys.argv[2])
 for name, path in parse_adapters(sys.argv[5:], student["requested_repo"]):
     inspect_adapter(name, path, student, sys.argv[2])
 print(student["requested_repo"])

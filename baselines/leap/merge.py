@@ -14,7 +14,7 @@ from train.merge_lora import LEAP_MERGE_POLICY, merge_adapter, validate_adapter_
 from train.modeling import snapshot_metadata
 
 
-def main(argv=None):
+def main(argv=None, *, device="cuda"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
     for name in ("snapshot", "adapter", "output"):
@@ -44,7 +44,7 @@ def main(argv=None):
         ids = ids["input_ids"]
     staging = output / ".checkpoint.partial"
     report = merge_adapter(args.snapshot, args.adapter, staging, list(ids), tokenizer=tokenizer, config=config,
-        policy=LEAP_MERGE_POLICY,
+        policy=LEAP_MERGE_POLICY, device=device,
         provenance_inputs=[adapter / "training_state.json", adapter.parent / "provenance.json"])
     state.update(adaptation="leap_merged_lora", checkpoint_kind="merged_lora", text_export_dtype="bfloat16",
         policy=report["policy"], strict_allclose_passed=report["strict_allclose_passed"],

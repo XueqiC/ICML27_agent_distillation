@@ -469,7 +469,10 @@ def test_checked_seed_rollout_correction_dataset_and_disclosure(seed_bank, tmp_p
 def test_initialization_rejects_wrong_iteration_variant_or_unmerged_adapter(monkeypatch):
     from baselines.leap import train
     state = {"leap_iteration": 0, "leap_variant": "privileged", "fresh_lora": True, "adaptation": "leap_merged_lora"}
-    monkeypatch.setattr(train, "validate_checkpoint", lambda *a: state)
+    def validate(snapshot, student, *, base_snapshot):
+        assert base_snapshot == "base"
+        return state
+    monkeypatch.setattr(train, "validate_checkpoint", validate)
     train.validate_initialization("base", "base", iteration=0, variant="privileged", student={})
     train.validate_initialization("iter0", "base", iteration=1, variant="privileged", student={})
     with pytest.raises(ValueError, match="configured base"):
