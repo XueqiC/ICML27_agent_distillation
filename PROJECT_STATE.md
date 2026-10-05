@@ -8,8 +8,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
   all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
 - AgentGym K=20 s0 training DONE (44806889, 1:07; F_m 8/12/7). **hpg 44815253** (dept, 1×B200): AgentGym evaluate mode — dev140 of bc / iter-1..3, one model per server (canonical).
-- rai GPU1 mechanism run2: **FCE done** (24/24 closest approach; median D(t*) ≈ 5, ≈ 25 turns left; look_at_obj D(t*) = 1 in 3/4) →
-  I0–I5 interventions running since ~08:35 CDT (290/720 continuations at 09:10) → readout ~10:00 CDT.
+- **Mechanism run2 DONE (10:2x CDT)** on k20s0-p20 (rai-trained, BI, G=24): I0 0/24, I1 3, I2 2, **I3 advice 11**, I4 action 9, **I5 seed
+  example 8**; cells M2-only 7, M1-only 4 (coverage pending), both 4, neither 9. Heat → M1 (3/6 via I5 only); look_at_obj/two_obj → M2;
+  cool/far-from-goal → unresolved. Readout: reports/runs/mechanism/k20s0-p20-bi/run2/launches/attempt-000/readout. Next: plan §4 coverage +
+  knowledge probes; repeat on K5/K10 students (larger gaps) and other support seeds.
 - Contamination tests done: no server-state contamination (k10s2 check fails identically alone → OOD check prompts); but **BI determinism
   needs an identical server config**: k20s0-p40 alone (max-loras 1) 112 vs 115 on the 6-adapter sweep server, 70/140 identical
   trajectories, 7 discordant. → Paper/sealed evals: one adapter per server. Dev sweep numbers stand with ±7/140 cross-config reference.
