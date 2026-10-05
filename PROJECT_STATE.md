@@ -12,7 +12,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - rai GPU1: BI dev140 of hpg adapters (scripts/rai_bi_dev140_hpg_adapters.sh, pid 1482167): k5s0-t400k **74/140** (hpg 72) → gap set G=43, R=4;
   k10s0-t400k 96/140 (hpg 95). **Mechanism run on k5s0-t400k RUNNING since 10:2x CDT** (scripts/rai_mech_k5s0.sh, pid 1513532, tree 70314a3, caps 700/episode, 30k/run)
   → reports/runs/mechanism/k5s0-t400k-bi/run; ~12 h (TPM-bound FCE).
-- hpg 44815253: AgentGym evaluate (bc, iter-1..3) running.
+- hpg 44815253: AgentGym evaluate — **bc 59/140, iter-1 64/140**, iter-2/3 pending (tunnel down at 11:3x).
+- rai GPU3 (A100): plan §4 coverage + absorption probes on run2's k20s0-p20 (scripts/rai_mechanism_probes.sh, pid 1589071, tree 2d47700)
+  → reports/runs/mechanism/k20s0-p20-bi/probes.
+- Committed: 6cac4fc two-pass per-turn DPO/IPR backward (fixes the turn-packed OOM); 2d47700 stage 4f + MECHANISM_PLAN amendment 4.
+  Next on hpg when back: resubmit ETO K20 s0 (4 GPUs, two-pass) and IPR K20 s0.
+
 - ETO K=20 s0 tp3 (44811450, 4×B200, bf16 ref) FAILED at DPO-1 again: OOM at 169.7 GB (static ~54 GB) — the turn-packed preference graph holds
   all turns of both continuations. P=4 this time (SFT model solved 16/20 seed tasks; the 2-GPU run's solved 9/20). Codex pid 1480242: exact
   two-pass per-turn backward for DPO and IPR. Then resubmit ETO; IPR after ETO's DPO works.
