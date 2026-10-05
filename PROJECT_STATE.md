@@ -7,7 +7,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - **hpg 44806752** (group, 2×B200, tree ICML27_runs/97eb54b with the export fix): ETO K=20 s0, turn packing, all stages → reports/runs/
   baselines/eto-k20s0-tp2. (First attempt 44802334 trained but failed at export: key names; fixed in 97eb54b.)
-- **hpg 44805192** (dept): Kang turn-packed greedy eval. Kang turn-packed + SAG (44805191) = **63/140**, 0 parser errors (fix works) ≈ base.
+- Kang K=20 s0 turn-packed (official recipe): **SAG 63/140, greedy 66/140** (0 parser errors) ≈ base 62 — official dose ≈ 2 passes.
 - **hpg 44806889** (dept, 2×B200, 240G, tree 97eb54b): AgentGym BC + AgentEvol K=20 s0 (4 iterations, explore only the K tasks) →
   reports/runs/baselines/agentgym-k20s0. Pending.
 - **hpg 44806873** (dept): SAG decoding on the best Seed-SFT cells (k20s0-p40, k10s2-t200k, k5s1-t400k) → isolates Kang's SAG at an
