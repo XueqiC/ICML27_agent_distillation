@@ -20,7 +20,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - hpg 44798587 robustness: both merges FAILED merge_lora's check (merged-bf16 vs PEFT all-vocab logits mean |Δ| 1.13 / 1.41) → unmerged vLLM
   LoRA (mean 0.04 nats) is the most faithful bf16 serving path; vLLM supports LoRA dtype only fp16/bf16 (no fp32). Plan: gate amendment 4
   (outlier tokens ≤ 5% instead of 2×base+2), evaluate the 8 failed high-dose cells with a flag, fp16-LoRA behavioural sensitivity on 2 ckpts.
-- **hpg 44798591** (group account, 1×B200, tree 58a409c): Kang K=20 s0 (LoRA r64 SFT; eval + SAG afterwards) → reports/runs/baselines/kang-k20s0.
+- Kang K=20 s0 trained (hpg 44798591 COMPLETED; FTP "not run: missing released components") → evals submitted on the group account:
+  **44799331 (SAG)** and **44799332 (greedy ablation)** → reports/runs/eval/baselines/kang-k20s0-{sag,greedy} (tree 58a409c, schema-4 gate).
+- Codex branch gate5-gpus-loradtype (pid 1124640, worktree ICML27_gate5): gate schema 5 (outliers ≤ max(2×base+2, 5% of tokens)),
+  --gpus 2/4/8 for ETO/IPR/AgentGym, LORA_DTYPE option (fp16 sensitivity).
 - Dept QOS is memory-capped (~980/1000G in use by others at 05:1x CDT); group account had 2 B200 free → 1-GPU jobs go there.
 - **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
