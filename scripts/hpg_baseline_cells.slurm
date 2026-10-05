@@ -25,11 +25,12 @@ read -r -a cells <<< "$CELLS"
 cell=${cells[$SLURM_ARRAY_TASK_ID]:-}
 [[ "$cell" =~ ^k([0-9]+)s([0-2])$ ]] || { echo "No valid cell for array index $SLURM_ARRAY_TASK_ID: '$cell'" >&2; exit 2; }
 K=${BASH_REMATCH[1]} S=${BASH_REMATCH[2]}
-# Nested seed ladder: K=5/10 are subsets of the K=20 collection, K=1/2/50 of the K=100 collection (same as Seed-SFT).
+# Nested seed ladder: K=1/2/5/10 are subsets of the K=20 collection, K=50 of the K=100 collection (same views as Seed-SFT;
+# the K=100 collection's own k1..k20 views are checked identical to these).
 case "$K" in
     20|100) verified="data/verified/seeds_k${K}_s$S" ;;
-    5|10) verified="data/verified/seeds_k20_s$S/subsets/k$K" ;;
-    1|2|50) verified="data/verified/seeds_k100_s$S/subsets/k$K" ;;
+    1|2|5|10) verified="data/verified/seeds_k20_s$S/subsets/k$K" ;;
+    50) verified="data/verified/seeds_k100_s$S/subsets/k$K" ;;
     *) echo "K=$K is not on the seed ladder" >&2; exit 2 ;;
 esac
 export VERIFIED="$DATA_ROOT/$verified" WORKERS=${WORKERS:-16} BATCH_INVARIANT=1
