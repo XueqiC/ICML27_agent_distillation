@@ -5,6 +5,26 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **hpg tree d9e151b** (13:3x CDT, scripts/hpg_baseline_cells.slurm = one K×support-seed cell per array task, official recipe + the paper's
+  dev140 BI eval; collections on the nested ladder: K5/10 = seeds_k20_s*/subsets, K1/2/50 = seeds_k100_s*/subsets):
+  44837378 kang-cells-g (group, %1: k5s0 k10s0 k5s1 k10s1), 44837379 kang-cells-d (dept, %2: k5s2 k10s2 k20s1 k20s2),
+  44837380 agentgym-cells (dept, 2×B200 160G, %1: k5s0 k10s0 k5s1 k10s1 k5s2 k10s2 k20s1 k20s2). Outputs
+  $B/reports/runs/baselines/{kang-<cell>-tp,agentgym-<cell>}, Kang SAG eval $B/reports/runs/eval/baselines/kang-<cell>-tp-sag.
+  Memory right-sized from sacct MaxRSS: Kang train 2.9G / SAG eval 9.7G; AgentGym 2-GPU train 137G.
+- **hpg tree 74cdb97**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept 2×B200 200G, pending QOSGrpMemLimit — dept mem 980/1000G used);
+  44836718/44836719 LEAP privileged/zero K20 s0 (group, RUNNING since 13:1x CDT, at train-0; first attempts died in 10 s because
+  third_party/leap_llm (gitignored) was not in the git-archive tree — now shipped at pin a3376d8 in both trees).
+- **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT), sequential
+  s0→s1→s2, each extends seeds_k20_s* by 80 tasks (+ subsets k1/2/5/10/20/50). s0 at 13:05 CDT: 29 tasks / 38 attempts / 24 wins in 24 min
+  → ~65 min per seed. Shares the provider TPM with the K5 mechanism run: 429s occur but every one retried (0 exhausted).
+  After it finishes: rsync seeds_k100_s* to hpg, prepare dose grid v2 (scripts/prepare_seedsft_dose_grid.py, CPU), Seed-SFT sweep
+  K∈{1,2,50,100}×3 seeds, then baseline cells for K∈{1,2,50,100}.
+- **rai GPU1: mechanism run on k5s0-t400k** (scripts/rai_mech_k5s0.sh, pid 1513532, tree 70314a3; G=43, R=4), FCE phase, ~12 h TPM-bound
+  → reports/runs/mechanism/k5s0-t400k-bi/run; then coverage/probes (amendment 5) and readout.
+- Monitors: b1iw9ybuc (K100 collection), bidkfdhyu (K5 mechanism), hpg job/stage watcher (re-armed with the ids above).
+
+## Done today (moved from RUNNING JOBS)
+- (13:3x CDT snapshot of the previous RUNNING JOBS list, superseded by the list above)
 - **hpg (tree 74cdb97)**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept, pending QOSGrpMemLimit); 44836718/44836719 LEAP privileged/zero (resubmitted after shipping third_party/leap_llm templates; first attempts died in 10 s)
   K20 s0 (moved to the group account 12:3x CDT, pending Priority).
 - **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT) extends
@@ -98,7 +118,6 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - User goal restated (23:44): honestly measure what SOTA baselines and our student achieve, and which environment traits amplify or
   shrink each gap → MECHANISM_PLAN addendum A (trait stratification, pre-registered).
 
-## Done today (moved from RUNNING JOBS)
 - Seeds: s0 20/29 attempts, s1 20/38 (done 19:38 CDT), s2 20/24 → data/verified/seeds_k20_s{0,1,2} with subsets/k5, subsets/k10.
 - Seed-SFT K=20 s0 (rai GPU1, episode packing 96531ed): first run OOM at update 120/233 (fragmentation; eager attention on the
   14,005-token episode) → reports/runs/train/seedsft-k20-s0-rai-oom; rerun with PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
