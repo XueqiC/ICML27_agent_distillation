@@ -20,7 +20,7 @@ from sed.storage import digest, locked, write_json
 RECIPE = {"training_seed": 0, "sampling_seed": 0, "epochs": 3, "max_length": 32768,
     "adaptation": "full", "iterations": 6, "batch_invariant": True,
     "sft": {"learning_rate": 2e-5, "scheduler": "cosine", "warmup_ratio": .03,
-            "original_batch": 48, "weight_decay": 0.0},
+            "original_batch": 48, "weight_decay": 0.0, "packing": "turn"},
     "ipr": {"learning_rate": 3e-6, "scheduler": "constant_with_warmup", "warmup_ratio": .1,
             "original_batch": 48, "weight_decay": 0.0, "beta": .1},
     "reference": "fixed_sft", "nll_weight": 1, "mc_samples": 5,

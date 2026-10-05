@@ -74,17 +74,26 @@ def test_ipr_whole_continuation_masks_prefix_and_tracks_reversed_sources(tokeniz
     encoded = preference_conversation(pairs[0],tokenizer)
     n = len(encoded["prompt_input_ids"])
     for side,turns in (("chosen",1),("rejected",3)):
-        row = encoded[side]
-        assert row["labels"][:n] == [-100]*n
-        assert row["input_ids"][:n] == encoded["prompt_input_ids"]
-        assert len(row["assistant_spans"]) == row["turn_count"] == turns
-        assert row["supervised_tokens"] == sum(v != -100 for v in row["labels"])
-        for span in row["assistant_spans"]:
-            assert row["labels"][span["stop"]-1] == 106
-            assert span["start"] >= n
-        text = tokenizer.decode([v for v in row["labels"] if v != -100])
-        assert "step 0" not in text and "UNIQUE_OBSERVATION_SENTINEL" not in text
-        assert "PRIVATE_PDDL" not in tokenizer.decode(row["input_ids"])
+        group = encoded[side]
+        assert len(group["turns"]) == group["turn_count"] == turns
+        assert group["supervised_tokens"] == sum(t["supervised_tokens"] for t in group["turns"])
+        for i, row in enumerate(group["turns"]):
+            assert row["labels"][:n] == [-100]*n
+            assert row["input_ids"][:n] == encoded["prompt_input_ids"]
+            prompt = pairs[0]["prompt"] + pairs[0][side][:2*i]
+            text = tokenizer.apply_chat_template(prompt, tokenize=False,
+                add_generation_prompt=True, enable_thinking=False)
+            ids = tokenizer.encode(text, add_special_tokens=False)
+            assert row["input_ids"][:row["prompt_tokens"]] == ids
+            assert row["labels"][:len(ids)] == [-100] * len(ids)
+            assert row["assistant_spans"][0]["turn_index"] == i + pairs[0]["j"]
+            assert row["supervised_tokens"] == sum(v != -100 for v in row["labels"])
+            for span in row["assistant_spans"]:
+                assert row["labels"][span["stop"]-1] == 106
+                assert span["start"] >= n
+            text = tokenizer.decode([v for v in row["labels"] if v != -100])
+            assert "step 0" not in text and "UNIQUE_OBSERVATION_SENTINEL" not in text
+            assert "PRIVATE_PDDL" not in tokenizer.decode(row["input_ids"])
     assert encoded["chosen"]["label_provenance"]["source"] == "student_exploration"
     assert encoded["rejected"]["label_provenance"]["source"] == "trusted_teacher_seed"
     with pytest.raises(ValueError,match="no truncation"):

@@ -13,7 +13,7 @@ from sed.storage import digest, locked, write_json
 RECIPE = {"training_seed": 0, "epochs": 2, "max_length": 32768, "adaptation": "kang_lora",
     "rank": 64, "alpha": 128, "dropout": 0.05, "targets": "q/k/v/o/gate/up/down under .language_model.",
     "learning_rate": 2e-4, "scheduler": "linear", "warmup_steps": 0, "original_batch": 8,
-    "weight_decay": 0.0, "gradient_clip": 1.0, "packing": "episode", "loss": "assistant_only",
+    "weight_decay": 0.0, "gradient_clip": 1.0, "packing": "turn", "loss": "assistant_only",
     "first_thought_prefix": False, "sag": {"n": 8, "temperature": 0.4, "top_p": 0.8, "max_tokens": 1024}}
 
 
@@ -23,7 +23,7 @@ def training_command(args, output):
         "--base-snapshot", args.snapshot, "--verified", args.verified, "--output", str(output),
         "--epochs", "2", "--seed", "0", "--max-length", "32768", "--learning-rate", "2e-4",
         "--scheduler", "linear", "--warmup-ratio", "0", "--warmup-steps", "0",
-        "--original-batch", "8", "--weight-decay", "0"]
+        "--original-batch", "8", "--weight-decay", "0", "--packing", RECIPE["packing"]]
 
 
 def train_pipeline(args, identity):

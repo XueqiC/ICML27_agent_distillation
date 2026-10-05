@@ -120,10 +120,11 @@ def prepare_dataset(verified, output, config, *, previous=None, exploration=None
     return report
 
 
-def training_examples(path, config, tokenizer):
+def training_examples(path, config, tokenizer, *, packing="turn", max_length=32768):
     examples = []
     for index, row in enumerate(load_dataset(path, config)):
-        example = encode_messages(row["messages"], tokenizer, task_id=row["task_id"])
+        example = encode_messages(row["messages"], tokenizer, task_id=row["task_id"],
+                                  packing=packing, max_length=max_length)
         provenance = example["label_provenance"]
         provenance.update(source=row["source"], trusted_seed=row["source"] == "trusted_teacher_seed",
             parent_seed_ids=row["parent_seed_ids"], source_episode_id=row["episode_id"], dataset_index=index)

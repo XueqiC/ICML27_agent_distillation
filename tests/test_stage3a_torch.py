@@ -12,16 +12,16 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("transformers")
 from test_stage2b_torch import tokenizer, tiny_model, trajectory
-from baselines.common.conversation import conversation, episode_messages, preference_conversation
+from baselines.common.conversation import conversation, episode_messages, preference_conversation, sequence_rows
 from baselines.common.fsdp_train import (batch_logps, sft_objective, dpo_objective, train_loop,
-                                         export_checkpoint, prepare_model, validate_checkpoint)
+                                         export_checkpoint, prepare_model, validate_checkpoint, sft_microsteps, scoring_batches)
 from baselines.common.schedule import dose, lr_multiplier, rank_slots
 from baselines.eto.official_loss import OfficialLoss
 from sed.manifest import load_frozen
 from sed.react import build_messages
 from sed.seed_evidence import checked_episode, load_verified_collection
 from sed.storage import digest, write_json
-from train.dataset import EMPTY_THOUGHT
+from train.dataset import EMPTY_THOUGHT, episode_examples
 
 
 def test_every_real_seed_turn_matches_eval_prefix(tokenizer):
@@ -31,19 +31,40 @@ def test_every_real_seed_turn_matches_eval_prefix(tokenizer):
     manifest, freeze = load_frozen("data/manifest/alfworld_manifest.json", "data/manifest/alfworld_split_freeze.json")
     collection, _, evidence = load_verified_collection(root, manifest, freeze)
     episode = checked_episode(evidence, collection["verified"][0])
-    row = conversation(episode, tokenizer, source="trusted_teacher_seed")
+    example = conversation(episode, tokenizer, source="trusted_teacher_seed", packing="turn")
     history, visible = [], episode["initial"]["visible"]
-    for i, (span, step) in enumerate(zip(row["assistant_spans"], episode["steps"])):
+    for row, step in zip(example["turns"], episode["steps"]):
+        span, = row["assistant_spans"]
         prompt = tokenizer.apply_chat_template(build_messages(history, {}, visible), tokenize=False,
                       add_generation_prompt=True, enable_thinking=False)
-        if i < len(episode["steps"]) - 1:
-            assert prompt.endswith(EMPTY_THOUGHT)
-            prompt = prompt[:-len(EMPTY_THOUGHT)]
+        assert prompt.endswith(EMPTY_THOUGHT)
         assert row["input_ids"][:span["start"]] == tokenizer.encode(prompt, add_special_tokens=False)
         assert row["labels"][span["stop"] - 1] == 106
         assert tokenizer.decode(row["labels"][span["start"]:span["stop"]]) == step["action_raw"].strip() + "<turn|>"
         history.append({"visible": visible, "reply": step["action_raw"]})
         visible = step["visible"]
+
+
+@pytest.mark.parametrize("turns", [1, 2, 5])
+def test_baseline_turn_rows_equal_dataset_and_every_eval_prefix(tokenizer, turns):
+    episode = trajectory()
+    episode["steps"] = [dict(episode["steps"][0], event_id=f"event-{i}",
+        action_raw=f"Thought: step {i} " + "carefully " * i + "\nAction: look") for i in range(turns)]
+    actual = conversation(episode, tokenizer, source="trusted_teacher_seed", packing="turn")
+    expected = episode_examples(episode, tokenizer, packing="turn")
+    messages = episode_messages(episode)
+    for i, (row, target) in enumerate(zip(actual["turns"], expected)):
+        for field in ("input_ids", "labels", "attention_mask", "assistant_spans"):
+            assert row[field] == target[field]
+        prompt = tokenizer.apply_chat_template(messages[:2 + i * 2], tokenize=False,
+            add_generation_prompt=True, enable_thinking=False)
+        ids = tokenizer.encode(prompt, add_special_tokens=False)
+        assert prompt.endswith(EMPTY_THOUGHT)
+        assert row["input_ids"][:row["prompt_tokens"]] == ids
+        assert row["labels"][:len(ids)] == [-100] * len(ids)
+        assert row["labels"][-1] == 106
+    packed = conversation(episode, tokenizer, source="trusted_teacher_seed", packing="episode")
+    assert actual["supervised_tokens"] == packed["supervised_tokens"]
 
 
 def test_dpo_shared_prompt_and_mask_roundtrip(tokenizer):
@@ -55,12 +76,13 @@ def test_dpo_shared_prompt_and_mask_roundtrip(tokenizer):
             "chosen": episode_messages(chosen)[2:], "rejected": episode_messages(rejected)[2:]}
     rows = preference_conversation(pair, tokenizer)
     for side, episode in [("chosen", chosen), ("rejected", rejected)]:
-        expected = conversation(episode, tokenizer, source="student_exploration")
+        expected = conversation(episode, tokenizer, source="student_exploration", packing="turn")
         actual = rows[side]
-        assert actual["input_ids"] == expected["input_ids"] and actual["labels"] == expected["labels"]
-        assert rows["prompt_input_ids"] + actual["continuation_input_ids"] == actual["input_ids"]
-        assert actual["labels"][-1] == 106
-        assert "PRIVATE_PDDL" not in tokenizer.decode(actual["input_ids"])
+        for turn, target in zip(actual["turns"], expected["turns"]):
+            assert turn["input_ids"] == target["input_ids"] and turn["labels"] == target["labels"]
+            assert rows["prompt_input_ids"] + turn["continuation_input_ids"] == turn["input_ids"]
+            assert turn["labels"][-1] == 106
+            assert "PRIVATE_PDDL" not in tokenizer.decode(turn["input_ids"])
     assert all(t["source"] == "student_exploration" for t in rows["rejected"]["label_provenance"]["turns"])
     with pytest.raises(ValueError, match="no truncation"):
         preference_conversation(pair, tokenizer, max_length=1)
@@ -237,3 +259,114 @@ def test_prepare_model_sdpa_fp32_and_checkpointing(tmp_path):
     assert policy.config.get_text_config()._attn_implementation == "sdpa"
     assert policy.is_gradient_checkpointing and not reference.training
     assert not any(p.requires_grad for p in reference.parameters())
+
+
+def packed_examples(packing, n=25):
+    examples = []
+    for i in range(n):
+        count = 1 + i % 3
+        if packing == "episode":
+            examples.append({"packing": packing, "input_ids": [2] + [5, 6, 106] * count,
+                             "labels": [-100] + [-100, 6, 106] * count})
+        else:
+            examples.append({"packing": packing, "turns": [
+                {"input_ids": [2] + [5, 6, 106] * t + [5, 6, 106],
+                 "labels": [-100] * (2 + 3 * t) + [6, 106]} for t in range(count)]})
+    return examples
+
+
+def test_training_updates_keep_trajectory_batches_lrs_and_exposure_across_packings(tmp_path):
+    torch.set_num_threads(1)
+    torch.manual_seed(2)
+    base = tiny_model()
+    states, ledgers = {}, {}
+    for packing in ("episode", "turn"):
+        examples = packed_examples(packing)
+        states[packing] = train_loop(deepcopy(base), examples, tmp_path / packing, objective="sft",
+            learning_rate=2e-4, scheduler="linear", warmup_ratio=0, original_batch=8,
+            epochs=2, seed=7, packing=packing)
+        ledgers[packing] = [json.loads(line) for line in (tmp_path / packing / "updates.jsonl").read_text().splitlines()]
+        expected_forward = 2 * sum(len(row["input_ids"]) for e in examples for row in sequence_rows(e))
+        assert states[packing]["logical_forward_tokens"] == expected_forward
+        assert states[packing]["physical_policy_forward_tokens"] == expected_forward
+        assert states[packing]["zero_weight_slots"] == 0
+        assert ledgers[packing][-1]["logical_forward_tokens"] == expected_forward
+    for key in ("updates", "examples_seen", "supervised_tokens_seen", "b_prime", "steps_per_epoch", "last_batch"):
+        assert states["turn"][key] == states["episode"][key]
+    assert states["turn"]["b_prime"] == 3 and states["turn"]["last_batch"] == 1
+    assert states["turn"]["logical_forward_tokens"] > states["episode"]["logical_forward_tokens"]
+    for turn, episode in zip(ledgers["turn"], ledgers["episode"]):
+        for key in ("update", "epoch", "indices", "lr", "global_batch", "examples_seen", "supervised_tokens_seen"):
+            assert turn[key] == episode[key]
+
+
+@pytest.mark.parametrize("indices", [[0], [0, 1], [2, 0, 1]])
+def test_turn_accumulation_gradient_is_trajectory_token_mean_with_rank_padding(indices):
+    torch.set_num_threads(1)
+    torch.manual_seed(3)
+    model = tiny_model().eval()
+    examples = [{"packing": "turn", "turns": [rows()[0]]},
+                {"packing": "turn", "turns": rows()},
+                {"packing": "turn", "turns": [rows()[1], rows()[1], rows()[0]]}]
+    expected = sum(sft_objective(model, examples[i], "cpu")[0] for i in indices) / len(indices)
+    microsteps = sft_microsteps(examples, indices)
+    actual = 0
+    for slot in rank_slots(list(range(len(microsteps))), 4):
+        for index in slot:
+            row, weight = microsteps[index if index is not None else 0]
+            actual += sft_objective(model, row, "cpu")[0] * (weight * 4 / len(indices) if index is not None else 0)
+    actual /= 4
+    torch.testing.assert_close(actual, expected)
+    parameter = model.model.language_model.layers[0].self_attn.q_proj.weight
+    torch.testing.assert_close(torch.autograd.grad(actual, parameter)[0], torch.autograd.grad(expected, parameter)[0])
+
+
+@pytest.mark.parametrize("nll_weight", [0., 1.])
+def test_preference_turn_scores_and_gradients_are_sums_not_turn_means(nll_weight):
+    torch.set_num_threads(1)
+    torch.manual_seed(4)
+    model = tiny_model().eval()
+    reference = deepcopy(model).eval().requires_grad_(False)
+    with torch.no_grad():
+        next(reference.parameters()).add_(.01)
+    pair = {"chosen": {"packing": "turn", "turns": rows()},
+            "rejected": {"packing": "turn", "turns": [rows()[1]]}}
+    def dense_scores(candidate):
+        result = []
+        for side in ("chosen", "rejected"):
+            score = 0
+            for row in pair[side]["turns"]:
+                logits = candidate(input_ids=torch.tensor([row["input_ids"]]), use_cache=False).logits
+                score += OfficialLoss.get_batch_logps(logits.float(), torch.tensor([row["labels"]]))[0]
+            result.append(score)
+        return torch.stack(result)
+    policy, ref = dense_scores(model), dense_scores(reference)
+    torch.testing.assert_close(batch_logps(model, [pair["chosen"], pair["rejected"]], "cpu", rounds=4), policy)
+    expected = -torch.nn.functional.logsigmoid(.1 * ((policy[0] - policy[1]) - (ref[0] - ref[1]))) - nll_weight * policy[0]
+    actual, _ = dpo_objective(model, reference, pair, "cpu", beta=.1, nll_weight=nll_weight, rounds=4)
+    torch.testing.assert_close(actual, expected)
+    parameter = model.model.language_model.layers[0].self_attn.q_proj.weight
+    torch.testing.assert_close(torch.autograd.grad(actual, parameter)[0], torch.autograd.grad(expected, parameter)[0])
+    assert all(p.grad is None for p in reference.parameters())
+
+
+@pytest.mark.parametrize("objective", ["dpo", "ipr"])
+def test_preference_turn_training_accounts_for_padding_and_reference(tmp_path, objective):
+    torch.set_num_threads(1)
+    torch.manual_seed(5)
+    model = tiny_model()
+    reference = deepcopy(model).eval().requires_grad_(False)
+    pair = {"chosen": {"packing": "turn", "turns": rows()},
+            "rejected": {"packing": "turn", "turns": [rows()[1]]}}
+    state = train_loop(model, [pair], tmp_path, objective=objective, reference=reference,
+        learning_rate=1e-5, scheduler="constant_with_warmup", warmup_ratio=0,
+        original_batch=48, epochs=1, packing="turn")
+    assert state["updates"] == state["examples_seen"] == 1
+    assert state["supervised_tokens_seen"] == 9
+    assert state["logical_forward_tokens"] == 17
+    assert state["physical_policy_forward_tokens"] == state["physical_reference_forward_tokens"] == 28
+    ledger, = [json.loads(line) for line in (tmp_path / "updates.jsonl").read_text().splitlines()]
+    assert ledger["collective_rounds"] == 2 and ledger["global_batch"] == 1
+    assert ledger["physical_policy_forward_tokens"] == 28
+    with pytest.raises(ValueError, match="cannot omit"):
+        scoring_batches([pair["chosen"], pair["rejected"]], rounds=1)

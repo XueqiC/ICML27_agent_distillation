@@ -24,7 +24,7 @@ from sed.storage import digest, file_hash, locked, write_json
 
 RECIPE = {"training_seed": 0, "epochs": 3, "max_length": 32768,
           "sft": {"learning_rate": 2e-5, "scheduler": "cosine", "warmup_ratio": 0.03,
-                  "original_batch": 64, "weight_decay": 0.0},
+                  "original_batch": 64, "weight_decay": 0.0, "packing": "turn"},
           "dpo": {"scheduler": "constant_with_warmup", "warmup_ratio": 0.1,
                   "original_batch": 32, "weight_decay": 0.0},
           "iterations": [{"learning_rate": 1e-6, "beta": 0.1},

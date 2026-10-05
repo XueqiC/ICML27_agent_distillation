@@ -19,9 +19,10 @@ from test_stage2b_torch import tiny_model, tokenizer
 from test_stage3d import episode, correction
 
 
-def test_real_gemma_template_only_turn_t_supervised_original_history_and_no_oracle(tokenizer):
+@pytest.mark.parametrize("corrected", [False, True])
+def test_real_gemma_template_only_turn_t_supervised_original_history_and_no_oracle(tokenizer, corrected):
     original = episode()
-    rows = step_rows(original, parents=["seed"], corrections=parse_correction(correction(), 2))
+    rows = step_rows(original, parents=["seed"], corrections=parse_correction(correction(), 2) if corrected else None)
     examples = encode_rows(rows, tokenizer)
     for i, (row, example) in enumerate(zip(rows, examples)):
         prefix = tokenizer.apply_chat_template(row["messages"], tokenize=False,
@@ -33,8 +34,8 @@ def test_real_gemma_template_only_turn_t_supervised_original_history_and_no_orac
         assert example["labels"][-1] == 106
         decoded = tokenizer.decode(example["input_ids"])
         assert "SECRET" not in decoded and "PRIVATE" not in decoded
-        assert "ORIGINAL_REASON_0" in decoded if i else "ORIGINAL_REASON_0" not in decoded
-        assert example["label_provenance"]["verification"] == "unknown_teacher_label"
+        assert "ORIGINAL_REASON_0" in prefix if i else "ORIGINAL_REASON_0" not in prefix
+        assert example["label_provenance"]["verification"] == ("unknown_teacher_label" if corrected else "executed_seed")
     long = deepcopy(rows)
     long[0]["target"] = "Thought: " + "word " * 40000 + "\nAction: look"
     with pytest.raises(ValueError, match="no truncation"):

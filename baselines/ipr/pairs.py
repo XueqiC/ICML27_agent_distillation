@@ -7,7 +7,7 @@ measured after j+1 expert actions. All j=0 MC samples are retained but unused.
 import math
 from pathlib import Path
 
-from baselines.common.conversation import episode_messages, encode_messages
+from baselines.common.conversation import episode_messages, encode_continuation
 from baselines.ipr.rollouts import checked_rollouts, seeds, read
 from sed.provenance import write_provenance
 from sed.storage import digest, file_hash, write_json
@@ -153,26 +153,16 @@ def preference_conversation(pair, tokenizer, *, max_length=32768):
     prompt = pair["prompt"]
     if len(prompt) != 2 + 2 * pair["j"] or prompt[-1]["role"] != "user":
         raise ValueError("IPR prompt must end at the branch observation")
-    ids = tokenizer.encode(tokenizer.apply_chat_template(prompt, tokenize=False,
-        add_generation_prompt=False, enable_thinking=False), add_special_tokens=False)
     rows = {}
     for side in ("chosen", "rejected"):
-        row = encode_messages(prompt + pair[side], tokenizer, task_id=pair["task_id"], max_length=max_length)
-        if row["input_ids"][:len(ids)] != ids:
-            raise ValueError("IPR prompt must be an exact shared token prefix")
-        row["labels"][:len(ids)] = [-100] * len(ids)
-        row["assistant_spans"] = [s for s in row["assistant_spans"] if s["start"] >= len(ids)]
+        row, ids = encode_continuation(prompt, pair[side], tokenizer, task_id=pair["task_id"],
+                                      source=pair[side + "_source"], max_length=max_length)
         provenance = row["label_provenance"]
-        provenance["turns"] = provenance["turns"][pair["j"]:]
         provenance.update(source=pair[side + "_source"], parent_seed_ids=pair["parent_seed_ids"],
             trusted_seed=pair[side + "_source"] == "trusted_teacher_seed", kind=pair["kind"], j=pair["j"],
             agent_episode_id=pair["agent_episode_id"], masked_prefix_turns=pair["j"])
         for turn in provenance["turns"]:
             turn["source"] = provenance["source"]
-        row["supervised_tokens"] = sum(v != -100 for v in row["labels"])
-        row["turn_count"] = len(row["assistant_spans"])
-        row["continuation_input_ids"] = row["input_ids"][len(ids):]
-        row["continuation_labels"] = row["labels"][len(ids):]
         rows[side] = row
     return {"task_id": pair["task_id"], "prompt_input_ids": ids, "label_provenance": {
         "kind": pair["kind"], "j": pair["j"], "parent_seed_ids": pair["parent_seed_ids"],

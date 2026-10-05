@@ -178,6 +178,7 @@ def test_kang_command_and_training_attempt_disclosure(tmp_path):
     assert values["--learning-rate"] == "2e-4" and values["--original-batch"] == "8"
     assert values["--scheduler"] == "linear" and values["--warmup-steps"] == "0"
     assert values["--seed"] == "0" and values["--max-length"] == "32768"
+    assert values["--packing"] == kang.RECIPE["packing"] == "turn"
     assert "torch.distributed.run" not in command
     for i in range(2):
         path = tmp_path / f"stages/train-sft/attempt-{i:03d}/output"

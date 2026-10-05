@@ -30,7 +30,8 @@ def test_linear_every_step_matches_transformers(total, warmup):
         schedule.step()
 
 
-def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path):
+@pytest.mark.parametrize("packing", ["episode", "turn"])
+def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path, packing):
     from peft import PeftModel
     torch.set_num_threads(1)
     torch.manual_seed(0)
@@ -55,9 +56,13 @@ def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path):
         native = model(input_ids=torch.tensor([row["input_ids"]]), labels=torch.tensor([row["labels"]]), use_cache=False).loss
         actual, _ = sft_objective(model, row, "cpu")
         torch.testing.assert_close(actual, native)
+    if packing == "turn":
+        rows = [{"packing": "turn", "turns": [rows[0]]}, {"packing": "turn", "turns": [
+            {"input_ids": [2, 6, 106], "labels": [-100, 6, 106]},
+            {"input_ids": [2, 6, 106, 10, 11, 106], "labels": [-100, -100, -100, -100, 11, 106]}]}]
     output = tmp_path / "train"
     state = train_loop(model, rows, output, objective="sft", learning_rate=2e-4, scheduler="linear",
-        warmup_ratio=0, warmup_steps=0, original_batch=8, epochs=2, seed=0)
+        warmup_ratio=0, warmup_steps=0, original_batch=8, epochs=2, seed=0, packing=packing)
     assert state["examples_seen"] == 4 and state["supervised_tokens_seen"] == 12
     assert state["b_prime"] == 1 and state["updates"] == 4 and state["gradient_clip"] == 1
     assert state["weight_decay"] == 0
@@ -70,7 +75,7 @@ def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path):
     write_json(output / "provenance.json", provenance)
     saved = export_adapter(model, output / "checkpoint", provenance, state)
     adapter = inspect_adapter("kang", output / "checkpoint", provenance["config"]["models"]["student"], base)
-    assert adapter["rank"] == 64 and adapter["checkpoint_metadata"] == {"packing": "episode", "passes": 2, "supervised_tokens": 12}
+    assert adapter["rank"] == 64 and adapter["checkpoint_metadata"] == {"packing": packing, "passes": 2, "supervised_tokens": 12}
     assert saved["final"] and (output / "checkpoint/adapter_model.safetensors").is_file()
     loaded = PeftModel.from_pretrained(load_student(base, device="cpu", dtype="float32"), output / "checkpoint")
     loaded.eval()
@@ -89,21 +94,23 @@ def test_kang_targets_exclude_multimodal_decoys():
     assert all(not p.requires_grad for n, p in adapted.named_parameters() if "vision_tower" in n)
 
 
-def test_accumulated_conversation_preserves_all_assistant_closures(tokenizer, monkeypatch):
+@pytest.mark.parametrize("packing", ["episode", "turn"])
+def test_accumulated_conversation_preserves_all_assistant_closures(tokenizer, monkeypatch, packing):
     from baselines.agentgym.data import training_examples
-    from baselines.common.conversation import episode_messages, conversation
+    from baselines.common.conversation import episode_messages, conversation, sequence_rows
     episode = trajectory()
     rows = [{"task_id": episode["task_id"], "episode_id": "seed", "parent_seed_ids": ["seed"],
              "source": source, "messages": episode_messages(episode)}
             for source in ["student_exploration", "trusted_teacher_seed"]]
     monkeypatch.setattr("baselines.agentgym.data.load_dataset", lambda *a: rows)
-    examples = training_examples("fake", {}, tokenizer)
-    expected = conversation(episode, tokenizer, source="trusted_teacher_seed")
+    examples = training_examples("fake", {}, tokenizer, packing=packing)
+    expected = conversation(episode, tokenizer, source="trusted_teacher_seed", packing=packing)
     for i, example in enumerate(examples):
-        assert example["input_ids"] == expected["input_ids"] and example["labels"] == expected["labels"]
+        for row, target in zip(sequence_rows(example), sequence_rows(expected)):
+            assert row["input_ids"] == target["input_ids"] and row["labels"] == target["labels"]
+            assert all(row["labels"][s["stop"] - 1] == 106 for s in row["assistant_spans"])
         assert example["label_provenance"]["source"] == rows[i]["source"]
         assert example["label_provenance"]["parent_seed_ids"] == ["seed"]
-        assert all(example["labels"][s["stop"] - 1] == 106 for s in example["assistant_spans"])
         assert all(t["source"] == rows[i]["source"] for t in example["label_provenance"]["turns"])
 
 

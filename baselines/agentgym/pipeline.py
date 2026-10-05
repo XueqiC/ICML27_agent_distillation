@@ -15,7 +15,7 @@ from sed.storage import digest, locked, write_json
 
 RECIPE = {"training_seed": 0, "epochs": 1, "max_length": 32768, "adaptation": "full",
     "learning_rate": 1e-5, "scheduler": "linear", "warmup": "int(0.1 * total_steps)",
-    "original_batch": 32, "weight_decay": 0.0, "gradient_clip": 1.0,
+    "original_batch": 32, "weight_decay": 0.0, "gradient_clip": 1.0, "packing": "turn",
     "trained_iterations": [0, 1, 2, 3], "untrained_dataset": 4,
     "exploration": "one greedy rollout per seed TRAIN task; batch invariant"}
 
@@ -35,7 +35,8 @@ def training_command(args, *, data, output, n_examples):
         "--snapshot", args.snapshot, "--base-snapshot", args.snapshot, "--sft-data", str(data),
         "--output", str(output), "--epochs", "1", "--seed", "0", "--max-length", "32768",
         "--learning-rate", "1e-5", "--scheduler", "linear", "--warmup-ratio", "0.1",
-        "--warmup-steps", str(int(0.1 * plan["total_steps"])), "--original-batch", "32", "--weight-decay", "0"]
+        "--warmup-steps", str(int(0.1 * plan["total_steps"])), "--original-batch", "32", "--weight-decay", "0",
+        "--packing", RECIPE["packing"]]
 
 
 def train_pipeline(args, identity, config):
