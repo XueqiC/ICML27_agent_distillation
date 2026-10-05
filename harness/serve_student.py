@@ -144,7 +144,7 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--python", default=os.environ.get("VLLM_PYTHON"), required=not os.environ.get("VLLM_PYTHON"))
     parser.add_argument("--model-path", default=os.environ.get("MODEL_PATH"), required=not os.environ.get("MODEL_PATH"))
-    parser.add_argument("--merged-model-path", help="Explicit already-merged LoRA checkpoint for later work")
+    parser.add_argument("--merged-model-path", help="Standalone HF checkpoint (merged LoRA or full fine-tuning)")
     parser.add_argument("--lora-adapter", action="append", default=[], metavar="NAME=PATH")
     parser.add_argument("--lora-conversion", choices=("none", "targets", "gemma4"), default="none",
                         help="Explicit fallback after a naming rejection; writes only under server output")
@@ -179,13 +179,27 @@ def main(argv=None):
     # local snapshot. We do not imply that --revision verifies local weight bytes.
     model_files = {str(p.relative_to(model)): file_hash(p) for p in model.iterdir()
                    if p.is_file() and p.suffix in {".json", ".jinja", ".jinja2"}}
+    checkpoint_kind = "merged_lora" if args.merged_model_path else "base"
+    training_provenance = None
+    if args.merged_model_path and (model / "training_state.json").exists():
+        state = json.loads((model / "training_state.json").read_text())
+        if state.get("text_export_dtype") == "bfloat16":
+            from baselines.common.fsdp_train import validate_checkpoint
+            validate_checkpoint(model, student)
+            checkpoint_kind = "full_parameter"
+            training_provenance = file_hash(model.parent / "provenance.json")
     config["server"] = {"command": command, "runtime": runtime,
                         "port": args.port, "endpoint": f"http://127.0.0.1:{args.port}/v1",
                         "readiness_identity": "all model IDs plus listening socket owned by child process group",
                         "served_model_name": student["requested_repo"], "lora_adapters": adapters,
                         "model_path": str(model), "merged_model": bool(args.merged_model_path),
+                        "checkpoint_kind": checkpoint_kind,
+                        "training_provenance_sha256": training_provenance,
                         "model_metadata_sha256": model_files,
-                        "model_revision_verification": "local_path_and_metadata; weight_bytes_not_verified",
+                        "model_revision_verification": (
+                            "training_artifact_hashes; original_HF_base_weight_bytes_not_certified"
+                            if checkpoint_kind == "full_parameter" else
+                            "local_path_and_metadata; weight_bytes_not_verified"),
                         "environment": {"VLLM_ATTENTION_BACKEND": "FLASH_ATTN",
                                         "VLLM_USE_FLASHINFER_SAMPLER": "0",
                                         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},

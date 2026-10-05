@@ -9,6 +9,14 @@ MAX_TOKENS=${MAX_TOKENS:-1024}
 READY_TIMEOUT=${READY_TIMEOUT:-900}
 LORA_CONVERSION=${LORA_CONVERSION:-none}
 CONFIG=${CONFIG:-configs/base.yaml}
+MERGED_MODEL_PATH=${MERGED_MODEL_PATH:-}
+FULL_CHECKPOINT_NAME=${FULL_CHECKPOINT_NAME:-full-checkpoint}
+if [[ -n "$MERGED_MODEL_PATH" ]]; then
+    [[ ${#adapters[@]} == 0 && "$INCLUDE_BASE" == 1 && -d "$MERGED_MODEL_PATH" ]] || {
+        echo 'Full checkpoint mode requires no adapters and INCLUDE_BASE=1' >&2; exit 2;
+    }
+    [[ "$FULL_CHECKPOINT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]
+fi
 [[ "$ENABLE_THINKING" == off && "$MAX_TOKENS" == 1024 ]] || {
     echo 'Evaluation fixes ENABLE_THINKING=off and MAX_TOKENS=1024' >&2; exit 2;
 }
@@ -21,7 +29,7 @@ if [[ ${#adapters[@]} -gt 0 ]]; then
     [[ -x "$TRAIN_PYTHON" && -d "$VERIFIED" ]]
 fi
 # Validate names, checkpoint identities, and the frozen dev manifest before GPU work.
-base_name=$(CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$CONFIG" "$MODEL_PATH" "$TASKS" "${adapters[@]}" <<'PY'
+base_name=$(CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$CONFIG" "$MODEL_PATH" "$TASKS" "$MERGED_MODEL_PATH" "${adapters[@]}" <<'PY'
 import sys
 from sed.config import load_config
 from sed.manifest import load_frozen
@@ -33,7 +41,10 @@ listing, _ = frozen_tasks(sys.argv[3], manifest, freeze)
 if listing.get("name") not in {"dev40", "dev140"}:
     raise ValueError("Launcher requires frozen dev40 or dev140")
 student = config["models"]["student"]
-for name, path in parse_adapters(sys.argv[4:], student["requested_repo"]):
+if sys.argv[4]:
+    from baselines.common.fsdp_train import validate_checkpoint
+    validate_checkpoint(sys.argv[4], student)
+for name, path in parse_adapters(sys.argv[5:], student["requested_repo"]):
     inspect_adapter(name, path, student, sys.argv[2])
 print(student["requested_repo"])
 PY
@@ -65,6 +76,7 @@ for pair in "${adapters[@]}"; do
         --hf-only --output "$OUT/$name/hf"
 done
 lora_args=()
+if [[ -n "$MERGED_MODEL_PATH" ]]; then lora_args+=(--merged-model-path "$MERGED_MODEL_PATH"); fi
 for pair in "${adapters[@]}"; do lora_args+=(--lora-adapter "$pair"); done
 # --port 0 binds loopback port 0 to obtain a free port. The selected port is
 # persisted in server provenance and ready.json; no guessed/hardcoded endpoint.
@@ -85,11 +97,13 @@ PY
 )
 eval_model() {
     local request_model=$1
+    local output_name=$1
+    if [[ -n "$MERGED_MODEL_PATH" ]]; then output_name=$FULL_CHECKPOINT_NAME; fi
     shift
     CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" eval/run_suite.py --config "$CONFIG" \
         --policy student --endpoint "$endpoint" --model-name "$request_model" \
         --enable-thinking off --max-tokens 1024 --tasks "$TASKS" --workers "$WORKERS" \
-        --output "$OUT/$request_model/eval" --server-provenance "$OUT/server/provenance.json" "$@"
+        --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "$@"
 }
 if [[ "$INCLUDE_BASE" == 1 ]]; then eval_model "$base_name"; fi
 for pair in "${adapters[@]}"; do

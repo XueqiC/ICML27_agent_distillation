@@ -47,6 +47,8 @@ def policy_condition(policy, spec, config):
         return "teacher"
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
     name = "merged_lora_student" if server.get("merged_model") else "base_student"
+    if server.get("checkpoint_kind") == "full_parameter":
+        name = "full_parameter_student"
     if spec["model"] != config["models"]["student"]["requested_repo"]:
         name = "lora_student"
     return name + "_thinking_" + str(spec["enable_thinking"]).lower()

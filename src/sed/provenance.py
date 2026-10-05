@@ -30,9 +30,10 @@ def versions():
 def code_hashes(root):
     root = Path(root)
     files = []
-    for folder in ("src", "harness", "teachers", "students", "train", "eval", "tools", "tests", "configs", "scripts"):
+    for folder in ("baselines", "src", "harness", "teachers", "students", "train", "eval", "tools", "tests", "configs", "scripts"):
         files.extend(p for p in (root / folder).rglob("*")
-                     if p.suffix in {".py", ".yaml", ".env", ".slurm", ".sh"})
+                     if p.suffix in {".py", ".yaml", ".env", ".slurm", ".sh"}
+                     or (folder == "baselines" and p.suffix == ".md"))
     files.extend(root / p for p in ("AGENTS.md", "pyproject.toml", "requirements.txt",
                                     "requirements-alfworld.txt", "data/manifest/build.py",
                                     "data/manifest/build_dev40.py", "data/manifest/build_dev140.py",

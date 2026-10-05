@@ -8,7 +8,8 @@ import sys
 import pytest
 
 
-@pytest.mark.parametrize("platform,fail_check", [("rai", False), ("hpg", False), ("rai", True)])
+@pytest.mark.parametrize("platform,fail_check", [("rai", False), ("hpg", False), ("rai", True),
+                                                ("hpg_full", False)])
 def test_launcher_lifecycle(tmp_path, platform, fail_check):
     fake = tmp_path / "fake-python"
     fake.write_text("#!" + sys.executable + "\n" + r'''
@@ -72,12 +73,17 @@ else:
     else:
         env.update(HPG_CONFIG=str(Path.cwd() / "configs/hpg.env"), TASKS=str(tasks), OUT=str(out),
                    ADAPTERS="a=/fake/one b=/fake/two", CUDA_VISIBLE_DEVICES="allocated")
+        if platform == "hpg_full":
+            env.update(ADAPTERS="", MERGED_MODEL_PATH=str(tmp_path / "snapshot"), FULL_CHECKPOINT_NAME="iter-1")
         command = ["bash", "scripts/hpg_eval_adapters.slurm"]
     result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
     assert result.returncode == int(fail_check), result.stderr
     rows = [json.loads(line) for line in ledger.read_text().splitlines()]
     expected = ["hf", "hf", "server", "eval", "check"]
     if not fail_check: expected += ["eval", "check", "eval"]
+    if platform == "hpg_full":
+        expected = ["server", "eval"]
+        assert "--merged-model-path" in rows[0]["args"]
     assert [r["kind"] for r in rows] == expected + ["stopped"]
     for row in rows:
         assert row["order"] == "PCI_BUS_ID" and row["offline"] == "1"
@@ -87,7 +93,7 @@ else:
         if row["kind"] == "eval":
             args = row["args"]
             name = args[args.index("--model-name") + 1]
-            assert args[args.index("--output") + 1] == str(out / name / "eval")
+            assert args[args.index("--output") + 1] == str(out / ("iter-1" if platform == "hpg_full" else name) / "eval")
             assert args[args.index("--workers") + 1] == ("6" if platform == "rai" else "8")
             assert "http://127.0.0.1:34567/v1" in args
             if name in {"a", "b"}: assert "--lora-check" in args

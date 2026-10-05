@@ -468,3 +468,66 @@ ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/
 ```
 
 See [Stage 2c validation](reports/stage2c_validation.md) for evidence and limits.
+
+## Baselines: Stage 3a ETO engineering port
+
+`baselines/common/` supplies allowlisted episode conversations, frozen TRAIN
+student exploration with replay, X5 batch shrinking and HF schedules, and
+full-parameter FSDP2 SFT/DPO. `baselines/eto/` ports the official ALFWorld pair
+rule and three-iteration loop. Source commits are in [PINS](baselines/PINS.md);
+every port change is registered in [DEVIATIONS](baselines/eto/DEVIATIONS.md).
+The existing LoRA `train/sft.py` remains a separate Seed-SFT baseline.
+
+ETO uses K verified teacher seed trajectories (including nested subsets), then
+explores those same K tasks once per iteration with the current policy, greedy,
+thinking OFF, 40 turns and 1,024 reply tokens. Successful rollouts are skipped
+ties; complete verified failures form expert-vs-full-rollout pairs. Unknown or
+incomplete execution stops the stage. P=0 stops with an explicit receipt.
+Student exploration is training-eligible expansion, never additional trusted
+seeds. Replay episodes/steps and failed attempts are disclosed separately.
+
+SFT retains ETO's 2e-5/cosine/.03 warmup/3 epochs; DPO retains iteration 1
+1e-6/beta .1, iterations 2–3 5e-7/beta .5, constant-with-warmup/.1/3 epochs.
+Weight decay is zero. Only the global batch shrinks:
+`b' = min(b_orig, max(1, floor(N_examples / 8)))`, from 64 for SFT and 32 for
+DPO. Microbatch is one episode or pair; each pair contains two continuations.
+Whole episodes use the exact existing Gemma OFF spans and a 32768 limit with
+no truncation. SFT averages each episode's assistant-token CE, then averages
+episodes; DPO uses summed assistant log-probs and a frozen iteration-start
+reference. Full text parameters have fp32 master weights and bf16 FSDP2 compute;
+non-text base components are copied unchanged into the standalone checkpoint.
+
+On HPG, for a **later authorized run** (these commands were not submitted):
+
+```bash
+source configs/hpg.env
+cd "$PROJECT_ROOT"
+export VERIFIED="$PROJECT_ROOT/data/verified/seeds_k20_s0"
+export ETO_OUT="$PROJECT_ROOT/reports/runs/eto/k20-s0"
+sbatch --export=ALL scripts/hpg_eto.slurm
+```
+
+The job requests four B200s, 32 CPUs and 480G on account/partition/qos
+`fsu-compsci-dept` / `hpg-b200` / `fsu-compsci-dept`. Training seed is always 0;
+`s0` in the tree is the **support collection seed**. For K=5/10, use
+`seeds_k20_sN/subsets/k5` or `subsets/k10`, and a distinct `ETO_OUT` per (K,sN).
+The same command resumes hash-checked completed stages. Incomplete attempts
+remain preserved; a retry restarts that stage and adds its actual costs to the
+disclosure. `ETO_THROUGH=sft` (or `explore-1`, `pairs-1`, `dpo-1`, etc.) ends at
+a stage boundary. `ETO_MODE=prepare` only freezes the input identity/task list.
+
+Evaluate every available stage on dev140 in a **separate one-GPU job**:
+
+```bash
+sbatch --gpus=1 --cpus-per-task=8 --mem=48G \
+  --export=ALL,ETO_MODE=evaluate scripts/hpg_eto.slurm
+```
+
+Evaluation reuses `scripts/eval_adapters.sh`, serving each standalone checkpoint
+through `--merged-model-path`. `models.json` lists SFT and completed iter-1/2/3
+checkpoints; there is no sealed evaluation, dev-driven generation or checkpoint
+selection. A single full checkpoint can also use `scripts/hpg_eval_adapters.slurm`
+with `MERGED_MODEL_PATH`, empty `ADAPTERS`, `INCLUDE_BASE=1` and frozen dev140.
+
+See [Stage 3a validation](reports/stage3a_validation.md) for exact CPU checks,
+standalone commands, artifacts and the remaining GPU acceptance boundary.

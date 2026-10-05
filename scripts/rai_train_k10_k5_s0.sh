@@ -1,8 +1,8 @@
 #!/bin/bash
-# 2026-10-04: Seed-SFT K=10 and K=5 (support seed 0) on rai GPU1, run from the frozen worktree ICML27_run_d8b0eea.
+# 2026-10-04: Seed-SFT K=10 and K=5 (support seed 0) on rai GPU1, run from a frozen worktree (RUN_TREE).
 set -u
 M=/home/xueqi/hq/projects/ICML27_agent_distillation
-cd /home/xueqi/hq/projects/ICML27_run_d8b0eea
+cd ${RUN_TREE:-/home/xueqi/hq/projects/ICML27_run_e70fa64}
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True PYTHONPATH=src:. CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1
 SNAP=/home/xueqi/.cache/huggingface/hub/models--google--gemma-4-12B-it/snapshots/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7
 PY=/home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python
