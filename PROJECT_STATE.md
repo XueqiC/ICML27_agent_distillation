@@ -7,10 +7,15 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - **Teacher dev140 done 22:2x CDT: 114/140 = 81.4%** (0 parser errors, 82 inadmissible / 2,862 steps; 12.33M input tokens of which
   11.14M cached, 166.7k output; 183 min, throttled by the old limiter) → reports/runs/teacher-dev140.
-- rai GPU1: K=10 s0 done 21:46 CDT (reports/runs/train/seedsft-k10-s0-rai, ckpts 3/5/10/20 passes); K=5 s0 training since 21:46
-  (scripts/rai_train_k10_k5_s0.sh, worktree ICML27_run_e70fa64). Queued behind it: **K-ladder eval** scripts/rai_eval_ladder_s0.sh
-  (pid 481960, worktree ICML27_run_57ae004): base + k20/k10/k5 s0 × 3/5/10/20 passes (12 adapters) on one server, schema-2 gate,
-  32 workers → reports/runs/eval/ladder-s0-rai-dev140, log logs/rai_eval_ladder_s0.log. ~2.5 h (~01:00 CDT).
+- Seed-SFT K=10 s0 and K=5 s0 done (21:46 / 21:54 CDT) → reports/runs/train/seedsft-k{10,5}-s0-rai, ckpts 3/5/10/20 passes.
+- **K-ladder eval** (scripts/rai_eval_ladder_s0.sh, worktree ICML27_run_57ae004) → reports/runs/eval/ladder-s0-rai-dev140: base 59/140
+  (again), **k20s0-p10 66/140 = 47.1%** (0 parser errors, 192 inadmissible); then k20s0-p20's check failed (single-token bf16 outliers:
+  2.72 / 1.02 nats on prompts 2 and 5; pooled error 0.031 < base noise 0.046; effect 1.307) and set -e stopped the launcher with 10
+  adapters left. GPU1 idle until gate amendment 2 lands.
+- Codex gate amendment 2 (pid 556698, worktree ICML27_gate2, branch gate-effect-relative): per-prompt error ≤ 0.1 × that prompt's effect
+  + pooled rules; launcher continues past a failed check. Then re-run the remaining 10 adapters + p20.
+- Codex taxonomy amendment (pid 559827, main tree): MECHANISM_PLAN amendment 1 (862eaed).
+- Stage 4a committed (035cd0a): analysis/mechanism (taxonomy, branch, FCE, I0–I5, readout, scripts/rai_mechanism.sh).
 - Merged today: c96fc4e equivalence gate schema 2 (tolerance = max(0.05, 1.5 × measured HF-vs-vLLM base noise)), 944263c subset
   provenance fix, dc30492 stage 3a (baselines/common + ETO port; GPU/FSDP paths not yet run; hpg needed for full FT).
 - Teacher limiter fixed in 57ae004 (chars/4 + 8/message + output cap; 450 RPM / 180k TPM; provider headers logged).
