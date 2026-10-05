@@ -10,7 +10,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   demonstrated each needed pattern (M1a not absorbed / M1b absorbed-not-invoked), training-set fit; scripts/rai_mechanism_probes.sh.
 - Copying best hpg adapters (k10s0-t400k, k5s1-t400k, k5s0-t400k, k20s0-p40) to rai reports/runs/train/hpg-adapters for the next mechanism runs.
 - rai GPU1: BI dev140 of hpg adapters (scripts/rai_bi_dev140_hpg_adapters.sh, pid 1482167): k5s0-t400k **74/140** (hpg 72) → gap set G=43, R=4;
-  k10s0-t400k running. Queued: **mechanism run on k5s0-t400k** (scripts/rai_mech_k5s0.sh, pid 1513532, tree 70314a3, caps 700/episode, 30k/run)
+  k10s0-t400k 96/140 (hpg 95). **Mechanism run on k5s0-t400k RUNNING since 10:2x CDT** (scripts/rai_mech_k5s0.sh, pid 1513532, tree 70314a3, caps 700/episode, 30k/run)
   → reports/runs/mechanism/k5s0-t400k-bi/run; ~12 h (TPM-bound FCE).
 - hpg 44815253: AgentGym evaluate (bc, iter-1..3) running.
 - ETO K=20 s0 tp3 (44811450, 4×B200, bf16 ref) FAILED at DPO-1 again: OOM at 169.7 GB (static ~54 GB) — the turn-packed preference graph holds
