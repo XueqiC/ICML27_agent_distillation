@@ -20,6 +20,7 @@ MODEL_PATH=${MODEL_PATH:-/home/xueqi/.cache/huggingface/hub/models--google--gemm
 export ALFWORLD_DATA_ROOT=${ALFWORLD_DATA_ROOT:-/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1}
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="$gpu"
 WORKERS=${WORKERS:-8}
+LORA_DTYPE=${LORA_DTYPE:-bfloat16}
 INCLUDE_BASE=${INCLUDE_BASE:-0}
 adapters=()
 while [[ $# -gt 0 ]]; do

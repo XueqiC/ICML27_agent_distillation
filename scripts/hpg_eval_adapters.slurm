@@ -16,6 +16,7 @@ case "$BATCH_INVARIANT" in 0|1) ;; *) echo 'BATCH_INVARIANT must be 0 or 1' >&2;
 export VLLM_BATCH_INVARIANT="$BATCH_INVARIANT"
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
+LORA_DTYPE=${LORA_DTYPE:-bfloat16}
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 # Whitespace-delimited NAME=PATH entries; never evaluate shell code from ADAPTERS.
 if [[ -n "${MERGED_MODEL_PATH:-}" ]]; then

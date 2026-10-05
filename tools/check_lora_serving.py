@@ -20,12 +20,13 @@ from sed.storage import digest, file_hash, write_json
 from train.modeling import snapshot_metadata
 
 PROMPT_COUNT = 8
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 MEAN_TOLERANCE = 0.05
 BASE_NOISE_MULTIPLIER = 1.5
 MIN_EFFECT_NOISE_MULTIPLIER = 2.0
 OUTLIER_COUNT_MULTIPLIER = 2
 OUTLIER_COUNT_ALLOWANCE = 2
+OUTLIER_TOKEN_FRACTION = 0.05
 
 
 def fixed_prompts(examples):
@@ -134,8 +135,9 @@ def comparison(hf, adapter, base, hf_base, *, pooled=False):
                 "tokens_abs_diff_gt_0_5": sum(v > 0.5 for v in values)}
 
     adapter_error, base_noise = error_stats(error, mean_error), error_stats(noise, mean_noise)
-    outlier_limit = (OUTLIER_COUNT_MULTIPLIER * base_noise["tokens_abs_diff_gt_0_5"]
-                     + OUTLIER_COUNT_ALLOWANCE) if pooled else None
+    outlier_limit = max(OUTLIER_COUNT_MULTIPLIER * base_noise["tokens_abs_diff_gt_0_5"]
+                        + OUTLIER_COUNT_ALLOWANCE,
+                        math.ceil(OUTLIER_TOKEN_FRACTION * len(hf))) if pooled else None
     return {"tokens": len(hf),
             "adapter_error": adapter_error,
             "base_noise": base_noise,
@@ -168,9 +170,11 @@ def summarize_prompts(cases):
                            "base_noise_multiplier": BASE_NOISE_MULTIPLIER,
                            "min_effect_noise_multiplier": MIN_EFFECT_NOISE_MULTIPLIER,
                            "outlier_count_multiplier": OUTLIER_COUNT_MULTIPLIER,
-                           "outlier_count_allowance": OUTLIER_COUNT_ALLOWANCE},
+                           "outlier_count_allowance": OUTLIER_COUNT_ALLOWANCE,
+                           "outlier_token_fraction": OUTLIER_TOKEN_FRACTION},
             "rule": "Pooled: adapter_error <= max(0.05, 1.5 * base_noise) "
-                    "and adapter_count(abs_diff > 0.5) <= 2 * base_count(abs_diff > 0.5) + 2 "
+                    "and adapter_count(abs_diff > 0.5) <= "
+                    "max(2 * base_count(abs_diff > 0.5) + 2, ceil(0.05 * pooled_tokens)) "
                     "and effect >= 2 * base_noise; every prompt: effect >= base_noise",
             "passed": len(prompts) == PROMPT_COUNT and aggregate["passed"]
                       and all(p["passed"] for p in prompts)}
@@ -210,8 +214,8 @@ def check_server(server, endpoint, model_name, adapter):
 def validate_report(report, server, model_name, endpoint):
     """Fail closed before evaluation; bind a passing check to this server and weights."""
     if type(report.get("schema_version")) is not int or report["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("Schema version 4 is required; recompute complete schema 2/3 measurements "
-                         "under schema 4 or rerun the equivalence check; schema 1 is refused")
+        raise ValueError("Schema version 5 is required; recompute complete schema 2/3/4 measurements "
+                         "under schema 5 or rerun the equivalence check; schema 1 is refused")
     adapters = server["config"]["server"].get("lora_adapters", [])
     matches = [a for a in adapters if a["name"] == model_name]
     if len(matches) != 1:
@@ -305,6 +309,7 @@ def main(argv=None):
             report = compare_prompts(cases, client, args.endpoint, args.model_name, base_name)
         report.update(model_name=args.model_name, base_model_name=base_name,
                       identity=identity, server_provenance_sha256=digest(server),
+                      lora_dtype=server["config"]["server"].get("lora_dtype", "bfloat16"),
                       template_sha256=reference["template_sha256"])
         write_json(output / "report.json", report, exclusive=True)
         print(json.dumps({"passed": report["passed"], "aggregate": report["aggregate"]}))

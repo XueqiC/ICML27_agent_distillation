@@ -160,16 +160,17 @@ def test_tiny_objectives_match_dense_logits_and_batch_mean():
     assert all(p.grad is None for p in reference.parameters())
     # Simulate FSDP's rank average, b'<world and a non-divisible batch.
     for indices in ([0], [0, 1], [0, 1, 0, 1, 0]):
-        expected = sum(sft_objective(model, examples[i], "cpu")[0] for i in indices) / len(indices)
-        values = []
-        for slot in rank_slots(indices, 4):
-            values.extend(sft_objective(model, examples[i if i is not None else indices[0]], "cpu")[0]
-                          * (4 / len(indices) if i is not None else 0) for i in slot)
-        torch.testing.assert_close(sum(values) / 4, expected)
-        parameter = model.model.language_model.layers[0].self_attn.q_proj.weight
-        expected_grad, = torch.autograd.grad(expected, parameter)
-        actual_grad, = torch.autograd.grad(sum(values) / 4, parameter)
-        torch.testing.assert_close(actual_grad, expected_grad)
+        for world in (2, 4, 8):
+            expected = sum(sft_objective(model, examples[i], "cpu")[0] for i in indices) / len(indices)
+            values = []
+            for slot in rank_slots(indices, world):
+                values.extend(sft_objective(model, examples[i if i is not None else indices[0]], "cpu")[0]
+                              * (world / len(indices) if i is not None else 0) for i in slot)
+            torch.testing.assert_close(sum(values) / world, expected)
+            parameter = model.model.language_model.layers[0].self_attn.q_proj.weight
+            expected_grad, = torch.autograd.grad(expected, parameter)
+            actual_grad, = torch.autograd.grad(sum(values) / world, parameter)
+            torch.testing.assert_close(actual_grad, expected_grad)
 
 
 @pytest.mark.parametrize("objective", ["sft", "dpo"])

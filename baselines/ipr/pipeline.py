@@ -31,7 +31,7 @@ RECIPE = {"training_seed": 0, "sampling_seed": 0, "epochs": 3, "max_length": 327
 
 
 def training_command(args, *, objective, snapshot, output, reference=None, pairs=None):
-    command = [args.train_python, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node", "4",
+    command = [args.train_python, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node", str(args.gpus),
         "-m", "baselines.common.fsdp_train", "--config", args.config, "--objective", objective,
         "--snapshot", str(snapshot), "--base-snapshot", args.snapshot, "--output", str(output),
         "--epochs", "3", "--seed", "0", "--max-length", "32768"]
@@ -163,14 +163,14 @@ def main(argv=None):
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
     parser.add_argument("--through", choices=["all", "sft", "expert-mc"] + [f"{s}-{i}" for i in range(1, 7)
         for s in ("explore", "agent-mc", "pairs", "dpo")], default="all")
-    parser.add_argument("--gpus", type=int, default=4)
+    parser.add_argument("--gpus", type=int, choices=(2, 4, 8), default=4)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("env", "train", "vllm"):
         parser.add_argument(f"--{name}-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
-    if args.gpus != 4 or args.workers < 1:
-        parser.error("IPR registers four training GPUs and positive rollout workers")
+    if args.workers < 1:
+        parser.error("IPR requires positive rollout workers")
     batch_invariant()
     for name in ("snapshot", "verified", "output"):
         setattr(args, name, str(Path(getattr(args, name)).resolve()))
