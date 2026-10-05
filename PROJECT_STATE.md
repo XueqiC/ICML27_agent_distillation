@@ -17,8 +17,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - Codex 4e (pid 1120214): analysis/traits.py (frozen dev140 trait table per addendum A) + analysis/stratified.py (per-bucket rows, Wilson,
   McNemar) + sanity readout on teacher/base/4 Seed-SFT cells. Next Codex: allow --gpus 2/4/8 in ETO/IPR/AgentGym pipelines (world-size-
   independent math) so full-FT baselines can run on 2 group GPUs.
-- **hpg 44798587** (array 0–1, group account yd24f, tree ICML27_runs/58a409c): serving-precision robustness — merge k20s0 p40 (gate passed,
-  115 adapter-served) and k20s2 p40 (gate failed) into bf16 weights (merge_lora logits check) → dev140 BI → reports/runs/robustness.
+- hpg 44798587 robustness: both merges FAILED merge_lora's check (merged-bf16 vs PEFT all-vocab logits mean |Δ| 1.13 / 1.41) → unmerged vLLM
+  LoRA (mean 0.04 nats) is the most faithful bf16 serving path; vLLM supports LoRA dtype only fp16/bf16 (no fp32). Plan: gate amendment 4
+  (outlier tokens ≤ 5% instead of 2×base+2), evaluate the 8 failed high-dose cells with a flag, fp16-LoRA behavioural sensitivity on 2 ckpts.
 - **hpg 44798591** (group account, 1×B200, tree 58a409c): Kang K=20 s0 (LoRA r64 SFT; eval + SAG afterwards) → reports/runs/baselines/kang-k20s0.
 - Dept QOS is memory-capped (~980/1000G in use by others at 05:1x CDT); group account had 2 B200 free → 1-GPU jobs go there.
 - **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
