@@ -20,9 +20,6 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **First dev140 numbers (rai GPU1, 20:3x CDT):** base 59/140 = 42.1%; Seed-SFT K=20 s0 3 passes 44/140 = 31.4% (paired 41/18/3/78,
   McNemar p = 0.0015). Parser errors 23 → 0, inadmissible 283 → 499. p05 check failed (one 34-token prompt 0.056 > 0.05; pooled 0.031,
   effect 0.84) → launcher stopped before p05/p10/p20. Output reports/runs/eval/k20s0-rai-dev140 (base + p03 valid).
-- Codex stage 3a (rai pid 260921, started 19:42 CDT): baselines/common (conversation rendering, train-task exploration, X5 shrink
-  rule, HF schedules, FSDP2 full-FT SFT/DPO trainer) + faithful ETO pipeline (pairs, 3 iterations, hpg 4xB200 slurm, DEVIATIONS.md).
-  Spec: scratchpad codex_stage3a_eto.md.
 - hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
 
 ## Done today (moved from RUNNING JOBS)
