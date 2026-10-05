@@ -5,6 +5,10 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- Interim report sent 10:0x CDT: reports/interim_1005_ZH.md (+ seedsft_sweep.png).
+- Codex 4f (pid 1474865): plan §4 — needed-step coverage from the shortest teacher takeover at t*, absorption probe on the seed states that
+  demonstrated each needed pattern (M1a not absorbed / M1b absorbed-not-invoked), training-set fit; scripts/rai_mechanism_probes.sh.
+- Copying best hpg adapters (k10s0-t400k, k5s1-t400k, k5s0-t400k, k20s0-p40) to rai reports/runs/train/hpg-adapters for the next mechanism runs.
 - **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
   all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
 - AgentGym K=20 s0 training DONE (44806889, 1:07; F_m 8/12/7). **hpg 44815253** (dept, 1×B200): AgentGym evaluate mode — dev140 of bc / iter-1..3, one model per server (canonical).
