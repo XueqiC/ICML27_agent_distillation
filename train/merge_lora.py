@@ -12,7 +12,7 @@ from sed.react import build_messages
 from sed.storage import digest, write_json
 from sed.seed_evidence import artifact_hashes
 from train.dataset import load_tokenizer
-from train.modeling import load_student, snapshot_metadata
+from train.modeling import copy_base_assets, load_student, snapshot_metadata
 
 
 LEAP_MERGE_POLICY = "leap_official_bf16_merge"
@@ -70,7 +70,7 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
-    write_provenance(output, command="merge_lora", config={**(config or {}), "merge": {
+    provenance = write_provenance(output, command="merge_lora", config={**(config or {}), "merge": {
         "snapshot": str(base), "adapter": str(adapter), "output": str(output),
         "device": device, "dtype": dtype, "atol": atol, "rtol": rtol, "policy": policy}},
         inputs=provenance_inputs,
@@ -85,6 +85,12 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
     merged.save_pretrained(output, safe_serialization=True)
     if tokenizer is not None:
         tokenizer.save_pretrained(output)
+    # Chained LEAP bases also contain the previous run's reports. These belong
+    # to the new merge/publisher, not to the model's serving assets.
+    copied_base_assets = copy_base_assets(base, output, exclude={
+        "consistency.json", "provenance.json", "training_state.json"})
+    provenance["details"]["copied_base_assets"] = copied_base_assets
+    write_json(output / "provenance.json", provenance)
     del model, merged
     gc.collect()
     if device.startswith("cuda"):
@@ -104,6 +110,7 @@ def merge_adapter(base, adapter, output, input_ids, *, device="cuda", dtype="bfl
     report = {"passed": passed, "policy": policy, "strict_allclose_passed": strict_passed,
               "all_logits_finite": finite, "argmax_equal": argmax_equal,
               "reload_consistency": reload_check, "checks": checks,
+              "copied_base_assets": copied_base_assets,
               "input_ids": input_ids, "input_sha256": digest(input_ids), "dtype": dtype,
               "atol": atol, "rtol": rtol, "comparison": "all next-token vocabulary logits",
               "wall_time_seconds": time.monotonic() - started,

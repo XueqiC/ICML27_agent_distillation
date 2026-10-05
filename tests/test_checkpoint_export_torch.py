@@ -12,7 +12,7 @@ from transformers import Gemma4UnifiedConfig, Gemma4UnifiedForConditionalGenerat
 from baselines.common.checkpoint import checkpoint_key_map, checkpoint_layout
 from baselines.common.fsdp_train import export_checkpoint, text_parameter, validate_checkpoint
 from sed.seed_evidence import artifact_hashes
-from sed.storage import digest, write_json
+from sed.storage import digest, file_hash, write_json
 from test_stage2b_torch import tiny_model
 
 
@@ -67,6 +67,35 @@ def finalize_checkpoint(path, report):
     state = {**report, "final": True, "provenance_sha256": digest(provenance)}
     write_json(path / "training_state.json", state)
     return student
+
+
+def test_full_export_preserves_base_assets_and_hashes(tmp_path):
+    model = synthetic_model()
+    base, output = tmp_path / "base", tmp_path / "checkpoint"
+    model.save_pretrained(base)
+    assets = {
+        "processor_config.json": b'{"processor_class": "FakeProcessor"}\n',
+        "tokenizer.json": b"{}\n",
+        "chat_template.jinja": b"base template\n",
+        "chat_template.jinja2": b"alternate template\n",
+        "tokenizer.model": b"\x00tokenizer\xff",
+        "vocab.txt": b"vocabulary\n",
+    }
+    for name, value in assets.items():
+        (base / name).write_bytes(value)
+    excluded = ["unused.index.json", "unused.index.txt", "README.md", "weights.bin"]
+    for name in excluded:
+        (base / name).write_bytes(b"not an asset")
+    (base / "directory.json").mkdir()
+    (base / "directory.json/nested.json").write_text("{}")
+
+    report = export_checkpoint(model, output, base)
+    for name, value in assets.items():
+        assert (output / name).read_bytes() == value
+        assert report["artifact_sha256"][name] == file_hash(base / name)
+    assert all(not (output / name).exists() for name in [*excluded, "directory.json"])
+    assert report["artifact_sha256"] == artifact_hashes(output)
+    assert json.loads((output / "config.json").read_text())["dtype"] == "bfloat16"
 
 
 @pytest.mark.parametrize("tied,store_alias", [(True, False), (True, True), (False, True)])

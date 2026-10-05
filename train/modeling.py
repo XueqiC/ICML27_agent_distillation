@@ -1,10 +1,30 @@
 """Official HF/PEFT loading shared by SFT and merging; local files only."""
 import json
 from pathlib import Path
+import shutil
 
 from sed.storage import file_hash
 
 LORA_TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+
+def copy_base_assets(base, destination, *, overwrite=False, exclude=()):
+    """Preserve tokenizer/template/processor files without copying model configs.
+
+    Full-FT export opts into its original overwrite behavior; merged exports
+    keep files already written by the model and tokenizer.
+    """
+    destination = Path(destination)
+    copied = []
+    for path in Path(base).iterdir():
+        if path.is_file() and path.suffix in {".json", ".jinja", ".jinja2", ".model", ".txt"} and not (
+                path.name in {"config.json", "generation_config.json"} or ".index." in path.name):
+            target = destination / path.name
+            if path.name in exclude or (not overwrite and target.exists()):
+                continue
+            shutil.copyfile(path, target)
+            copied.append(path.name)
+    return sorted(copied)
 
 
 def snapshot_metadata(path):

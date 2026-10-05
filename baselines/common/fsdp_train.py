@@ -9,7 +9,6 @@ import json
 import math
 import os
 from pathlib import Path
-import shutil
 import time
 from types import SimpleNamespace
 
@@ -22,7 +21,7 @@ from sed.provenance import write_provenance
 from sed.seed_evidence import checked_episode, load_verified_collection, artifact_hashes
 from sed.storage import digest, file_hash, write_json, JsonlLedger, fsync_dir
 from train.dataset import load_tokenizer
-from train.modeling import load_student, snapshot_metadata
+from train.modeling import copy_base_assets, load_student, snapshot_metadata
 
 
 def text_parameter(name):
@@ -425,10 +424,7 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
     write_json(destination / "model.safetensors.index.json", {"metadata": {"total_size": total}, "weight_map": mapping})
     validate_checkpoint_layout(destination, base_layout, tower_hashes)
     # Preserve tokenizer/template and multimodal processor assets from the base.
-    for path in base.iterdir():
-        if path.is_file() and (path.suffix in {".json", ".jinja", ".jinja2", ".model", ".txt"}) and not (
-                path.name in {"config.json", "generation_config.json"} or ".index." in path.name):
-            shutil.copyfile(path, destination / path.name)
+    copy_base_assets(base, destination, overwrite=True)
     model.config.get_text_config().use_cache = True
     model.config.dtype = torch.bfloat16
     model.config.get_text_config().dtype = torch.bfloat16

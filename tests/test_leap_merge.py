@@ -9,7 +9,7 @@ import pytest
 from baselines.leap import merge as leap_merge
 from sed.config import load_config
 from sed.seed_evidence import artifact_hashes
-from sed.storage import digest, write_json
+from sed.storage import digest, file_hash, write_json
 from train import merge_lora
 
 
@@ -28,7 +28,8 @@ def merge_case(tmp_path, monkeypatch):
 
         def save(output, *, safe_serialization):
             assert safe_serialization
-            write_json(output / "config.json", {"model_type": "gemma4_unified"})
+            write_json(output / "config.json", {"model_type": "gemma4_unified", "source": "merged"})
+            write_json(output / "generation_config.json", {"source": "merged"})
             (output / "model.safetensors").write_bytes(b"fake merged weights")
 
         merged = NS(logits=tensors[1], save_pretrained=save)
@@ -62,6 +63,65 @@ def run_merge(case, **kwargs):
 
 def read_report(case):
     return json.loads((case.output / "consistency.json").read_text())
+
+
+@pytest.mark.parametrize("policy", [merge_lora.LEAP_MERGE_POLICY, "strict_allclose"])
+@pytest.mark.parametrize("with_tokenizer", [False, True])
+def test_merge_preserves_base_assets_before_reload_and_hashing(merge_case, monkeypatch, policy, with_tokenizer):
+    case = merge_case([0, 1, 3], [0, 1, 3], [0, 1, 3])
+    assets = {
+        "processor_config.json": b'{"processor_class": "FakeProcessor"}\n',
+        "tokenizer_config.json": b'{"source": "base tokenizer"}\n',
+        "tokenizer.json": b'{"source": "base vocabulary"}\n',
+        "chat_template.jinja": b"base template\n",
+        "alternate_template.jinja2": b"alternate template\n",
+        "tokenizer.model": b"\x00base tokenizer model\xff",
+        "vocab.txt": b"base vocabulary\n",
+    }
+    excluded = ["weights.index.json", "weights.index.txt", "model.safetensors", "weights.bin", "README.md"]
+    for name, value in assets.items():
+        (case.base / name).write_bytes(value)
+    for name in excluded:
+        (case.base / name).write_bytes(b"base bytes must not be copied")
+    write_json(case.base / "generation_config.json", {"source": "base"})
+    (case.base / "directory.json").mkdir()
+    (case.base / "directory.json/nested.json").write_text("{}")
+
+    tokenizer_assets = {name: b"tokenizer saved " + name.encode() for name in (
+        "tokenizer_config.json", "tokenizer.json", "chat_template.jinja")} if with_tokenizer else {}
+
+    def save_tokenizer(output):
+        for name, value in tokenizer_assets.items():
+            (output / name).write_bytes(value)
+
+    expected = {**assets, **tokenizer_assets}
+    copied = sorted(assets.keys() - tokenizer_assets.keys())
+    reloads = []
+    load = merge_lora.load_student
+
+    def checked_load(path, **kwargs):
+        if Path(path) == case.output:
+            reloads.append(path)
+            for name, value in expected.items():
+                assert (case.output / name).read_bytes() == value
+            assert json.loads((case.output / "config.json").read_text())["source"] == "merged"
+            assert json.loads((case.output / "generation_config.json").read_text())["source"] == "merged"
+            assert (case.output / "model.safetensors").read_bytes() == b"fake merged weights"
+            assert not (case.output / "directory.json").exists()
+            assert all(not (case.output / name).exists() for name in excluded if name != "model.safetensors")
+        return load(path, **kwargs)
+
+    monkeypatch.setattr(merge_lora, "load_student", checked_load)
+    report = run_merge(case, policy=policy, tokenizer=NS(save_pretrained=save_tokenizer) if with_tokenizer else None)
+    assert len(reloads) == 1 and report["passed"]
+    assert read_report(case) == report
+    assert report["copied_base_assets"] == copied
+    provenance = json.loads((case.output / "provenance.json").read_text())
+    assert provenance["details"]["copied_base_assets"] == copied
+    hashes = artifact_hashes(case.output)
+    hashes.pop("consistency.json")
+    assert report["merged_sha256"] == hashes
+    assert hashes["processor_config.json"] == file_hash(case.base / "processor_config.json")
 
 
 def test_leap_accepts_bf16_rounding_and_retains_strict_failure(merge_case):
@@ -145,8 +205,9 @@ def test_unknown_merge_policy_fails_before_creating_output(tmp_path):
 
 
 @pytest.mark.parametrize("variant", ["privileged", "zero"])
+@pytest.mark.parametrize("chained", [False, True])
 @pytest.mark.parametrize("failure", [None, "argmax", "nonfinite", "reload"])
-def test_leap_publication_records_policy_and_never_publishes_rejections(merge_case, monkeypatch, variant, failure):
+def test_leap_publication_records_policy_and_never_publishes_rejections(merge_case, monkeypatch, variant, chained, failure):
     values = [[0, 1, 3], [0.5, 1.25, 3.75], [0.5, 1.25, 3.75]]
     if failure == "argmax":
         values[1] = values[2] = [5, 1.25, 3.75]
@@ -155,6 +216,10 @@ def test_leap_publication_records_policy_and_never_publishes_rejections(merge_ca
     elif failure == "reload":
         values[2][0] += 1e-4
     case = merge_case(*values)
+    write_json(case.base / "processor_config.json", {"processor_class": "FakeProcessor"})
+    if chained:
+        for name in ("consistency.json", "provenance.json", "training_state.json"):
+            write_json(case.base / name, {"previous_run": True})
     config = load_config()
     training = {"config": {"models": config["models"],
         "sft": {"base_snapshot": merge_lora.snapshot_metadata(case.base)},
@@ -162,7 +227,7 @@ def test_leap_publication_records_policy_and_never_publishes_rejections(merge_ca
     write_json(case.adapter.parent / "provenance.json", training)
     write_json(case.adapter / "training_state.json", {
         "identity_sha256": digest(training), "adaptation": "leap_lora",
-        "artifact_sha256": artifact_hashes(case.adapter), "leap_iteration": 0,
+        "artifact_sha256": artifact_hashes(case.adapter), "leap_iteration": int(chained),
         "leap_variant": variant, "privileged_teacher": variant == "privileged"})
     monkeypatch.setattr(leap_merge, "load_tokenizer", lambda _: NS(
         apply_chat_template=lambda *a, **kw: [1, 2], save_pretrained=lambda path: None))
@@ -175,6 +240,7 @@ def test_leap_publication_records_policy_and_never_publishes_rejections(merge_ca
         assert not (case.output / "checkpoint").exists()
         assert not (case.output / "result.json").exists()
         assert (case.output / ".checkpoint.partial/consistency.json").is_file()
+        assert not (case.output / ".checkpoint.partial/training_state.json").exists()
         return
     leap_merge.main(argv)
     checkpoint = case.output / "checkpoint"
@@ -187,4 +253,12 @@ def test_leap_publication_records_policy_and_never_publishes_rejections(merge_ca
     hashes = artifact_hashes(checkpoint)
     hashes.pop("training_state.json")
     assert state["artifact_sha256"] == hashes
+    assert hashes["processor_config.json"] == file_hash(case.base / "processor_config.json")
+    consistency = json.loads((checkpoint / "consistency.json").read_text())
+    assert consistency["copied_base_assets"] == ["processor_config.json"]
+    assert consistency["merged_sha256"]["processor_config.json"] == hashes["processor_config.json"]
+    assert consistency["merged_sha256"] == {name: value for name, value in hashes.items()
+                                            if name != "consistency.json"}
+    provenance = json.loads((checkpoint / "provenance.json").read_text())
+    assert provenance["details"]["copied_base_assets"] == ["processor_config.json"]
     assert not (case.output / ".checkpoint.partial").exists()
