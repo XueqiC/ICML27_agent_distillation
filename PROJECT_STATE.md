@@ -16,6 +16,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   (interventions at closest approach t*), WORKERS=8, teacher cache seeded from the stopped serial run (5 FCE tasks done there),
   caps 700/episode, 15,000/run → reports/runs/mechanism/k20s0-p20-bi/run2, log logs/mechanism_k20s0_p20_bi_run2.log.
   Serial run1 (old FCE definition) stopped 01:39; kept as the cache source. Example finding (task 1): D = 1 from t = 24, student loops "look".
+- Mechanism run2 rate: TPM-bound (≈27 teacher calls/min; mean limiter wait 20 s; 4.9k input + 2,048 reserved output per call vs the
+  provider's 200k TPM). FCE ETA ~08:30 CDT, then I0–I5 (student-side) — pre-registered probe grid kept.
+- Codex stage 3b (pid 929864, main tree): AgentGym BC + AgentEvol (explore only the K seed tasks; retrain from base on D_{m+1} = F_m ∪ D_m;
+  4 iterations) and Kang (LoRA r64 SFT, lr 2e-4, 2 epochs; **no FTP** — generation code never released → not run per user rule; SAG
+  test-time vote over admissible actions). Spec: scratchpad codex_stage3b.md.
 - **hpg 44780233** (array 0–8%4, dept, 1×B200, 14 CPU / 48G, tree ICML27_runs/3aea2aa, --dependency=aftercorr:44777524): batch-invariant
   dev140 eval of every dose checkpoint of the matching training task (task 0 also evaluates base) → /blue/.../reports/runs/eval/
   seedsft-sweep-bi/<name>. Pending.
