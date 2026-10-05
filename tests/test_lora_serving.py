@@ -1,8 +1,10 @@
 """Offline CPU coverage; synthetic checkpoints, fake HTTP, no vLLM imports."""
+from contextlib import contextmanager
 import json
 from pathlib import Path
 import shutil
 import struct
+import sys
 from types import SimpleNamespace
 
 import httpx
@@ -14,7 +16,7 @@ from harness.serve_student import free_port, server_command
 from sed.config import load_config
 from sed.storage import digest, file_hash, write_json
 from tools.check_lora_serving import (compare_prompts, comparison, fixed_prompts,
-                                     validate_report, vllm_logprobs)
+                                     summarize_prompts, validate_cases, validate_report, vllm_logprobs)
 
 
 @pytest.fixture
@@ -203,6 +205,7 @@ def test_server_provenance_and_all_models_readiness(adapter_bank, tmp_path, monk
 def cases():
     return [{"input_ids": [2, 3, 10, 106], "prompt_tokens": 2,
              "input_sha256": digest([2, 3, 10, 106]), "hf_logprobs": [-1.0, -2.0],
+             "hf_base_logprobs": [-1.29, -2.29],
              "source": {"task_id": "train/task/1", "turn_index": i,
                         "training_eligible": True}} for i in range(8)]
 
@@ -218,17 +221,27 @@ def fake_completion(request):
             {"10": {"logprob": values[0]}}, {"106": {"logprob": values[1]}}]}]})
 
 
-def test_logprob_equivalence_and_report_gate(adapter_bank):
+@pytest.fixture
+def bound_report(adapter_bank):
     path, snapshot, student = adapter_bank
     row = inspect_adapter("sft", path, student, snapshot)
     with httpx.Client(transport=httpx.MockTransport(fake_completion)) as client:
         report = compare_prompts(cases(), client, "http://127.0.0.1:34567/v1", "sft", "base")
-    assert report["passed"] and len(report["prompts"]) == 8
-    assert report["aggregate"]["adapter_vllm_vs_hf"]["mean_abs_diff"] == pytest.approx(0.01)
     server = {"config": {"server": {"lora_adapters": [row], "served_model_name": "base",
                                     "endpoint": "http://127.0.0.1:34567/v1", "merged_model": False}}}
     report.update(model_name="sft", server_provenance_sha256=digest(server),
                   identity={"adapter": adapter_identity(row)})
+    return report, server
+
+
+def test_logprob_equivalence_and_report_gate(bound_report):
+    report, server = bound_report
+    assert report["schema_version"] == 2 and report["passed"] and len(report["prompts"]) == 8
+    for stats in [*report["prompts"], report["aggregate"]]:
+        for metric, expected in (("adapter_error", 0.01), ("base_noise", 0.01), ("effect", 0.29)):
+            assert stats[metric]["mean_abs_diff"] == pytest.approx(expected)
+            assert stats[metric]["max_abs_diff"] == pytest.approx(expected)
+        assert stats["mean_abs_diff_tolerance_nats"] == 0.05
     validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
     with pytest.raises(ValueError, match="Endpoint"):
         validate_report(report, server, "sft", "http://127.0.0.1:34568/v1")
@@ -238,12 +251,154 @@ def test_logprob_equivalence_and_report_gate(adapter_bank):
 
 
 def test_thresholds_fail_closed():
-    assert comparison([-1], [-1.02], [-2])["passed"]
-    assert not comparison([-1], [-1.06], [-2])["passed"]
-    assert not comparison([-1], [-1.02], [-1.05])["passed"]
-    assert not comparison([-1], [-1], [-1])["passed"]
-    for values in (([], [], []), ([-1], [], [-1]), ([float("nan")], [-1], [-2])):
-        with pytest.raises(ValueError): comparison(*values)
+    assert comparison([-1], [-1.02], [-2], [-2], require_effect=True)["passed"]
+    assert not comparison([-1], [-1.06], [-2], [-2])["passed"]
+    assert not comparison([-1], [-1.02], [-1.05], [-1.05], require_effect=True)["passed"]
+    assert not comparison([-1], [-1.02], [-1.02], [-1.02], require_effect=True)["passed"]
+    # The effect guard belongs only to the pooled comparison in schema 2.
+    assert comparison([-1], [-1.02], [-1.02], [-1.02])["passed"]
+
+
+@pytest.mark.parametrize("noise,passed", [(0.038, True), (0.05, True), (0.01, False)])
+def test_observed_error_relative_to_base_noise(noise, passed):
+    stats = comparison([-1], [-1.0563], [-1.8963], [-1.8963 + noise], require_effect=True)
+    assert stats["adapter_error"]["mean_abs_diff"] == pytest.approx(0.0563)
+    assert stats["base_noise"]["mean_abs_diff"] == pytest.approx(noise)
+    assert stats["effect"]["mean_abs_diff"] == pytest.approx(0.84)
+    assert stats["mean_abs_diff_tolerance_nats"] == pytest.approx(max(0.05, 1.5 * noise))
+    assert stats["passed"] is passed
+
+
+def test_threshold_equality_is_inclusive():
+    # Binary-exact values put both relative error and pooled effect at equality.
+    assert comparison([-1], [-1.09375], [-1.5625], [-1.5], require_effect=True)["passed"]
+    assert comparison([0], [-0.05], [-1], [-1], require_effect=True)["passed"]
+
+
+@pytest.mark.parametrize("index", range(4))
+@pytest.mark.parametrize("bad", [[], [float("nan")], [float("inf")], [float("-inf")], [None], [True]])
+def test_invalid_logprobs_refused(index, bad):
+    values = [[-1], [-1.01], [-2], [-2.01]]
+    values[index] = bad
+    with pytest.raises(ValueError):
+        comparison(*values)
+    with pytest.raises(ValueError):
+        comparison([], [], [], [])
+
+
+@pytest.mark.parametrize("bad", [None, [], [-1.29], [-1.29, float("nan")]])
+def test_reference_requires_aligned_finite_hf_base(bad):
+    rows = cases()
+    if bad is None:
+        rows[0].pop("hf_base_logprobs")
+    else:
+        rows[0]["hf_base_logprobs"] = bad
+    with pytest.raises(ValueError, match="hf_base_logprobs"):
+        validate_cases(rows)
+
+
+def measured_cases(errors, noises, effects):
+    """Construct aligned token measurements, with distinct TRAIN turn identities."""
+    rows = cases()
+    for row, error, noise, effect in zip(rows, errors, noises, effects):
+        n = len(error)
+        row["input_ids"] = [2, 3] + [10] * (n - 1) + [106]
+        row["input_sha256"] = digest(row["input_ids"])
+        row["hf_logprobs"] = [-1.0] * n
+        row["adapter_vllm_logprobs"] = [-1 - value for value in error]
+        row["base_vllm_logprobs"] = [a - e for a, e in zip(row["adapter_vllm_logprobs"], effect)]
+        row["hf_base_logprobs"] = [b + v for b, v in zip(row["base_vllm_logprobs"], noise)]
+    return rows
+
+
+@pytest.mark.parametrize("noise,passed", [(0.038, True), (0.01, False)])
+def test_observed_prompt_and_token_weighted_pool(bound_report, noise, passed):
+    # Synthetic regression matching the rounded p05 error/maximum and 236-token pool;
+    # the HF base noise is hypothetical, not a measurement from the real run.
+    errors = [[0.634] + [(34 * 0.0563 - 0.634) / 33] * 33]
+    rest_error = (236 * 0.0308 - 34 * 0.0563) / 202
+    errors.extend([[rest_error] * n for n in [29] * 6 + [28]])
+    noises = [[noise if i == 0 else 0.01] * len(e) for i, e in enumerate(errors)]
+    effects = [[0.84] * len(e) for e in errors]
+    report, server = bound_report
+    report.update(summarize_prompts(measured_cases(errors, noises, effects)))
+    assert report["passed"] is passed and report["prompts"][0]["passed"] is passed
+    assert report["prompts"][0]["adapter_error"]["mean_abs_diff"] == pytest.approx(0.0563)
+    pooled = report["aggregate"]
+    assert pooled["tokens"] == 236 and pooled["passed"]
+    assert pooled["adapter_error"]["mean_abs_diff"] == pytest.approx(0.0308)
+    assert pooled["adapter_error"]["max_abs_diff"] == pytest.approx(0.634)
+    assert pooled["base_noise"]["mean_abs_diff"] == pytest.approx((34 * noise + 202 * 0.01) / 236)
+    assert pooled["base_noise"]["max_abs_diff"] == pytest.approx(noise)
+    assert pooled["effect"]["mean_abs_diff"] == pytest.approx(0.84)
+    if passed:
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+    else:
+        with pytest.raises(ValueError, match="passing"):
+            validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+@pytest.mark.parametrize("failure", ["prompt", "pooled_error", "pooled_effect"])
+def test_validation_recomputes_each_gate(bound_report, failure):
+    report, server = bound_report
+    if failure == "prompt":
+        errors, noises, effects = [[0.06]] + [[0.01]] * 7, [[0.01]] * 8, [[1.0]] * 8
+    elif failure == "pooled_error":
+        # All prompts pass separately; pooling noise before max() can still fail.
+        errors, noises, effects = [[0.049]] * 4 + [[0.149]] * 4, [[0]] * 4 + [[0.1]] * 4, [[1.0]] * 8
+    else:
+        errors, noises, effects = [[0.04]] * 8, [[0.01]] * 8, [[0.1]] * 8
+    rows = measured_cases(errors, noises, effects)
+    actual = summarize_prompts(rows)
+    assert not actual["passed"]
+    assert all(row["passed"] for row in actual["prompts"]) is (failure != "prompt")
+    assert actual["aggregate"]["passed"] is (failure == "prompt")
+    # Leave the old passing summaries/flags in place: raw measurements govern.
+    for row, measured in zip(report["prompts"], rows):
+        row.update(measured)
+    report["thresholds"] = {"mean_abs_diff_nats": 999, "min_effect_ratio": 0}
+    with pytest.raises(ValueError, match="noise-relative"):
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+def test_only_pooled_effect_is_required(bound_report):
+    report, server = bound_report
+    errors, noises = [[0.02]] * 8, [[0.01]] * 8
+    effects = [[0.0]] + [[0.3]] * 7
+    report.update(summarize_prompts(measured_cases(errors, noises, effects)))
+    assert report["passed"] and report["prompts"][0]["effect"]["mean_abs_diff"] == 0
+    validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+@pytest.mark.parametrize("schema", [None, 1, 3, "2", 2.0, True])
+def test_report_schema_refused(bound_report, schema):
+    report, server = bound_report
+    if schema is None:
+        report.pop("schema_version")
+    else:
+        report["schema_version"] = schema
+    for row in report["prompts"]:
+        row.pop("hf_base_logprobs")
+        row.pop("base_noise")
+    with pytest.raises(ValueError, match="Schema version 2"):
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+def test_schema_two_cannot_relabel_legacy_measurements(bound_report):
+    report, server = bound_report
+    for row in report["prompts"]:
+        row.pop("hf_base_logprobs")
+    with pytest.raises(ValueError, match="hf_base_logprobs"):
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
+
+
+@pytest.mark.parametrize("field,value", [("passed", False), ("model_name", "other"),
+                                         ("identity", {"adapter": {}})])
+def test_failed_or_mismatched_report_refused(bound_report, field, value):
+    report, server = bound_report
+    report[field] = value
+    with pytest.raises(ValueError, match="passing"):
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")
 
 
 def test_prompt_ids_must_match():
@@ -269,8 +424,59 @@ def test_fixed_selection_training_only():
         fixed_prompts(examples[:2])
 
 
-@pytest.mark.parametrize("passes", [True, False])
-def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypatch, passes):
+def test_hf_only_writes_both_references_with_one_model_load(adapter_bank, tmp_path, monkeypatch):
+    import tools.check_lora_serving as check
+    path, snapshot, student = adapter_bank
+    verified = tmp_path / "verified"
+    verified.mkdir()
+    write_json(verified / "manifest.json", {})
+    examples = [{"input_ids": row["input_ids"], "prompt_tokens": row["prompt_tokens"],
+                 "label_provenance": row["source"], "packing": "turn"} for row in cases()]
+    loads, scores = [], []
+    base = object()
+    class FakePeft:
+        disabled = False
+
+        @contextmanager
+        def disable_adapter(self):
+            self.disabled = True
+            try:
+                yield
+            finally:
+                self.disabled = False
+
+        @classmethod
+        def from_pretrained(cls, loaded, adapter, **kwargs):
+            assert loaded is base and adapter == str(path)
+            assert kwargs == {"local_files_only": True, "is_trainable": False,
+                              "autocast_adapter_dtype": False}
+            return model
+
+    model = FakePeft()
+    def score(loaded, row):
+        assert loaded is model
+        scores.append((row["source"]["turn_index"], model.disabled))
+        return [-1.29, -2.29] if model.disabled else [-1.0, -2.0]
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=SimpleNamespace(
+        is_available=lambda: True, empty_cache=lambda: None)))
+    monkeypatch.setitem(sys.modules, "peft", SimpleNamespace(PeftModel=FakePeft))
+    monkeypatch.setattr("train.modeling.load_student", lambda value: loads.append(value) or base)
+    monkeypatch.setattr("train.dataset.load_tokenizer", lambda _: SimpleNamespace(chat_template="fake"))
+    monkeypatch.setattr("train.dataset.build_verified_dataset", lambda *a, **kw: examples)
+    monkeypatch.setattr(check, "hf_logprobs", score)
+    output = tmp_path / "hf"
+    assert check.main(["--snapshot", str(snapshot), "--adapter", str(path), "--verified", str(verified),
+                       "--model-name", "sft", "--hf-only", "--output", str(output)]) == 0
+    reference = json.loads((output / "reference.json").read_text())
+    assert reference["schema_version"] == 2 and reference["prompts"] == cases()
+    assert reference["provenance_sha256"] == digest(json.loads((output / "provenance.json").read_text()))
+    assert loads == [str(snapshot)] and not model.disabled
+    assert scores == [(i, disabled) for disabled in (False, True) for i in range(8)]
+    assert not (output / "report.json").exists()
+
+
+@pytest.mark.parametrize("scenario", ["pass", "prompt_failure", "pooled_effect_failure", "legacy_reference"])
+def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypatch, scenario):
     import tools.check_lora_serving as check
     from sed.provenance import write_provenance
     path, snapshot, student = adapter_bank
@@ -282,16 +488,24 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
                                      load_config(), adapter)
     hf_dir = tmp_path / "hf"
     old = write_provenance(hf_dir, command="check_lora_serving", config={})
-    write_json(hf_dir / "reference.json", {"identity": identity, "prompts": cases(),
+    rows = cases()
+    if scenario == "legacy_reference":
+        for row in rows:
+            row.pop("hf_base_logprobs")
+    write_json(hf_dir / "reference.json", {"schema_version": 2, "identity": identity, "prompts": rows,
                "provenance_sha256": digest(old), "template_sha256": "fake-template"})
     server = {"config": {"server": {"lora_adapters": [adapter], "served_model_name": "base",
                                     "endpoint": "http://127.0.0.1:34567/v1", "merged_model": False}}}
     server_file = tmp_path / "server.json"
     write_json(server_file, server)
     def completion(request):
+        assert scenario != "legacy_reference"  # Refuse incomplete references before serving calls.
         data = fake_completion(request).json()
-        if not passes and data["model"] == "sft":
+        if scenario == "prompt_failure" and data["model"] == "sft":
             data["choices"][0]["prompt_logprobs"][2]["10"]["logprob"] = -1.5
+        if scenario == "pooled_effect_failure" and data["model"] == "base":
+            data["choices"][0]["prompt_logprobs"][2]["10"]["logprob"] = -1.01
+            data["choices"][0]["prompt_logprobs"][3]["106"]["logprob"] = -2.01
         return httpx.Response(200, json=data)
     real_client = httpx.Client
     monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(
@@ -301,7 +515,16 @@ def test_check_cli_json_report_and_exit_status(adapter_bank, tmp_path, monkeypat
                         "--verified", str(verified), "--model-name", "sft",
                         "--endpoint", "http://127.0.0.1:34567/v1", "--server-provenance", str(server_file),
                         "--hf-reference", str(hf_dir / "reference.json"), "--output", str(output)])
+    passes = scenario == "pass"
     assert status == (0 if passes else 1)
+    assert (output / "provenance.json").exists()
+    if scenario == "legacy_reference":
+        assert not (output / "report.json").exists()
+        assert json.loads((output / "failure.json").read_text()) == {"passed": False, "error_type": "ValueError"}
+        return
     report = json.loads((output / "report.json").read_text())
     assert report["passed"] is passes and len(report["prompts"]) == 8
-    assert (output / "provenance.json").exists()
+    assert report["schema_version"] == 2 and report["thresholds"]["base_noise_multiplier"] == 1.5
+    assert all("hf_base_logprobs" in row for row in report["prompts"])
+    if passes:
+        validate_report(report, server, "sft", "http://127.0.0.1:34567/v1")

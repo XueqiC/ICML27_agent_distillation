@@ -11,11 +11,35 @@ from harness.lora_adapters import convert_adapter
 from sed.react import build_messages
 from sed.seed_selection import select_seeds
 from teachers.collect_seeds import collect
-from tools.check_lora_serving import fixed_prompts, hf_logprobs
+from tools.check_lora_serving import add_hf_references, fixed_prompts, hf_logprobs
 from train.dataset import build_verified_dataset, EMPTY_THOUGHT
 from train.modeling import attach_lora
 from test_stage2b_torch import tiny_model, tokenizer
 from test_stage2b_seeds import seed_bank, factories
+
+
+def test_hf_base_references_disable_and_restore_adapter_on_same_model():
+    torch.set_num_threads(1)
+    torch.manual_seed(7)
+    base = tiny_model().eval()
+    rows = [{"input_ids": [2, 8, i + 9, 20, 106], "prompt_tokens": 3} for i in range(8)]
+    expected_base = [hf_logprobs(base, row) for row in rows]
+    model = attach_lora(base, rank=2, alpha=4, gradient_checkpointing=False).eval()
+    assert model.get_base_model() is base
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if "lora_B" in name:
+                param.normal_(std=0.3)
+    expected_adapter = [hf_logprobs(model, row) for row in rows]
+    assert not torch.allclose(torch.tensor(expected_adapter), torch.tensor(expected_base))
+    add_hf_references(model, rows)
+    torch.testing.assert_close(torch.tensor([row["hf_logprobs"] for row in rows]),
+                               torch.tensor(expected_adapter), rtol=0, atol=0)
+    torch.testing.assert_close(torch.tensor([row["hf_base_logprobs"] for row in rows]),
+                               torch.tensor(expected_base), rtol=0, atol=0)
+    # Leaving disable_adapter() restores the loaded adapter for subsequent scoring.
+    torch.testing.assert_close(torch.tensor([hf_logprobs(model, row) for row in rows]),
+                               torch.tensor(expected_adapter), rtol=0, atol=0)
 
 
 def test_hf_logprob_alignment_and_real_peft_conversion(tmp_path):
