@@ -36,6 +36,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   0% variant cancelled (would hit the same 400 at correct-1). Fixed in e36fe93 (code-null shape; live probe from rai sets the flag).
   **Resubmitted 44857832 privileged / 44857833 zero** (group, tree e36fe93) → $B/reports/runs/baselines/leap-{privileged,zero}-k20s0-m4.
   m4 running 17:0x CDT; privileged extraction 16/16 OK (4 tasks have no handcoded expert), sampling fell back to configured default.
+  m4 privileged: iteration 1 worked (11 failed rollouts → 7 corrections, 3 no-state, 1 rejected; 280 examples) then FAILED in train-1:
+  validate_initialization uses the full-FT validator (needs non_text_source) on the merged checkpoint. 0% m4 (44857833) cancelled
+  at correct-1 (same train-1 path). Codex: fix + one real end-to-end CPU chain test (tiny Gemma-4) merge→train-1→merge-1→serve assets.
 - **K=100 s0 collection COMPLETE** (21:17Z = 16:17 CDT: 100 trusted / 117 tasks / 156 attempts, 3 h 37 min; k5/k10/k20 views identical
   to the K=20 ones). s1 running since 16:17 CDT; at this pace s1, s2 ≈ 3.5 h each → ~23:30 CDT. Synced seeds_k100_s0 to hpg.
   Tree b521a4e: K=50/100 s0 grid being prepared on hpg (configs/seedsft_dose_grid_v2_k50_100_s0.json); baseline cells for
