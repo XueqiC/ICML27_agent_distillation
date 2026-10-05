@@ -133,6 +133,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - 2026-10-04 16:48 Codex stage 2b started (seed selection/collection, SFT dataset + masks, LoRA trainer, merge check, hpg scripts).
 
 ## Open decisions (asked the user)
+- **Asked 07:5x CDT 10-05: OpenAI key on hpg for LEAP?** LEAP needs live teacher calls; rai disk (~97 GB free) cannot hold its 4 × 24 GB
+  merged checkpoints → must run on hpg. Proposed: key in a /blue file, chmod 600, LEAP only. Fallback: split teacher stages (rai) and GPU
+  stages (hpg). Not done until the user answers.
 - **Decided by the user 2026-10-04 23:43 CDT** (answers to A/B/C): the few-shot black-box principle never changes; an official repo
   with incomplete code is treated as nonexistent (→ WKM and STeCa dropped); B approved (LEAP faithful with privileged expert
   summaries at training time, flagged, plus the 0%-privileged ablation); C: exploration only on the K training tasks for every
