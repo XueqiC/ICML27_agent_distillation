@@ -7,9 +7,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 ## RUNNING JOBS
 - **hpg 44777524** (array 0–8%4, dept, 1×B200 each, frozen tree /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/e1bad3f via git archive):
   paper-grade Seed-SFT, configs/seedsft_dose_grid.json (K 5/10/20 × support seeds 0/1/2; checkpoints = passes {3,5,10,20,30,40} ∪
-  tokens {100k,200k,400k}) → /blue/.../ICML27_agent_distillation/reports/runs/train/seedsft-k{K}s{S}-hpg. Submitted 23:51 CDT, pending.
+  tokens {100k,200k,400k}) → /blue/.../ICML27_agent_distillation/reports/runs/train/seedsft-k{K}s{S}-hpg. Submitted 23:51 CDT; task 0 (k5s0) done 28 min; others pending on dept QOSGrpMemLimit (burst QOS has gpu=0, group account full).
   Preflight: all 9 datasets reproduce the rai per-pass token counts.
-- **hpg 44777572** (dept, 4×B200, 480G, same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
+- **hpg 44777572** (dept, 4×B200, request shrunk to 16 CPU / 300G at 00:4x CDT after QOSGrpCpuLimit; same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
   VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
 - rai BI dev140 done: base 60/140 = 42.9%, k20s0-p20 96/140 = 68.6% → reports/runs/eval/bi-dev140-rai. Gap set G = 24, R = 7.
 - **rai GPU1: first mechanism run** (scripts/rai_mechanism.sh from worktree ICML27_run_3045b60, pid 781961, started ~00:35 CDT 10-05):
