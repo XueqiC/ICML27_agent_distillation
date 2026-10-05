@@ -241,3 +241,137 @@ non-torch test files, and this appended amendment changed. The existing
 `summarize_prompts`, so it needed no edit. Earlier report text is unchanged.
 No GPU, real server, network/OpenAI call, submitted job, commit, or push was
 used. Real run artifacts remained read-only; no scientific finding is claimed.
+
+## Amendment 3: kernel equivalence and adapter application — 2026-10-05
+
+This amendment supersedes schema 3's effect-relative precision requirements.
+The gate answers two separate questions: whether adapter vLLM matches HF+PEFT
+within measured kernel noise, and whether the adapter has a visible effect.
+The eight fixed verified TRAIN turns, token selection, scoring, model identities,
+and server/provenance bindings retain their definitions.
+
+Schema 4 requires all four inclusive inequalities, using token-weighted pooled
+means and strict greater-than comparisons for outlier counts:
+
+1. Pooled `adapter_error <= max(0.05, 1.5 * base_noise)`.
+2. Pooled adapter-error `count(abs_diff > 0.5) <= 2 * base_noise_count(abs_diff > 0.5) + 2`.
+3. Pooled `effect >= 2 * base_noise`.
+4. Every prompt's `effect >= base_noise`, using that prompt's means.
+
+The first two conditions check numerical equivalence; the last two check
+adapter application. There is no per-prompt error ceiling or requirement to
+scale precision with adapter effect. Reports retain every prompt's and the
+aggregate's mean/max absolute differences for `adapter_error`, `base_noise`,
+and `effect`, plus adapter/base counts above 0.25 and 0.5 nats. The aggregate
+records its error ceiling and outlier allowance; those two tolerance fields
+are null on prompt rows because they apply only to pooled measurements.
+`min_effect_nats` records the applicable effect floor on every row. New reports
+and HF references carry `schema_version: 4`.
+
+`validate_report` requires schema 4 and recomputes every gate from all four
+stored token arrays. Edited summaries, pass flags, counts, or threshold
+metadata cannot bypass a failing measurement. Failed-report, adapter/server,
+and endpoint checks remain enforced. Complete schema 2/3 reports can be
+explicitly recomputed in memory with
+`{**old_report, **summarize_prompts(old_report["prompts"])}` before validation.
+This refreshes the schema, summaries, flags, counts, thresholds, and rule while
+preserving identity metadata. Unconverted schema 2/3 reports, schema 1, and
+missing/invalid measurements are refused.
+
+Read-only recomputation covered every `report.json` under both
+`/home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/eval/ladder-s0-rai-dev140/`
+and `ladder-s0-rai-dev140-b/`: thirteen reports, each with eight prompts and 236
+scored tokens. Four k5 reports appeared during validation and were included in
+the final recomputation. Names below are relative to the common `eval/` directory;
+each source is `<name>/check/report.json`. Means are in nats. Outlier counts
+are pooled adapter error / base noise above 0.5 nats.
+
+| Name | Pooled error | Base noise | Effect | Outliers >0.5 (adapter / base) | Pass |
+|---|---:|---:|---:|---:|:---:|
+| ladder-s0-rai-dev140/k20s0-p10 | 0.024269774 | 0.046081653 | 1.124531027 | 1 / 2 | PASS |
+| ladder-s0-rai-dev140/k20s0-p20 | 0.031197812 | 0.046081653 | 1.307455978 | 3 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k10s0-p03 | 0.049910179 | 0.046081653 | 0.143896720 | 5 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k10s0-p05 | 0.046671770 | 0.046081653 | 0.336831716 | 4 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k10s0-p10 | 0.028305977 | 0.046081653 | 0.918445327 | 1 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k10s0-p20 | 0.022092803 | 0.046081653 | 1.276593256 | 2 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k20s0-p03 | 0.039622564 | 0.046081653 | 0.470432301 | 3 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k20s0-p05 | 0.031740395 | 0.046081653 | 0.841183242 | 2 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k20s0-p20 | 0.030638280 | 0.046081653 | 1.288269865 | 6 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k5s0-p03 | 0.047745035 | 0.046081653 | 0.056921754 | 4 / 2 | FAIL |
+| ladder-s0-rai-dev140-b/k5s0-p05 | 0.067385323 | 0.046081653 | 0.056914867 | 6 / 2 | FAIL |
+| ladder-s0-rai-dev140-b/k5s0-p10 | 0.037103002 | 0.046081653 | 0.219798714 | 2 / 2 | PASS |
+| ladder-s0-rai-dev140-b/k5s0-p20 | 0.057812333 | 0.046081653 | 0.676436713 | 4 / 2 | PASS |
+
+Eleven recomputed reports pass `validate_report` against their recorded
+`server/provenance.json`; the other two are refused. A separate calculation
+directly from the four arrays confirmed each gate's result for every report.
+Both failures were also rejected after identity checks when supplying a stale
+passing flag, demonstrating rejection from measurements. The common pooled error
+ceiling is 0.069122479 nats, effect floor 0.092163306 nats, and outlier allowance
+6 tokens. Among passing reports, the smallest prompt effect/noise ratio is
+1.296093 on `-b/k10s0-p03`.
+`-b/k20s0-p20` passes exactly at the six-outlier boundary.
+
+`-b/k5s0-p03` and `-b/k5s0-p05` pass both numerical-equivalence conditions but
+fail the pooled effect floor and the requirement for visible effect on every
+prompt. Their failing zero-based prompt indices are respectively `[0, 2, 3, 7]`
+and `[1, 7]`; their minimum prompt effect/noise ratios are 0.155958 and 0.459634.
+These negative application checks remain failures under schema 4.
+
+The light-adapter failures illustrate why the two questions need separate
+criteria: `-b/k10s0-p03`, `-b/k10s0-p05`, and `-b/k20s0-p03` failed schema 3
+but pass all four schema 4 requirements. On zero-based prompt 1 of
+`-b/k20s0-p03`, the maximum adapter error is 1.824928522 nats, on the same
+prompt whose maximum base noise is 0.812375307 nats; its mean error is
+0.095291296, base noise 0.062088057, and effect 0.412420542. The aggregate
+noise and outlier checks accommodate this isolated large error without
+requiring small adapter effects to imply proportionally smaller kernel error.
+
+These are offline reclassifications of existing measurements. The original
+schema 2 failure at `ladder-s0-rai-dev140/k20s0-p20` and all seven schema 3
+failures remain unchanged on disk. Source SHA256s were checked before and
+after recomputation; the inputs are recorded below for reproducibility.
+
+| Name | Original report SHA256 |
+|---|---|
+| ladder-s0-rai-dev140/k20s0-p10 | `cd74c8dc87ba002313df3ad7256edf6afe5babce5383d1a4e4d8b4dde106b099` |
+| ladder-s0-rai-dev140/k20s0-p20 | `a2749a1e92bd3891aa3d21f7d63b0951cc96aa5cd2bba6cb5dc6bf5c7c400933` |
+| ladder-s0-rai-dev140-b/k10s0-p03 | `c446c14f0eb80d0527de057c4884c0fabc156d862ca4a57fbc31c23eba6a1621` |
+| ladder-s0-rai-dev140-b/k10s0-p05 | `ce516ca7a701cfcecce0c5f32eef2e1dbac9d5d7830b261426569ab9a6946e7c` |
+| ladder-s0-rai-dev140-b/k10s0-p10 | `fec89c04e0a6800f064651649b7f9fe9bed4b56f7f96ed294e2d7f4246f9ffa5` |
+| ladder-s0-rai-dev140-b/k10s0-p20 | `919432e9db8898f89573fd884d0097d43933db58f07db6f4679392cbfa64e43f` |
+| ladder-s0-rai-dev140-b/k20s0-p03 | `8afbaea39ebc5bbe36506ee9852fa8451db2bcea3fcb2efdcbd6086845ac2fc3` |
+| ladder-s0-rai-dev140-b/k20s0-p05 | `7a19816bd8ac4c35c61a64f093dc383749aeb7e62ba513ea31e49509ae094124` |
+| ladder-s0-rai-dev140-b/k20s0-p20 | `2eb91ca608259424b14e826d1d6ceedcf7a044b030aa2681dfe1c053eee9db6f` |
+| ladder-s0-rai-dev140-b/k5s0-p03 | `7152e970357b84acb192d4c26e9ce612fa898522ff0902c10c032d4e0f669603` |
+| ladder-s0-rai-dev140-b/k5s0-p05 | `30267252f222c4c8a52dc05c0f626c9e7333d7155a3a4339ddeb495c5865c863` |
+| ladder-s0-rai-dev140-b/k5s0-p10 | `c1268b1e86065a603d7ad256cda060b3057cac58f200d79d38e545324507d0c8` |
+| ladder-s0-rai-dev140-b/k5s0-p20 | `a4fa24a90923c374a9e5c94a47e8363ad0bcb940630f4b27bafeacb3c9928184` |
+
+The schema 4 checker source SHA256 used for recomputation is
+`cbbc677a00a86faa2253dc90cf40d0bbcd6a9995fffe709650db832793e2681e`.
+
+Offline CPU validation:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. .venv/bin/python -m pytest -q
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_lora_serving_torch.py tests/test_stage2b_torch.py
+```
+
+The full project suite passed **387 tests, 4 skipped**: three torch modules are
+unavailable in the project venv, and real ALFWorld integration is optional.
+The separate torch command passed **14 tests**, with the existing PEFT warning
+about the synthetic model's absent source config. Regression coverage includes
+light-adapter cases with 236 weighted tokens, isolated large token errors,
+strict outlier cutoffs and inclusive allowances, independent failures of all
+four gates, missing adapters, stale-summary/threshold rejection, complete
+schema 2/3 recomputation, missing measurements, schema rejection, and CLI
+reports/exit statuses. `git diff --check` passed.
+
+Only `tools/check_lora_serving.py`, `tests/test_lora_serving.py`, and this
+appended amendment changed. The existing suite fixture and torch tests needed
+no edits. Earlier report text is unchanged. No GPU, real server, network/API
+call, submitted job, commit, or push was used. No new inference or environment
+evaluation was performed, and no scientific finding is claimed.
