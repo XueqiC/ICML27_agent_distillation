@@ -5,33 +5,22 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **Teacher dev140 done 22:2x CDT: 114/140 = 81.4%** (0 parser errors, 82 inadmissible / 2,862 steps; 12.33M input tokens of which
-  11.14M cached, 166.7k output; 183 min, throttled by the old limiter) → reports/runs/teacher-dev140.
-- Seed-SFT K=10 s0 and K=5 s0 done (21:46 / 21:54 CDT) → reports/runs/train/seedsft-k{10,5}-s0-rai, ckpts 3/5/10/20 passes.
-- **K-ladder eval** (scripts/rai_eval_ladder_s0.sh, worktree ICML27_run_57ae004) → reports/runs/eval/ladder-s0-rai-dev140: base 59/140
-  (again), **k20s0-p10 66/140 = 47.1%** (0 parser errors, 192 inadmissible); then k20s0-p20's check failed (single-token bf16 outliers:
-  2.72 / 1.02 nats on prompts 2 and 5; pooled error 0.031 < base noise 0.046; effect 1.307) and set -e stopped the launcher with 10
-  adapters left. GPU1 idle until gate amendment 2 lands.
-- Ladder part b done (aa2fd07 worktree): k20 p05 44, p20 **94**; k10 p10 46, p20 69; 7 adapters failed schema 3 (small effects) → gate
-  schema 4 merged (a0a08b0): (a) serving = HF at kernel noise, (b) adapter visibly applied; recomputed: 11/13 pass, k5s0-p03/p05 fail (b)
-  (effect within 2x noise; reported as not evaluated).
-- **Batch-invariant pilot (23:12–23:34 CDT): VLLM_BATCH_INVARIANT=1 → 40/40 identical base trajectories across two server instances on
-  dev40 (18/40 both), ~2.8x serving time.** → Protocol switch for all paper evals once LoRA is confirmed (Amendment 2 point 3).
-- rai GPU1: LoRA-under-BI determinism pilot (scripts/rai_bi_lora_pilot.sh, pid 660815, worktree ICML27_run_a0a08b0): k20s0-p20 on dev40
-  on two instances → reports/runs/eval/bi-lora-pilot-dev40-{1,2}.
-- Codex stage 4b (pid 662235, main tree): I0 paired control in readout (Amendment 2) + batch-invariant plumbing (provenance, launchers
-  default BATCH_INVARIANT=1, k_ladder guard against mixed serving).
-- Overnight plan (GPU1, sequential): if LoRA-BI deterministic → K=20 s0 dose extension to 40 passes (train ~85 min) → BI re-eval of key
-  table cells (base, k20 p10/p20/p30/p40, k10 p20, k5 p20) → mechanism analysis (FCE + I0–I5) on the best Seed-SFT student under BI.
-- Taxonomy amendment 1 implemented and committed (F-search dominates: base 42%, k20s0-p03 32%, teacher 65% of failures).
-- Stage 4a committed (035cd0a): analysis/mechanism (taxonomy, branch, FCE, I0–I5, readout, scripts/rai_mechanism.sh).
-- Merged today: c96fc4e equivalence gate schema 2 (tolerance = max(0.05, 1.5 × measured HF-vs-vLLM base noise)), 944263c subset
-  provenance fix, dc30492 stage 3a (baselines/common + ETO port; GPU/FSDP paths not yet run; hpg needed for full FT).
-- Teacher limiter fixed in 57ae004 (chars/4 + 8/message + output cap; 450 RPM / 180k TPM; provider headers logged).
-- **First dev140 numbers (rai GPU1, 20:3x CDT):** base 59/140 = 42.1%; Seed-SFT K=20 s0 3 passes 44/140 = 31.4% (paired 41/18/3/78,
-  McNemar p = 0.0015). Parser errors 23 → 0, inadmissible 283 → 499. p05 check failed (one 34-token prompt 0.056 > 0.05; pooled 0.031,
-  effect 0.84) → launcher stopped before p05/p10/p20. Output reports/runs/eval/k20s0-rai-dev140 (base + p03 valid).
-- hpg: nothing running; tunnel down since 17:31 CDT (told the user once).
+- **hpg 44777524** (array 0–8%4, dept, 1×B200 each, frozen tree /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/e1bad3f via git archive):
+  paper-grade Seed-SFT, configs/seedsft_dose_grid.json (K 5/10/20 × support seeds 0/1/2; checkpoints = passes {3,5,10,20,30,40} ∪
+  tokens {100k,200k,400k}) → /blue/.../ICML27_agent_distillation/reports/runs/train/seedsft-k{K}s{S}-hpg. Submitted 23:51 CDT, pending.
+  Preflight: all 9 datasets reproduce the rai per-pass token counts.
+- **hpg 44777572** (dept, 4×B200, 480G, same tree): ETO K=20 s0 stage `sft` only (full-FT FSDP2 smoke) → reports/runs/baselines/eto-k20s0;
+  VLLM_BATCH_INVARIANT=1 exported (not yet recorded in e1bad3f provenance). Pending.
+- **rai GPU1** pid 736875 (worktree ICML27_run_3045b60, BATCH_INVARIANT=1): dev140 base + k20s0-p20 (rai-trained) → reports/runs/eval/
+  bi-dev140-rai; defines the gap set for the first mechanism run (FCE + I0–I5 on k20s0-p20). ~45 min.
+- hpg data: data/verified synced (checksums equal). hpg git cannot fetch GitHub (no credentials) → code goes by `git archive <sha> |
+  ssh hpg tar -x`, one tree per commit under /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/<sha> with .venv symlinked to the base tree.
+- **Protocol: batch-invariant serving (VLLM_BATCH_INVARIANT=1) for every paper evaluation** — base 40/40 and LoRA 40/40 identical
+  trajectories across server instances (rai, 23:12–23:51 CDT); ~2.8x slower for base. Earlier non-BI numbers are preliminary.
+- Baseline decisions (user 23:43 CDT): WKM/STeCa out (incomplete code); LEAP faithful + 0%-privileged ablation; exploration only on
+  the K tasks for every method. Final set: ETO, IPR, AgentGym BC/AgentEvol, LEAP(+ablation), Kang (adapted) + Seed-SFT/teacher/base.
+- User goal restated (23:44): honestly measure what SOTA baselines and our student achieve, and which environment traits amplify or
+  shrink each gap → MECHANISM_PLAN addendum A (trait stratification, pre-registered).
 
 ## Done today (moved from RUNNING JOBS)
 - Seeds: s0 20/29 attempts, s1 20/38 (done 19:38 CDT), s2 20/24 → data/verified/seeds_k20_s{0,1,2} with subsets/k5, subsets/k10.
