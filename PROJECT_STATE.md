@@ -8,6 +8,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - rai (nohup scripts/rai_collect_parallel.sh, log logs/rai_collect_parallel.log): collect K=20 verified seeds → data/verified/seeds_k20_s{0,1,2}
   (K=5/10 nested subsets), then teacher dev140 (8 workers) → reports/runs/teacher-dev140. s0 done (20 / 29 attempts), s2 done (20 / 24),
   s1 collecting (pid 42699; 6/20 at 19:09 CDT; heat tasks fail often for the teacher).
+  19:27 CDT: wrapper script stopped (s1 collector pid 42699 keeps running on its own); **teacher dev140 launched now** instead of after s1:
+  pid 204961, 8 workers, shared rate limiter → reports/runs/teacher-dev140, log logs/teacher-dev140.log.
+- Codex stage 2e (rai pid 202161): LoRA-adapter serving in serve_student.py (no merged copies; rai disk 97 GB free), equivalence check
+  tools/check_lora_serving.py, scripts/rai_eval_student.sh with free-port selection. Spec: scratchpad codex_lora_serve.md.
+- Background agent: per-repo porting specs for ETO / IPR / AgentEvol / WKM / LEAP / Kang → reports/baseline_port_specs_1004.md
+  (repos cloned under third_party/, gitignored; ETO a2fc5da, IPR 93335a3).
 - rai GPU1 (Blackwell): Seed-SFT K=20 s0, **episode packing** (96531ed), pid 194800, started 19:15 CDT → reports/runs/train/seedsft-k20-s0-rai,
   208,140 supervised tokens (20 passes), checkpoints at 3/5/10/20 passes; log logs/train_seedsft_k20_s0_rai.log (taskeq venv, PYTHONPATH=src:.).
   ~10 s/update (turn mode was 70 s), ETA ~20:00 CDT. Episodes are never split, so updates carry 512–~1,200 supervised tokens and there are
