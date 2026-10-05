@@ -38,7 +38,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **K=100 s0 collection COMPLETE** (21:17Z = 16:17 CDT: 100 trusted / 117 tasks / 156 attempts, 3 h 37 min; k5/k10/k20 views identical
   to the K=20 ones). s1 running since 16:17 CDT; at this pace s1, s2 ≈ 3.5 h each → ~23:30 CDT. Synced seeds_k100_s0 to hpg.
   Tree b521a4e: K=50/100 s0 grid being prepared on hpg (configs/seedsft_dose_grid_v2_k50_100_s0.json); baseline cells for
-  k1s0 k2s0 k1s1 k2s1 k1s2 k2s2 k50s0 k100s0: 44857766 Kang (%2), 44857767 AgentGym (%1). ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
+  k1s0 k2s0 k1s1 k2s1 k1s2 k2s2 k50s0 k100s0: 44857766 Kang, 44857767 AgentGym — **CANCELLED** (pending) 16:5x CDT: the K=1/2 views I
+  wrote into hpg seeds_k20_s*/subsets changed the K=20 tree that seeds_k100_s0 binds (tree_sha256) → every K100 load fails
+  ("Extension source identity/evidence changed"); grid prep failed the same way. K100's own k1/k2 views are identical (s0 checked:
+  verified, attempts, selection hash). Plan: wait for the K=1/2 Seed-SFT evals (they read the K20-derived views), then move
+  hpg seeds_k20_s*/subsets/k{1,2} to $B/_trash/k20_views_k1k2_1005/, then K50/100 s0 grid + Seed-SFT + baseline cells
+  (wrapper bfc4cd7: K1/2 → K100 views). K1/K2 s1/s2 baselines after the s1/s2 collections. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
 - **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
   k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
