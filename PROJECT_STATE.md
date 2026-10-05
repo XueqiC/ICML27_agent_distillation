@@ -8,6 +8,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **hpg 44811450** (dept, 4×B200, 32 CPU / 320G, tree ICML27_runs/a4af549 = bf16-stored DPO reference): ETO K=20 s0 fresh, turn packing,
   all stages → reports/runs/baselines/eto-k20s0-tp3. (tp2: SFT/export OK, 11 pairs, DPO-1 OOM on 2 GPUs.)
 - **hpg 44806889** (dept, 2×B200): AgentGym K=20 s0 — iteration 1 (explore-1) at 08:4x CDT.
+- rai GPU1 mechanism run2: **FCE done** (24/24 closest approach; median D(t*) ≈ 5, ≈ 25 turns left; look_at_obj D(t*) = 1 in 3/4) →
+  I0–I5 interventions running since ~08:35 CDT (290/720 continuations at 09:10) → readout ~10:00 CDT.
 - **hpg 44809012 / 44809013** (moved to the group account at 08:4x): contamination tests (k20s0-p40 alone; k10s2-t200k alone with s0 prompts).
 - Kang K=20 s0 turn-packed (official recipe): **SAG 63/140, greedy 66/140** (0 parser errors) ≈ base 62 — official dose ≈ 2 passes.
 - **hpg 44806889** (dept, 2×B200, 240G, tree 97eb54b): AgentGym BC + AgentEvol K=20 s0 (4 iterations, explore only the K tasks) →
