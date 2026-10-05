@@ -5,9 +5,14 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **hpg (tree ICML27_runs/74cdb97, two-pass DPO + bf16 reference)**: 44826292 ETO K20 s0 (2 GPUs, 200G) → baselines/eto-k20s0-tp4; 44826293 IPR
-  K20 s0 (2 GPUs, 200G, 24 h) → baselines/ipr-k20s0; 44826360 LEAP privileged and 44826361 LEAP 0%-privileged K20 s0 (1 GPU each) →
-  baselines/leap-{privileged,zero}-k20s0. ETO/IPR pending on dept QOSGrpMemLimit.
+- **hpg (tree 74cdb97)**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept, pending QOSGrpMemLimit); 44826360/44826361 LEAP privileged/zero
+  K20 s0 (moved to the group account 12:3x CDT, pending Priority).
+- **rai CPU + OpenAI: K=100 seed collection** (scripts/rai_collect_k100.sh, pid 1731893, tree 0834361, started 12:40 CDT) extends
+  seeds_k20_s{0,1,2} → data/verified/seeds_k100_s{0,1,2} (+ subsets k1/k2/k5/k10/k20/k50 with exact identity checks); logs
+  logs/collect_k100_s*.log. Shares the 200k TPM with the K5 mechanism run.
+- rai GPU1: mechanism run on k5s0-t400k (pid 1513532), FCE probing (145 probe episodes at 12:01 CDT).
+- rai GPU3: amendment-5 probes for run 2 (pid 1732458) resuming reports/runs/mechanism/k20s0-p20-bi/probes (procedural coverage 13/24).
+- Committed: c723ae8 amendment 5; 0834361 stage 2f (K ladder 1..100); MECHANISM_PLAN header times corrected to commit times.
 - **OpenAI key on hpg** (user approved 11:28 CDT): only the OPENAI_API_KEY line, /blue/fsu-compsci-dept/xc25.fsu/hq/secrets/openai.env
   (600, dir 700), used via SED_SECRETS_FILE by LEAP jobs only. Compute nodes reach api.openai.com (HTTP 401 without key).
 - AgentGym K20 s0 DONE: BC 59, AgentEvol iter-1/2/3 = 64/62/66 (base 62).
