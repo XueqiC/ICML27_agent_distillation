@@ -76,13 +76,13 @@ def row(name, run, base):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ladder", required=True)
+    parser.add_argument("--ladder", required=True, nargs="+", help="eval roots; base is read from the first")
     parser.add_argument("--teacher", required=True)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
-    ladder, out = Path(args.ladder), Path(args.out)
+    roots, out = [Path(r) for r in args.ladder], Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    base_dirs = glob.glob(str(ladder / "google" / "*" / "eval"))
+    base_dirs = glob.glob(str(roots[0] / "google" / "*" / "eval"))
     base = load_run(base_dirs[0]) if base_dirs else None
     rows = []
     teacher = load_run(args.teacher)
@@ -90,12 +90,15 @@ def main():
     if base:
         rows.append(row("base", base, None))
     students = {}
-    for path in sorted(glob.glob(str(ladder / "k*s*-p*" / "eval"))):
+    paths = [p for root in roots for p in sorted(glob.glob(str(root / "k*s*-p*" / "eval")))]
+    for path in paths:
         name = Path(path).parent.name
         match = re.fullmatch(r"k(\d+)s(\d+)-p(\d+)", name)
         if not match or not (Path(path) / "summary.json").exists():
             continue
         k, seed, passes = map(int, match.groups())
+        if (k, passes) in students:
+            raise ValueError(f"{name} evaluated in more than one root; pass one of them")
         entry = row(f"Seed-SFT K={k} s{seed} {passes} passes", load_run(path), base)
         entry.update(K=k, seed=seed, passes=passes)
         rows.append(entry)

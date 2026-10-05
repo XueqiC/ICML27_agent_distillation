@@ -117,3 +117,19 @@ confounds and the Section 6 readout are unchanged.
    (never executed), and "move tomato 3 to microwave 1" on a heat task (a procedure error → F-precondition).
 
 New order: F-format, F-inadmissible, F-goal, F-search, F-precondition, F-loop, F-cap.
+
+## Amendment 2 (2026-10-04 23:40 CDT) — serving noise; I0 becomes the control arm (before any FCE or intervention result)
+
+Measured: the same base model on dev140 under two vLLM server instances (rai GPU1, greedy, 16–32 concurrent requests)
+gave 59/140 both times, but only 8/140 trajectories were identical (median first divergence at step 2) and 12 outcomes
+flipped (6 each way). Greedy decoding under batched serving is therefore not reproducible per episode.
+
+1. **I0 is a control arm, not only a replay check.** It uses the same continuation protocol as I1–I5 (greedy + 4 samples
+   at T = 0.7). An arm's rescue rate is reported next to I0's on the same FCE states, and an arm counts as rescuing only
+   in excess of I0 (paired per state: arm rescues and I0 does not). The decision table (Section 6) uses these paired
+   excess rescues.
+2. Student-level comparisons report the cross-server base-vs-base discordance (12/140 here) as the serving-noise
+   reference beside every McNemar test.
+3. If a batch-invariant serving mode (vLLM `VLLM_BATCH_INVARIANT=1`) is verified to give identical trajectories across
+   instances at acceptable cost, all paper evaluations and branch replays switch to it, all affected numbers are
+   re-run under it, and this amendment records the switch.
