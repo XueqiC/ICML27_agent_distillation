@@ -1,0 +1,267 @@
+"""Compare student teacher-forced reply logprobs; never query the teacher.
+
+Default: GPU HF+PEFT (bf16/eager), then the existing vLLM server. --hf-only
+and --hf-reference split the check so a single GPU need not hold both models.
+Only verified TRAIN turns are eligible. No environment reset or updates occur.
+"""
+
+import argparse
+import json
+import math
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from harness.lora_adapters import adapter_identity, inspect_adapter, parse_adapters
+from sed.config import load_config
+from sed.manifest import load_frozen
+from sed.provenance import write_provenance
+from sed.storage import digest, file_hash, write_json
+from train.modeling import snapshot_metadata
+
+PROMPT_COUNT = 8
+MEAN_TOLERANCE = 0.05
+MIN_EFFECT_RATIO = 5.0
+
+
+def fixed_prompts(examples):
+    """Frozen rule: first eight (task_id, turn_index) TRAIN turns, no selection by loss."""
+    rows = sorted(examples, key=lambda e: (e["label_provenance"]["task_id"],
+                                          e["label_provenance"]["turn_index"]))
+    if len(rows) < PROMPT_COUNT:
+        raise ValueError("At least eight verified training turns are required")
+    result = []
+    for row in rows[:PROMPT_COUNT]:
+        source = row["label_provenance"]
+        if source.get("training_eligible") is not True or row["packing"] != "turn":
+            raise ValueError("Equivalence prompts must be training-eligible turn examples")
+        result.append({"input_ids": row["input_ids"], "prompt_tokens": row["prompt_tokens"],
+                       "source": source, "input_sha256": digest(row["input_ids"])})
+    if len({(r["source"]["task_id"], r["source"]["turn_index"]) for r in result}) != PROMPT_COUNT:
+        raise ValueError("Equivalence turns must be distinct")
+    return result
+
+
+def hf_logprobs(model, row):
+    import torch
+    ids = torch.tensor([row["input_ids"]], device=next(model.parameters()).device)
+    start = row["prompt_tokens"]
+    positions = torch.arange(start - 1, ids.shape[1] - 1, device=ids.device)
+    model.eval()
+    with torch.inference_mode():
+        logits = model(input_ids=ids, attention_mask=torch.ones_like(ids), use_cache=False,
+                       logits_to_keep=positions).logits[0].float()
+        values = logits.log_softmax(-1).gather(1, ids[0, start:, None]).squeeze(1)
+    return values.cpu().tolist()
+
+
+def validate_cases(cases):
+    if len(cases) != PROMPT_COUNT:
+        raise ValueError("Exactly eight reference prompts are required")
+    keys = set()
+    for row in cases:
+        ids, start, source = row["input_ids"], row["prompt_tokens"], row["source"]
+        if (source.get("training_eligible") is not True or not source["task_id"].startswith("train/")
+                or type(start) is not int or not 0 < start < len(ids) <= 32768
+                or any(type(i) is not int or i < 0 for i in ids) or ids[-1] != 106
+                or digest(ids) != row["input_sha256"] or len(row["hf_logprobs"]) != len(ids) - start
+                or any(not math.isfinite(v) for v in row["hf_logprobs"])):
+            raise ValueError("Invalid training-eligible fixed prompt reference")
+        keys.add((source["task_id"], source["turn_index"]))
+    if len(keys) != PROMPT_COUNT:
+        raise ValueError("Duplicate fixed prompt references")
+
+
+def vllm_logprobs(client, endpoint, model, row):
+    ids = row["input_ids"]
+    # Token IDs bypass server tokenization and preserve the exact Gemma OFF prefix.
+    # echo + max_tokens=0 is vLLM's prompt-only response mode (internally one
+    # discarded decode token). Scored tokens include the native <turn|> closure.
+    response = client.post(endpoint.rstrip("/") + "/completions", json={
+        "model": model, "prompt": ids, "prompt_logprobs": 1, "echo": True,
+        "max_tokens": 0, "temperature": 0, "stream": False, "add_special_tokens": False,
+        "return_token_ids": True, "skip_special_tokens": False})
+    response.raise_for_status()
+    data = response.json()
+    if data.get("model") != model or len(data["choices"]) != 1:
+        raise ValueError("Unexpected completion identity or choice count")
+    choice = data["choices"][0]
+    if choice.get("prompt_token_ids") != ids or len(choice["prompt_logprobs"]) != len(ids):
+        raise ValueError("Server prompt token IDs/logprob alignment differs")
+    values = []
+    for pos in range(row["prompt_tokens"], len(ids)):
+        value = choice["prompt_logprobs"][pos][str(ids[pos])]["logprob"]
+        if not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError("Missing/nonfinite prompt logprob")
+        values.append(value)
+    return values
+
+
+def comparison(hf, adapter, base):
+    if not hf or len(hf) != len(adapter) or len(hf) != len(base):
+        raise ValueError("Reply logprob lengths differ")
+    if any(not math.isfinite(v) for values in (hf, adapter, base) for v in values):
+        raise ValueError("Nonfinite logprob")
+    error = [abs(a - b) for a, b in zip(adapter, hf)]
+    effect = [abs(a - b) for a, b in zip(adapter, base)]
+    mean_error, mean_effect = sum(error) / len(error), sum(effect) / len(effect)
+    return {"tokens": len(hf),
+            "adapter_vllm_vs_hf": {"max_abs_diff": max(error), "mean_abs_diff": mean_error},
+            "adapter_vllm_vs_base_vllm": {"max_abs_diff": max(effect), "mean_abs_diff": mean_effect},
+            "passed": mean_error <= MEAN_TOLERANCE and mean_effect > 0
+                      and mean_effect >= MIN_EFFECT_RATIO * mean_error}
+
+
+def compare_prompts(cases, client, endpoint, name, base_name):
+    prompts = []
+    all_hf, all_adapter, all_base = [], [], []
+    for row in cases:
+        hf = row["hf_logprobs"]
+        adapter = vllm_logprobs(client, endpoint, name, row)
+        base = vllm_logprobs(client, endpoint, base_name, row)
+        stats = comparison(hf, adapter, base)
+        prompts.append({**row, **stats, "adapter_vllm_logprobs": adapter,
+                        "base_vllm_logprobs": base})
+        all_hf.extend(hf)
+        all_adapter.extend(adapter)
+        all_base.extend(base)
+    aggregate = comparison(all_hf, all_adapter, all_base)
+    return {"prompts": prompts, "aggregate": aggregate,
+            "passed": len(prompts) == PROMPT_COUNT and aggregate["passed"]
+                      and all(p["passed"] for p in prompts)}
+
+
+def source_identity(args, config, adapter):
+    return {"adapter": adapter_identity(adapter),
+            "verified_manifest_sha256": file_hash(Path(args.verified) / "manifest.json"),
+            "manifest_sha256": file_hash(config["paths"]["manifest"]),
+            "split_freeze_sha256": file_hash(config["paths"]["split_freeze"]),
+            "snapshot_metadata_sha256": snapshot_metadata(args.snapshot)["metadata_sha256"],
+            "prompt_count": PROMPT_COUNT,
+            "selection": "first_8_sorted_task_id_turn_index_v1", "packing": "turn",
+            "enable_thinking": False, "dtype": "bfloat16", "attention": "eager",
+            "peft_autocast_adapter_dtype": False,
+            "scoring": "teacher reply plus native turn closure, natural-log probabilities"}
+
+
+def check_server(server, endpoint, model_name, adapter):
+    info = server["config"]["server"]
+    if info.get("endpoint") != endpoint.rstrip("/") or info.get("merged_model"):
+        raise ValueError("Endpoint differs from unmerged server provenance")
+    matches = [a for a in info.get("lora_adapters", []) if a["name"] == model_name]
+    if len(matches) != 1 or adapter_identity(matches[0]) != adapter_identity(adapter):
+        raise ValueError("Requested adapter differs from server provenance")
+    return info["served_model_name"]
+
+
+def validate_report(report, server, model_name, endpoint):
+    """Fail closed before evaluation; bind a passing check to this server and weights."""
+    adapters = server["config"]["server"].get("lora_adapters", [])
+    matches = [a for a in adapters if a["name"] == model_name]
+    if len(matches) != 1:
+        raise ValueError("Requested model is not a recorded server adapter")
+    check_server(server, endpoint, model_name, matches[0])
+    if (report.get("passed") is not True or report.get("model_name") != model_name
+            or report.get("server_provenance_sha256") != digest(server)
+            or report.get("identity", {}).get("adapter") != adapter_identity(matches[0])
+            or len(report.get("prompts", [])) != PROMPT_COUNT):
+        raise ValueError("A passing equivalence report for this adapter/server is required")
+    validate_cases(report["prompts"])
+    for row in report["prompts"]:
+        if not comparison(row["hf_logprobs"], row["adapter_vllm_logprobs"],
+                          row["base_vllm_logprobs"])["passed"]:
+            raise ValueError("Equivalence report fails the fixed tolerance/effect thresholds")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--snapshot", required=True)
+    parser.add_argument("--adapter", required=True, help="Original HF/PEFT checkpoint, never the converted copy")
+    parser.add_argument("--verified", required=True)
+    parser.add_argument("--model-name", required=True)
+    parser.add_argument("--endpoint")
+    parser.add_argument("--server-provenance")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--hf-only", action="store_true")
+    modes.add_argument("--hf-reference", help="reference.json produced by --hf-only on this checkpoint")
+    parser.add_argument("--output", required=True, help="New directory for JSON report/provenance")
+    args = parser.parse_args(argv)
+    if not args.hf_only:
+        url = urlsplit(args.endpoint or "")
+        if (url.scheme != "http" or url.hostname not in {"127.0.0.1", "localhost"}
+                or url.username or url.password or url.query or url.fragment
+                or not args.server_provenance):
+            parser.error("Checking requires a loopback --endpoint and --server-provenance")
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=False)
+    try:
+        config = load_config(args.config)
+        student = config["models"]["student"]
+        parse_adapters([args.model_name + "=" + args.adapter], student["requested_repo"])
+        adapter = inspect_adapter(args.model_name, args.adapter, student, args.snapshot)
+        identity = source_identity(args, config, adapter)
+        inputs = [args.config, Path(args.verified) / "manifest.json", config["paths"]["manifest"],
+                  config["paths"]["split_freeze"], Path(args.adapter) / "training_state.json"]
+        if args.hf_reference:
+            inputs.append(args.hf_reference)
+        if args.server_provenance:
+            inputs.append(args.server_provenance)
+        provenance = write_provenance(output, command="check_lora_serving", config={**config,
+            "lora_check": vars(args)}, inputs=inputs, details={"identity": identity})
+        if args.hf_reference:
+            reference = json.loads(Path(args.hf_reference).read_text())
+            if reference["identity"] != identity:
+                raise ValueError("HF reference identity differs from current checkpoint/data/template")
+            old = json.loads((Path(args.hf_reference).parent / "provenance.json").read_text())
+            if (reference["provenance_sha256"] != digest(old)
+                    or old["code_sha256"] != provenance["code_sha256"]):
+                raise ValueError("HF reference provenance/code mismatch")
+            cases = reference["prompts"]
+        else:
+            from train.dataset import build_verified_dataset, load_tokenizer
+            from train.modeling import load_student
+            import torch
+            from peft import PeftModel
+            if not torch.cuda.is_available():
+                raise RuntimeError("HF equivalence reference requires a GPU (bf16/eager)")
+            tokenizer = load_tokenizer(args.snapshot)
+            manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+            cases = fixed_prompts(build_verified_dataset(args.verified, tokenizer, manifest, freeze,
+                                                         packing="turn"))
+            model = PeftModel.from_pretrained(load_student(args.snapshot), args.adapter,
+                                             local_files_only=True, is_trainable=False,
+                                             autocast_adapter_dtype=False)
+            for row in cases:
+                row["hf_logprobs"] = hf_logprobs(model, row)
+            del model
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
+            reference = {"identity": identity, "prompts": cases,
+                         "template_sha256": digest(tokenizer.chat_template),
+                         "provenance_sha256": digest(provenance)}
+            write_json(output / "reference.json", reference, exclusive=True)
+        validate_cases(cases)
+        if args.hf_only:
+            return 0
+        server = json.loads(Path(args.server_provenance).read_text())
+        base_name = check_server(server, args.endpoint, args.model_name, adapter)
+        import httpx
+        with httpx.Client(timeout=180, trust_env=False) as client:
+            report = compare_prompts(cases, client, args.endpoint, args.model_name, base_name)
+        report.update(schema_version=1, model_name=args.model_name, base_model_name=base_name,
+                      identity=identity, server_provenance_sha256=digest(server),
+                      template_sha256=reference["template_sha256"],
+                      thresholds={"mean_abs_diff_nats": MEAN_TOLERANCE, "min_effect_ratio": MIN_EFFECT_RATIO},
+                      rule="Every prompt and pooled reply tokens must pass; zero adapter effect fails")
+        write_json(output / "report.json", report, exclusive=True)
+        print(json.dumps({"passed": report["passed"], "aggregate": report["aggregate"]}))
+        return 0 if report["passed"] else 1
+    except Exception as exc:
+        write_json(output / "failure.json", {"passed": False, "error_type": type(exc).__name__}, exclusive=True)
+        print("LoRA check failed; inspect sanitized failure.json and provenance.json")
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

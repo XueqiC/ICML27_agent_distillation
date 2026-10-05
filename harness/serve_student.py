@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -13,6 +14,7 @@ from urllib.request import build_opener, ProxyHandler
 from sed.config import load_config
 from sed.provenance import write_provenance
 from sed.storage import file_hash, write_json
+from harness.lora_adapters import parse_adapters, inspect_adapter, convert_adapter
 
 
 def job_port(job_id):
@@ -21,15 +23,28 @@ def job_port(job_id):
     return 20000 + int(job_id) % 20000
 
 
+def free_port():
+    """Ask the kernel, rather than guessing a shared host's free TCP port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
 def inspect_runtime(python):
     # Metadata and source only; safe without CUDA or importing vLLM/transformers.
-    code = '''import importlib.metadata as m, json
+    code = '''import importlib.metadata as m, json, hashlib
 from pathlib import Path
 v = m.distribution("vllm")
 p = Path(v.locate_file("vllm/reasoning/__init__.py"))
+sources = ["model_executor/models/gemma4.py", "model_executor/models/gemma4_mm.py",
+           "model_executor/models/gemma4_unified.py", "lora/utils.py",
+           "lora/peft_helper.py", "lora/lora_model.py", "lora/worker_manager.py",
+           "entrypoints/openai/completion/protocol.py", "entrypoints/openai/completion/serving.py"]
+hashes = {name: hashlib.sha256(Path(v.locate_file("vllm/" + name)).read_bytes()).hexdigest()
+          for name in sources if Path(v.locate_file("vllm/" + name)).is_file()}
 print(json.dumps({"vllm": v.version, "transformers": m.version("transformers"),
                   "gemma4_parser": '"gemma4"' in p.read_text(),
-                  "parser_registry_path": str(p)}))
+                  "parser_registry_path": str(p), "serving_source_sha256": hashes}))
 '''
     result = subprocess.run([python, "-c", code], capture_output=True, text=True)
     if result.returncode:
@@ -37,22 +52,61 @@ print(json.dumps({"vllm": v.version, "transformers": m.version("transformers"),
     return json.loads(result.stdout)
 
 
-def server_command(args, student, runtime):
+def server_command(args, student, runtime, adapters=()):
     model = Path(args.merged_model_path or args.model_path).expanduser().resolve()
     if not model.is_dir():
         raise ValueError("MODEL_PATH must be an existing local checkpoint (no download)")
+    memory = os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.85")
+    if not math.isfinite(float(memory)) or not 0 < float(memory) <= 1:
+        raise ValueError("VLLM_GPU_MEMORY_UTILIZATION must be in (0, 1]")
     command = [args.python, "-m", "vllm.entrypoints.cli.main", "serve", str(model),
                "--host", "127.0.0.1", "--port", str(args.port),
                "--served-model-name", student["requested_repo"],
                "--revision", student["revision"], "--tokenizer-revision", student["revision"],
-               "--max-model-len", "32768", "--gpu-memory-utilization", "0.85",
+               "--max-model-len", "32768", "--gpu-memory-utilization", memory,
                "--generation-config", "vllm", "--seed", "0"]
     if runtime["gemma4_parser"]:
         command += ["--reasoning-parser", "gemma4"]
+    if adapters:
+        if args.merged_model_path:
+            raise ValueError("LoRA adapters require the unmerged base snapshot")
+        command += ["--enable-lora", "--max-lora-rank", str(max(a["rank"] for a in adapters)),
+                    "--max-loras", str(len(adapters)), "--lora-modules"]
+        command += [a["name"] + "=" + a["served_path"] for a in adapters]
     return command
 
 
-def wait_ready(process, port, timeout, model, *, opener=None):
+def owns_listener(pid, port, *, proc=Path("/proc")):
+    """Linux: a readiness response must come from our child process group.
+
+    Binding port 0 and then closing it has an unavoidable handoff window to
+    vLLM. If another job wins that race, never accept its /v1/models response.
+    """
+    inodes = set()
+    for row in (proc / "net/tcp").read_text().splitlines()[1:]:
+        fields = row.split()
+        if fields[1] == f"0100007F:{port:04X}" and fields[3] == "0A":
+            inodes.add("socket:[" + fields[9] + "]")
+    if not inodes:
+        return False
+    for directory in proc.iterdir():
+        if not directory.name.isdigit():
+            continue
+        try:
+            if os.getpgid(int(directory.name)) != pid:
+                continue
+            for fd in (directory / "fd").iterdir():
+                try:
+                    if os.readlink(fd) in inodes:
+                        return True
+                except OSError:
+                    pass
+        except (OSError, ProcessLookupError):
+            continue
+    return False
+
+
+def wait_ready(process, port, timeout, model, *, opener=None, require_owner=False):
     opener = opener or build_opener(ProxyHandler({}))
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -61,7 +115,9 @@ def wait_ready(process, port, timeout, model, *, opener=None):
         try:
             with opener.open(f"http://127.0.0.1:{port}/v1/models", timeout=2) as response:
                 data = json.load(response)
-            if any(entry.get("id") == model for entry in data["data"]):
+            expected = {model} if isinstance(model, str) else set(model)
+            if (expected <= {entry.get("id") for entry in data["data"]} and process.poll() is None
+                    and (not require_owner or owns_listener(process.pid, port))):
                 return
         except (OSError, ValueError, KeyError):
             pass
@@ -89,28 +145,44 @@ def main(argv=None):
     parser.add_argument("--python", default=os.environ.get("VLLM_PYTHON"), required=not os.environ.get("VLLM_PYTHON"))
     parser.add_argument("--model-path", default=os.environ.get("MODEL_PATH"), required=not os.environ.get("MODEL_PATH"))
     parser.add_argument("--merged-model-path", help="Explicit already-merged LoRA checkpoint for later work")
+    parser.add_argument("--lora-adapter", action="append", default=[], metavar="NAME=PATH")
+    parser.add_argument("--lora-conversion", choices=("none", "targets", "gemma4"), default="none",
+                        help="Explicit fallback after a naming rejection; writes only under server output")
     parser.add_argument("--port", type=int)
     parser.add_argument("--ready-timeout", type=float, default=900)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     if args.port is None:
         args.port = job_port(os.environ.get("SLURM_JOB_ID", ""))
+    elif args.port == 0:
+        args.port = free_port()
     if not 1024 <= args.port <= 65535 or args.ready_timeout <= 0:
         parser.error("Invalid port/readiness timeout")
     config = load_config(args.config)
+    student = config["models"]["student"]
+    parsed = parse_adapters(args.lora_adapter, student["requested_repo"])
+    if parsed and args.merged_model_path:
+        parser.error("--lora-adapter cannot be combined with --merged-model-path")
+    adapters = [inspect_adapter(name, path, student, args.model_path) for name, path in parsed]
     runtime = inspect_runtime(args.python)
-    command = server_command(args, config["models"]["student"], runtime)
     # Do not mistake another job's server for this job's ready child.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", args.port))
     model = Path(args.merged_model_path or args.model_path).expanduser().resolve()
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
+    if args.lora_conversion != "none":
+        adapters = [convert_adapter(a, output / "adapters" / a["name"], args.lora_conversion)
+                    for a in adapters]
+    command = server_command(args, student, runtime, adapters)
     # Record local config/template/index hashes; weights remain the user's pinned
     # local snapshot. We do not imply that --revision verifies local weight bytes.
     model_files = {str(p.relative_to(model)): file_hash(p) for p in model.iterdir()
                    if p.is_file() and p.suffix in {".json", ".jinja", ".jinja2"}}
     config["server"] = {"command": command, "runtime": runtime,
+                        "port": args.port, "endpoint": f"http://127.0.0.1:{args.port}/v1",
+                        "readiness_identity": "all model IDs plus listening socket owned by child process group",
+                        "served_model_name": student["requested_repo"], "lora_adapters": adapters,
                         "model_path": str(model), "merged_model": bool(args.merged_model_path),
                         "model_metadata_sha256": model_files,
                         "model_revision_verification": "local_path_and_metadata; weight_bytes_not_verified",
@@ -132,9 +204,10 @@ def main(argv=None):
         with (output / "server.log").open("x") as log:
             process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
                                        start_new_session=True)
-            wait_ready(process, args.port, args.ready_timeout, config["models"]["student"]["requested_repo"])
+            models = [student["requested_repo"], *[a["name"] for a in adapters]]
+            wait_ready(process, args.port, args.ready_timeout, models, require_owner=True)
             write_json(ready_file, {"endpoint": f"http://127.0.0.1:{args.port}/v1",
-                                   "pid": process.pid, "port": args.port}, exclusive=True)
+                                   "pid": process.pid, "port": args.port, "models": models}, exclusive=True)
             return process.wait()
     except KeyboardInterrupt:
         return 130

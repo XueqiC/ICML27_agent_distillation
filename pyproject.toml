@@ -29,7 +29,7 @@ sed-merge-lora = "train.merge_lora:main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["sed*", "harness*", "teachers*", "students*", "train*", "eval*"]
+include = ["sed*", "harness*", "teachers*", "students*", "train*", "eval*", "tools*"]
 exclude = ["tests*"]
 namespaces = false
 

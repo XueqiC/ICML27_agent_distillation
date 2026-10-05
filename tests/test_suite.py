@@ -127,7 +127,8 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
     assert all(json.loads(p.read_text().splitlines()[0])["reserved_tokens"] > 2048 for p in ledgers)
 
 
-def test_process_suite_with_fake_server_and_environment(data_root, tmp_path):
+@pytest.mark.parametrize("adapter", [False, True])
+def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, adapter):
     path, manifest, freeze = fixture_list(data_root, tmp_path)
     config = load_config()
     config["environment"]["data_root"] = str(data_root)
@@ -138,6 +139,22 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path):
     student = config["models"]["student"]
     spec = {"endpoint": "http://fake/v1", "model": student["requested_repo"],
             "revision": student["revision"], "enable_thinking": True}
+    if adapter:
+        from harness.lora_adapters import adapter_identity
+        record = {"name": "sft", "base_model": student["requested_repo"], "revision": student["revision"],
+                  "adapter_config_sha256": "c", "adapter_weights_sha256": "w",
+                  "training_state_sha256": "s", "training_provenance_sha256": "p"}
+        server = {"config": {"server": {"lora_adapters": [record],
+                   "endpoint": spec["endpoint"], "served_model_name": student["requested_repo"]}}}
+        spec["model"] = "sft"
+        config["server_provenance"] = server
+        config["lora_equivalence"] = {"passed": True, "model_name": "sft",
+            "server_provenance_sha256": digest(server), "identity": {"adapter": adapter_identity(record)},
+            "prompts": [{"hf_logprobs": [-1], "adapter_vllm_logprobs": [-1.01],
+                         "base_vllm_logprobs": [-2], "input_ids": [2, 106], "prompt_tokens": 1,
+                         "input_sha256": digest([2, 106]),
+                         "source": {"task_id": "train/task/1", "turn_index": i,
+                                    "training_eligible": True}} for i in range(8)]}
     output = tmp_path / "suite"
     summary = run_suite(config=config, tasks_path=path, output=output, spec=spec, workers=2, worker_fn=fake_worker)
     assert summary["episodes"] == summary["completed_episodes"] == 4
@@ -150,6 +167,9 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path):
     pids = {int(p.read_text()) for p in output.glob("episodes/*/test_pid.txt")}
     assert os.getpid() not in pids and len(pids) == 2
     assert not list(output.glob("**/failure.json"))
+    provenance = json.loads((output / "provenance.json").read_text())
+    assert provenance["config"]["suite"]["model_name"] == spec["model"]
+    assert provenance["config"]["suite"]["student"]["model"] == spec["model"]
     with pytest.raises(FileExistsError):
         run_suite(config=config, tasks_path=path, output=output, spec=spec)
     with pytest.raises(ValueError, match="training data"):
@@ -163,3 +183,29 @@ def test_unknown_results_stay_in_denominator():
     summary = summarize(rows, 1.5)
     assert summary["success_rate"] == 1 / 3 and summary["unknown_success"] == 1
     assert summary["task_groups"] == 1 and summary["error_episodes"] == 1
+
+
+@pytest.mark.parametrize("name", [None, "sft-checkpoint"])
+def test_cli_model_name_and_provenance(tmp_path, monkeypatch, name):
+    import eval.run_suite as suite
+    monkeypatch.setenv("ALFWORLD_DATA_ROOT", str(tmp_path))
+    captured = {}
+    def fake_suite(**kwargs):
+        captured.update(kwargs)
+        return {"error_episodes": 0}
+    monkeypatch.setattr(suite, "run_suite", fake_suite)
+    args = ["--output", str(tmp_path / "out")]
+    if name:
+        args += ["--model-name", name]
+    assert suite.main(args) == 0
+    assert captured["spec"]["model"] == (name or load_config()["models"]["student"]["requested_repo"])
+    assert captured["spec"]["max_tokens"] == 1024 and captured["spec"]["enable_thinking"] is False
+    assert suite.policy_condition("student", captured["spec"], captured["config"]) == (
+        "lora_student_thinking_false" if name else "base_student_thinking_false")
+
+
+def test_adapter_suite_refuses_missing_equivalence_before_output(tmp_path):
+    with pytest.raises(ValueError, match="passing --lora-check"):
+        run_suite(config=load_config(), tasks_path="data/manifest/dev40.json", output=tmp_path / "out",
+                  spec={"model": "sft", "endpoint": "http://127.0.0.1:12345/v1"})
+    assert not (tmp_path / "out").exists()

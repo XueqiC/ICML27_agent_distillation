@@ -47,6 +47,8 @@ def policy_condition(policy, spec, config):
         return "teacher"
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
     name = "merged_lora_student" if server.get("merged_model") else "base_student"
+    if spec["model"] != config["models"]["student"]["requested_repo"]:
+        name = "lora_student"
     return name + "_thinking_" + str(spec["enable_thinking"]).lower()
 
 
@@ -136,6 +138,15 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("workers must be positive")
     if policy not in {"student", "teacher"}:
         raise ValueError("Unknown suite policy")
+    if policy == "student" and spec["model"] != config["models"]["student"]["requested_repo"]:
+        from tools.check_lora_serving import validate_report
+        if not config.get("server_provenance") or not config.get("lora_equivalence"):
+            raise ValueError("Adapter evaluation requires server provenance and a passing --lora-check")
+        validate_report(config["lora_equivalence"], config["server_provenance"], spec["model"], spec["endpoint"])
+        checked = config["lora_equivalence"]["identity"]["adapter"]
+        if (checked["base_model"] != config["models"]["student"]["requested_repo"]
+                or checked["revision"] != config["models"]["student"]["revision"]):
+            raise ValueError("Equivalence report differs from configured student identity")
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     listing, tasks = frozen_tasks(tasks_path, manifest, freeze, sealed_final=sealed_final, policy=policy)
     output = Path(output)
@@ -146,6 +157,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
     inputs = [*inputs, tasks_path, config["paths"]["manifest"], config["paths"]["split_freeze"]]
     effective = deepcopy(config)
     effective["suite"] = {"policy": policy, "student": spec, "workers": workers,
+                          "model_name": spec["model"] if spec else None,
                           "teacher_rate_limit_dir": str((output / "data/teacher_rate_limit").resolve()),
                           "sealed_final": sealed_final, "task_list_sha256": listing["list_sha256"]}
     write_provenance(output, command="suite", config=effective, inputs=inputs)
@@ -176,6 +188,8 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
+    parser.add_argument("--model-name", help="Request model: base served name (default) or adapter NAME")
+    parser.add_argument("--lora-check", help="Passing check_lora_serving report.json for this server/adapter")
     parser.add_argument("--enable-thinking", choices=("off",), default="off")
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=180)
@@ -189,7 +203,7 @@ def main(argv=None):
     if not config["environment"]["data_root"]:
         parser.error("Set ALFWORLD_DATA_ROOT")
     model = config["models"]["student"]
-    spec = dict(endpoint=args.endpoint, model=model["requested_repo"], revision=model["revision"],
+    spec = dict(endpoint=args.endpoint, model=args.model_name or model["requested_repo"], revision=model["revision"],
                 enable_thinking=args.enable_thinking == "on", max_tokens=args.max_tokens,
                 timeout_seconds=args.timeout)
     inputs = [args.config]
@@ -197,6 +211,9 @@ def main(argv=None):
         inputs.append(args.server_provenance)
         server = json.loads(Path(args.server_provenance).read_text())
         config["server_provenance"] = server
+    if args.lora_check:
+        inputs.append(args.lora_check)
+        config["lora_equivalence"] = json.loads(Path(args.lora_check).read_text())
     summary = run_suite(config=config, tasks_path=args.tasks, output=args.output, policy=args.policy,
                         spec=spec if args.policy == "student" else None, workers=args.workers,
                         sealed_final=args.sealed_final, inputs=inputs)

@@ -148,7 +148,7 @@ local counts, exact runtime, test results, episode artifacts, and remaining
 limits.
 
 
-## Shared evaluation on HiPerGator
+## Shared evaluation on rai and HiPerGator
 
 The shared template/parser is `src/sed/react.py`: optional visible `Thought:`
 followed by `Action: <command>`. Both teacher and student receive system
@@ -220,6 +220,117 @@ confirmed/unknown transitions.
 
 See [Stage 2a validation](reports/stage2a_validation.md) for the installed vLLM
 response schema, test evidence, and limitations.
+
+### Stage 2e: evaluate adapters without merging
+
+`harness/serve_student.py --lora-adapter NAME=PATH` is repeatable. One server
+serves the configured base name (`google/gemma-4-12B-it`) and each adapter NAME.
+It sets `--enable-lora`, the maximum adapter rank, the adapter count, and
+`--lora-modules`. Names must be unique, differ from the base name, and contain
+only letters, digits, dots, underscores, or hyphens (starting with a letter or
+digit). `--merged-model-path` still serves an already merged checkpoint; it
+cannot be combined with adapters. `VLLM_GPU_MEMORY_UTILIZATION` overrides 0.85
+for shared cards. No adapter path causes a base model download or merged copy.
+
+Each original checkpoint must contain `adapter_config.json`,
+`adapter_model.safetensors`, and `training_state.json`, with its training
+`provenance.json` in the parent directory. Copy these together to HPG. The
+launcher checks the configured student repo/revision, the training provenance
+binding, checkpoint artifact hashes, and the serving snapshot's metadata
+against training. PEFT's null revision is resolved through that bound training
+provenance. Snapshot paths may differ between hosts. Server provenance records
+every original/served adapter path, config and weight SHA-256, supervised tokens,
+passes, packing, and runtime source hashes. Local base weight bytes remain
+uncertified, as in base serving.
+
+Before an adapter evaluation, `tools/check_lora_serving.py` must pass. It uses
+the first eight verified TRAIN turns sorted by `(task_id, turn_index)` from
+`--verified`, through the existing `build_messages` and unchanged Gemma OFF
+template. It scores every teacher-reply token plus native `<turn|>` closure;
+teacher APIs and teacher logprobs are never used. HF+PEFT uses bf16, eager
+attention, and GPU inference. The vLLM `/v1/completions` requests carry the exact
+token IDs and request `prompt_logprobs`; returned prompt IDs must match.
+`report.json` retains per-token values and per-prompt/pooled maximum and mean
+absolute differences in nats. Every prompt and the pooled tokens must have
+HF–adapter mean difference at most 0.05, and adapter–base mean difference at
+least five times that error and strictly positive. A failed check exits nonzero.
+This is an engineering equivalence check, not a measure of task success.
+
+The new launchers perform HF reference passes **before** starting vLLM, using
+`--hf-only`, then compare with `--hf-reference` from a CPU process while the
+server is running. This avoids simultaneously holding HF and vLLM on one GPU.
+They start one server, evaluate the base if requested, check/evaluate each
+adapter sequentially, and stop the server even on failure or cancellation.
+They keep thinking OFF, greedy decoding, 1,024-token replies, the existing
+template/parser/40-turn cap, `FLASH_ATTN`, and the disabled FlashInfer sampler.
+Environment/evaluation workers have CUDA hidden. No existing output is reused.
+
+For a later authorized rai run (GPU ID is required):
+
+```bash
+export VERIFIED=/path/to/verified/seeds_k20_s0
+export VLLM_GPU_MEMORY_UTILIZATION=0.55  # choose for available shared-card memory
+bash scripts/rai_eval_student.sh 1 data/manifest/dev40.json \
+  reports/runs/stage2e-rai-dev40 --base --workers 8 \
+  early=/path/to/train/checkpoint-tokens-10407 \
+  later=/path/to/train/checkpoint-tokens-20814
+```
+
+With no adapters, rai evaluates the base. With adapters, `--base` also requests
+the base. `TASKS` can be frozen dev40 or dev140. Rai defaults to `.venv/bin/python`
+for environments, the installed `tc-alignment-taskeq` Python for HF, the installed
+`tc-alignment-vllm` serving Python, and the pinned local Gemma snapshot/ALFWorld
+data paths. `ENV_PYTHON`, `TRAIN_PYTHON`, `VLLM_PYTHON`, `MODEL_PATH`, and
+`ALFWORLD_DATA_ROOT` can be overridden. `CUDA_DEVICE_ORDER=PCI_BUS_ID` and offline
+HF mode are always exported; workers default to eight.
+
+For a later authorized HPG submission:
+
+```bash
+export ADAPTERS='early=/path/to/train/checkpoint-tokens-10407 later=/path/to/train/checkpoint-tokens-20814'
+export VERIFIED=/path/to/verified/seeds_k20_s0
+export TASKS="$PWD/data/manifest/dev140.json"
+export OUT="$PWD/reports/runs/stage2e-hpg-dev140"
+export INCLUDE_BASE=1 WORKERS=8
+sbatch --export=ALL scripts/hpg_eval_adapters.slurm
+```
+
+HPG uses `configs/hpg.env`; `ADAPTERS` is whitespace-delimited and does not support
+spaces inside paths. Rai accepts quoted `NAME=PATH` arguments with spaces.
+Both new launchers use `--port 0`: a loopback bind asks the kernel for a free
+port, recorded permanently in `$OUT/server/provenance.json` and while running
+in `ready.json`. Readiness requires all requested model IDs and a listening
+socket owned by the child process group, preventing another job's server from
+being mistaken for this one. Output is `$OUT/<NAME>/eval`, with the base under
+`$OUT/google/gemma-4-12B-it/eval`; adapter HF references and checks are under
+`$OUT/<NAME>/{hf,check}`. Server artifacts stay under `$OUT/server`.
+
+For manual serving/evaluation, use repeated `--lora-adapter NAME=PATH`, then run
+the checker with `--snapshot PATH --adapter ORIGINAL_PATH --verified DIR
+--model-name NAME --endpoint URL --server-provenance FILE --output NEW_DIR`.
+The default checker computes HF references on GPU and contacts the existing
+server; use the split `--hf-only`/`--hf-reference FILE` modes when memory is
+shared. Pass `--model-name NAME --lora-check NEW_DIR/report.json
+--server-provenance FILE` to `eval/run_suite.py`. The suite refuses adapter
+evaluation without a passing report bound to that adapter and server run.
+Omitting `--model-name` retains the base request name.
+
+Source inspection of the installed vLLM 0.27.1 shows native support for the
+trainer's full text projection names and Gemma prefix mapping; native loading
+is the default, pending a real GPU equivalence check. If a runtime rejects the
+names, preserve its failed output and retry into a new output with
+`--lora-conversion targets` (only shorten config target names) or `gemma4`
+(also rename `base_model.model.model.language_model.*` keys to
+`base_model.model.language_model.model.*`). The launchers expose the same choice
+as `LORA_CONVERSION`. These are explicit compatibility fallbacks, not automatic
+retries for arbitrary server errors. Copies live under `server/adapters/NAME`;
+the source checkpoint is never edited. Every rename/config change is recorded,
+and tensor payload bytes, shapes, dtypes, and offsets must remain identical.
+The HF reference always uses the original adapter; converted serving still
+requires the same equivalence gate.
+
+See [Stage 2e validation](reports/stage2e_validation.md) for CPU evidence and
+the GPU checks still required on each host.
 
 ## Stage 2b: Seed-SFT
 
