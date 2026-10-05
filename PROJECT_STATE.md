@@ -14,7 +14,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   0.17 / 0.24 nats) with K20-s0 check prompts (out of their training distribution) → **hpg 44809012** (k20s0-p40 alone, fresh server: compare
   trajectories with the sweep = server-state contamination test) and **hpg 44809013** (k10s2-t200k alone, same s0 prompts: prompt-OOD test).
   vLLM prefix-cache hashes include lora_name (v1/core/kv_cache_utils.py:517-529), so cache sharing across adapters is unlikely.
-- ETO K=20 s0 (44806752, group): SFT + export OK (fix works), now explore-1. AgentGym K=20 s0 (44806889, dept): data-0/train-0 running.
+- ETO K=20 s0 (44806752, group 2×B200): SFT + export OK; explore-1 → 11 pairs (9 ties / 11 lose); **DPO-1 OOM** (fp32 policy + fp32 reference on 2 GPUs). Codex pid 1329456: bf16-stored reference (bitwise-identical); then resubmit ETO (and IPR) on 4 GPUs. AgentGym K=20 s0 (44806889, dept): data-0/train-0 running.
 - Schema-5 re-eval 44802354 done: k10s2 p30 86 / p40 98 / t200k 104 / t400k 103; k20s2 p30 92 / p40 98 / t400k 98; k5 p03 still fail (b).
 - rai GPU1: mechanism run2 (pid 899949) — FCE probing, 660 probe episodes at 07:18 CDT.
 - hpg tunnel dropped 06:43–07:1x CDT (told the user once); back now.
