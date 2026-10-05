@@ -1,0 +1,3151 @@
+{
+ "base": 62,
+ "teacher": 114,
+ "episodes": 140,
+ "cells": [
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p03",
+   "tokens": 6438,
+   "passes": 3.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p05",
+   "tokens": 10730,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 64,
+   "rate": 0.45714285714285713,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 8,
+    "only_b": 6,
+    "neither": 70,
+    "p": 0.79052734375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 61,
+    "only_a": 3,
+    "only_b": 53,
+    "neither": 23,
+    "p": 8.137102103233929e-13,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p10",
+   "tokens": 21460,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 57,
+   "rate": 0.40714285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 50,
+    "only_a": 7,
+    "only_b": 12,
+    "neither": 71,
+    "p": 0.359283447265625,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 55,
+    "only_a": 2,
+    "only_b": 59,
+    "neither": 24,
+    "p": 1.6410484082740595e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p20",
+   "tokens": 42920,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 49,
+   "rate": 0.35,
+   "vs_base": {
+    "n": 140,
+    "both": 45,
+    "only_a": 4,
+    "only_b": 17,
+    "neither": 74,
+    "p": 0.007197380065917969,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 48,
+    "only_a": 1,
+    "only_b": 66,
+    "neither": 25,
+    "p": 9.215718466126788e-19,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p30",
+   "tokens": 64380,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 54,
+   "rate": 0.38571428571428573,
+   "vs_base": {
+    "n": 140,
+    "both": 48,
+    "only_a": 6,
+    "only_b": 14,
+    "neither": 72,
+    "p": 0.11531829833984375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 53,
+    "only_a": 1,
+    "only_b": 61,
+    "neither": 25,
+    "p": 2.7321894746634712e-17,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "p40",
+   "tokens": 85840,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 63,
+   "rate": 0.45,
+   "vs_base": {
+    "n": 140,
+    "both": 53,
+    "only_a": 10,
+    "only_b": 9,
+    "neither": 68,
+    "p": 1.0,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 61,
+    "only_a": 2,
+    "only_b": 53,
+    "neither": 24,
+    "p": 8.554268404736831e-14,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 46.6,
+   "status": "ok",
+   "successes": 71,
+   "rate": 0.5071428571428571,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 15,
+    "only_b": 6,
+    "neither": 63,
+    "p": 0.0783538818359375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 68,
+    "only_a": 3,
+    "only_b": 46,
+    "neither": 23,
+    "p": 6.981082378842984e-11,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 93.2,
+   "status": "ok",
+   "successes": 75,
+   "rate": 0.5357142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 19,
+    "only_b": 6,
+    "neither": 59,
+    "p": 0.01463329792022705,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 72,
+    "only_a": 3,
+    "only_b": 42,
+    "neither": 23,
+    "p": 8.654978955746628e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 0,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 186.39,
+   "status": "ok",
+   "successes": 72,
+   "rate": 0.5142857142857142,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 18,
+    "only_b": 8,
+    "neither": 60,
+    "p": 0.07551869750022888,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 70,
+    "only_a": 2,
+    "only_b": 44,
+    "neither": 24,
+    "p": 3.0752289603697136e-11,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p03",
+   "tokens": 15933,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 59,
+   "rate": 0.42142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 5,
+    "only_b": 8,
+    "neither": 73,
+    "p": 0.5810546875,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 57,
+    "only_a": 2,
+    "only_b": 57,
+    "neither": 24,
+    "p": 6.144390551909851e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p05",
+   "tokens": 26555,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 55,
+   "rate": 0.39285714285714285,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 4,
+    "only_b": 11,
+    "neither": 74,
+    "p": 0.11846923828125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 54,
+    "only_a": 1,
+    "only_b": 60,
+    "neither": 25,
+    "p": 5.377642775528102e-17,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p10",
+   "tokens": 53110,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 46,
+   "rate": 0.32857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 43,
+    "only_a": 3,
+    "only_b": 19,
+    "neither": 75,
+    "p": 0.0008554458618164062,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 45,
+    "only_a": 1,
+    "only_b": 69,
+    "neither": 25,
+    "p": 1.2027867851011065e-19,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 18.83,
+   "status": "ok",
+   "successes": 65,
+   "rate": 0.4642857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 14,
+    "only_b": 11,
+    "neither": 64,
+    "p": 0.6900379657745361,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 65,
+    "only_a": 0,
+    "only_b": 49,
+    "neither": 26,
+    "p": 3.552713678800501e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p20",
+   "tokens": 106220,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 68,
+   "rate": 0.4857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 17,
+    "only_b": 11,
+    "neither": 61,
+    "p": 0.34492845088243484,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 68,
+    "only_a": 0,
+    "only_b": 46,
+    "neither": 26,
+    "p": 2.842170943040401e-14,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p30",
+   "tokens": 159330,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 79,
+   "rate": 0.5642857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 23,
+    "only_b": 6,
+    "neither": 55,
+    "p": 0.002315700054168701,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 75,
+    "only_a": 4,
+    "only_b": 39,
+    "neither": 22,
+    "p": 3.1081526685738936e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 37.66,
+   "status": "ok",
+   "successes": 83,
+   "rate": 0.5928571428571429,
+   "vs_base": {
+    "n": 140,
+    "both": 55,
+    "only_a": 28,
+    "only_b": 7,
+    "neither": 50,
+    "p": 0.0005082604475319386,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 81,
+    "only_a": 2,
+    "only_b": 33,
+    "neither": 24,
+    "p": 3.6729034036397934e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "p40",
+   "tokens": 212440,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 86,
+   "rate": 0.6142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 29,
+    "only_b": 5,
+    "neither": 49,
+    "p": 3.8558151572942734e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 82,
+    "only_a": 4,
+    "only_b": 32,
+    "neither": 22,
+    "p": 1.941574737429619e-06,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 0,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 75.32,
+   "status": "ok",
+   "successes": 95,
+   "rate": 0.6785714285714286,
+   "vs_base": {
+    "n": 140,
+    "both": 55,
+    "only_a": 40,
+    "only_b": 7,
+    "neither": 38,
+    "p": 1.0709118214435875e-06,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 87,
+    "only_a": 8,
+    "only_b": 27,
+    "neither": 18,
+    "p": 0.001878225477412343,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p03",
+   "tokens": 31221,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 49,
+   "rate": 0.35,
+   "vs_base": {
+    "n": 140,
+    "both": 47,
+    "only_a": 2,
+    "only_b": 15,
+    "neither": 76,
+    "p": 0.002349853515625,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 48,
+    "only_a": 1,
+    "only_b": 66,
+    "neither": 25,
+    "p": 9.215718466126788e-19,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p05",
+   "tokens": 52035,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 45,
+   "rate": 0.32142857142857145,
+   "vs_base": {
+    "n": 140,
+    "both": 41,
+    "only_a": 4,
+    "only_b": 21,
+    "neither": 74,
+    "p": 0.0009105205535888672,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 44,
+    "only_a": 1,
+    "only_b": 70,
+    "neither": 25,
+    "p": 6.098637220230962e-20,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p10",
+   "tokens": 104070,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 70,
+   "rate": 0.5,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 18,
+    "only_b": 10,
+    "neither": 60,
+    "p": 0.1849333420395851,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 69,
+    "only_a": 1,
+    "only_b": 45,
+    "neither": 25,
+    "p": 1.3358203432289883e-12,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p20",
+   "tokens": 208140,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 100,
+   "rate": 0.7142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 60,
+    "only_a": 40,
+    "only_b": 2,
+    "neither": 38,
+    "p": 4.1109160520136356e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 93,
+    "only_a": 7,
+    "only_b": 21,
+    "neither": 19,
+    "p": 0.012540951371192932,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p30",
+   "tokens": 312210,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 106,
+   "rate": 0.7571428571428571,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 49,
+    "only_b": 5,
+    "neither": 29,
+    "p": 3.8913883226854296e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 97,
+    "only_a": 9,
+    "only_b": 17,
+    "neither": 17,
+    "p": 0.16863754391670227,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 0,
+   "label": "p40",
+   "tokens": 416280,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 115,
+   "rate": 0.8214285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 59,
+    "only_a": 56,
+    "only_b": 3,
+    "neither": 22,
+    "p": 1.189326415129699e-13,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 103,
+    "only_a": 12,
+    "only_b": 11,
+    "neither": 14,
+    "p": 1.0,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p03",
+   "tokens": 6951,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 61,
+   "rate": 0.4357142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 7,
+    "only_b": 8,
+    "neither": 71,
+    "p": 1.0,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 60,
+    "only_a": 1,
+    "only_b": 54,
+    "neither": 25,
+    "p": 3.1086244689504383e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p05",
+   "tokens": 11585,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 63,
+   "rate": 0.45,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 7,
+    "only_b": 6,
+    "neither": 71,
+    "p": 1.0,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 62,
+    "only_a": 1,
+    "only_b": 52,
+    "neither": 25,
+    "p": 1.199040866595169e-14,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p10",
+   "tokens": 23170,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 60,
+   "rate": 0.42857142857142855,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 6,
+    "only_b": 8,
+    "neither": 72,
+    "p": 0.79052734375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 58,
+    "only_a": 2,
+    "only_b": 56,
+    "neither": 24,
+    "p": 1.1879386363489175e-14,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p20",
+   "tokens": 46340,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 66,
+   "rate": 0.4714285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 12,
+    "only_b": 8,
+    "neither": 66,
+    "p": 0.5034446716308594,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 65,
+    "only_a": 1,
+    "only_b": 49,
+    "neither": 25,
+    "p": 9.059419880941277e-14,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p30",
+   "tokens": 69510,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 68,
+   "rate": 0.4857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 49,
+    "only_a": 19,
+    "only_b": 13,
+    "neither": 59,
+    "p": 0.37708558747544885,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 63,
+    "only_a": 5,
+    "only_b": 51,
+    "neither": 21,
+    "p": 1.170292474039769e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "p40",
+   "tokens": 92680,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 86,
+   "rate": 0.6142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 30,
+    "only_b": 6,
+    "neither": 48,
+    "p": 6.960169412195683e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 80,
+    "only_a": 6,
+    "only_b": 34,
+    "neither": 20,
+    "p": 8.364584573428147e-06,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 43.16,
+   "status": "ok",
+   "successes": 86,
+   "rate": 0.6142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 34,
+    "only_b": 10,
+    "neither": 44,
+    "p": 0.00038813090293388086,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 79,
+    "only_a": 7,
+    "only_b": 35,
+    "neither": 19,
+    "p": 1.5097200957825407e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 86.32,
+   "status": "ok",
+   "successes": 88,
+   "rate": 0.6285714285714286,
+   "vs_base": {
+    "n": 140,
+    "both": 50,
+    "only_a": 38,
+    "only_b": 12,
+    "neither": 40,
+    "p": 0.00030586400160359517,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 81,
+    "only_a": 7,
+    "only_b": 33,
+    "neither": 19,
+    "p": 4.2277022657799534e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 1,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 172.64,
+   "status": "ok",
+   "successes": 101,
+   "rate": 0.7214285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 58,
+    "only_a": 43,
+    "only_b": 4,
+    "neither": 35,
+    "p": 2.781192165457469e-09,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 90,
+    "only_a": 11,
+    "only_b": 24,
+    "neither": 15,
+    "p": 0.04095959151163697,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p03",
+   "tokens": 15609,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 65,
+   "rate": 0.4642857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 8,
+    "only_b": 5,
+    "neither": 70,
+    "p": 0.5810546875,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 62,
+    "only_a": 3,
+    "only_b": 52,
+    "neither": 23,
+    "p": 1.5418777365994174e-12,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p05",
+   "tokens": 26015,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 60,
+   "rate": 0.42857142857142855,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 4,
+    "only_b": 6,
+    "neither": 74,
+    "p": 0.75390625,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 59,
+    "only_a": 1,
+    "only_b": 55,
+    "neither": 25,
+    "p": 1.582067810090848e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p10",
+   "tokens": 52030,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 58,
+   "rate": 0.4142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 7,
+    "only_b": 11,
+    "neither": 71,
+    "p": 0.480682373046875,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 57,
+    "only_a": 1,
+    "only_b": 57,
+    "neither": 25,
+    "p": 4.0939474033052647e-16,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p20",
+   "tokens": 104060,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 68,
+   "rate": 0.4857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 16,
+    "only_b": 10,
+    "neither": 62,
+    "p": 0.32693958282470703,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 67,
+    "only_a": 1,
+    "only_b": 47,
+    "neither": 25,
+    "p": 3.481659405224491e-13,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p30",
+   "tokens": 156090,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 76,
+   "rate": 0.5428571428571428,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 25,
+    "only_b": 11,
+    "neither": 53,
+    "p": 0.028816719655878842,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 72,
+    "only_a": 4,
+    "only_b": 42,
+    "neither": 22,
+    "p": 5.100190492157708e-09,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "p40",
+   "tokens": 208120,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 80,
+   "rate": 0.5714285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 50,
+    "only_a": 30,
+    "only_b": 12,
+    "neither": 48,
+    "p": 0.007915897334896727,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 73,
+    "only_a": 7,
+    "only_b": 41,
+    "neither": 19,
+    "p": 6.240408438884515e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 1,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 76.88,
+   "status": "ok",
+   "successes": 85,
+   "rate": 0.6071428571428571,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 33,
+    "only_b": 10,
+    "neither": 45,
+    "p": 0.0006061066312668117,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 77,
+    "only_a": 8,
+    "only_b": 37,
+    "neither": 18,
+    "p": 1.5374090196473844e-05,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p03",
+   "tokens": 30555,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 52,
+   "rate": 0.37142857142857144,
+   "vs_base": {
+    "n": 140,
+    "both": 46,
+    "only_a": 6,
+    "only_b": 16,
+    "neither": 72,
+    "p": 0.052478790283203125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 51,
+    "only_a": 1,
+    "only_b": 63,
+    "neither": 25,
+    "p": 7.047314121155779e-18,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p05",
+   "tokens": 50925,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 51,
+   "rate": 0.36428571428571427,
+   "vs_base": {
+    "n": 140,
+    "both": 49,
+    "only_a": 2,
+    "only_b": 13,
+    "neither": 76,
+    "p": 0.00738525390625,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 50,
+    "only_a": 1,
+    "only_b": 64,
+    "neither": 25,
+    "p": 3.577867169202165e-18,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p10",
+   "tokens": 101850,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 73,
+   "rate": 0.5214285714285715,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 21,
+    "only_b": 10,
+    "neither": 57,
+    "p": 0.07075554598122835,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 70,
+    "only_a": 3,
+    "only_b": 44,
+    "neither": 23,
+    "p": 2.4647306418046355e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p20",
+   "tokens": 203700,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 100,
+   "rate": 0.7142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 44,
+    "only_b": 6,
+    "neither": 34,
+    "p": 3.243740565039843e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 91,
+    "only_a": 9,
+    "only_b": 23,
+    "neither": 17,
+    "p": 0.020061607006937265,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p30",
+   "tokens": 305550,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 105,
+   "rate": 0.75,
+   "vs_base": {
+    "n": 140,
+    "both": 61,
+    "only_a": 44,
+    "only_b": 1,
+    "neither": 34,
+    "p": 2.6147972675971687e-12,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 98,
+    "only_a": 7,
+    "only_b": 16,
+    "neither": 19,
+    "p": 0.0931396484375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 1,
+   "label": "p40",
+   "tokens": 407400,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 110,
+   "rate": 0.7857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 58,
+    "only_a": 52,
+    "only_b": 4,
+    "neither": 26,
+    "p": 1.1008055578187737e-11,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 99,
+    "only_a": 11,
+    "only_b": 15,
+    "neither": 15,
+    "p": 0.557197093963623,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p03",
+   "tokens": 5502,
+   "passes": 3.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p05",
+   "tokens": 9170,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 65,
+   "rate": 0.4642857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 9,
+    "only_b": 6,
+    "neither": 69,
+    "p": 0.60723876953125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 62,
+    "only_a": 3,
+    "only_b": 52,
+    "neither": 23,
+    "p": 1.5418777365994174e-12,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p10",
+   "tokens": 18340,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 61,
+   "rate": 0.4357142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 5,
+    "only_b": 6,
+    "neither": 73,
+    "p": 1.0,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 60,
+    "only_a": 1,
+    "only_b": 54,
+    "neither": 25,
+    "p": 3.1086244689504383e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p20",
+   "tokens": 36680,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 45,
+   "rate": 0.32142857142857145,
+   "vs_base": {
+    "n": 140,
+    "both": 42,
+    "only_a": 3,
+    "only_b": 20,
+    "neither": 75,
+    "p": 0.00048828125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 45,
+    "only_a": 0,
+    "only_b": 69,
+    "neither": 26,
+    "p": 3.3881317890172014e-21,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p30",
+   "tokens": 55020,
+   "passes": 30.0,
+   "status": "ok",
+   "successes": 52,
+   "rate": 0.37142857142857144,
+   "vs_base": {
+    "n": 140,
+    "both": 41,
+    "only_a": 11,
+    "only_b": 21,
+    "neither": 67,
+    "p": 0.11018416518345475,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 52,
+    "only_a": 0,
+    "only_b": 62,
+    "neither": 26,
+    "p": 4.336808689942018e-19,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "p40",
+   "tokens": 73360,
+   "passes": 40.0,
+   "status": "ok",
+   "successes": 75,
+   "rate": 0.5357142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 53,
+    "only_a": 22,
+    "only_b": 9,
+    "neither": 56,
+    "p": 0.029449373483657837,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 73,
+    "only_a": 2,
+    "only_b": 41,
+    "neither": 24,
+    "p": 2.1532287064474076e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 54.53,
+   "status": "ok",
+   "successes": 77,
+   "rate": 0.55,
+   "vs_base": {
+    "n": 140,
+    "both": 52,
+    "only_a": 25,
+    "only_b": 10,
+    "neither": 53,
+    "p": 0.01667384780012071,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 75,
+    "only_a": 2,
+    "only_b": 39,
+    "neither": 24,
+    "p": 7.839844329282641e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 109.05,
+   "status": "ok",
+   "successes": 82,
+   "rate": 0.5857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 25,
+    "only_b": 5,
+    "neither": 53,
+    "p": 0.00032491423189640045,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 76,
+    "only_a": 6,
+    "only_b": 38,
+    "neither": 20,
+    "p": 9.430375484953402e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 5,
+   "seed": 2,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 218.1,
+   "status": "ok",
+   "successes": 81,
+   "rate": 0.5785714285714286,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 25,
+    "only_b": 6,
+    "neither": 53,
+    "p": 0.0008779102936387062,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 76,
+    "only_a": 5,
+    "only_b": 38,
+    "neither": 21,
+    "p": 2.4995097192004323e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p03",
+   "tokens": 14082,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 59,
+   "rate": 0.42142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 5,
+    "only_b": 8,
+    "neither": 73,
+    "p": 0.5810546875,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 58,
+    "only_a": 1,
+    "only_b": 56,
+    "neither": 25,
+    "p": 8.049116928532385e-16,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p05",
+   "tokens": 23470,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 58,
+   "rate": 0.4142857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 4,
+    "only_b": 8,
+    "neither": 74,
+    "p": 0.3876953125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 57,
+    "only_a": 1,
+    "only_b": 57,
+    "neither": 25,
+    "p": 4.0939474033052647e-16,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p10",
+   "tokens": 46940,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 49,
+   "rate": 0.35,
+   "vs_base": {
+    "n": 140,
+    "both": 46,
+    "only_a": 3,
+    "only_b": 16,
+    "neither": 75,
+    "p": 0.004425048828125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 48,
+    "only_a": 1,
+    "only_b": 66,
+    "neither": 25,
+    "p": 9.215718466126788e-19,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p20",
+   "tokens": 93880,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 70,
+   "rate": 0.5,
+   "vs_base": {
+    "n": 140,
+    "both": 49,
+    "only_a": 21,
+    "only_b": 13,
+    "neither": 57,
+    "p": 0.22948101302608848,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 67,
+    "only_a": 3,
+    "only_b": 47,
+    "neither": 23,
+    "p": 3.708322537931963e-11,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 21.3,
+   "status": "ok",
+   "successes": 81,
+   "rate": 0.5785714285714286,
+   "vs_base": {
+    "n": 140,
+    "both": 53,
+    "only_a": 28,
+    "only_b": 9,
+    "neither": 50,
+    "p": 0.0025632079923525453,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 75,
+    "only_a": 6,
+    "only_b": 39,
+    "neither": 20,
+    "p": 5.417768988991156e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p30",
+   "tokens": 140820,
+   "passes": 30.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "p40",
+   "tokens": 187760,
+   "passes": 40.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 42.61,
+   "status": "gate_failed"
+  },
+  {
+   "K": 10,
+   "seed": 2,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 85.22,
+   "status": "gate_failed"
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p03",
+   "tokens": 27198,
+   "passes": 3.0,
+   "status": "ok",
+   "successes": 57,
+   "rate": 0.40714285714285714,
+   "vs_base": {
+    "n": 140,
+    "both": 51,
+    "only_a": 6,
+    "only_b": 11,
+    "neither": 72,
+    "p": 0.332305908203125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 55,
+    "only_a": 2,
+    "only_b": 59,
+    "neither": 24,
+    "p": 1.6410484082740595e-15,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p05",
+   "tokens": 45330,
+   "passes": 5.0,
+   "status": "ok",
+   "successes": 45,
+   "rate": 0.32142857142857145,
+   "vs_base": {
+    "n": 140,
+    "both": 42,
+    "only_a": 3,
+    "only_b": 20,
+    "neither": 75,
+    "p": 0.00048828125,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 45,
+    "only_a": 0,
+    "only_b": 69,
+    "neither": 26,
+    "p": 3.3881317890172014e-21,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p10",
+   "tokens": 90660,
+   "passes": 10.0,
+   "status": "ok",
+   "successes": 71,
+   "rate": 0.5071428571428571,
+   "vs_base": {
+    "n": 140,
+    "both": 55,
+    "only_a": 16,
+    "only_b": 7,
+    "neither": 62,
+    "p": 0.0931396484375,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 70,
+    "only_a": 1,
+    "only_b": 44,
+    "neither": 25,
+    "p": 2.6147972675971687e-12,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "t100k",
+   "tokens": 100000,
+   "passes": 11.03,
+   "status": "ok",
+   "successes": 79,
+   "rate": 0.5642857142857143,
+   "vs_base": {
+    "n": 140,
+    "both": 54,
+    "only_a": 25,
+    "only_b": 8,
+    "neither": 53,
+    "p": 0.004551384132355452,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 78,
+    "only_a": 1,
+    "only_b": 36,
+    "neither": 25,
+    "p": 5.529727786779404e-10,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p20",
+   "tokens": 181320,
+   "passes": 20.0,
+   "status": "ok",
+   "successes": 96,
+   "rate": 0.6857142857142857,
+   "vs_base": {
+    "n": 140,
+    "both": 56,
+    "only_a": 40,
+    "only_b": 6,
+    "neither": 38,
+    "p": 3.1028037028590916e-07,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 87,
+    "only_a": 9,
+    "only_b": 27,
+    "neither": 17,
+    "p": 0.00393317302223295,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "t200k",
+   "tokens": 200000,
+   "passes": 22.06,
+   "status": "ok",
+   "successes": 99,
+   "rate": 0.7071428571428572,
+   "vs_base": {
+    "n": 140,
+    "both": 57,
+    "only_a": 42,
+    "only_b": 5,
+    "neither": 36,
+    "p": 2.4579776436439715e-08,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   },
+   "vs_teacher": {
+    "n": 140,
+    "both": 92,
+    "only_a": 7,
+    "only_b": 22,
+    "neither": 19,
+    "p": 0.008130058646202087,
+    "serving_noise_reference": {
+     "source": "docs/MECHANISM_PLAN.md Amendment 2 (2026-10-04)",
+     "comparison": "cross-server base-vs-base, rai dev140, greedy",
+     "batch_invariant": false,
+     "discordant": 12,
+     "n": 140,
+     "first_only": 6,
+     "second_only": 6,
+     "rate": 0.08571428571428572,
+     "scope": "Historical non-batch-invariant reference; not a noise estimate for batch-invariant runs."
+    }
+   }
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p30",
+   "tokens": 271980,
+   "passes": 30.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "p40",
+   "tokens": 362640,
+   "passes": 40.0,
+   "status": "gate_failed"
+  },
+  {
+   "K": 20,
+   "seed": 2,
+   "label": "t400k",
+   "tokens": 400000,
+   "passes": 44.12,
+   "status": "gate_failed"
+  }
+ ]
+}
