@@ -33,7 +33,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   m3 privileged ran through iteration 1 (40 min) but **all 16 privileged-state extractions got HTTP 400**: gpt-6-luna rejects
   temperature AND top_p (error type invalid_request_error, param set, code null — probed 16:2x CDT); our fallback only fires on
   code unsupported_parameter/value → never switched to default sampling → 0 states → 12 failed rollouts excluded → stopped_empty_min.
-  0% variant cancelled (would hit the same 400 at correct-1). Codex: accept the code-null shape; then a 2-call live check on rai, then -m4. ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
+  0% variant cancelled (would hit the same 400 at correct-1). Fixed in e36fe93 (code-null shape; live probe from rai sets the flag).
+  **Resubmitted 44857832 privileged / 44857833 zero** (group, tree e36fe93) → $B/reports/runs/baselines/leap-{privileged,zero}-k20s0-m4.
+- **K=100 s0 collection COMPLETE** (21:17Z = 16:17 CDT: 100 trusted / 117 tasks / 156 attempts, 3 h 37 min; k5/k10/k20 views identical
+  to the K=20 ones). s1 running since 16:17 CDT; at this pace s1, s2 ≈ 3.5 h each → ~23:30 CDT. Synced seeds_k100_s0 to hpg.
+  Tree b521a4e: K=50/100 s0 grid being prepared on hpg (configs/seedsft_dose_grid_v2_k50_100_s0.json); baseline cells for
+  k1s0 k2s0 k1s1 k2s1 k1s2 k2s2 k50s0 k100s0: 44857766 Kang (%2), 44857767 AgentGym (%1). ETO/IPR pending jobs lowered to 160G (scontrol, MB units) 15:2x CDT.
 - **K=1/2 views** materialized on hpg (13:5x CDT) under $B/data/verified/seeds_k20_s{0,1,2}/subsets/k{1,2} (materialize_subsets, nested in
   k5 checked). Not yet on rai (the K100 collector reads seeds_k20_s* — add after it finishes). Codex (pid 1881152): partial v2 dose grid
   (configs/seedsft_dose_grid_v2_k12.json) so K=1/2 Seed-SFT can run before K=100 finishes.
