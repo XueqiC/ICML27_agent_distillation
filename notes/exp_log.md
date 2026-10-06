@@ -60,3 +60,5 @@ baseline-cells-1005c | Kang + AgentGym official on k1s0 k2s0 k50s0 k100s0 (K1/2 
 k12-s0-views-moved | hpg seeds_k20_s0/subsets/k{1,2} → $B/_trash/k20_views_k1k2_1005/seeds_k20_s0 (restores the K20 s0 tree bound by seeds_k100_s0) | 17:5x CDT | K50/100 s0 grid prepared after the move |
 k2s2-eval-rerun | k2s2 sweep eval aborted after p20 (1 error episode) → array index 5 re-run | hpg 44869648 | pending | eval/seedsft-sweep-bi-v2k12-r2
 leap-k20s0-m5 | LEAP privileged / 0% after the merged-iterate validator fix + CPU chain test (7f45f64) | hpg group 44872102/44872103 | submitted | /blue/.../leap-{privileged,zero}-k20s0-m5
+collect-k100-s1 | K=100 s1 extension | rai pid 1731893 | complete 19:35 CDT: 100 trusted / 115 tasks / 160 attempts | data/verified/seeds_k100_s1
+baseline-cells-1005d | Kang + AgentGym official on k1s1 k2s1 k50s1 k100s1 | hpg tree 3472df2: 44879553 Kang, 44879554 AgentGym | submitted |
