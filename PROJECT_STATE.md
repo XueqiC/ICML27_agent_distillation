@@ -24,6 +24,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   pending) 3, I4-only/unresolved 19/43. Taxonomy: F-precondition 18, F-search 15, F-loop 5, F-goal 3, F-cap 2. vs K20 run2 (I3 11, I4 9,
   I5 8, unresolved 9/24): the K5 student is short on executable action knowledge, not on advice. Readout run-a6/launches/attempt-000/readout.
   Coverage + probes (amendment 5) launched: pid 3303750, worktree 5093783, rai GPU1 → reports/runs/mechanism/k5s0-t400k-bi/probes-a5.
+  **K5 probes DONE**: coverage-qualified attribution (43): no-seed-type 13 (cool), knowledge_not_in_experience 2,
+  M2_with_knowledge_not_in_experience 4, M1b 1, **M1a 0**, M2 4, execution_or_capacity 4, unresolved 15; training fit 97.5%.
+  → absorption never fails (K20: M1a 0 too); at small K the gap is knowledge absent from the K seeds (19/43).
 - **hpg capacity (10-06 ~03:0x CDT)**: B200 partition 466/480 GPUs allocated; nothing of mine running for hours (pending reasons
   QOSGrpGRES/MemLimit are stale — the partition is full). **Reservation `mlperf-benchmark` takes 32 hpg-b200 nodes 10-08 09:00 →
   10-12 09:00 (hpg local, = 08:00 CDT)** → almost no B200 for 4 days from Thursday morning. Lowered AgentGym arrays to Nice=200 so
