@@ -67,3 +67,4 @@ collect-k100-s2 | K=100 s2 extension | rai pid 1731893 | complete 22:49 CDT: 100
 k2s2-eval-rerun-2 | k2s2 sweep eval re-run with the K=100 s2 k2 view for check prompts (identical content) | hpg 44893700 (tree 3b133d5) | submitted | eval/seedsft-sweep-bi-v2k12-r2
 baseline-cells-1005e | Kang + AgentGym official on k1s2 k2s2 k50s2 k100s2 | hpg tree 3b133d5: 44893701 Kang, 44893702 AgentGym | submitted |
 leap-privileged-k20s0-m5 | LEAP privileged, 4 iterations complete; corrections 8/4/4, N 640/480/640 | hpg 44872102 | eval 44894390 submitted | /blue/.../leap-privileged-k20s0-m5
+seedsft-k50-100-s2 | Seed-SFT K=50/100 s2 (24.5k/49.2k tokens per pass) | hpg tree 3b133d5: 44894413 train, 44894414 eval | submitted | eval/seedsft-sweep-bi-v2k50
