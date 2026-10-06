@@ -31,7 +31,8 @@ def test_linear_every_step_matches_transformers(total, warmup):
 
 
 @pytest.mark.parametrize("packing", ["episode", "turn"])
-def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path, packing):
+@pytest.mark.parametrize("training_seed", [0, 42])
+def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path, packing, training_seed):
     from peft import PeftModel
     torch.set_num_threads(1)
     torch.manual_seed(0)
@@ -62,13 +63,17 @@ def test_kang_text_targets_update_save_reload_and_serving_schema(tmp_path, packi
             {"input_ids": [2, 6, 106, 10, 11, 106], "labels": [-100, -100, -100, -100, 11, 106]}]}]
     output = tmp_path / "train"
     state = train_loop(model, rows, output, objective="sft", learning_rate=2e-4, scheduler="linear",
-        warmup_ratio=0, warmup_steps=0, original_batch=8, epochs=2, seed=0, packing=packing)
+        warmup_ratio=0, warmup_steps=0, original_batch=8, epochs=2, seed=training_seed, packing=packing)
+    assert state["seed"] == training_seed
     assert state["examples_seen"] == 4 and state["supervised_tokens_seen"] == 12
     assert state["b_prime"] == 1 and state["updates"] == 4 and state["gradient_clip"] == 1
     assert state["weight_decay"] == 0
     assert any(not torch.equal(before[n], p) for n, p in model.named_parameters() if p.requires_grad)
     assert all(torch.equal(before[n], p) for n, p in model.named_parameters() if not p.requires_grad)
     updates = [json.loads(line) for line in (output / "updates.jsonl").read_text().splitlines()]
+    from baselines.common.schedule import epoch_batches
+    assert [u["indices"] for u in updates] == [b["indices"] for b in
+        epoch_batches(2, 1, epochs=2, seed=training_seed)]
     assert [u["lr"] for u in updates] == pytest.approx([2e-4, 1.5e-4, 1e-4, .5e-4])
     provenance = {"config": load_config()}
     provenance["config"]["sft"] = {"base_snapshot": snapshot_metadata(base)}

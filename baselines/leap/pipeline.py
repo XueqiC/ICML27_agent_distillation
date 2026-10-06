@@ -9,13 +9,12 @@ import sys
 
 from baselines.common.explore import checked_rollouts
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure as common_disclosure
-from baselines.common.schedule import dose
 from baselines.eto.pipeline import stage_run, run_command, served, publish_models, evaluate_pipeline
 from baselines.leap.data import seeds, prepare_set, min_subsample
 from baselines.leap.expert import collect_one
 from baselines.leap.protocol import LABELS, PIN, render, template_hashes, trajectory, expert_source_hashes
 from baselines.leap.teacher import TeacherBudget, checked_outcome, read
-from baselines.leap.train import RECIPE
+from baselines.leap.train import EVAL_SAVE_DEVIATION, RECIPE, training_dose
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import versions, write_provenance
@@ -182,7 +181,7 @@ def train_pipeline(args, identity, config):
         _, aggregation = min_subsample([read(path) for path in sets])
         report.update(aggregation=aggregation, example_sets=list(map(str, sets)),
             inadmissible_corrections=read(data / "report.json")["inadmissible_corrections"],
-            init=str(current), dose=dose(aggregation["N_examples"], 32, epochs=1) if aggregation["N_examples"] else None)
+            init=str(current), dose=training_dose(aggregation["N_examples"]) if aggregation["N_examples"] else None)
         write_json(output / f"iteration-{iteration}.json", report)
         if args.through == f"data-{iteration}":
             return
@@ -217,6 +216,13 @@ def update_disclosure(output, identity):
     common_disclosure(output, identity)
     output = Path(output)
     report = read(output / "disclosure.json")
+    report["eval_save_deviation"] = EVAL_SAVE_DEVIATION
+    for attempt in report["training_attempts"]:
+        provenance = output / attempt["path"] / "output/provenance.json"
+        if provenance.exists():
+            training = read(provenance)["config"]["leap_training"]
+            attempt["dose"] = {key: training[key] for key in ("total_steps", "official_eval_save_step",
+                "updates_exceed_official_eval_save_step", "eval_save_deviation") if key in training}
     calls, malformed = [], False
     for path in sorted((output / "audit/teacher").rglob("usage.jsonl")):
         for line in path.read_text().splitlines():

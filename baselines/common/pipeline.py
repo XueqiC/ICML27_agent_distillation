@@ -75,7 +75,8 @@ def update_disclosure(output, identity):
     row.update(training_attempts=trainings, batch_invariant=True,
         iterations=[json.loads(p.read_text()) for p in sorted(output.glob("iteration-*.json"))])
     if identity.get("method") == "kang":
-        row.update(source="trusted_teacher_seed_sft", expansion=False)
+        row.update(source="trusted_teacher_seed_sft", expansion=False,
+            training_seed=identity["recipe"]["training_seed"])
     row["totals"].update(examples_seen=sum(t["examples_seen"] for t in trainings),
         supervised_tokens_seen=sum(t["supervised_tokens_seen"] for t in trainings), teacher_calls=0)
     row["token_accounting"] = "Every raw student candidate/call and usage lives in the exploration attempt; summary totals include all returned completions. Seed teacher usage/model/timestamps remain bound in original receipts."

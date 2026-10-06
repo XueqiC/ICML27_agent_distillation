@@ -170,14 +170,16 @@ def test_agentgym_four_base_restarts_empty_rounds_and_resume(tmp_path, monkeypat
     assert len(json.loads((tmp_path / "datasets.json").read_text())) == 5
 
 
-def test_kang_command_and_training_attempt_disclosure(tmp_path):
-    args = SimpleNamespace(train_python="TRAIN", config="config", snapshot="BASE", verified="verified")
+@pytest.mark.parametrize("training_seed", [0, 42])
+def test_kang_command_and_training_attempt_disclosure(tmp_path, training_seed):
+    args = SimpleNamespace(train_python="TRAIN", config="config", snapshot="BASE", verified="verified",
+                           training_seed=training_seed)
     command = kang.training_command(args, tmp_path / "out")
     values = {command[i]: command[i + 1] for i in range(len(command) - 1) if command[i].startswith("--")}
     assert values["--adaptation"] == "kang_lora" and values["--epochs"] == "2"
     assert values["--learning-rate"] == "2e-4" and values["--original-batch"] == "8"
     assert values["--scheduler"] == "linear" and values["--warmup-steps"] == "0"
-    assert values["--seed"] == "0" and values["--max-length"] == "32768"
+    assert values["--seed"] == str(training_seed) and values["--max-length"] == "32768"
     assert values["--packing"] == kang.RECIPE["packing"] == "turn"
     assert "torch.distributed.run" not in command
     for i in range(2):
@@ -185,8 +187,10 @@ def test_kang_command_and_training_attempt_disclosure(tmp_path):
         path.mkdir(parents=True)
         (path / "updates.jsonl").write_text(json.dumps({"examples_seen": 3, "supervised_tokens_seen": 7}) + "\n")
     write_json(path / "result.json", {"logical_forward_tokens": 15})
-    update_disclosure(tmp_path, {"K": 5, "unique_instances": 5, "task_groups": 5})
+    update_disclosure(tmp_path, {"K": 5, "unique_instances": 5, "task_groups": 5,
+        "method": "kang", "recipe": {**kang.RECIPE, "training_seed": training_seed}})
     report = json.loads((tmp_path / "disclosure.json").read_text())
+    assert report["training_seed"] == training_seed
     assert report["totals"]["examples_seen"] == 6 and report["totals"]["supervised_tokens_seen"] == 14
     assert report["training_attempts"][0]["unknown_exposure_possible"]
     assert report["totals"]["teacher_calls"] == 0

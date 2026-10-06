@@ -28,6 +28,20 @@ RECIPE = {"training_seed": 0, "iterations": [0, 1, 2, 3], "epochs": 1,
     "packing": "turn", "train_split": 1., "eval_save_steps": 200,
     "checkpoint_selection": False, "annotate_reason": "skipped; seed Thought is REASON"}
 
+EVAL_SAVE_DEVIATION = (
+    "2026-10-06 user decision (b): extend all-data/final-epoch training to stages reaching "
+    "or exceeding the official eval/save step 200; no 85/15 holdout, periodic eval/save, "
+    "or best-loss selection. Every stage trains to its final epoch."
+)
+
+
+def training_dose(n_examples):
+    plan = dose(n_examples, 32, epochs=1)
+    return {**plan, "official_eval_save_step": RECIPE["eval_save_steps"],
+        # Exactly 200 also reaches the first official periodic eval/save.
+        "updates_exceed_official_eval_save_step": plan["total_steps"] >= RECIPE["eval_save_steps"],
+        "eval_save_deviation": EVAL_SAVE_DEVIATION}
+
 
 def attach_fresh_lora(model, *, gradient_checkpointing=True):
     from peft import LoraConfig, get_peft_model
@@ -75,9 +89,7 @@ def train_loop(model, examples, output, *, device="cpu"):
     CPU uses unfused AdamW solely for offline tests of the same arithmetic.
     """
     import torch
-    plan = dose(len(examples), 32, epochs=1)
-    if plan["total_steps"] >= 200:
-        raise ValueError("Dose reaches official eval/save; registered no-selection regime no longer applies")
+    plan = training_dose(len(examples))
     cuda = str(device).startswith("cuda")
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=3e-5, betas=(.9, .999), eps=1e-8,
@@ -148,9 +160,7 @@ def main(argv=None, *, device="cuda"):
         raise ValueError("Official min aggregation is empty; no training")
     tokenizer = load_tokenizer(args.snapshot)
     examples = encode_rows(rows, tokenizer)
-    plan = dose(len(examples), 32, epochs=1)
-    if plan["total_steps"] >= 200:
-        raise ValueError("Registered dose cannot trigger eval/save step 200")
+    plan = training_dose(len(examples))
     import torch
     from transformers import set_seed
     cuda = str(device).startswith("cuda")

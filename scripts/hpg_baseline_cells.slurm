@@ -42,6 +42,8 @@ trap forward TERM
 run() { "$@" & child=$!; local status=0; wait "$child" || status=$?; child=''; return "$status"; }
 case "$METHOD" in
     kang)
+        # Forward the caller's training seed unchanged; hpg_kang supplies default 0.
+        export KANG_TRAINING_SEED
         export KANG_OUT="$DATA_ROOT/reports/runs/baselines/kang-$cell-tp"
         KANG_MODE=train run bash scripts/hpg_kang.slurm
         adapter=$("$ENV_PYTHON" -c 'import json, sys; m = json.load(open(sys.argv[1])); assert len(m) == 1, m; print(m[0]["adapter"])' \
