@@ -80,3 +80,7 @@ mech-k5s0-a6 readout | K5 s0 t400k (rai BI 74/140), G=43, 13 cool gaps excluded 
 mech-k5s0-probes-a5 | coverage + knowledge probes (amendment 5) on k5s0-t400k | rai GPU1 pid 3303750 (worktree 5093783) | running | reports/runs/mechanism/k5s0-t400k-bi/probes-a5
 mech-k5s0-probes-a5 | coverage + probes, k5s0-t400k | rai GPU1 | M1a 0, M1b 1, M2 4, M2+no-knowledge 4, knowledge_not_in_experience 2, no-seed-type 13, execution 4, unresolved 15; training fit 97.5% | reports/runs/mechanism/k5s0-t400k-bi/probes-a5/launches/attempt-000/readout
 k2s2-rerun noise note | same 9-adapter sweep server config, different job/node: k2s2-p10 58→61, p20 59→58 (first run had 1 error episode at p20) | hpg 44842265_5 vs 44893700 | cross-job ±3/140, inside the ±7 cross-config reference; BI replay not exactly reproducible across jobs here — check trajectories later |
+seedsft-k50s0 | Seed-SFT K=50 s0 (22.9k tok/pass) | hpg 44871876_0 + 44871877_0 | p03 49, t100k 73, p05 78, t200k 98, p10 104, t400k 112, p20 104, **p30 114 (= teacher)**, p40 109 | eval/seedsft-sweep-bi-v2k50/k50s0
+seedsft-k2s2 (r2) | k2s2 eval re-run (K100 view check prompts) | hpg 44893700 | p10 61, p20 58, p30 52, p40 45, t100k 62, t200k 61, t400k 59 | eval/seedsft-sweep-bi-v2k12-r2/k2s2
+kang-ladder | Kang official + SAG, K=1/2/50 | hpg 44921817 | k1s0 51, k1s1 53, k2s0 51, k2s1 62, k50s0 90 (base 62) | eval/baselines/kang-<cell>-tp-sag
+eto-k20s0 | ETO official, 2×B200 (two-pass DPO) | hpg 44826292 | running: sft done, explore-1 → 15 pairs, dpo-1 in progress (no OOM) | baselines/eto-k20s0-tp4

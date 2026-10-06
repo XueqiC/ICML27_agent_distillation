@@ -5,6 +5,8 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **10-06 09:1x CDT results**: Seed-SFT K50 s0 peak **114 = teacher** at p30 (t400k 112, p40 109); Kang K1 51/53, K2 51/62, K50s0 90;
+  k2s2 t400k 59 (K2 = 70/86/59). ETO K20 s0 running (15 pairs, dpo-1). Morning report sent 06:00 (reports/morning_1006_ZH.md), 4 decisions pending.
 - **Baseline cells for K∉{5,10,20} CANCELLED 04:4x CDT** (44871885/6, 44879553/4, 44893701/2): baselines/common/pipeline.py (and eto)
   still guard 'Registered few-shot K is 5/10/20' (Kang k1s0 died in 2 min). Codex (K-guard task): REGISTERED_K = ladder + audit of
   K-dependent preconditions per method (LEAP's <200-updates assumption at K=50/100, X5 at K=1) → reports/baseline_k_ladder_audit.md.
