@@ -53,6 +53,9 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   at correct-1 (same train-1 path). Codex: fix + one real end-to-end CPU chain test (tiny Gemma-4) merge→train-1→merge-1→serve assets.
   Fixed in 7f45f64 (+ eval preflight same gap; tests/test_leap_chain_torch.py runs the real chain on CPU; remaining unexercised paths
   listed in reports/leap_chain_validation.json). **Resubmitted 44872102 privileged / 44872103 zero** (group, tree 7f45f64) → -m5.
+  **m5 privileged TRAINING COMPLETE** (23:0x CDT): corrections per iteration 8 / 4 / 4 (rejected 0 / 5 / 5; no-state 4 / 2 / 3; failed
+  student rollouts on the 20 K tasks 12 / 11 / 12); official min-subsampling → N = 640 / 480 / 640 examples. Eval 44894390 (group, same
+  tree, LEAP_MODE=evaluate) → iter-0..3 on dev140.
 - **K=100 s0 collection COMPLETE** (21:17Z = 16:17 CDT: 100 trusted / 117 tasks / 156 attempts, 3 h 37 min; k5/k10/k20 views identical
   to the K=20 ones). s1 running since 16:17 CDT; at this pace s1, s2 ≈ 3.5 h each → ~23:30 CDT. Synced seeds_k100_s0 to hpg.
   Tree b521a4e: K=50/100 s0 grid being prepared on hpg (configs/seedsft_dose_grid_v2_k50_100_s0.json); baseline cells for
