@@ -88,3 +88,6 @@ seedsft-k50s1 | Seed-SFT K=50 s1 (25.4k tok/pass) | hpg 44880903_0/44880904_0 | 
 kang-ladder (cont.) | Kang official + SAG | hpg 44921817 | k50s1 89, k100s0 67 (26 updates at K=100) |
 eto-k20s0 dpo-1 | ETO round 1: P=15 pairs, 45 updates (batch 1, 3 epochs), ~5 min/update (two-pass per-turn exact backward, ~1.4M policy fwd tokens/update); loss → 2e-21 by epoch 2 (pairs fully fit) | hpg 44826292 | 3 rounds may exceed the 12 h limit (~19:20 CDT); stages resume |
 leap-privileged-ladder | LEAP privileged official, K=1/2/5/10/50 s0 (all-data, final epoch) | hpg group 44938864–44938868 (tree def44a9) | submitted | baselines/leap-privileged-k{K}s0
+leap-privileged-k100s0 | LEAP privileged official, K=100 s0, option (b) beyond 200 updates disclosed | hpg group 44943706 (tree 61001ec) | submitted | baselines/leap-privileged-k100s0
+kang-k20s0-seed{1,2} | Kang official, training seeds 1/2 (variance check) | hpg 44943707/9 train + 44943708/10 SAG eval (tree 61001ec) | submitted | eval/baselines/kang-k20s0-tp-seed{1,2}-sag
+dose-controls-k20s0 | method ingredient on Seed-SFT k20s0-p40 init (docs/BASELINE_DOSE_CONTROLS.md, approved 10-06) | hpg tree 060a118: 44944146 AgentGym, 44944147 ETO, 44944148 IPR, 44944149 LEAP privileged | submitted | baselines/<method>-k20s0-init

@@ -12,6 +12,12 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   3673961 (worktree ~/hq/projects/ICML27_dosectl, branch dose-controls: --init-checkpoint).
   LEAP privileged K1/2/5/10/50 s0 submitted (tree def44a9, group, no >200 change needed): 44938864–44938868 → $B/reports/runs/baselines/leap-privileged-k{K}s0.
   K100 after Codex A. Evals: submit LEAP_MODE=evaluate per cell when training completes (same tree).
+  **12:3x CDT**: 61001ec (LEAP >200 updates option b; Kang --training-seed) + 060a118 (merge of dose-controls 53c59b2).
+  LEAP privileged K100 s0 44943706 (group, tree 61001ec, 36 h); Kang K20 s0 training seeds 1/2: 44943707→44943708 (SAG eval),
+  44943709→44943710 → baselines/kang-k20s0-tp-seed{1,2}, eval/baselines/kang-k20s0-tp-seed{1,2}-sag.
+  **Dose controls K20 s0** (tree 060a118, INIT = seedsft-k20s0-hpg/checkpoint-tokens-416280 = main-table p40):
+  44944146 AgentGym, 44944147 ETO, 44944148 IPR (dept, 2×B200), 44944149 LEAP privileged (group) → baselines/<method>-k20s0-init.
+  Evals for AgentGym/LEAP need a separate evaluate-mode job after training (ETO/IPR evaluate per their pipelines).
 - **10-06 09:1x CDT results**: Seed-SFT K50 s0 peak **114 = teacher** at p30 (t400k 112, p40 109); Kang K1 51/53, K2 51/62, K50s0 90;
   k2s2 t400k 59 (K2 = 70/86/59). ETO K20 s0 running (15 pairs, dpo-1). Morning report sent 06:00 (reports/morning_1006_ZH.md), 4 decisions pending.
 - **Baseline cells for K∉{5,10,20} CANCELLED 04:4x CDT** (44871885/6, 44879553/4, 44893701/2): baselines/common/pipeline.py (and eto)
