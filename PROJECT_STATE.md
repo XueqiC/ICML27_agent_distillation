@@ -5,6 +5,11 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **hpg capacity (10-06 ~03:0x CDT)**: B200 partition 466/480 GPUs allocated; nothing of mine running for hours (pending reasons
+  QOSGrpGRES/MemLimit are stale — the partition is full). **Reservation `mlperf-benchmark` takes 32 hpg-b200 nodes 10-08 09:00 →
+  10-12 09:00 (hpg local, = 08:00 CDT)** → almost no B200 for 4 days from Thursday morning. Lowered AgentGym arrays to Nice=200 so
+  Seed-SFT K50/100, Kang, ETO/IPR start first. Remaining need ≈ 150 GPU-h; tell the user in the morning report, propose priorities
+  (Seed-SFT K50/100 > Kang > ETO/IPR K20 > AgentGym extra cells) and ask whether to trim AgentGym to s0 outside K=5/10/20.
 - **hpg tree d9e151b** (13:3x CDT, scripts/hpg_baseline_cells.slurm = one K×support-seed cell per array task, official recipe + the paper's
   dev140 BI eval; collections on the nested ladder: K5/10 = seeds_k20_s*/subsets, K1/2/50 = seeds_k100_s*/subsets):
   44837378 kang-cells-g (group, %1: k5s0 k10s0 k5s1 k10s1), 44837379 kang-cells-d (dept, %2: k5s2 k10s2 k20s1 k20s2),
