@@ -5,6 +5,10 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **Baseline cells for K∉{5,10,20} CANCELLED 04:4x CDT** (44871885/6, 44879553/4, 44893701/2): baselines/common/pipeline.py (and eto)
+  still guard 'Registered few-shot K is 5/10/20' (Kang k1s0 died in 2 min). Codex (K-guard task): REGISTERED_K = ladder + audit of
+  K-dependent preconditions per method (LEAP's <200-updates assumption at K=50/100, X5 at K=1) → reports/baseline_k_ladder_audit.md.
+  Resubmit after review; LEAP at K≥50 may need a user decision if the official 200-step save/holdout would apply.
 - **rai GPU1: K5 mechanism re-run run-a6** (pid 2982972, tree 70314a3, 03:0x CDT): first run (run/) finished FCE 41/43; 2 episodes hit the
   700-call cap → launcher exit 2 before interventions. Amendment 6 (0da23fd): one retry at 1,400/episode, run cap 40k, fresh workspace
   seeded read-only from run/'s teacher cache → reports/runs/mechanism/k5s0-t400k-bi/run-a6; log logs/mechanism_k5s0_t400k_bi_a6.log.
