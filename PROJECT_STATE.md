@@ -9,6 +9,10 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   still guard 'Registered few-shot K is 5/10/20' (Kang k1s0 died in 2 min). Codex (K-guard task): REGISTERED_K = ladder + audit of
   K-dependent preconditions per method (LEAP's <200-updates assumption at K=50/100, X5 at K=1) → reports/baseline_k_ladder_audit.md.
   Resubmit after review; LEAP at K≥50 may need a user decision if the official 200-step save/holdout would apply.
+  Fixed in def44a9 (REGISTERED_K; audit reports/baseline_k_ladder_audit.md: Kang/AgentGym/ETO/IPR run at every K; LEAP K=50 OK;
+  **LEAP K=100 iteration 3 may need 220–239 updates > the <200 precondition → user decision before LEAP K=100**). Resubmitted
+  (tree def44a9, 12 cells k1/k2/k50/k100 × s0–s2): 44921817 Kang (%3), 44921818 AgentGym (%2, Nice 200). Failed k1s0/k2s0 Kang dirs →
+  $B/_trash/baseline_kguard_failed_1006.
 - **rai GPU1: K5 mechanism re-run run-a6** (pid 2982972, tree 70314a3, 03:0x CDT): first run (run/) finished FCE 41/43; 2 episodes hit the
   700-call cap → launcher exit 2 before interventions. Amendment 6 (0da23fd): one retry at 1,400/episode, run cap 40k, fresh workspace
   seeded read-only from run/'s teacher cache → reports/runs/mechanism/k5s0-t400k-bi/run-a6; log logs/mechanism_k5s0_t400k_bi_a6.log.

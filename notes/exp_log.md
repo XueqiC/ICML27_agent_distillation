@@ -75,3 +75,4 @@ incident 1006-0155CDT | faulty LEAP-eval sync: empty remote find → rsync hpg:.
 mech-k5s0-a6 | K5 s0 t400k mechanism, amendment 6 (cap 1400/episode, 40k/run, cache seeded from run/) | rai GPU1 pid 2982972 | running | reports/runs/mechanism/k5s0-t400k-bi/run-a6
 mech-k5s0-a6 FCE | amendment-6 retry | rai GPU1 | 43/43 closest approach found; 41 non-capped FCE results identical to run/ (0 changed); 2 capped → t*=16, D 8/14; interventions started | reports/runs/mechanism/k5s0-t400k-bi/run-a6
 baseline-cells K∉{5,10,20} | cancelled: common/pipeline K guard (5/10/20) | hpg 44871885/6 44879553/4 44893701/2 | Kang k1s0 failed in 2 min; rest cancelled | Codex widening the guard + K-precondition audit
+baseline-cells-1006 | Kang + AgentGym official, K∈{1,2,50,100} × s0-2 (K guard fixed, def44a9) | hpg 44921817 (Kang %3), 44921818 (AgentGym %2, nice 200) | submitted |
