@@ -91,3 +91,4 @@ leap-privileged-ladder | LEAP privileged official, K=1/2/5/10/50 s0 (all-data, f
 leap-privileged-k100s0 | LEAP privileged official, K=100 s0, option (b) beyond 200 updates disclosed | hpg group 44943706 (tree 61001ec) | submitted | baselines/leap-privileged-k100s0
 kang-k20s0-seed{1,2} | Kang official, training seeds 1/2 (variance check) | hpg 44943707/9 train + 44943708/10 SAG eval (tree 61001ec) | submitted | eval/baselines/kang-k20s0-tp-seed{1,2}-sag
 dose-controls-k20s0 | method ingredient on Seed-SFT k20s0-p40 init (docs/BASELINE_DOSE_CONTROLS.md, approved 10-06) | hpg tree 060a118: 44944146 AgentGym, 44944147 ETO, 44944148 IPR, 44944149 LEAP privileged | submitted | baselines/<method>-k20s0-init
+leap-privileged-k1s0 | LEAP privileged K=1 s0 | hpg 44938864 (24 min) | stopped_empty_min_aggregate: the 1 student rollout failed, its correction was rejected (format) → 0 corrections → final = iter-0 BC; eval submitted |
