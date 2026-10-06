@@ -19,7 +19,7 @@ from analysis.k_ladder import load_run
 METHOD_ORDER = ["Seed-SFT (3 passes)", "Seed-SFT (40 passes)", "Seed-SFT (~400k tokens)",
                 "Kang (official) + SAG", "AgentGym BC", "AgentEvol (final iter.)", "ETO (final iter.)", "IPR (final iter.)",
                 "LEAP (privileged)", "LEAP (0% privileged)"]
-PALETTE = ["#9ec5f0", "#2a78d6", "#0b3f8a", "#eb6834", "#1baf7a", "#0f7a52", "#8b5cf6", "#d63f8c", "#b8860b", "#c9a227"]
+PALETTE = ["#9ec5f0", "#2a78d6", "#0b3f8a", "#eb6834", "#1baf7a", "#0f7a52", "#8b5cf6", "#d63f8c", "#b8860b", "#0891b2"]
 STYLE = {m: ("-" if m.startswith("Seed-SFT") else "--") for m in METHOD_ORDER}
 
 
