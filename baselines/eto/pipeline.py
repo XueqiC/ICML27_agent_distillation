@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 
+from baselines.common import REGISTERED_K
 from baselines.common.explore import training_tasks
 from harness.serve_student import stop_server
 from sed.config import load_config
@@ -114,8 +115,8 @@ def served(args, snapshot, attempt):
 def prepare(args, config):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-    if selection["K"] not in {5, 10, 20}:
-        raise ValueError("ETO few-shot K must be 5/10/20")
+    if selection["K"] not in REGISTERED_K:
+        raise ValueError("ETO few-shot K must be " + "/".join(map(str, REGISTERED_K)))
     parents = {r["task_id"]: [checked_episode(root, r)["episode_id"]] for r in collection["verified"]}
     ids = list(parents)
     listing = {"name": "eto_seed_train", "task_ids": ids, "parent_seed_ids": parents,
