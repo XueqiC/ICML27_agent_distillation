@@ -65,6 +65,12 @@ def server_command(args, student, runtime, adapters=()):
                "--revision", student["revision"], "--tokenizer-revision", student["revision"],
                "--max-model-len", "32768", "--gpu-memory-utilization", memory,
                "--generation-config", "vllm", "--seed", "0"]
+    state_path = model / "training_state.json"
+    if state_path.exists():
+        state = json.loads(state_path.read_text())
+        if state.get("control") == "dose_matched_init" and state.get("text_export_dtype") == "float32":
+            # Preserve fp32 training masters on disk, but serve like full-FT.
+            command += ["--dtype", "bfloat16"]
     if runtime["gemma4_parser"]:
         command += ["--reasoning-parser", "gemma4"]
     if adapters:
@@ -191,7 +197,7 @@ def main(argv=None):
     training_provenance = None
     if (model / "training_state.json").exists():
         state = json.loads((model / "training_state.json").read_text())
-        if state.get("text_export_dtype") == "bfloat16":
+        if state.get("text_export_dtype") in {"bfloat16", "float32"}:
             from baselines.common.fsdp_train import validate_checkpoint
             validate_checkpoint(model, student,
                                 base_snapshot=args.model_path if args.merged_model_path else None)

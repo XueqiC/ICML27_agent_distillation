@@ -7,6 +7,7 @@ from pathlib import Path
 import signal
 import sys
 
+from baselines.common.dose_control import validate_evaluation_init, materialize_init, model_record, SUFFIX
 from baselines.common.explore import checked_rollouts
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure as common_disclosure
 from baselines.common.schedule import dose
@@ -156,6 +157,16 @@ def train_pipeline(args, identity, config):
             return
     current = Path(args.snapshot)
     for iteration in range(4):
+        if iteration == 0 and "init" in identity:
+            current = materialize_init(args, identity)
+            models.append(model_record(identity, "iter-0", current, label=LABELS[args.variant]))
+            publish_models(output, models)
+            write_json(output / "iteration-0.json", {"iteration": 0, "label": models[-1]["label"],
+                "checkpoint": str(current), "init": identity["init"], "sft_replaced": True,
+                "training_exposure": 0, "example_sets": list(map(str, sets))})
+            if args.through in {"train-0", "merge-0"}:
+                return
+            continue
         report = {"iteration": iteration, "label": LABELS[args.variant]}
         if iteration:
             def explore(attempt):
@@ -202,7 +213,7 @@ def train_pipeline(args, identity, config):
             lambda a: run_command([args.train_python, "-m", "baselines.leap.merge", "--config", args.config,
                 "--snapshot", str(current), "--adapter", str(trained / "adapter"), "--output", str(a / "output")], a / "merge.log"))
         current = merged / "checkpoint"
-        models.append({"name": f"iter-{iteration}", "checkpoint": str(current), "label": LABELS[args.variant]})
+        models.append(model_record(identity, f"iter-{iteration}", current, label=LABELS[args.variant]))
         publish_models(output, models)
         write_json(output / f"iteration-{iteration}.json", {**report, "checkpoint": str(current),
             "training": read(trained / "result.json")})
@@ -273,6 +284,7 @@ def update_disclosure(output, identity):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--init-checkpoint", help="Final same-cell Seed-SFT LoRA adapter")
     for name in ("snapshot", "verified", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--variant", choices=list(LABELS), required=True)
@@ -303,11 +315,13 @@ def main(argv=None):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
+            validate_evaluation_init(args, config)
             if read(Path(args.output) / "identity.json")["recipe"]["variant"] != args.variant:
                 raise ValueError("Evaluation variant label differs from training")
+            suffix = SUFFIX if read(Path(args.output) / "identity.json").get("init") else ""
             for model in read(Path(args.output) / "models.json"):
                 state = read(Path(model["checkpoint"]) / "training_state.json")
-                if (state.get("leap_variant") != args.variant or model["label"] != LABELS[args.variant]
+                if (state.get("leap_variant") != args.variant or model["label"] != LABELS[args.variant] + suffix
                         or model["name"] != f"iter-{state.get('leap_iteration')}"):
                     raise ValueError("Published checkpoint variant/iteration differs from evaluation label")
             os.environ["DECODING"] = "greedy"

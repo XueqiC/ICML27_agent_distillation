@@ -7,6 +7,7 @@ from pathlib import Path
 import signal
 import sys
 
+from baselines.common.dose_control import validate_evaluation_init, materialize_init, model_record
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure as common_disclosure
 from baselines.common.schedule import dose
 from baselines.eto.pipeline import stage_run, run_command, served, publish_models, evaluate_pipeline
@@ -63,8 +64,9 @@ def train_pipeline(args, identity, config):
         return stage_run(output, name, digest([root_identity, name, str(snapshot), str(reference), str(pairs)]),
             lambda a: run_command(training_command(args, objective=objective, snapshot=snapshot,
                 reference=reference, pairs=pairs, output=a / "output"), a / "train.log"))
-    sft = train("train-sft", args.snapshot, "sft") / "checkpoint"
-    models = [{"name": "sft", "checkpoint": str(sft)}]
+    sft = (materialize_init(args, identity) if "init" in identity
+           else train("train-sft", args.snapshot, "sft") / "checkpoint")
+    models = [model_record(identity, "sft", sft)]
     publish_models(output, models)
     if args.through == "sft":
         return
@@ -101,7 +103,7 @@ def train_pipeline(args, identity, config):
                     "checkpoint": str(current), "examples_seen": 0, "supervised_tokens_seen": 0,
                     "logical_forward_tokens": 0})
             stage_run(output, f"train-dpo-{iteration}", digest([root_identity, iteration, str(current), "P=0"]), carry)
-        models.append({"name": f"iter-{iteration}", "checkpoint": str(current), "carried_forward": report["P"] == 0})
+        models.append(model_record(identity, f"iter-{iteration}", current, carried_forward=report["P"] == 0))
         publish_models(output, models)
         write_json(output / f"iteration-{iteration}.json", {**record, "checkpoint": str(current)})
         update_disclosure(output, identity)
@@ -158,6 +160,7 @@ def update_disclosure(output, identity):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--init-checkpoint", help="Final same-cell Seed-SFT LoRA adapter")
     for name in ("snapshot", "verified", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
@@ -180,6 +183,7 @@ def main(argv=None):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
+            validate_evaluation_init(args, config)
             os.environ["DECODING"] = "greedy"
             evaluate_pipeline(args)
             return

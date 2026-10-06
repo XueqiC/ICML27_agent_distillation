@@ -26,6 +26,8 @@ export VLLM_BATCH_INVARIANT=1
 [[ "$LEAP_VARIANT" == privileged || "$LEAP_VARIANT" == zero ]]
 [[ "$ENABLE_THINKING" == off && "$MAX_TOKENS" == 1024 && "$MAX_LENGTH" == 32768 ]]
 [[ -x "$ENV_PYTHON" && -x "$TRAIN_PYTHON" && -x "$VLLM_PYTHON" && -d "$MODEL_PATH" ]]
+init_args=()
+if [[ -n "${INIT_CHECKPOINT:-}" ]]; then init_args+=(--init-checkpoint "$INIT_CHECKPOINT"); fi
 child=''
 cleanup() {
     trap - EXIT TERM INT
@@ -34,7 +36,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
-"$ENV_PYTHON" -m baselines.leap.pipeline --config "${CONFIG:-configs/base.yaml}" \
+"$ENV_PYTHON" -m baselines.leap.pipeline "${init_args[@]}" --config "${CONFIG:-configs/base.yaml}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$LEAP_OUT" --variant "$LEAP_VARIANT" \
     --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" --vllm-python "$VLLM_PYTHON" \
     --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \
