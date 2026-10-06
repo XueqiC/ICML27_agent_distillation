@@ -58,7 +58,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   student rollouts on the 20 K tasks 12 / 11 / 12); official min-subsampling → N = 640 / 480 / 640 examples. Eval 44894390 (group, same
   tree, LEAP_MODE=evaluate) → iter-0..3 on dev140.
   **LEAP privileged K20 s0 dev140: iter-0 58, iter-1 62, iter-2 57, iter-3 60** (base 62) — all within noise of base.
-  LEAP 0% K20 s0 training complete (corrections 11 / 7 / 8, rejected 2 / 5 / 7, N 764 / 840 / 1120); eval 44907658 submitted.
+  LEAP 0% K20 s0 (corrections 11 / 7 / 8, rejected 2 / 5 / 7, N 764 / 840 / 1120): **dev140 iter-0 58, iter-1 59, iter-2 52, iter-3 58**.
 - **K=100 s0 collection COMPLETE** (21:17Z = 16:17 CDT: 100 trusted / 117 tasks / 156 attempts, 3 h 37 min; k5/k10/k20 views identical
   to the K=20 ones). s1 running since 16:17 CDT; at this pace s1, s2 ≈ 3.5 h each → ~23:30 CDT. Synced seeds_k100_s0 to hpg.
   Tree b521a4e: K=50/100 s0 grid being prepared on hpg (configs/seedsft_dose_grid_v2_k50_100_s0.json); baseline cells for

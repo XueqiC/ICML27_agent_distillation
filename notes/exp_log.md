@@ -70,3 +70,4 @@ leap-privileged-k20s0-m5 | LEAP privileged, 4 iterations complete; corrections 8
 seedsft-k50-100-s2 | Seed-SFT K=50/100 s2 (24.5k/49.2k tokens per pass) | hpg tree 3b133d5: 44894413 train, 44894414 eval | submitted | eval/seedsft-sweep-bi-v2k50
 leap-privileged-k20s0-m5 eval | LEAP privileged official, dev140 BI, one model per server | hpg 44894390 (42 min) | iter-0 58, iter-1 62, iter-2 57, iter-3 60 (base 62) | /blue/.../leap-privileged-k20s0-m5/stages/eval-iter-*
 leap-zero-k20s0-m5 | LEAP 0% privileged, 4 iterations; corrections 11/7/8 (rejected 2/5/7), N 764/840/1120 | hpg 44872103 (6:28) | eval 44907658 submitted |
+leap-zero-k20s0-m5 eval | LEAP 0% privileged, dev140 BI | hpg 44907658 | iter-0 58, iter-1 59, iter-2 52, iter-3 58 (base 62) | /blue/.../leap-zero-k20s0-m5/stages/eval-iter-*
