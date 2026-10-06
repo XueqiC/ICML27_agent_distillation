@@ -6,6 +6,7 @@ from pathlib import Path
 import signal
 import sys
 
+from baselines.common.dose_control import validate_evaluation_init, materialize_init, model_record
 from baselines.agentgym.data import prepare_dataset
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
 from baselines.common.schedule import dose
@@ -48,15 +49,31 @@ def train_pipeline(args, identity, config):
     publish_datasets(output, datasets)
     for m in range(4):
         n = len(json.loads(data.read_text()))
-        trained = stage_run(output, f"train-{m}", digest([root_identity, m, str(data)]),
-            lambda a: run_command(training_command(args, data=data, output=a / "output", n_examples=n), a / "train.log"))
-        snapshot = trained / "checkpoint"
-        models.append({"name": "bc" if m == 0 else f"iter-{m}", "checkpoint": str(snapshot)})
+        if "init" in identity and m == 0:
+            snapshot = materialize_init(args, identity)
+            state = {"examples_seen": 0, "supervised_tokens_seen": 0}
+        else:
+            def command(attempt):
+                if "init" in identity:
+                    cmd = [args.train_python, "-m", "baselines.agentgym.dose_train", "--config", args.config,
+                        "--snapshot", args.snapshot, "--verified", args.verified, "--sft-data", str(data),
+                        "--identity", str(output / "identity.json"), "--output", str(attempt / "output")]
+                else:
+                    cmd = training_command(args, data=data, output=attempt / "output", n_examples=n)
+                run_command(cmd, attempt / "train.log")
+            trained = stage_run(output, f"train-{m}", digest([root_identity, m, str(data)]), command)
+            state = json.loads((trained / "result.json").read_text())
+            snapshot = trained / (state["checkpoint"] if "init" in identity else "checkpoint")
+        models.append(model_record(identity, "bc" if m == 0 else f"iter-{m}", snapshot,
+            **({"adapter": str(snapshot)} if "init" in identity and m > 0 else {})))
         publish_models(output, models)
-        state = json.loads((trained / "result.json").read_text())
         iteration = {"iteration": m, "D_m": n, "F_m": None, "training_start": args.snapshot,
             "examples_seen": state["examples_seen"], "supervised_tokens_seen": state["supervised_tokens_seen"],
             "dose": dose(n, 32, epochs=1), "checkpoint": str(snapshot)}
+        if "init" in identity:
+            iteration.update(training_start=identity["init"]["path"] if m == 0 else args.snapshot,
+                dose={"passes": identity["init"]["passes"], "recipe": identity["init"]["recipe"],
+                      "realized_passes": state.get("passes"), "reused_init": m == 0})
         # Do not erase an already completed filter's counts when resuming train-m.
         record = output / f"iteration-{m}.json"
         if not record.exists():
@@ -66,7 +83,8 @@ def train_pipeline(args, identity, config):
         def explore(attempt):
             with served(args, snapshot, attempt) as endpoint:
                 command = [args.env_python, "-m", "baselines.common.explore", "--config", args.config,
-                    "--tasks", str(output / "tasks.json"), "--endpoint", endpoint, "--model-name", args.model_name,
+                    "--tasks", str(output / "tasks.json"), "--endpoint", endpoint, "--model-name",
+                    "dose-policy" if "init" in identity and m > 0 else args.model_name,
                     "--decoding", "greedy", "--workers", str(args.workers), "--server-provenance",
                     str(attempt / "server/provenance.json"), "--output", str(attempt / "output")]
                 env = os.environ.copy()
@@ -94,6 +112,7 @@ def train_pipeline(args, identity, config):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--init-checkpoint", help="Final same-cell Seed-SFT LoRA adapter")
     for name in ("snapshot", "verified", "output"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
@@ -116,6 +135,7 @@ def main(argv=None):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
+            validate_evaluation_init(args, config)
             os.environ["DECODING"] = "greedy"
             evaluate_pipeline(args)
             return

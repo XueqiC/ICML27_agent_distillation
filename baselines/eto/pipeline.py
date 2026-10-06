@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 
+from baselines.common.dose_control import validate_evaluation_init, materialize_init, model_record, control_fields
 from baselines.common import REGISTERED_K
 from baselines.common.explore import training_tasks
 from harness.serve_student import stop_server
@@ -70,7 +71,7 @@ def run_command(command, log, *, env=None):
         raise RuntimeError("Stage subprocess failed; inspect its retained log")
 
 
-def training_command(args, *, objective, snapshot, output, pairs=None, iteration=None):
+def training_command(args, *, objective, snapshot, output, pairs=None, iteration=None, reference=None):
     recipe = dict(RECIPE[objective])
     if objective == "dpo":
         recipe.update(RECIPE["iterations"][iteration - 1])
@@ -84,7 +85,7 @@ def training_command(args, *, objective, snapshot, output, pairs=None, iteration
     if objective == "sft":
         command += ["--verified", args.verified]
     else:
-        command += ["--pairs", str(pairs), "--reference", str(snapshot)]
+        command += ["--pairs", str(pairs), "--reference", str(reference if reference is not None else snapshot)]
     return command
 
 
@@ -97,6 +98,15 @@ def served(args, snapshot, attempt):
                "--python", args.vllm_python, "--model-path", args.snapshot,
                "--merged-model-path", str(snapshot), "--port", "0",
                "--ready-timeout", str(args.ready_timeout), "--output", str(attempt / "server")]
+    adapter = (Path(snapshot) / "adapter_config.json").exists()
+    if adapter:
+        index = command.index("--merged-model-path")
+        command[index:index + 2] = ["--lora-adapter", "dose-policy=" + str(snapshot)]
+        # Same unmerged HF/vLLM equivalence gate used for Seed-SFT evaluation.
+        check = [args.train_python, "tools/check_lora_serving.py", "--config", args.config,
+            "--snapshot", args.snapshot, "--adapter", str(snapshot), "--verified", args.verified,
+            "--model-name", "dose-policy"]
+        run_command(check + ["--hf-only", "--output", str(attempt / "hf")], attempt / "hf.log", env=env)
     with (attempt / "launcher.log").open("x") as log:
         process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
                                    start_new_session=True)
@@ -107,7 +117,12 @@ def served(args, snapshot, attempt):
                 if process.poll() is not None or time.monotonic() >= deadline:
                     raise RuntimeError("Exploration server did not become ready")
                 time.sleep(1)
-            yield json.loads(ready.read_text())["endpoint"]
+            endpoint = json.loads(ready.read_text())["endpoint"]
+            if adapter:
+                run_command(check + ["--hf-reference", str(attempt / "hf/reference.json"), "--endpoint", endpoint,
+                    "--server-provenance", str(attempt / "server/provenance.json"),
+                    "--output", str(attempt / "check")], attempt / "check.log", env=env)
+            yield endpoint
         finally:
             stop_server(process)
 
@@ -131,6 +146,8 @@ def prepare(args, config):
                 "gpus": args.gpus, "tasks_sha256": digest(listing),
                 "code_sha256": code_hashes(Path(__file__).resolve().parents[2])}
     output = Path(args.output)
+    from baselines.common.dose_control import validate_evaluation_init, bind_init
+    bind_init(args, config, identity)
     output.mkdir(parents=True, exist_ok=True)
     frozen_write(output / "identity.json", identity)
     frozen_write(output / "tasks.json", listing)
@@ -164,6 +181,7 @@ def update_disclosure(output, identity):
     write_json(output / "disclosure.json", {"K": identity["K"], "trusted_trajectories_added": 0,
               "seed_unique_instances": identity["unique_instances"], "seed_task_groups": identity["task_groups"],
               "source": "student_exploration", "expansion": True, "attempts": attempts, "totals": totals,
+              **control_fields(identity),
               "accounting": "Replay is additional real execution. Interrupted attempts remain disclosed; "
                             "retrying tasks never increases K or unique tasks. Training exposure is in each stage result.json."})
 
@@ -174,13 +192,15 @@ def train_pipeline(args, identity):
     def run_train(name, snapshot, objective, pairs=None, iteration=None):
         return stage_run(output, name, digest([root_identity, name, str(snapshot), str(pairs)]),
                   lambda attempt: run_command(training_command(args, objective=objective, snapshot=snapshot,
-                           output=attempt / "output", pairs=pairs, iteration=iteration), attempt / "train.log"))
-    sft = run_train("sft", args.snapshot, "sft")
-    stages = [{"name": "sft", "checkpoint": str(sft / "checkpoint")}]
+                           output=attempt / "output", pairs=pairs, iteration=iteration,
+                           **({"reference": init_snapshot} if "init" in identity and objective == "dpo" else {})), attempt / "train.log"))
+    init_snapshot = (materialize_init(args, identity) if "init" in identity
+                     else run_train("sft", args.snapshot, "sft") / "checkpoint")
+    stages = [model_record(identity, "sft", init_snapshot)]
     publish_models(output, stages)
     if args.through == "sft":
         return
-    snapshot = sft / "checkpoint"
+    snapshot = init_snapshot
     for iteration in range(1, 4):
         def explore(attempt):
             with served(args, snapshot, attempt) as endpoint:
@@ -213,7 +233,7 @@ def train_pipeline(args, identity):
             return
         trained = run_train(f"dpo-{iteration}", snapshot, "dpo", pairs / "pairs.json", iteration)
         snapshot = trained / "checkpoint"
-        stages.append({"name": f"iter-{iteration}", "checkpoint": str(snapshot)})
+        stages.append(model_record(identity, f"iter-{iteration}", snapshot))
         publish_models(output, stages)
         if args.through == f"dpo-{iteration}":
             return
@@ -247,13 +267,19 @@ def evaluate_pipeline(args):
                        WORKERS=str(args.workers), INCLUDE_BASE="1", READY_TIMEOUT=str(args.ready_timeout))
             if env.get("CUDA_VISIBLE_DEVICES"):
                 env["CUDA_VISIBLE_DEVICES"] = env["CUDA_VISIBLE_DEVICES"].split(",")[0]
-            run_command(["bash", "-c", "adapters=(); source scripts/eval_adapters.sh"], attempt / "eval.log", env=env)
+            script = "adapters=(); source scripts/eval_adapters.sh"
+            if model.get("adapter"):
+                env.update(MERGED_MODEL_PATH="", INCLUDE_BASE="0", VERIFIED=args.verified,
+                    DOSE_ADAPTER=model["name"] + "=" + str(checkpoint))
+                script = 'adapters=("$DOSE_ADAPTER"); source scripts/eval_adapters.sh'
+            run_command(["bash", "-c", script], attempt / "eval.log", env=env)
         stage_run(output, "eval-" + model["name"], digest(state), evaluate)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--init-checkpoint", help="Final same-cell Seed-SFT LoRA adapter")
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--verified", required=True)
     parser.add_argument("--output", required=True)
@@ -279,6 +305,7 @@ def main(argv=None):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
+            validate_evaluation_init(args, config)
             evaluate_pipeline(args)
             return
         identity = prepare(args, config)

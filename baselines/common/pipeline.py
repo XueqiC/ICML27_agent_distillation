@@ -39,6 +39,8 @@ def prepare(args, config, *, method, recipe):
         "snapshot": str(Path(args.snapshot).resolve()), "snapshot_artifact_sha256": artifact_hashes(args.snapshot),
         "config_sha256": digest(config), "gpus": args.gpus, "tasks_sha256": digest(listing), "batch_invariant": True,
         "code_sha256": code_hashes(Path(__file__).resolve().parents[2])}
+    from baselines.common.dose_control import bind_init
+    bind_init(args, config, identity)
     output.mkdir(parents=True, exist_ok=True)
     frozen_write(output / "identity.json", identity)
     frozen_write(output / "tasks.json", listing)
@@ -68,7 +70,7 @@ def update_disclosure(output, identity):
         record = json.loads(result.read_text()) if result.exists() else {}
         trainings.append({"path": str(attempt.relative_to(output)), "complete": result.exists(),
             "examples_seen": last.get("examples_seen", 0),
-            "supervised_tokens_seen": last.get("supervised_tokens_seen", 0),
+            "supervised_tokens_seen": last.get("supervised_tokens_seen", last.get("cumulative_supervised_tokens", 0)),
             "logical_forward_tokens": record.get("logical_forward_tokens"),
             "unknown_exposure_possible": partial or not result.exists(),
             "accounting": "Durable completed updates only; an interrupted update can have unknown additional compute."})

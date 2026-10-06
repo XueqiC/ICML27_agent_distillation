@@ -34,7 +34,10 @@ def validate_checkpoint(path, student=None, *, base_snapshot=None):
     hashes = artifact_hashes(path)
     hashes.pop("training_state.json")
     provenance = json.loads((path.parent / "provenance.json").read_text())
-    if (not state.get("final") or state.get("text_export_dtype") != "bfloat16"
+    valid_dtype = state.get("text_export_dtype") == "bfloat16" or (
+        state.get("text_export_dtype") == "float32" and state.get("control") == "dose_matched_init"
+        and state.get("merge_policy") == "seed_sft_fp32")
+    if (not state.get("final") or not valid_dtype
             or hashes != state["artifact_sha256"] or digest(provenance) != state["provenance_sha256"]):
         raise ValueError("Full checkpoint artifacts/provenance changed")
     if student is not None and provenance["config"]["models"]["student"] != student:
@@ -42,6 +45,13 @@ def validate_checkpoint(path, student=None, *, base_snapshot=None):
     snapshot_metadata(path)
     base = checkpoint_layout(base_snapshot if base_snapshot is not None else state["non_text_source"])
     validate_checkpoint_layout(path, base, [key for key in base if not text_parameter(key)])
+    if state["text_export_dtype"] == "float32":
+        exported = checkpoint_layout(path)
+        if (provenance.get("command") != "dose_matched_init"
+                or provenance.get("details", {}).get("init") != state.get("init")
+                or any(exported[key]["dtype"] != "F32" or exported[key]["shape"] != base[key]["shape"]
+                       for key in base if text_parameter(key))):
+            raise ValueError("Dose-control fp32 checkpoint layout/provenance changed")
     return state
 
 
@@ -369,8 +379,12 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                                "sigmoid_plus_chosen_nll_summed_logps" if objective == "ipr" else "sigmoid_summed_logps")}
 
 
-def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_bytes=2_000_000_000):
-    """Gather one tensor at a time, bf16 text weights + unchanged base towers.
+def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_bytes=2_000_000_000,
+                      text_dtype="bfloat16"):
+    """Gather one tensor at a time, text weights + unchanged base towers.
+
+    Default exports remain bf16. Dose-control initialization opts into fp32
+    to retain the LoRA delta before FSDP constructs its fp32 policy masters.
 
     Every rank participates in text DTensor gathers. Rank zero writes bounded
     CPU shards in the original base's namespace, omitting unstored tied aliases.
@@ -378,6 +392,9 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
     import torch
     from safetensors import safe_open
     from safetensors.torch import save_file
+    if text_dtype not in {"bfloat16", "float32"}:
+        raise ValueError("Unsupported text export dtype")
+    export_dtype = getattr(torch, text_dtype)
     destination, base = Path(destination), Path(base_snapshot)
     base_layout = checkpoint_layout(base)
     state_dict = model.state_dict()
@@ -409,7 +426,7 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
         else:
             full = value.full_tensor() if hasattr(value, "full_tensor") else value.detach()
             if rank == 0:
-                tensor = full.to(device="cpu", dtype=torch.bfloat16).contiguous().clone()
+                tensor = full.to(device="cpu", dtype=export_dtype).contiguous().clone()
             del full
         if rank == 0:
             nbytes = tensor.numel() * tensor.element_size()
@@ -426,13 +443,13 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
     # Preserve tokenizer/template and multimodal processor assets from the base.
     copy_base_assets(base, destination, overwrite=True)
     model.config.get_text_config().use_cache = True
-    model.config.dtype = torch.bfloat16
-    model.config.get_text_config().dtype = torch.bfloat16
+    model.config.dtype = export_dtype
+    model.config.get_text_config().dtype = export_dtype
     model.config.save_pretrained(destination)
     if model.generation_config is not None:
         model.generation_config.save_pretrained(destination)
     return {"non_text_tensor_sha256": tower_hashes, "non_text_source": str(base.resolve()),
-            "artifact_sha256": artifact_hashes(destination), "text_export_dtype": "bfloat16"}
+            "artifact_sha256": artifact_hashes(destination), "text_export_dtype": text_dtype}
 
 
 def prepare_lora_model(snapshot, *, device="cuda"):
@@ -621,6 +638,8 @@ def main(argv=None):
                 "microbatch_unit": args.packing if args.objective == "sft" else "preference pair",
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
+                                     "fixed_seed_sft_init" if args.objective == "dpo" and
+                                     json.loads((Path(args.reference) / "training_state.json").read_text()).get("control") == "dose_matched_init" else
                                      "iteration_start" if args.objective == "dpo" else None),
                 "reference_storage_dtype": "bfloat16" if args.objective in {"dpo", "ipr"} else None,
                 "two_pass_turn_backward": args.objective in {"dpo", "ipr"},

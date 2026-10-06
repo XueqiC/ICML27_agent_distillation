@@ -29,6 +29,8 @@ export VLLM_BATCH_INVARIANT=1
 : "${VERIFIED:?Set VERIFIED to the K verified seeds or nested subset}"
 [[ "$ENABLE_THINKING" == off && "$MAX_TOKENS" == 1024 && "$MAX_LENGTH" == 32768 ]]
 [[ -x "$ENV_PYTHON" && -x "$TRAIN_PYTHON" && -x "$VLLM_PYTHON" && -d "$MODEL_PATH" ]]
+init_args=()
+if [[ -n "${INIT_CHECKPOINT:-}" ]]; then init_args+=(--init-checkpoint "$INIT_CHECKPOINT"); fi
 child=''
 cleanup() {
     trap - EXIT TERM INT
@@ -37,7 +39,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
-"$ENV_PYTHON" -m baselines.ipr.pipeline --config "${CONFIG:-configs/base.yaml}" \
+"$ENV_PYTHON" -m baselines.ipr.pipeline "${init_args[@]}" --config "${CONFIG:-configs/base.yaml}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$IPR_OUT" \
     --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" --vllm-python "$VLLM_PYTHON" \
     --gpus "$NGPUS" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \

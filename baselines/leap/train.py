@@ -76,7 +76,9 @@ def validate_initialization(snapshot, base_snapshot, *, iteration, variant, stud
     # Merged LoRA exports carry merge provenance, not the full-FT exporter's
     # non_text_source. Check their tensor layout against the configured base.
     state = validate_checkpoint(snapshot, student, base_snapshot=base_snapshot)
-    if (state.get("leap_iteration") != iteration - 1 or not state.get("fresh_lora")
+    seed_init = (iteration == 1 and state.get("control") == "dose_matched_init"
+                 and state.get("merge_policy") == "leap_official_bf16_merge" and state.get("merge_passed"))
+    if (state.get("leap_iteration") != iteration - 1 or not (state.get("fresh_lora") or seed_init)
             or state.get("adaptation") != "leap_merged_lora" or state.get("leap_variant") != variant):
         raise ValueError("LEAP must initialize from the previous merged iterate of the same variant")
 
