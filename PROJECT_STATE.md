@@ -5,6 +5,11 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **User 10:57 CDT: all four morning proposals approved, in parallel.** (1) LEAP across K with option (b) — all-data/final-epoch beyond 200
+  updates, disclosed; privileged at K=1/2/5/10/50/100 s0, 0% stays at K20. (2) AgentGym K1/2/50/100 trimmed to s0 (44921818_[4-11]
+  cancelled), throttles raised (44837380 %2, 44921818 %4), nice reset. (3) Kang K20 s0 training seeds 1, 2. (4) Dose controls
+  (Seed-SFT k20s0-p40 init) for AgentEvol/ETO/IPR/LEAP at K20 s0. Codex A pid 3672270 (main: LEAP>200 + Kang seed); Codex D pid
+  3673961 (worktree ~/hq/projects/ICML27_dosectl, branch dose-controls: --init-checkpoint).
 - **10-06 09:1x CDT results**: Seed-SFT K50 s0 peak **114 = teacher** at p30 (t400k 112, p40 109); Kang K1 51/53, K2 51/62, K50s0 90;
   k2s2 t400k 59 (K2 = 70/86/59). ETO K20 s0 running (15 pairs, dpo-1). Morning report sent 06:00 (reports/morning_1006_ZH.md), 4 decisions pending.
 - **Baseline cells for K∉{5,10,20} CANCELLED 04:4x CDT** (44871885/6, 44879553/4, 44893701/2): baselines/common/pipeline.py (and eto)
