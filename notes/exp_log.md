@@ -76,3 +76,5 @@ mech-k5s0-a6 | K5 s0 t400k mechanism, amendment 6 (cap 1400/episode, 40k/run, ca
 mech-k5s0-a6 FCE | amendment-6 retry | rai GPU1 | 43/43 closest approach found; 41 non-capped FCE results identical to run/ (0 changed); 2 capped → t*=16, D 8/14; interventions started | reports/runs/mechanism/k5s0-t400k-bi/run-a6
 baseline-cells K∉{5,10,20} | cancelled: common/pipeline K guard (5/10/20) | hpg 44871885/6 44879553/4 44893701/2 | Kang k1s0 failed in 2 min; rest cancelled | Codex widening the guard + K-precondition audit
 baseline-cells-1006 | Kang + AgentGym official, K∈{1,2,50,100} × s0-2 (K guard fixed, def44a9) | hpg 44921817 (Kang %3), 44921818 (AgentGym %2, nice 200) | submitted |
+mech-k5s0-a6 readout | K5 s0 t400k (rai BI 74/140), G=43, 13 cool gaps excluded (no seed type) | rai GPU1 | I0 0/30; excess I1 4, I2 4, I3 8, I4 13, I5 5; both 4, M2 4, M1(cov. pending) 3, unresolved 19/43 | reports/runs/mechanism/k5s0-t400k-bi/run-a6/launches/attempt-000/readout
+mech-k5s0-probes-a5 | coverage + knowledge probes (amendment 5) on k5s0-t400k | rai GPU1 pid 3303750 (worktree 5093783) | running | reports/runs/mechanism/k5s0-t400k-bi/probes-a5

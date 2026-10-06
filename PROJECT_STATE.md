@@ -19,7 +19,11 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   15 min in: 14,414 cache hits, 61 new HTTP calls (57 on the two capped tasks, 4 on two others) → after FCE, diff all 41 non-capped
   FCE results (t*, D curves, fce) between run/ and run-a6 (amendment 6 item 3) and report any change.
   **a6 FCE 43/43 done; diff vs run/: 41 identical, 0 changed** (amendment 6 holds); capped tasks resolved at t*=16 (D 8 / 14).
-  Interventions running.
+  **K5 mechanism a6 DONE (06:1x CDT)**: G=43; 13 cool-type gaps excluded from the split (no cool seed in K5 s0 → separate);
+  on 30 paired t* states, excess rescues over I0: I1 4, I2 4, I3 8, **I4 13**, I5 5; Section-6 cells both 4, M2 4, M1(coverage
+  pending) 3, I4-only/unresolved 19/43. Taxonomy: F-precondition 18, F-search 15, F-loop 5, F-goal 3, F-cap 2. vs K20 run2 (I3 11, I4 9,
+  I5 8, unresolved 9/24): the K5 student is short on executable action knowledge, not on advice. Readout run-a6/launches/attempt-000/readout.
+  Coverage + probes (amendment 5) launched: pid 3303750, worktree 5093783, rai GPU1 → reports/runs/mechanism/k5s0-t400k-bi/probes-a5.
 - **hpg capacity (10-06 ~03:0x CDT)**: B200 partition 466/480 GPUs allocated; nothing of mine running for hours (pending reasons
   QOSGrpGRES/MemLimit are stale — the partition is full). **Reservation `mlperf-benchmark` takes 32 hpg-b200 nodes 10-08 09:00 →
   10-12 09:00 (hpg local, = 08:00 CDT)** → almost no B200 for 4 days from Thursday morning. Lowered AgentGym arrays to Nice=200 so
