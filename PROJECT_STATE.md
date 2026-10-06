@@ -5,6 +5,10 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **12:50 CDT 10-06: hpg tunnel down** (localhost:2222 banner timeout) — sent the one notice; waiting. Before it dropped: IPR K20 s0
+  44826293 was terminated externally (12:11 CDT, SIGNAL Terminated on c1000a-s25) and resubmitted as 44948828 (same tree 74cdb97,
+  resumes stages). LEAP K1 s0 stopped after iteration 0 (no usable correction) → eval 44944505. Pending after reconnect: LEAP
+  ladder evals as each finishes; AgentGym/LEAP control evals after their training; sync + main figure (K50/100, Kang ladder, LEAP).
 - **User 10:57 CDT: all four morning proposals approved, in parallel.** (1) LEAP across K with option (b) — all-data/final-epoch beyond 200
   updates, disclosed; privileged at K=1/2/5/10/50/100 s0, 0% stays at K20. (2) AgentGym K1/2/50/100 trimmed to s0 (44921818_[4-11]
   cancelled), throttles raised (44837380 %2, 44921818 %4), nice reset. (3) Kang K20 s0 training seeds 1, 2. (4) Dose controls
