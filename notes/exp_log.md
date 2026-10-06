@@ -62,3 +62,4 @@ k2s2-eval-rerun | k2s2 sweep eval aborted after p20 (1 error episode) → array 
 leap-k20s0-m5 | LEAP privileged / 0% after the merged-iterate validator fix + CPU chain test (7f45f64) | hpg group 44872102/44872103 | submitted | /blue/.../leap-{privileged,zero}-k20s0-m5
 collect-k100-s1 | K=100 s1 extension | rai pid 1731893 | complete 19:35 CDT: 100 trusted / 115 tasks / 160 attempts | data/verified/seeds_k100_s1
 baseline-cells-1005d | Kang + AgentGym official on k1s1 k2s1 k50s1 k100s1 | hpg tree 3472df2: 44879553 Kang, 44879554 AgentGym | submitted |
+seedsft-k50-100-s1 | Seed-SFT K=50/100 s1 (25.4k/52.8k tokens per pass) | hpg tree 3472df2: 44880903 train, 44880904 eval | submitted | eval/seedsft-sweep-bi-v2k50

@@ -26,6 +26,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 - **K=100 s1 COMPLETE** 19:35 CDT (100 trusted / 115 tasks / 160 attempts); s2 running (~23:00 CDT). hpg s1 K20 views moved to _trash
   (identical to K100 s1 views, checked). seeds_k100_s1 synced. Tree 3472df2: s1 grid being prepared; s1 baseline cells
   k1s1 k2s1 k50s1 k100s1: 44879553 Kang (%2), 44879554 AgentGym (%1).
+  K=50/100 s1 Seed-SFT: 44880903 train + 44880904 eval (grid 25.4k / 52.8k tokens per pass) → eval/seedsft-sweep-bi-v2k50.
 - **hpg tree 74cdb97**: 44826292 ETO K20 s0, 44826293 IPR K20 s0 (dept 2×B200 200G, pending QOSGrpMemLimit — dept mem 980/1000G used);
   44836718/44836719 LEAP privileged/zero K20 s0 FAILED 13:4x CDT at merge-0 (data-0, train-0 completed): our merge check
   (allclose atol .125 / rtol .01 on all vocab logits) rejects the bf16 merge — mean |dlogit| 0.083 / 0.145, max 0.56 / 0.81, argmax
