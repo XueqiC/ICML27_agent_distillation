@@ -87,3 +87,4 @@ eto-k20s0 | ETO official, 2×B200 (two-pass DPO) | hpg 44826292 | running: sft d
 seedsft-k50s1 | Seed-SFT K=50 s1 (25.4k tok/pass) | hpg 44880903_0/44880904_0 | p03 52, t100k 76, p05 93, t200k 105, p10 105, t400k 116, p20 111, **p30 118 (> teacher 114)**, p40 112 | eval/seedsft-sweep-bi-v2k50/k50s1
 kang-ladder (cont.) | Kang official + SAG | hpg 44921817 | k50s1 89, k100s0 67 (26 updates at K=100) |
 eto-k20s0 dpo-1 | ETO round 1: P=15 pairs, 45 updates (batch 1, 3 epochs), ~5 min/update (two-pass per-turn exact backward, ~1.4M policy fwd tokens/update); loss → 2e-21 by epoch 2 (pairs fully fit) | hpg 44826292 | 3 rounds may exceed the 12 h limit (~19:20 CDT); stages resume |
+leap-privileged-ladder | LEAP privileged official, K=1/2/5/10/50 s0 (all-data, final epoch) | hpg group 44938864–44938868 (tree def44a9) | submitted | baselines/leap-privileged-k{K}s0
