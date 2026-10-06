@@ -10,6 +10,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   seeded read-only from run/'s teacher cache → reports/runs/mechanism/k5s0-t400k-bi/run-a6; log logs/mechanism_k5s0_t400k_bi_a6.log.
   15 min in: 14,414 cache hits, 61 new HTTP calls (57 on the two capped tasks, 4 on two others) → after FCE, diff all 41 non-capped
   FCE results (t*, D curves, fce) between run/ and run-a6 (amendment 6 item 3) and report any change.
+  **a6 FCE 43/43 done; diff vs run/: 41 identical, 0 changed** (amendment 6 holds); capped tasks resolved at t*=16 (D 8 / 14).
+  Interventions running.
 - **hpg capacity (10-06 ~03:0x CDT)**: B200 partition 466/480 GPUs allocated; nothing of mine running for hours (pending reasons
   QOSGrpGRES/MemLimit are stale — the partition is full). **Reservation `mlperf-benchmark` takes 32 hpg-b200 nodes 10-08 09:00 →
   10-12 09:00 (hpg local, = 08:00 CDT)** → almost no B200 for 4 days from Thursday morning. Lowered AgentGym arrays to Nice=200 so
