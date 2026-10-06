@@ -33,3 +33,27 @@ Seeds row = number of seed trajectories of that type in the K set; bold 0 = type
 | **K20s2** seeds | 3 | 3 | 4 | 3 | 4 | 3 | 20 |
 | K20s2 Kang | 33 | 11 | 21 | 11 | 14 | 20 | 110 |
 | K20s2 Seed-SFT p40 | — | — | — | — | — | — | — |
+
+## K=1/2 Seed-SFT (added 2026-10-06 13:0x CDT; K100 views; t200k/t400k; K2s2 pending sync — its total is 59 at t400k)
+
+| row | simple /35 | look /13 | clean /27 | heat /16 | cool /25 | two /24 | total |
+|---|---|---|---|---|---|---|---|
+| base | 31 | 7 | 11 | 1 | 1 | 11 | 62 |
+| **K1s0** seeds | · | · | · | 1 | · | · | 1 |
+| K1s0 Seed-SFT t200k | 31 | 4 | 11 | 5 | 4 | 17 | 72 |
+| K1s0 Seed-SFT t400k | 31 | 6 | 8 | 4 | 6 | 12 | 67 |
+| **K1s1** seeds | · | · | 1 | · | · | · | 1 |
+| K1s1 Seed-SFT t200k | 31 | 10 | 10 | 0 | 2 | 4 | 57 |
+| K1s1 Seed-SFT t400k | 31 | 10 | 10 | 0 | 1 | 5 | 57 |
+| **K1s2** seeds | · | · | 1 | · | · | · | 1 |
+| K1s2 Seed-SFT t200k | 31 | 4 | 11 | 0 | 2 | 8 | 56 |
+| K1s2 Seed-SFT t400k | 31 | 5 | 11 | 0 | 1 | 7 | 55 |
+| **K2s0** seeds | · | · | 1 | 1 | · | · | 2 |
+| K2s0 Seed-SFT t200k | 32 | 7 | 15 | 5 | 5 | 7 | 71 |
+| K2s0 Seed-SFT t400k | 31 | 7 | 13 | 4 | 2 | 13 | 70 |
+| **K2s1** seeds | · | · | 1 | · | 1 | · | 2 |
+| K2s1 Seed-SFT t200k | 32 | 8 | 16 | 5 | 14 | 12 | 87 |
+| K2s1 Seed-SFT t400k | 34 | 10 | 15 | 3 | 15 | 9 | 86 |
+| **K2s2** seeds | · | · | 1 | · | 1 | · | 2 |
+
+Reading: one heat seed (K1s0) lifts heat 1→4–5 and cool 1→4–6; one clean seed (K1s1/K1s2) adds nothing on clean and hurts two-object (11→4–8); adding one cool seed (K2s1) lifts cool 1→14–15 (+28 total). K2s2 has the same coverage (clean + cool) but stays at 59 → which trajectory is in the seed set matters, not only its type.
