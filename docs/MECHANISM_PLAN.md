@@ -240,3 +240,15 @@ cabinet"). Therefore:
 Note (2026-10-05 12:05 CDT): the time stamps in the amendment headers were first written from a misread clock (the machine runs on
 EDT) and were up to ~1 h off; they are now the git commit times in CDT, which are the authoritative pre-registration evidence
 (`git log -- docs/MECHANISM_PLAN.md`). No amendment text changed.
+
+## Amendment 6 (committed 2026-10-06, time = this commit, CDT) — FCE episodes that exhaust the teacher cap (before any intervention result on k5s0-t400k)
+
+The k5s0-t400k run (G = 43) finished FCE for 41 episodes; 2 episodes (tasks 7b4784eef3de0929, fc2e9c60d66f3535) used their full
+operational cap of 700 teacher HTTP attempts and stayed `incomplete`, so the launcher (correctly) refused to start interventions.
+The caps were operational settings of the launch script, never part of Sections 1–7. Rule, fixed now and applied to every student:
+1. An FCE episode that exhausts the per-episode cap is retried once with twice the cap (1,400), in a fresh workspace whose teacher
+   cache is seeded read-only from the first run (identical prompts and sampling → identical responses; only the extra calls are new).
+   The run cap is raised to 40,000 to make room; total cost is reported.
+2. If it is still incomplete it is reported as **FCE-incomplete (cap)**, excluded from the intervention arms, kept in every
+   denominator as unresolved, and listed by task type.
+3. No other FCE result may change; the readout states which episodes needed the larger cap.
