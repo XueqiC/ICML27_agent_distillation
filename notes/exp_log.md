@@ -72,3 +72,4 @@ leap-privileged-k20s0-m5 eval | LEAP privileged official, dev140 BI, one model p
 leap-zero-k20s0-m5 | LEAP 0% privileged, 4 iterations; corrections 11/7/8 (rejected 2/5/7), N 764/840/1120 | hpg 44872103 (6:28) | eval 44907658 submitted |
 leap-zero-k20s0-m5 eval | LEAP 0% privileged, dev140 BI | hpg 44907658 | iter-0 58, iter-1 59, iter-2 52, iter-3 58 (base 62) | /blue/.../leap-zero-k20s0-m5/stages/eval-iter-*
 incident 1006-0155CDT | faulty LEAP-eval sync: empty remote find → rsync hpg:./ copied hpg / (74 MB /apps + empty stubs) into reports/runs/eval/hpg-baselines | rai | no secrets; 37 stray entries moved to _trash/hpg_root_rsync_accident_1006; guarded re-sync | memory feedback-guard-rsync-source-paths
+mech-k5s0-a6 | K5 s0 t400k mechanism, amendment 6 (cap 1400/episode, 40k/run, cache seeded from run/) | rai GPU1 pid 2982972 | running | reports/runs/mechanism/k5s0-t400k-bi/run-a6

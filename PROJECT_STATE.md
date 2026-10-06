@@ -5,6 +5,9 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **rai GPU1: K5 mechanism re-run run-a6** (pid 2982972, tree 70314a3, 03:0x CDT): first run (run/) finished FCE 41/43; 2 episodes hit the
+  700-call cap → launcher exit 2 before interventions. Amendment 6 (0da23fd): one retry at 1,400/episode, run cap 40k, fresh workspace
+  seeded read-only from run/'s teacher cache → reports/runs/mechanism/k5s0-t400k-bi/run-a6; log logs/mechanism_k5s0_t400k_bi_a6.log.
 - **hpg capacity (10-06 ~03:0x CDT)**: B200 partition 466/480 GPUs allocated; nothing of mine running for hours (pending reasons
   QOSGrpGRES/MemLimit are stale — the partition is full). **Reservation `mlperf-benchmark` takes 32 hpg-b200 nodes 10-08 09:00 →
   10-12 09:00 (hpg local, = 08:00 CDT)** → almost no B200 for 4 days from Thursday morning. Lowered AgentGym arrays to Nice=200 so
