@@ -63,3 +63,6 @@ leap-k20s0-m5 | LEAP privileged / 0% after the merged-iterate validator fix + CP
 collect-k100-s1 | K=100 s1 extension | rai pid 1731893 | complete 19:35 CDT: 100 trusted / 115 tasks / 160 attempts | data/verified/seeds_k100_s1
 baseline-cells-1005d | Kang + AgentGym official on k1s1 k2s1 k50s1 k100s1 | hpg tree 3472df2: 44879553 Kang, 44879554 AgentGym | submitted |
 seedsft-k50-100-s1 | Seed-SFT K=50/100 s1 (25.4k/52.8k tokens per pass) | hpg tree 3472df2: 44880903 train, 44880904 eval | submitted | eval/seedsft-sweep-bi-v2k50
+collect-k100-s2 | K=100 s2 extension | rai pid 1731893 | complete 22:49 CDT: 100 trusted / 110 tasks / 142 attempts | data/verified/seeds_k100_s2
+k2s2-eval-rerun-2 | k2s2 sweep eval re-run with the K=100 s2 k2 view for check prompts (identical content) | hpg 44893700 (tree 3b133d5) | submitted | eval/seedsft-sweep-bi-v2k12-r2
+baseline-cells-1005e | Kang + AgentGym official on k1s2 k2s2 k50s2 k100s2 | hpg tree 3b133d5: 44893701 Kang, 44893702 AgentGym | submitted |
