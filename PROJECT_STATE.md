@@ -5,6 +5,9 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **12:4x CDT 10-07: IPR → r4 with 4-GPU FSDP segments** (user "尽量快"): 45082396 sft → 45082397 x1 → 45082398 dpo1 … 45082409 eval
+  (scripts/ops_chain_ipr_r4.sh). r3 chain cancelled. Scheduler --test-only estimates put 1/2/4-GPU B200 starts at 10-13 (mlperf
+  reservation 32 nodes 10-08 08:00 → 10-12 08:00 CDT) — watch actual starts; expect slow progress through the reservation.
 - **12:4x CDT 10-07: OpenAI topped up (probe 200).** LEAP chains (scripts/ops_chain_leap_1007.sh; teacher stages CPU-only hpg-milan):
   K50 45082130 → 45082131 (cpu) → 45082132 → 45082133 eval; K100 iteration 2 invalidated (moved to $B/_trash/leap_k100_credit_exhausted_1007)
   → 45082134 (cpu correct-2) → 45082135 → 45082136 (cpu) → 45082137 → 45082138 eval. Disclose the K100 correct-2 re-run.
