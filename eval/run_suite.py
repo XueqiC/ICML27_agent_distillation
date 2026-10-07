@@ -16,7 +16,7 @@ from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_
 from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode
 from sed.storage import digest, write_json
-from students.vllm_student import Student
+from students.vllm_student import Student, context_options
 from teachers.openai_teacher import Teacher, rate_limit_options
 
 
@@ -115,6 +115,11 @@ def task_result(task, directory):
            "inadmissible_actions": metrics.get("inadmissible_actions", 0),
            "legal_actions": metrics.get("legal_actions", 0),
            "failed_policy_calls": metrics.get("failed_policy_calls", 0),
+           "context_overflow_episodes": metrics.get("context_overflow_episodes", 0),
+           "termination_reason": episode.get("termination_reason"),
+           "termination_step_index": episode.get("termination_step_index"),
+           "termination_prompt_tokens": episode.get("termination_prompt_tokens"),
+           "termination_prompt_token_count_kind": episode.get("termination_prompt_token_count_kind"),
            "wall_time_seconds": metrics.get("wall_time_seconds", 0),
            "policy_latency_seconds": metrics.get("policy_latency_seconds", 0),
            "episode_dir": str(directory)}
@@ -129,12 +134,15 @@ def summarize(rows, wall_time):
     success = sum(r["success"] is True for r in rows)
     unknown = sum(r["success"] not in (True, False) for r in rows)
     totals = {key: sum(r[key] for r in rows) for key in rows[0] if key not in {
-        "task_id", "task_type", "group_id", "split", "status", "success", "episode_dir", "error_type"}}
+        "task_id", "task_type", "group_id", "split", "status", "success", "episode_dir", "error_type",
+        "termination_reason", "termination_step_index", "termination_prompt_tokens",
+        "termination_prompt_token_count_kind"}}
     return {"episodes": len(rows), "unique_instances": len({r["task_id"] for r in rows}),
             "task_groups": len({r["group_id"] for r in rows}), "successes": success,
             "success_rate": success / len(rows), "unknown_success": unknown,
             "completed_episodes": sum(r["status"] == "ok" for r in rows),
             "error_episodes": sum(r["status"] != "ok" for r in rows),
+            "context_overflow_episodes": sum(r.get("context_overflow_episodes", 0) for r in rows),
             "totals": totals, "wall_time_seconds": wall_time,
             "counts_by_task_type": dict(sorted(Counter(r["task_type"] for r in rows).items())),
             "interpretation": "Infrastructure/pilot evaluation; unknown outcomes retained in denominator. "
@@ -149,6 +157,8 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("Unknown suite policy")
     if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag"}:
         raise ValueError("Unknown student decoding")
+    if policy == "student":
+        spec = {**spec, **context_options(config)}
     # The evaluated server is authoritative; the CPU worker's environment is not.
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
     batch_invariant = server.get("batch_invariant") if policy == "student" else None

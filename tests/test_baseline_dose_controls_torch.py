@@ -25,7 +25,7 @@ from sed.storage import digest, file_hash, write_json
 from teachers.collect_seeds import collect
 from train.dataset import build_verified_dataset
 from train.merge_lora import LEAP_MERGE_POLICY
-from train.modeling import attach_lora, load_student, snapshot_metadata
+from train.modeling import LORA_TARGETS, attach_lora, load_student, snapshot_metadata
 from train.sft import exposure_plan, train_loop
 from test_checkpoint_export_torch import read_tensors
 from test_leap_chain_torch import tiny_snapshot
@@ -167,6 +167,50 @@ def test_init_validation_and_identity(cell, tmp_path):
         stream.write(b"changed")
     with pytest.raises(ValueError, match="artifacts changed"):
         control.bind_init(cell.args, cell.config, deepcopy(cell.identity))
+
+
+@pytest.mark.parametrize("short_names", [False, True])
+def test_init_accepts_peft_target_names_and_checks_weight_paths(cell, short_names):
+    from safetensors.torch import load_file, save_file
+
+    def rebind_hashes():
+        state = control.read(cell.adapter / "training_state.json")
+        state["artifact_sha256"] = {p.name: file_hash(p) for p in cell.adapter.iterdir()
+                                    if p.name != "training_state.json"}
+        write_json(cell.adapter / "training_state.json", state)
+
+    def validate():
+        return control.validate_init(cell.adapter, cell.base, cell.verified, cell.config,
+                                     collection_sha256=cell.identity["collection_sha256"])
+
+    peft = control.read(cell.adapter / "adapter_config.json")
+    weights_path = cell.adapter / "adapter_model.safetensors"
+    weights = load_file(weights_path)
+    peft["target_modules"] = (['k_proj', 'q_proj', 'gate_proj', 'o_proj', 'down_proj', 'up_proj', 'v_proj']
+        if short_names else sorted({k.removeprefix("base_model.model.").split(".lora_")[0] for k in weights}))
+    write_json(cell.adapter / "adapter_config.json", peft)
+    rebind_hashes()
+    assert validate()["recipe"]["rank"] == 16
+
+    # Even a config naming all seven text targets cannot hide vision/audio keys.
+    for tower in ("vision_tower", "audio_tower"):
+        poisoned = dict(weights)
+        key = next(k for k in weights if ".q_proj.lora_A." in k)
+        poisoned[key.replace("language_model", tower)] = poisoned.pop(key)
+        save_file(poisoned, weights_path)
+        rebind_hashes()
+        with pytest.raises(ValueError, match="only text-layer LoRA"):
+            validate()
+    save_file({k: v for k, v in weights.items() if ".q_proj.lora_" not in k}, weights_path)
+    rebind_hashes()
+    with pytest.raises(ValueError, match="weight targets differ"):
+        validate()
+    save_file(weights, weights_path)
+    for targets in (LORA_TARGETS[:-1], ["model.vision_tower.layers.0.self_attn." + t for t in LORA_TARGETS]):
+        write_json(cell.adapter / "adapter_config.json", {**peft, "target_modules": targets})
+        rebind_hashes()
+        with pytest.raises(ValueError, match="differs from Seed-SFT"):
+            validate()
 
 
 def test_real_agentevol_retrain_uses_seed_sft_and_is_unmerged(cell, tmp_path):

@@ -14,7 +14,7 @@ from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode, replay_episode
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, write_json
-from students.vllm_student import Student
+from students.vllm_student import Student, context_options
 
 
 def training_tasks(listing, manifest, freeze):
@@ -82,6 +82,7 @@ def explore_one(job, *, env_factory=_environment, policy_factory=Student):
 
 def run_exploration(*, config, tasks_path, output, spec, decoding, workers=1,
                     inputs=(), worker_fn=explore_one):
+    spec = {**spec, **context_options(config)}
     if decoding != "greedy":
         raise ValueError("This port supports explicit greedy exploration only")
     if (spec["enable_thinking"] is not False or spec["max_tokens"] != 1024

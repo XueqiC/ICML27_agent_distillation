@@ -14,7 +14,7 @@ from sed.provenance import write_provenance
 from sed.runner import _environment, episode_metrics
 from sed.seed_evidence import artifact_hashes, checked_episode, load_verified_collection
 from sed.storage import digest, file_hash, write_json
-from students.vllm_student import Student
+from students.vllm_student import Student, context_options
 
 
 def read(path):
@@ -165,6 +165,7 @@ def run_rollouts(*, config, verified, kind, iteration, output, spec, server_prov
     if spec["model"] != student["requested_repo"] or spec["revision"] != student["revision"]:
         raise ValueError("IPR cannot substitute the configured student")
     server = read(server_provenance)
+    spec = {**spec, **context_options({"server_provenance": server})}
     if server["config"]["server"]["batch_invariant"] is not True:
         raise ValueError("IPR requires batch-invariant server provenance")
     experts = seeds(verified, config)
@@ -197,6 +198,7 @@ def run_rollouts(*, config, verified, kind, iteration, output, spec, server_prov
     if kind != "explore":
         write_json(output / "values.json", step_values(receipts))
     summary = {"kind": kind, "iteration": iteration, "rollouts": len(receipts),
+        "context_overflow_episodes": sum(r["metrics"].get("context_overflow_episodes", 0) for r in receipts),
         "eligible": sum(r["training_eligible"] for r in receipts), "K": len(experts),
         "unique_instances": len({t["task_id"] for t, _ in experts}),
         "task_groups": len({t["group_id"] for t, _ in experts}), "teacher_calls": 0,

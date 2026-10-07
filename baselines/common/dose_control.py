@@ -4,6 +4,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 
 from sed.config import load_config
 from sed.manifest import load_frozen
@@ -27,7 +28,7 @@ def validate_init(adapter, snapshot, verified, config, *, collection_sha256):
     Recipe fields live in parent provenance (referenced by training_state), not
     directly in the legacy state. Compare content hashes across moved clusters.
     """
-    from harness.lora_adapters import inspect_adapter
+    from harness.lora_adapters import inspect_adapter, safetensors_header
     adapter = Path(adapter).expanduser().resolve()
     state = validate_adapter_artifacts(adapter)
     provenance = read(adapter.parent / "provenance.json")
@@ -49,11 +50,27 @@ def validate_init(adapter, snapshot, verified, config, *, collection_sha256):
         raise ValueError("Init must record positive realized passes")
     peft = read(adapter / "adapter_config.json")
     targets = peft.get("target_modules", [])
+    text_module = r"model\.language_model\.layers\.\d+\.(?:self_attn|mlp)\.([^.]+)"
     if (peft["r"] != 16 or peft.get("lora_alpha") != 32 or peft.get("lora_dropout") != 0
             or not isinstance(targets, list)
+            or any(not isinstance(t, str) for t in targets)
             or {t.rsplit(".", 1)[-1] for t in targets} != set(LORA_TARGETS)
-            or any(not t.startswith("model.language_model.layers.") for t in targets)):
+            or not (set(targets) == set(LORA_TARGETS)
+                    or all(re.fullmatch(text_module, t) for t in targets))):
         raise ValueError("Init adapter differs from Seed-SFT text LoRA r16/a32")
+    # PEFT may save short target names even when training selected full paths.
+    # Only the hash-checked weight keys establish that no non-text tower changed.
+    header, _ = safetensors_header(adapter / "adapter_model.safetensors")
+    weight_targets = set()
+    for key in header:
+        if key == "__metadata__":
+            continue
+        match = re.fullmatch(r"base_model\.model\." + text_module + r"\.lora_[AB]\.weight", key)
+        if not match:
+            raise ValueError("Init adapter weights must contain only text-layer LoRA tensors")
+        weight_targets.add(match[1])
+    if weight_targets != set(LORA_TARGETS):
+        raise ValueError("Init adapter weight targets differ from Seed-SFT text LoRA")
     # The original collection path can be unavailable after a cluster transfer.
     # Its exact manifest file hash is in the state-bound SFT provenance inputs.
     source = str(Path(recipe["verified"]) / "manifest.json")

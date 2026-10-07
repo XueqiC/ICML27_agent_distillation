@@ -15,6 +15,7 @@ from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_
 from sed.provenance import versions, write_provenance
 from sed.storage import digest, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
+from students.vllm_student import ContextOverflow
 from teachers.openai_teacher import Teacher, TeacherResult, rate_limit_options
 
 
@@ -59,6 +60,7 @@ def episode_metrics(episode):
             "thinking_tokens": total("thinking_tokens"), "thinking_chars": total("thinking_chars"),
             "policy_latency_seconds": sum(m.get("latency_seconds", 0) for m in calls),
             "wall_time_seconds": episode.get("wall_time_seconds", 0),
+            "context_overflow_episodes": int(episode.get("termination_reason") == "context_overflow"),
             "failed_policy_calls": int(episode.get("error_type") == "policy_error")}
 
 
@@ -104,12 +106,13 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
         event_id = f"{episode_id}:{counter:04d}"
         counter += 1
         parser_error = outcome == "parser_error"
-        source = "analytic_verifier" if parser_error else "real_environment" if error is None else "none"
+        policy_rejection = parser_error or error == "context_overflow"
+        source = "analytic_verifier" if policy_rejection else "real_environment" if error is None else "none"
         verification = {"audit": audit, "reward": reward, "policy_metadata": metadata,
                         "executable": "unknown" if error == "step_error" else not parser_error and error is None,
                         "success": audit.get("won", "unknown"), "fact_source": source,
                         "environment_steps_attempted": env_steps,
-                        "environment_steps_confirmed": env_steps if error is None or parser_error else "unknown",
+                        "environment_steps_confirmed": env_steps if error is None or policy_rejection else "unknown",
                         "failure_reason": error, "action_outcome": outcome,
                         "inadmissible": outcome == "inadmissible"}
         usage = metadata.get("mechanism_teacher_billed_usage") or (
@@ -128,12 +131,12 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
             observation_ref=(writer.blobs.put(visible_observation(observation))
                              if error is None or parser_error else None),
             verification_ref=writer.blobs.put(verification),
-            feedback_source=source, new_environment_information="none" if parser_error else "unknown_until_audit",
+            feedback_source=source, new_environment_information="none" if policy_rejection else "unknown_until_audit",
             teacher_tokens_in=usage.get("input_tokens", 0), teacher_tokens_out=usage.get("output_tokens", 0),
             environment_steps=env_steps, latency_seconds=elapsed,
             terminated=terminated, truncated=truncated,
             status=("incomplete" if error == "budget_exhausted" else
-                    "rejected" if parser_error else "ok" if error is None else "error"), error_type=error,
+                    "rejected" if policy_rejection else "ok" if error is None else "error"), error_type=error,
             action_outcome=outcome, inadmissible=outcome == "inadmissible",
             policy_metadata_ref=writer.blobs.put(metadata))
         writer.append(event)
@@ -197,6 +200,19 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
             write_json(output_dir / "episode.json", episode)
         episode.update(complete=True, status="ok", terminated=terminated, truncated=truncated,
                        success=audit.get("won", "unknown"))
+        return episode
+    except ContextOverflow as exc:
+        metadata = exc.metadata
+        episode["policy_calls"].append(metadata)
+        # This terminates the policy, not the environment. Keep the actual
+        # transition prefix intact for reset/replay and record rejection apart.
+        terminal = (visible, 0.0, True, False, {"won": False, "termination_reason": "context_overflow"})
+        episode["termination"] = record(visible, terminal, None, None, metadata,
+            time.monotonic() - started, error="context_overflow")
+        episode.update(complete=True, status="ok", terminated=True, truncated=False, success=False,
+            termination_reason="context_overflow", termination_step_index=len(steps),
+            termination_prompt_tokens=metadata["rendered_prompt_tokens"],
+            termination_prompt_token_count_kind=metadata["prompt_token_count_kind"])
         return episode
     except Exception as exc:
         incomplete = getattr(exc, "incomplete", False)
