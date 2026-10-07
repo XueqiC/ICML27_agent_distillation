@@ -97,3 +97,4 @@ seedsft-k50-100 (all) | Seed-SFT K=50/100 × s0-2 | hpg 44871877/44880904/448944
 kang-k20s0 training seeds | Kang official + SAG, K20 s0, training seed 0/1/2 | hpg 44943707-10 | 63 / 74 / 86 → recipe instability (23-pt spread from the training seed alone) | eval/baselines/kang-k20s0-tp-seed{1,2}-sag
 leap-privileged ladder | LEAP privileged official | hpg 44938864-7 | K1 stopped after iter-0 (eval iter-0 66); K2 complete; K5 stopped after iter-1 (empty correction set); K10 complete; K50/K100 running; evals K2/K5/K10 submitted |
 resubmit-1006 | after overflow/init fix (8b9230a) | hpg 45007915–45008707 | direct AgentGym iterate evals + fresh AgentGym k5s0, Kang k100s1, ETO tp5, IPR r2, 4 dose controls | scripts/ops_resubmit_1006.sh
+agentgym-k2s0 direct eval | old-tree eval-iter-2 failed (overflow) after full training | hpg 45014404/5 (tree 8b9230a) | submitted | eval/baselines/agentgym-k2s0-iter-{2,3}
