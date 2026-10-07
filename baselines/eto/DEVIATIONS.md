@@ -64,3 +64,32 @@ establish GPU memory fit or throughput without a hardware run.
 Full-repo or paper performance equivalence is not asserted. GPU FSDP, B200
 memory fit, long-sequence throughput and live full-checkpoint serving remain
 acceptance checks for a separately authorized job.
+
+
+## Empty visible student turns — 2026-10-07
+
+Engineering/harness encoding fix: `student_exploration` turns with empty visible
+content remain in the exact allowlisted conversation and native template history,
+but contribute no target tokens, turn-end labels, log-prob terms or SFT loss.
+The hidden generated tokens are unavailable to the harness; an immediate
+`<turn|>` target would be invented supervision. All-empty continuations/trajectories
+raise “nothing to score”; trusted teacher seeds retain strict empty-reply refusal,
+regardless of preference side. Each encoded row records
+`empty_visible_turns_masked`. Each training stage's `result.json` and checkpoint
+state report `empty_visible_turns_masked` and `empty_visible_turn_examples`,
+counting masked turns and affected input pairs/trajectories once per stage dataset
+(before epoch repetition or collective padding). Pair counts sum both sides and
+exclude shared prompt turns. No method, pair-selection or success criterion changes.
+
+Verified at upstream ETO pin `a2fc5da38f8d00cfaf3f9b6370d586eebaf72904`:
+ALFWorld `construct_preference.py:143-176` retains every failed trajectory with a
+matching golden trajectory and assistant-ended sides as the rejected continuation,
+with no empty-content filtering; `fastchat/conversation.py:72-81,127-142` renders
+an empty-string assistant message as bare `[/INST]` for Llama-2 (`LLAMA2`) or
+`ASSISTANT:` for Vicuna (`ADD_COLON_TWO`), without a separator, and
+`fastchat/train/train_dpo.py:117-189` splits on `sep2`, so an internal empty reply
+falls inside the following turn's masked instruction span while later nonempty
+replies remain supervised, matching our masking for this case provided delimiter
+parsing and token-length checks pass (whitespace-only strings take upstream's
+nonempty rendering branch, and a trailing empty reply can trigger the token-length
+mismatch guard that masks the entire sequence).

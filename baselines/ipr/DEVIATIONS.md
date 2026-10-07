@@ -57,3 +57,28 @@ separately without cross-side sequence padding. Logical examples and supervised
 token exposures are unchanged. This addresses the same all-turn graph retention
 as the reported ETO 4 × B200 OOM with a bf16 reference; long-pair GPU memory fit
 has not been exercised here.
+
+
+## Empty visible student turns — 2026-10-07
+
+IPR pair selection is unchanged and retains upstream `is_empty_conversations`
+exclusion (`construct_preference_monte_carlo_alfworld.py:152-156,238-239,328-329`):
+any message with empty stripped content in the expert or predicted agent messages,
+including an assistant reply, excludes the candidate with decision/count `empty`.
+Reward/MC thresholds, winner selection and success criteria are unchanged.
+
+Only the shared encoder became robust to empty `student_exploration` turns;
+official IPR pairs never contain them. Direct encoding of hand-built pairs tests
+this robustness independently of pair selection. In that encoder, empty turns
+remain in the exact allowlisted conversation and native template history,
+but contribute no target tokens, turn-end labels, log-prob terms or SFT loss.
+The hidden generated tokens are unavailable to the harness; an immediate
+`<turn|>` target would be invented supervision. All-empty continuations/trajectories
+raise “nothing to score”; trusted teacher seeds retain strict empty-reply refusal,
+regardless of preference side. Each encoded row records
+`empty_visible_turns_masked`. Each training stage's `result.json` and checkpoint
+state report `empty_visible_turns_masked` and `empty_visible_turn_examples`,
+counting masked turns and affected input pairs/trajectories once per stage dataset
+(before epoch repetition or collective padding). Pair counts sum both sides and
+exclude shared prompt turns. These empty-turn counters stay zero for official IPR
+pairs because the upstream exclusion is kept.

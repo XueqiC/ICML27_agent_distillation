@@ -145,6 +145,7 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
     optimizer = torch.optim.AdamW(parameters, lr=learning_rate, weight_decay=0.0,
                                  betas=(0.9, 0.999), eps=1e-8, foreach=False, fused=False)
     model.train()
+    empty_visible_counts = [e.get("empty_visible_turns_masked", 0) for e in examples]
     start, compute_seconds, checkpoints = time.monotonic(), 0.0, []
     ledger = JsonlLedger(output / "updates.jsonl")
     for update, batch in enumerate(plan, 1):
@@ -181,6 +182,8 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
                 peak_memory=torch.cuda.max_memory_allocated(device) if cuda else None,
                 peak_reserved=torch.cuda.max_memory_reserved(device) if cuda else None,
                 bank_tokens=sum(e["supervised_tokens"] for e in examples), identity_sha256=identity_sha256)
+            metadata.update(empty_visible_turns_masked=sum(empty_visible_counts),
+                            empty_visible_turn_examples=sum(count > 0 for count in empty_visible_counts))
             name = f"checkpoint-tokens-{batch['cumulative_supervised_tokens']}"
             staging = output / ("." + name + ".partial")
             staging.mkdir(exist_ok=False)

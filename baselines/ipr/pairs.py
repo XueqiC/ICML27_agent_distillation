@@ -164,6 +164,8 @@ def preference_conversation(pair, tokenizer, *, max_length=32768):
         for turn in provenance["turns"]:
             turn["source"] = provenance["source"]
         rows[side] = row
-    return {"task_id": pair["task_id"], "prompt_input_ids": ids, "label_provenance": {
+    return {"task_id": pair["task_id"], "prompt_input_ids": ids,
+        "empty_visible_turns_masked": sum(r["empty_visible_turns_masked"] for r in rows.values()),
+        "label_provenance": {
         "kind": pair["kind"], "j": pair["j"], "parent_seed_ids": pair["parent_seed_ids"],
         **{side: rows[side]["label_provenance"] for side in rows}}, **rows}

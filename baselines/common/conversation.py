@@ -32,16 +32,20 @@ def episode_messages(episode, *, trailing_observation=False):
 
 
 def sequence_rows(example):
-    """A logical trajectory/continuation may contain independent turn forwards."""
-    return example["turns"] if "turns" in example else [example]
+    """Only target-bearing turns get forwards; empty turns remain in history."""
+    return ([row for row in example["turns"] if any(v != -100 for v in row["labels"])]
+            if "turns" in example else [example])
 
 
 def group_turns(turns):
     if not turns:
         raise ValueError("Trajectory/continuation has no assistant turns")
+    if not any(t["supervised_tokens"] for t in turns):
+        raise ValueError("Nothing to score: all assistant turns have empty visible content")
     first = turns[0]["label_provenance"]
     return {"turns": turns, "packing": "turn", "turn_count": len(turns),
             "supervised_tokens": sum(t["supervised_tokens"] for t in turns),
+            "empty_visible_turns_masked": sum(t["empty_visible_turns_masked"] for t in turns),
             "label_provenance": {"task_id": first["task_id"], "source": first["source"],
                 "training_eligible": first["training_eligible"],
                 "turns": [t["label_provenance"] for t in turns]}}
@@ -61,14 +65,16 @@ def conversation(episode, tokenizer, *, source, max_length=32768, packing="episo
     """
     if source not in {"trusted_teacher_seed", "student_exploration"}:
         raise ValueError("Explicit trajectory source required")
-    rows = deepcopy(episode_examples(episode, tokenizer, max_length=max_length, packing=packing))
+    rows = deepcopy(episode_examples(episode, tokenizer, max_length=max_length, packing=packing,
+                                    allow_empty_visible=source == "student_exploration"))
     row = group_turns(rows) if packing == "turn" else rows[0]
     set_source(row, source)
     row["messages"] = episode_messages(episode)
     return row
 
 
-def encode_messages(messages, tokenizer, *, task_id, max_length=32768, packing="episode"):
+def encode_messages(messages, tokenizer, *, task_id, source="trusted_teacher_seed",
+                    max_length=32768, packing="episode"):
     """Round-trip only the visible schema, then use the existing span engine.
 
     DPO has a shared system+first-user prompt. Observation JSON is parsed and
@@ -93,7 +99,7 @@ def encode_messages(messages, tokenizer, *, task_id, max_length=32768, packing="
                    for i, reply in enumerate(replies)]}
     if episode_messages(episode) != messages:
         raise ValueError("Conversation differs from the allowlisted harness rendering")
-    return conversation(episode, tokenizer, source="student_exploration", max_length=max_length, packing=packing)
+    return conversation(episode, tokenizer, source=source, max_length=max_length, packing=packing)
 
 
 def encode_continuation(prompt, continuation, tokenizer, *, task_id, source, max_length=32768):
@@ -103,7 +109,7 @@ def encode_continuation(prompt, continuation, tokenizer, *, task_id, source, max
     Continuation log-probs are still summed across all assistant target tokens.
     """
     row = encode_messages(prompt + continuation, tokenizer, task_id=task_id,
-                          max_length=max_length, packing="turn")
+                          source=source, max_length=max_length, packing="turn")
     prefix_turns = sum(m["role"] == "assistant" for m in prompt)
     row = group_turns(row["turns"][prefix_turns:])
     set_source(row, source)
@@ -127,4 +133,5 @@ def preference_conversation(pair, tokenizer, *, max_length=32768):
         rows[side], ids = encode_continuation(prompt, pair[side], tokenizer,
             task_id=pair["task_id"], max_length=max_length,
             source="trusted_teacher_seed" if side == "chosen" else "student_exploration")
-    return {"task_id": pair["task_id"], "prompt_input_ids": ids, **rows}
+    return {"task_id": pair["task_id"], "prompt_input_ids": ids,
+            "empty_visible_turns_masked": sum(r["empty_visible_turns_masked"] for r in rows.values()), **rows}

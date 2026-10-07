@@ -89,10 +89,29 @@ def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
     assert tokenizer.decode(target_ids, skip_special_tokens=False) == target
     return {"input_ids": ids, "labels": labels, "attention_mask": [1] * len(ids),
             "supervised_tokens": len(target_ids), "prompt_tokens": len(prompt_ids),
+            "empty_visible_turns_masked": 0,
             "turn_forward_tokens": turn_forward_tokens}
 
 
-def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, packing="episode"):
+def _encode_empty_history(tokenizer, messages, *, max_length):
+    """Retain native completed history without inventing an empty-turn target."""
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False,
+                add_generation_prompt=True, enable_thinking=False)
+    completed = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": ""}],
+                tokenize=False, add_generation_prompt=False, enable_thinking=False)
+    if (not prompt.endswith(EMPTY_THOUGHT)
+            or completed != prompt[:-len(EMPTY_THOUGHT)] + TURN_TOKEN + "\n"):
+        raise ValueError("Gemma empty assistant history boundary changed")
+    ids = tokenizer.encode(completed[:-1], add_special_tokens=False)
+    if len(ids) > max_length:
+        raise ValueError(f"Complete trajectory context has {len(ids)} tokens > max_length={max_length}; no truncation")
+    return {"input_ids": ids, "labels": [-100] * len(ids), "attention_mask": [1] * len(ids),
+            "supervised_tokens": 0, "prompt_tokens": len(ids), "turn_forward_tokens": 0,
+            "empty_visible_turns_masked": 1}
+
+
+def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, packing="episode",
+                     allow_empty_visible=False):
     if packing not in ("turn", "episode"):
         raise ValueError("Packing must be turn or episode")
     if diagnostic:
@@ -110,12 +129,16 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
             raise ValueError("Teacher seed contains a hidden thought channel")
         messages = build_messages(history, {}, visible)
         final = index == len(episode["steps"]) - 1
-        encoded = encode_turn(tokenizer, messages, reply, max_length=max_length,
-                              as_history=packing == "episode" and not final)
+        if allow_empty_visible and not reply.strip():
+            encoded = _encode_empty_history(tokenizer, messages, max_length=max_length)
+        else:
+            encoded = encode_turn(tokenizer, messages, reply, max_length=max_length,
+                                  as_history=packing == "episode" and not final)
         encoded["packing"] = packing
         encoded["turn_count"] = 1
-        encoded["assistant_spans"] = [{"start": encoded["prompt_tokens"],
+        encoded["assistant_spans"] = ([{"start": encoded["prompt_tokens"],
                                        "stop": len(encoded["input_ids"]), "turn_index": index}]
+                                      if encoded["supervised_tokens"] else [])
         encoded["estimated_forward_tokens"] = {"turn": encoded.pop("turn_forward_tokens"),
                                                 "episode": len(encoded["input_ids"]) if final else 0}
         encoded["label_provenance"] = {"task_id": episode["task_id"], "turn_index": index,
@@ -127,21 +150,24 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
         visible = visible_observation(step["visible"])
     if not examples:
         raise ValueError("Trajectory has no assistant turns")
+    if not any(e["supervised_tokens"] for e in examples):
+        raise ValueError("Nothing to score: all assistant turns have empty visible content")
     if packing == "episode":
-        # The final row is the exact evaluation generation prefix + final target.
-        # Earlier replies have the native completed-history serialization.
+        # A nonempty final reply keeps the exact evaluation generation prefix.
+        # Empty replies and earlier replies use native completed history.
         ids = examples[-1]["input_ids"]
         labels = [-100] * len(ids)
         spans = []
         for example in examples:
             if ids[:len(example["input_ids"])] != example["input_ids"]:
                 raise ValueError("Completed assistant history differs from the final turn prefix")
-            span = example["assistant_spans"][0]
-            start, stop = span["start"], span["stop"]
-            labels[start:stop] = example["labels"][start:stop]
-            spans.append(span)
+            for span in example["assistant_spans"]:
+                start, stop = span["start"], span["stop"]
+                labels[start:stop] = example["labels"][start:stop]
+                spans.append(span)
         return [{"input_ids": ids, "labels": labels, "attention_mask": [1] * len(ids),
                  "supervised_tokens": sum(e["supervised_tokens"] for e in examples),
+                 "empty_visible_turns_masked": sum(e["empty_visible_turns_masked"] for e in examples),
                  "prompt_tokens": spans[0]["start"], "packing": packing,
                  "turn_count": len(examples), "assistant_spans": spans,
                  "estimated_forward_tokens": {
@@ -168,7 +194,7 @@ def mask_report(examples, tokenizer, *, first=3):
             assert all(v == -100 for v in expected[start:stop])
             expected[start:stop] = ids[start:stop]
             prefix = tokenizer.decode(ids[:start], skip_special_tokens=False)
-            if span is spans[-1]:
+            if packing == "turn" or span["turn_index"] == example["turn_count"] - 1:
                 assert prefix.endswith(EMPTY_THOUGHT)
             else:
                 assert prefix.endswith("<|turn>model\n")
@@ -177,7 +203,9 @@ def mask_report(examples, tokenizer, *, first=3):
         row = {"index": index, "total_tokens": len(ids), "supervised_tokens": example["supervised_tokens"],
                "masked_tokens": len(ids) - example["supervised_tokens"], "assistant_end_label": labels[-1],
                "assistant_spans": spans, "turn_count": example["turn_count"],
-               "prefix_mismatch_turn_indices": [s["turn_index"] for s in spans[:-1]],
+               "empty_visible_turns_masked": example["empty_visible_turns_masked"],
+               "prefix_mismatch_turn_indices": [s["turn_index"] for s in spans
+                   if packing == "episode" and s["turn_index"] != example["turn_count"] - 1],
                "assertions": {"all_system_user_observation_tokens_masked": True,
                               "empty_thought_channel_masked": True,
                               "only_assistant_replies_and_native_turn_ends_supervised": True},
@@ -186,7 +214,7 @@ def mask_report(examples, tokenizer, *, first=3):
             row["decoded_supervised_spans"] = [
                 tokenizer.decode(labels[s["start"]:s["stop"]], skip_special_tokens=False) for s in spans]
             if packing == "turn":
-                row["decoded_supervised_span"] = row["decoded_supervised_spans"][0]
+                row["decoded_supervised_span"] = row["decoded_supervised_spans"][0] if spans else ""
         rows.append(row)
     return {"schema_version": 2, "prompt_version": PROMPT_VERSION, "enable_thinking": False,
             "packing": packing, "unit": "complete " + packing,

@@ -36,3 +36,19 @@ No upstream source was modified. Offline tests execute the isolated official
 filter on synthetic records and compare its output, test empty and accumulating
 rounds, and verify all four training commands restart from base. Real four-GPU
 FSDP execution, memory fit and serving remain hardware acceptance checks.
+
+
+## Empty visible student turns — 2026-10-07
+
+Engineering/harness encoding fix: `student_exploration` turns with empty visible
+content remain in the exact allowlisted conversation and native template history,
+but contribute no target tokens, turn-end labels, log-prob terms or SFT loss.
+The hidden generated tokens are unavailable to the harness; an immediate
+`<turn|>` target would be invented supervision. All-empty continuations/trajectories
+raise “nothing to score”; trusted teacher seeds retain strict empty-reply refusal,
+regardless of preference side. Each encoded row records
+`empty_visible_turns_masked`. Each training stage's `result.json` and checkpoint
+state report `empty_visible_turns_masked` and `empty_visible_turn_examples`,
+counting masked turns and affected input pairs/trajectories once per stage dataset
+(before epoch repetition or collective padding). Pair counts sum both sides and
+exclude shared prompt turns. No method, pair-selection or success criterion changes.

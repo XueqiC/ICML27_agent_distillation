@@ -250,8 +250,12 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
     two_pass_turn_backward = objective in {"dpo", "ipr"} and packing == "turn"
+    empty_visible_counts = []
     for example in examples:
-        for row in ([example] if objective == "sft" else [example["chosen"], example["rejected"]]):
+        groups = [example] if objective == "sft" else [example["chosen"], example["rejected"]]
+        # Count each stage input once, independently of epochs/rank padding.
+        empty_visible_counts.append(sum(row.get("empty_visible_turns_masked", 0) for row in groups))
+        for row in groups:
             if any(r.get("label_provenance", {}).get("training_eligible") is False
                    for r in [row, *sequence_rows(row)]):
                 raise ValueError("Diagnostic examples cannot enter training")
@@ -363,6 +367,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     else:
         all_memory = [memory]
     return {**plan, "updates": update, "seed": seed, "examples_seen": exposure,
+            "empty_visible_turns_masked": sum(empty_visible_counts),
+            "empty_visible_turn_examples": sum(count > 0 for count in empty_visible_counts),
             "supervised_tokens_seen": supervised, "logical_forward_tokens": forward_tokens,
             "physical_example_slots": physical, "logical_example_slots": logical_slots,
             "zero_weight_slots": physical - logical_slots,
