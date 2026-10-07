@@ -5,6 +5,8 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **12:3x CDT 10-07: hpg back (user re-opened ControlMaster).** Summary 10-04→now sent (reports/summary_1004_1007_ZH.md + main figure).
+  Open user decisions: OpenAI top-up; IPR 2 vs 4 GPUs (~3 days on 2); dose controls (only AgentGym on 1 GPU?); mechanism at K=10/50.
 - **12:28 CDT 10-07: hpg ssh "Permission denied (keyboard-interactive)"** — ControlMaster expired (Duo); asked user to run
   `ssh -fN -M hpg` on rai. Chains keep running. Last seen: ETO tp6 dpo-2 45058902 running; IPR r3 dpo-1 45078017 queued/running;
   AgentGym K100 done (BC 102 / 103 / 99 / 96). After reconnect: re-arm the monitor (persistent seen-set), check chain health.
