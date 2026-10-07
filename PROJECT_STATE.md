@@ -9,7 +9,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   segments 2 GPUs, explore/MC/eval segments 1 GPU; afterok; scripts/ops_chain_1007.sh, log ~/chain_1007.log)**. Tree 6bac2da
   (empty-visible-turn fix). ETO K20 s0 fresh → baselines/eto-k20s0-tp6: 45058898 sft, 45058899 x1, 45058900 dpo1, 45058901 x2,
   45058902 dpo2, 45058903 x3, 45058904 dpo3, 45058905 eval. IPR K20 s0 fresh → baselines/ipr-k20s0-r3: 45058906 sft,
-  45058907/9/11/13/15/17 explore+MC+pairs 1–6, 45058908/10/12/14/16/18 dpo 1–6, 45058919 eval. AgentGym k100s0 (def44a9 resume;
+  45058907 x1 done (P=95); tail resubmitted 12:4x with 24 h dpo limits: 45078017 dpo-1, 45078018/20/22/24/26 x2–6,
+  45078019/21/23/25/27 dpo-2–6, 45078028 eval (IPR ≈ 9–13 h DPO per iteration → ~3 days total on 2×B200). AgentGym k100s0 (def44a9 resume;
   held 45027584_3 cancelled): 45058921 train-2, 45058922 explore/filter-2, 45058923 train-3, 45058924 rest → then direct evals
   (ops_agentgym_direct_eval.sh k100s0). mlperf reservation = 32 of the B200 nodes only (10-08 08:00 → 10-12 08:00 CDT).
   Still held: 45027583 LEAP K50 (credits), 45008706 IPR control (old tree; to be redone as a chain).
