@@ -1,5 +1,5 @@
 #!/bin/bash
-# 2026-10-07 ~12:4x CDT: IPR r3 dpo segments need >8 h (iteration 1 P=95 → 285 pair-slots; ETO measured 168 s/pair-slot on
+# 2026-10-07 ~11:5x CDT: IPR r3 dpo segments need >8 h (iteration 1 P=95 → 285 pair-slots; ETO measured 168 s/pair-slot on
 # 2×B200). Cancel the 8 h dpo-1 (minutes in) and the pending tail, resubmit from dpo-1 with 24 h dpo limits.
 set -u
 R=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/6bac2da
