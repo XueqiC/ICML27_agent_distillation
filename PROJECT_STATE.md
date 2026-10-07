@@ -5,6 +5,12 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **02:55 CDT 10-07 status** (report sent with reports/figs/main-results, sources regenerated from synced evals; quota moves done:
+  16 dirs, 0 failures, dept 19.0T). Main table K=1..100 (mean successes/140): Seed-SFT t400k 59.7/71.7/84.7/94.3/107.7/114.7/111.0;
+  Kang+SAG 51.3/62.0/74.3/78.7/82.7/94.3/92.3; AgentGym BC 50/48/61.7/61.0/58.3/93/—; AgentEvol iter-3 47/55/32.3/43.0/69.3/102/—;
+  LEAP priv s0 66/60/62/55/60. Running: ETO tp5 45008702 (dpo-1). Queued: LEAP control eval 45027585. HELD: 45008706 (IPR control),
+  45027584_3 (AgentGym k100s0), 45027583 (LEAP K50). Not resubmitted: IPR r2 (root-cancelled), ETO control (post-export nonzero exit).
+  Waiting on user: UFRC email? / idle-GPU fix approval; OpenAI top-up. Rai copies of LEAP K1–K10 come from the yd24f archive.
 - **01:2x CDT 10-07 BLOCKERS (asked user)**: (a) **OpenAI credits exhausted** — probe 429 insufficient_quota/credit_balance_exhausted.
   LEAP K100 (44943706, COMPLETED 08:40) iteration 2 is INVALID: all 44 correction requests (132 attempts, 00:51–01:12 CDT) failed 429 →
   0 corrections → "stopped_empty_min_aggregate". Iteration 1 valid (67 failed, 19 excluded, 43 corrections, 3,440 examples). After
