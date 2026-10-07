@@ -5,6 +5,13 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **21:3x CDT resubmission (tree 8b9230a = overflow + init-validator fix; scripts/ops_resubmit_1006.sh)**: cancelled old-tree resumes
+  44948828/45003751/45003752. Direct full-checkpoint dev140 evals (hpg_eval_adapters, MERGED_MODEL_PATH, one model per server) of trained
+  AgentGym iterates whose eval stage failed → eval/baselines/agentgym-<cell>-<label>: k5s1 iter-2/3 (45007915/6), k10s0 iter-3 (45008246),
+  k10s1 iter-2/3 (45008362/3), k5s2 bc/iter-1..3 (45008370-3), k20s1 iter-3 (45008699). Fresh: AgentGym k5s0 45008700, Kang k100s1
+  45008701 (old dirs → $B/_trash/overflow_resubmit_1006), ETO K20 s0 45008702 (eto-k20s0-tp5), IPR K20 s0 45008703 (ipr-k20s0-r2),
+  dose controls 45008704 AgentGym / 45008705 ETO / 45008706 IPR / 45008707 LEAP (…-k20s0-init).
+  AgentGym evals so far: k5s1 bc 88, iter-1 40, iter-2 47(1 err); k10s0 bc 68, iter-1 56.
 - **10-06 20:4x CDT hpg back.** Failure diagnosis (~/diag_1006.txt on hpg):
   * Context overflow: degenerate students (1024-token Thought spam, no action) exceed max-model-len 32768 → vLLM HTTP 400 → episode
     'policy_error' (unknown) → stage fails. Hit AgentGym k5s0 explore-1, k5s1/k10s1 eval-iter-2, k5s2 eval-bc, k20s1 eval-iter-3, and ETO
