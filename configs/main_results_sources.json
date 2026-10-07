@@ -134,6 +134,18 @@
     },
     {
       "method": "AgentGym BC",
+      "K": 100,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k100s0-bc/agentgym-k100s0-bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 100,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k100s0-iter-3/agentgym-k100s0-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
       "K": 10,
       "seed": 0,
       "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k10s0/stages/eval-bc/attempt-000/output/bc/eval"
