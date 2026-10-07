@@ -103,3 +103,5 @@ agentgym-k2s0 direct eval | old-tree eval-iter-2 failed (overflow) after full tr
 - 10-07 01:5x CDT | AgentGym k10s1 iter-3 direct eval (45008363, tree 8b9230a) | hpg | **10/140** (0 errors, 0 overflow; wall 468 s) — collapse vs BC; cf. k5s1 iter-1 40 / iter-2 47 | eval/baselines/agentgym-k10s1-iter-3
 - 10-07 02:0x CDT | AgentGym k5s2 iter-1 direct eval (45008371) | hpg | **21/140** (0 err, 0 overflow) | eval/baselines/agentgym-k5s2-iter-1
 - 10-07 02:1x CDT | AgentGym k5s2 iter-2 direct eval (45008372) | hpg | **11/140** (0 err, 0 overflow) | eval/baselines/agentgym-k5s2-iter-2
+- 10-07 02:3x CDT | AgentGym k5s2 direct evals (45008370/3) | hpg | BC **44/140** (1 context_overflow), iter-3 **12/140**; full k5s2 = BC 44 / 21 / 11 / 12 | eval/baselines/agentgym-k5s2-{bc,iter-3}
+- 10-07 02:3x CDT | Kang k100s1-r2 (45008701_0) trained OK, SAG eval refused "Output already exists" (stale eval dir of the 10-06 terminated run → $B/_trash/overflow_resubmit_1006/kang-k100s1-tp-sag) | hpg | resubmitted 45037352 (train stage cached → eval only)
