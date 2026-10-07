@@ -4,6 +4,14 @@ Governing document: `~/hq/projects/tc-alignment/docs/handoff/2026-10-04_paper1_c
 Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation`), rai for CPU/smoke.
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
+**Direction (user, 2026-10-07): Drop-In Agent Distillation** — from K trusted samples (expansion to new instances allowed and
+reported separately), distill a student that reliably replaces the teacher inside the unchanged harness H0. Measure output fit,
+local decision quality (fixed history bank) and autonomous execution separately. First hypothesis H1: normal routes learned,
+feedback response after deviations not. Plan P0–P4 (docs/direction/2026-10-07_*.md; weekly report reports/weekly/2026-10-07_weekly_ZH.md).
+ETO/IPR/LEAP = old "seed-instance-only" setting, finish and keep. Closest prior: HAD (2610.02858, no code), SOPD (black-box, no
+code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: K≥20 matches teacher mean but ~10 tasks differ
+each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
+
 ## RUNNING JOBS
 - **15:4x CDT 10-07: research re-framing sent** (reports/research_plan_1007_ZH.md). Gap vs handoff: grounded Augmented-SFT /
   free-expansion arm (§8.2) not run; valid_seen saturates (K=50 Seed-SFT = teacher). Proposed N2 expansion controls at K=5/10 ×
