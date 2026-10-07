@@ -5,6 +5,18 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **00:5x CDT 10-07: hpg back; dept /blue QUOTA FULL** (project quota 2273 on /blue/fsu-compsci-dept: 19.63T/20T, shared by the whole
+  dept; group yd24f project 2228: 11.84T/18T). Disk quota exceeded killed AgentGym k50s0 (eval-iter-2), k100s0 (train-2), k5s0-r2
+  (eval-iter-3) and LEAP K50 (train-2) between 23:46 and 23:58 CDT; running jobs (LEAP K100, ETO tp5, IPR r2, Kang k100s1, AgentGym
+  control, k5s1 iter-2 eval) show no quota errors. Our baseline checkpoints ≈ 2.0T (23G per full-FT/merged checkpoint, 45G fp32 init).
+  Relief (moves, not deletes; cross-project mv = copy+unlink, slow): ~/quota_move_1007.sh + ~/quota_move_worker.sh on login11, log
+  ~/quota_move_1007.log. Superseded → /blue/yd24f.fsu/xc25.fsu/hq/_trash/ICML27_agent_distillation/superseded_1007 (leap-privileged-k20s0-m2/m3/m4,
+  leap-zero-k20s0-m3/m4, eto-k20s0-tp/tp2/tp3/tp4, ipr-k20s0); evaluated LEAP cells → /blue/yd24f.fsu/xc25.fsu/hq/ICML27_archive/baselines_evaluated_1007
+  (leap-privileged-k1s0/k2s0/k5s0/k10s0/k20s0-m5, leap-zero-k20s0-m5) — rai sync for these now reads from the archive path.
+  Results seen: AgentGym k50s0 BC 93, iter-1 89; k5s0 (r2) BC 53, iter-1 44, iter-2 54. **LEAP control (Seed-SFT init, K20 s0)
+  stopped after iteration 1: 6/20 training rollouts failed, all 6 on tasks without a privileged state → 0 corrections** (status
+  stopped_empty_min_aggregate). Submitted: LEAP K50 resume 45027583 (def44a9, group), AgentGym k100s0 resume 45027584_3 (def44a9),
+  LEAP control iter-0 eval 45027585 (8b9230a, group), direct evals AgentGym k50s0 iter-2/3 45027610/1, k5s0 iter-3 45027871.
 - **23:31 CDT 10-06: hpg tunnel down again** — notice sent; waiting. Last seen 23:0x: LEAP K10 iter 61/64/60/55, K2 59/54/62/60, K5 62/62
   (all ≈ base); LEAP control (init) passed validation and is training; AgentGym k5s0-r2, Kang/AgentGym old-tree k50s0/k100s0 running;
   ETO tp5, IPR r2, AgentGym/ETO/IPR controls pending. AgentGym k2s0 direct evals 45014404/5. After reconnect: check old-tree
