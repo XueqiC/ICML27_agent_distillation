@@ -5,6 +5,11 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **15:4x CDT 10-07: research re-framing sent** (reports/research_plan_1007_ZH.md). Gap vs handoff: grounded Augmented-SFT /
+  free-expansion arm (§8.2) not run; valid_seen saturates (K=50 Seed-SFT = teacher). Proposed N2 expansion controls at K=5/10 ×
+  s0–2 (resample / covered types / uniform / diagnosis-targeted / matched irrelevant), N3 residual-barrier testbed (a: held-out-scene
+  dev-unseen from train; b: second env, lean ScienceWorld). **Awaiting user: N2 go?, N3 a/b/both?, N5 AgentGym-only control?**
+  Also awaiting "删" for rai _trash (167G, peer hq-2e asked; user said 可以 in DM per peer — confirm in channel).
 - **12:4x CDT 10-07: IPR → r4 with 4-GPU FSDP segments** (user "尽量快"): 45082396 sft → 45082397 x1 → 45082398 dpo1 … 45082409 eval
   (scripts/ops_chain_ipr_r4.sh). r3 chain cancelled. Scheduler --test-only estimates put 1/2/4-GPU B200 starts at 10-13 (mlperf
   reservation 32 nodes 10-08 08:00 → 10-12 08:00 CDT) — watch actual starts; expect slow progress through the reservation.
