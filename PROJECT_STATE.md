@@ -5,6 +5,14 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **08:4x CDT 10-07: stage-split chains (idle-GPU policy; no code change, same identities, NGPUS=2 in every segment; FSDP
+  segments 2 GPUs, explore/MC/eval segments 1 GPU; afterok; scripts/ops_chain_1007.sh, log ~/chain_1007.log)**. Tree 6bac2da
+  (empty-visible-turn fix). ETO K20 s0 fresh → baselines/eto-k20s0-tp6: 45058898 sft, 45058899 x1, 45058900 dpo1, 45058901 x2,
+  45058902 dpo2, 45058903 x3, 45058904 dpo3, 45058905 eval. IPR K20 s0 fresh → baselines/ipr-k20s0-r3: 45058906 sft,
+  45058907/9/11/13/15/17 explore+MC+pairs 1–6, 45058908/10/12/14/16/18 dpo 1–6, 45058919 eval. AgentGym k100s0 (def44a9 resume;
+  held 45027584_3 cancelled): 45058921 train-2, 45058922 explore/filter-2, 45058923 train-3, 45058924 rest → then direct evals
+  (ops_agentgym_direct_eval.sh k100s0). mlperf reservation = 32 of the B200 nodes only (10-08 08:00 → 10-12 08:00 CDT).
+  Still held: 45027583 LEAP K50 (credits), 45008706 IPR control (old tree; to be redone as a chain).
 - **07:4x CDT 10-07**: ETO K20 s0 tp5 (45008702) FAILED 06:52 CDT at dpo-3 start (dpo-1, dpo-2 complete): encode_turn refuses empty
   replies; 9/20 pairs-3 rejected continuations contain assistant turns with content '' (finish_reason length, 1,024 tokens, nothing visible).
   Codex (pid 2105709, main working tree, log scratchpad/codex_empty_turns.out): mask empty visible turns in student-sourced trajectories
