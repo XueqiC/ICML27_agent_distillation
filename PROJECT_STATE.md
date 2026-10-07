@@ -5,7 +5,7 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
-- **12:5x CDT 10-07: OpenAI topped up (probe 200).** LEAP chains (scripts/ops_chain_leap_1007.sh; teacher stages CPU-only hpg-milan):
+- **12:4x CDT 10-07: OpenAI topped up (probe 200).** LEAP chains (scripts/ops_chain_leap_1007.sh; teacher stages CPU-only hpg-milan):
   K50 45082130 → 45082131 (cpu) → 45082132 → 45082133 eval; K100 iteration 2 invalidated (moved to $B/_trash/leap_k100_credit_exhausted_1007)
   → 45082134 (cpu correct-2) → 45082135 → 45082136 (cpu) → 45082137 → 45082138 eval. Disclose the K100 correct-2 re-run.
 - **12:3x CDT 10-07: hpg back (user re-opened ControlMaster).** Summary 10-04→now sent (reports/summary_1004_1007_ZH.md + main figure).

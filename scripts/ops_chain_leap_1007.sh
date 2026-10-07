@@ -1,5 +1,5 @@
 #!/bin/bash
-# 2026-10-07 ~12:5x CDT, after the OpenAI top-up: LEAP K50/K100 privileged as stage-split chains. Teacher-only stages
+# 2026-10-07 ~12:4x CDT, after the OpenAI top-up: LEAP K50/K100 privileged as stage-split chains. Teacher-only stages
 # (correct-N + data-N) run CPU-only on hpg-milan (no idle GPU); training/merge/explore and evaluation get 1 GPU (group QOS,
 # as the original LEAP submissions). K100: iteration 2 is invalid (all 44 correction requests failed with HTTP 429
 # credit_balance_exhausted) → its correct-2/data-2 stages, teacher request records and run-level iteration-2/result json
