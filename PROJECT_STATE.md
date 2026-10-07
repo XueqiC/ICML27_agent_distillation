@@ -5,6 +5,15 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **01:2x CDT 10-07 BLOCKERS (asked user)**: (a) **OpenAI credits exhausted** — probe 429 insufficient_quota/credit_balance_exhausted.
+  LEAP K100 (44943706, COMPLETED 08:40) iteration 2 is INVALID: all 44 correction requests (132 attempts, 00:51–01:12 CDT) failed 429 →
+  0 corrections → "stopped_empty_min_aggregate". Iteration 1 valid (67 failed, 19 excluded, 43 corrections, 3,440 examples). After
+  top-up: move stages correct-2+ and audit/teacher/correction-2 (outcomes cached as "exhausted") to _trash, resume. Engineering fix
+  needed: insufficient_quota must fail the stage, never count as an empty correction set. LEAP K50 resume 45027583 HELD (iters 1–2
+  valid: 19, 21 corrections; needs teacher for iter 3). (b) **Root cancellations ≈ UFRC idle-GPU policy** (4 jobs; policy threatens
+  account suspension): explore/eval/MC stages pin CUDA_VISIBLE_DEVICES to the first GPU of 2-GPU jobs. nvidia-smi 01:1x: IPR r2 1/2 idle,
+  ETO control 2/2 idle (loading), LEAP K100 0% (teacher wait), ETO tp5 2/2 100%. HELD: IPR control 45008706, AgentGym k100s0 45027584_3.
+  Proposed: cancel IPR r2 + ETO control, Codex adds a second replica on GPU 2 for single-model stages (batch-invariant → same episodes).
 - **00:5x CDT 10-07: hpg back; dept /blue QUOTA FULL** (project quota 2273 on /blue/fsu-compsci-dept: 19.63T/20T, shared by the whole
   dept; group yd24f project 2228: 11.84T/18T). Disk quota exceeded killed AgentGym k50s0 (eval-iter-2), k100s0 (train-2), k5s0-r2
   (eval-iter-3) and LEAP K50 (train-2) between 23:46 and 23:58 CDT; running jobs (LEAP K100, ETO tp5, IPR r2, Kang k100s1, AgentGym
