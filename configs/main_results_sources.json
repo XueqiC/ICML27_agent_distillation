@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Evaluated cells for analysis/main_results.py (dev140, batch-invariant, hpg B200 unless noted). Add one entry per cell.",
+  "note": "Evaluated cells for analysis/main_results.py (dev140, batch-invariant, hpg B200). Regenerated 2026-10-07 from synced eval dirs: a cell is listed only if its summary has 140 completed episodes, no error episodes and no unknown outcomes; AgentGym iterates use the direct full-checkpoint eval (tree 8b9230a) when the pipeline eval stage failed. AgentEvol = iter-3 (official final iterate, no dev selection). LEAP = last trained official iterate (runs that stop on an empty min aggregate report their last iterate). LEAP K50/K100 pending (K100 iteration 2 invalid: OpenAI credits exhausted).",
   "references": {
     "teacher": "reports/runs/teacher-dev140",
     "base": "reports/runs/eval/hpg-seedsft-sweep-bi/k5s0/google/gemma-4-12B-it/eval"
@@ -8,39 +8,21 @@
   "baselines": [
     {
       "method": "Kang (official) + SAG",
-      "K": 20,
+      "K": 100,
       "seed": 0,
-      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s0-tp-sag/kang-k20s0-tp/eval"
-    },
-    {
-      "method": "AgentGym BC",
-      "K": 20,
-      "seed": 0,
-      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-bc/attempt-000/output/bc/eval"
-    },
-    {
-      "method": "AgentEvol (final iter.)",
-      "K": 20,
-      "seed": 0,
-      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k100s0-tp-sag/kang-k100s0-tp/eval"
     },
     {
       "method": "Kang (official) + SAG",
-      "K": 5,
-      "seed": 0,
-      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s0-tp-sag/kang-k5s0-tp/eval"
-    },
-    {
-      "method": "Kang (official) + SAG",
-      "K": 5,
+      "K": 100,
       "seed": 1,
-      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s1-tp-sag/kang-k5s1-tp/eval"
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k100s1-tp-sag/kang-k100s1-tp/eval"
     },
     {
       "method": "Kang (official) + SAG",
-      "K": 5,
+      "K": 100,
       "seed": 2,
-      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s2-tp-sag/kang-k5s2-tp/eval"
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k100s2-tp-sag/kang-k100s2-tp/eval"
     },
     {
       "method": "Kang (official) + SAG",
@@ -62,6 +44,30 @@
     },
     {
       "method": "Kang (official) + SAG",
+      "K": 1,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k1s0-tp-sag/kang-k1s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 1,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k1s1-tp-sag/kang-k1s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 1,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k1s2-tp-sag/kang-k1s2-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s0-tp-sag/kang-k20s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
       "K": 20,
       "seed": 1,
       "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s1-tp-sag/kang-k20s1-tp/eval"
@@ -73,10 +79,237 @@
       "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k20s2-tp-sag/kang-k20s2-tp/eval"
     },
     {
+      "method": "Kang (official) + SAG",
+      "K": 2,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k2s0-tp-sag/kang-k2s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 2,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k2s1-tp-sag/kang-k2s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 2,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k2s2-tp-sag/kang-k2s2-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 50,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k50s0-tp-sag/kang-k50s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 50,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k50s1-tp-sag/kang-k50s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 50,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k50s2-tp-sag/kang-k50s2-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s0-tp-sag/kang-k5s0-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s1-tp-sag/kang-k5s1-tp/eval"
+    },
+    {
+      "method": "Kang (official) + SAG",
+      "K": 5,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/kang-k5s2-tp-sag/kang-k5s2-tp/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 10,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k10s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 10,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k10s0-iter-3/agentgym-k10s0-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 10,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k10s1/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 10,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k10s1-iter-3/agentgym-k10s1-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 10,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k10s2/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 10,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k10s2/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 1,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k1s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 1,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k1s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 20,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s0/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 20,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s1/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 20,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k20s1-iter-3/agentgym-k20s1-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 20,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s2/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 20,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k20s2/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 2,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k2s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 2,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k2s0-iter-3/agentgym-k2s0-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 50,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k50s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 50,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k50s0-iter-3/agentgym-k50s0-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 5,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k5s0/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 5,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k5s0-iter-3/agentgym-k5s0-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 5,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/agentgym-k5s1/stages/eval-bc/attempt-000/output/bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 5,
+      "seed": 1,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k5s1-iter-3/agentgym-k5s1-iter-3/eval"
+    },
+    {
+      "method": "AgentGym BC",
+      "K": 5,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k5s2-bc/agentgym-k5s2-bc/eval"
+    },
+    {
+      "method": "AgentEvol (final iter.)",
+      "K": 5,
+      "seed": 2,
+      "eval_dir": "reports/runs/eval/hpg-baselines/eval/baselines/agentgym-k5s2-iter-3/agentgym-k5s2-iter-3/eval"
+    },
+    {
+      "method": "LEAP (privileged)",
+      "K": 1,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k1s0/stages/eval-iter-0/attempt-000/output/iter-0/eval",
+      "note": "final iterate iter-0; status stopped_empty_min_aggregate"
+    },
+    {
+      "method": "LEAP (privileged)",
+      "K": 2,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k2s0/stages/eval-iter-3/attempt-000/output/iter-3/eval",
+      "note": "final iterate iter-3; status complete"
+    },
+    {
+      "method": "LEAP (privileged)",
+      "K": 5,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k5s0/stages/eval-iter-1/attempt-000/output/iter-1/eval",
+      "note": "final iterate iter-1; status stopped_empty_min_aggregate"
+    },
+    {
+      "method": "LEAP (privileged)",
+      "K": 10,
+      "seed": 0,
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k10s0/stages/eval-iter-3/attempt-000/output/iter-3/eval",
+      "note": "final iterate iter-3; status complete"
+    },
+    {
       "method": "LEAP (privileged)",
       "K": 20,
       "seed": 0,
-      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k20s0-m5/stages/eval-iter-3/attempt-000/output/iter-3/eval"
+      "eval_dir": "reports/runs/eval/hpg-baselines/baselines/leap-privileged-k20s0-m5/stages/eval-iter-3/attempt-000/output/iter-3/eval",
+      "note": "final iterate iter-3; status None"
     },
     {
       "method": "LEAP (0% privileged)",
