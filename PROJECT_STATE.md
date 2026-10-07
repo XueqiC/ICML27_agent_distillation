@@ -5,6 +5,12 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **07:4x CDT 10-07**: ETO K20 s0 tp5 (45008702) FAILED 06:52 CDT at dpo-3 start (dpo-1, dpo-2 complete): encode_turn refuses empty
+  replies; 9/20 pairs-3 rejected continuations contain assistant turns with content '' (finish_reason length, 1,024 tokens, nothing visible).
+  Codex (pid 2105709, main working tree, log scratchpad/codex_empty_turns.out): mask empty visible turns in student-sourced trajectories
+  (kept in history, no labels), teacher seeds still strict, counts in result.json, DEVIATIONS entries. Code change ⇒ fresh ETO run on a new
+  tree; bundle with the idle-GPU fix (still awaiting user). LEAP control iter-0 = 108 (unmerged 115). Monitor now keeps a persistent
+  seen-set (scratchpad/hpg_seen_jobs.txt) — the tp5 failure was missed between two re-arms.
 - **02:55 CDT 10-07 status** (report sent with reports/figs/main-results, sources regenerated from synced evals; quota moves done:
   16 dirs, 0 failures, dept 19.0T). Main table K=1..100 (mean successes/140): Seed-SFT t400k 59.7/71.7/84.7/94.3/107.7/114.7/111.0;
   Kang+SAG 51.3/62.0/74.3/78.7/82.7/94.3/92.3; AgentGym BC 50/48/61.7/61.0/58.3/93/—; AgentEvol iter-3 47/55/32.3/43.0/69.3/102/—;
