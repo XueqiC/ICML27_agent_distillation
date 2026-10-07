@@ -1,6 +1,6 @@
-# 论文一周报（第 1 周：2026-10-04 至 10-07）
+# 论文一周报（第一周）
 
-方向依据：docs/direction/2026-10-07_drop_in_distillation_ZH.md 与 docs/direction/2026-10-07_direction_note_ZH.md（10-07 用户确定），以及 10-04 的交接文档 docs/handoff/。
+方向依据：docs/direction/2026-10-07_drop_in_distillation_ZH.md 与 docs/direction/2026-10-07_direction_note_ZH.md（本周确定），以及最初的交接文档 docs/handoff/。
 数字来源：notes/exp_log.md、reports/summary_1004_1007_ZH.md、reports/figs/main-results/。评测都在 ALFWorld dev140 上（valid_seen 的 140 局，batch-invariant 模式，一个 server 只服务一个模型，hpg B200）。base 62，教师 114。valid_unseen 封存，一直没有用过。
 
 ---
@@ -78,11 +78,11 @@
   2. **先把现象打实**：在剂量和覆盖都控制好以后，"平均分持平但逐题不等价"是否稳定存在，错误在 H0 里怎样传播。前人都把蒸馏后的差距直接当作方法的出发点，没有排除剂量和覆盖。
   3. **用真实执行分支来定义监督的正确性**（多解、按后续影响加权），并通过诊断预测哪类监督有用。
 - **必须正面比较的对象**：HAD（适配版）、SOPD 或黑盒 DAgger（重新实现）、PivotOPD 式的恢复监督（若时间允许，做适配版）、Grounded Augmented-SFT，以及剂量充足的 Seed-SFT。
-- **与现行 baseline 规则的冲突**：HAD、SOPD、SmartAD、PivotOPD 都**没有完整的官方代码**，FutureBridge 需要 logits。按 10-04 的规则，它们都不能以"官方复现"的名义入表，只能标注为"适配版或重新实现"进入比较。这需要你确认（§8）。
+- **与现行 baseline 规则的冲突**：HAD、SOPD、SmartAD、PivotOPD 都**没有完整的官方代码**，FutureBridge 需要 logits。按最初定下的 baseline 规则，它们都不能以"官方复现"的名义入表，只能标注为"适配版或重新实现"进入比较。这需要你确认（§8）。
 
 ---
 
-## 3. 目前进展（10-04 至 10-07）
+## 3. 目前进展
 
 ### 3.1 已经搭好的基础
 - harness、manifest、教师采集与环境验证、Seed-SFT（LoRA r16/a32，AdamW 1e-5，每次更新 512 监督 token，按整局打包）、batch-invariant 评测，都已跑通，并且有 CPU 测试（974 项通过）。
@@ -276,7 +276,7 @@
 - **教师成本**：P1 加 P2 大约需要 1.5 万到 2.5 万次教师调用，加上 D 的轨迹采集。按批次给出预算，每批跑完再继续。
 
 ## 8. 需要你决定的事
-1. **baseline 规则和新近邻怎么协调**：10-04 的规则是"只跑代码完整的官方实现"，但 HAD、SOPD、SmartAD、PivotOPD 都没有完整代码，FutureBridge 需要教师 logits（§2.1）。我的建议：HAD 和 SOPD（或黑盒 DAgger）以"适配版"的身份进入主比较，并在表里单独标注；SmartAD 离我们的设定较远（QA/数学，每题需要多条正确样本），只在文中讨论。
+1. **baseline 规则和新近邻怎么协调**：现行规则是"只跑代码完整的官方实现"，但 HAD、SOPD、SmartAD、PivotOPD 都没有完整代码，FutureBridge 需要教师 logits（§2.1）。我的建议：HAD 和 SOPD（或黑盒 DAgger）以"适配版"的身份进入主比较，并在表里单独标注；SmartAD 离我们的设定较远（QA/数学，每题需要多条正确样本），只在文中讨论。
 2. **教师重跑 dev140 一次**（约 2,900 次调用）：用来估计教师自身的不一致，P1 的判断离不开它。
 3. **IPR（旧设定）是否继续**：它在 4 卡上还要约 2 天。新文档的意见是收尾保留，我按这个继续，除非你想把 GPU 先让给 P2。
 4. **第二个工作流**：AppWorld（我倾向这个）还是 ScienceWorld。

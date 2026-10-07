@@ -7,7 +7,7 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
 **Direction (user, 2026-10-07): Drop-In Agent Distillation** — from K trusted samples (expansion to new instances allowed and
 reported separately), distill a student that reliably replaces the teacher inside the unchanged harness H0. Measure output fit,
 local decision quality (fixed history bank) and autonomous execution separately. First hypothesis H1: normal routes learned,
-feedback response after deviations not. Plan P0–P4 (docs/direction/2026-10-07_*.md; weekly report reports/weekly/2026-10-07_weekly_ZH.md).
+feedback response after deviations not. Plan P0–P4 (docs/direction/2026-10-07_*.md; weekly report reports/weekly/week01_ZH.md).
 ETO/IPR/LEAP = old "seed-instance-only" setting, finish and keep. Closest prior: HAD (2610.02858, no code), SOPD (black-box, no
 code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: K≥20 matches teacher mean but ~10 tasks differ
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
