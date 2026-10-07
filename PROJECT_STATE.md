@@ -5,6 +5,16 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **10-06 20:4x CDT hpg back.** Failure diagnosis (~/diag_1006.txt on hpg):
+  * Context overflow: degenerate students (1024-token Thought spam, no action) exceed max-model-len 32768 → vLLM HTTP 400 → episode
+    'policy_error' (unknown) → stage fails. Hit AgentGym k5s0 explore-1, k5s1/k10s1 eval-iter-2, k5s2 eval-bc, k20s1 eval-iter-3, and ETO
+    K20 s0 explore-3 (rounds 1–2 done). Codex (pid 682405): known terminal failure 'context_overflow' (+ init validator fix).
+  * External 'CANCELLED … SIGNAL Terminated' (not me): IPR 44826293 (12:11 CDT), Kang k100s1 (13:16), AgentGym k10s0 (14:55) →
+    resubmitted in their own trees to resume: 45003751 (AgentGym k10s0, d9e151b), 45003752 (Kang k100s1, def44a9); IPR 44948828.
+  * Dose-control init validator rejected the real Seed-SFT adapter (short target_modules names) → LEAP control failed in 45 s;
+    AgentGym/ETO/IPR controls cancelled while pending (44944146-8). Resubmit all four after the fix.
+  * Done: Seed-SFT K50/K100 all (t400k K50 112/116/116, K100 115/106/112); Kang K20 s0 seeds 0/1/2 = 63/74/86; LEAP K1 iter-0 66,
+    K2/K10 complete, K5 stopped after iter-1; LEAP evals K2/K5/K10 45002760-2. LEAP K50/K100 running.
 - **12:50 CDT 10-06: hpg tunnel down** (localhost:2222 banner timeout) — sent the one notice; waiting. Before it dropped: IPR K20 s0
   44826293 was terminated externally (12:11 CDT, SIGNAL Terminated on c1000a-s25) and resubmitted as 44948828 (same tree 74cdb97,
   resumes stages). LEAP K1 s0 stopped after iteration 0 (no usable correction) → eval 44944505. Pending after reconnect: LEAP
