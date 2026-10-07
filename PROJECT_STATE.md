@@ -5,6 +5,9 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **12:28 CDT 10-07: hpg ssh "Permission denied (keyboard-interactive)"** — ControlMaster expired (Duo); asked user to run
+  `ssh -fN -M hpg` on rai. Chains keep running. Last seen: ETO tp6 dpo-2 45058902 running; IPR r3 dpo-1 45078017 queued/running;
+  AgentGym K100 done (BC 102 / 103 / 99 / 96). After reconnect: re-arm the monitor (persistent seen-set), check chain health.
 - **08:4x CDT 10-07: stage-split chains (idle-GPU policy; no code change, same identities, NGPUS=2 in every segment; FSDP
   segments 2 GPUs, explore/MC/eval segments 1 GPU; afterok; scripts/ops_chain_1007.sh, log ~/chain_1007.log)**. Tree 6bac2da
   (empty-visible-turn fix). ETO K20 s0 fresh → baselines/eto-k20s0-tp6: 45058898 sft, 45058899 x1, 45058900 dpo1, 45058901 x2,
