@@ -5,6 +5,10 @@ Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-comp
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
 ## RUNNING JOBS
+- **23:31 CDT 10-06: hpg tunnel down again** — notice sent; waiting. Last seen 23:0x: LEAP K10 iter 61/64/60/55, K2 59/54/62/60, K5 62/62
+  (all ≈ base); LEAP control (init) passed validation and is training; AgentGym k5s0-r2, Kang/AgentGym old-tree k50s0/k100s0 running;
+  ETO tp5, IPR r2, AgentGym/ETO/IPR controls pending. AgentGym k2s0 direct evals 45014404/5. After reconnect: check old-tree
+  AgentGym k50s0/k100s0 for overflow (→ scripts/ops_agentgym_direct_eval.sh CELL), submit LEAP K50/K100 + control evals, sync, figure.
 - **21:3x CDT resubmission (tree 8b9230a = overflow + init-validator fix; scripts/ops_resubmit_1006.sh)**: cancelled old-tree resumes
   44948828/45003751/45003752. Direct full-checkpoint dev140 evals (hpg_eval_adapters, MERGED_MODEL_PATH, one model per server) of trained
   AgentGym iterates whose eval stage failed → eval/baselines/agentgym-<cell>-<label>: k5s1 iter-2/3 (45007915/6), k10s0 iter-3 (45008246),
