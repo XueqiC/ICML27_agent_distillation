@@ -102,3 +102,4 @@ agentgym-k2s0 direct eval | old-tree eval-iter-2 failed (overflow) after full tr
 - 10-07 | LEAP privileged dose control K20 s0 (Seed-SFT p40 init, tree 8b9230a, 45008707) | hpg | stopped after iter 1: 20 rollouts, 6 failed, all 6 excluded_no_privileged_state → 0 corrections (stopped_empty_min_aggregate); iter-0 eval 45027585 | baselines/leap-privileged-k20s0-init
 - 10-07 01:5x CDT | AgentGym k10s1 iter-3 direct eval (45008363, tree 8b9230a) | hpg | **10/140** (0 errors, 0 overflow; wall 468 s) — collapse vs BC; cf. k5s1 iter-1 40 / iter-2 47 | eval/baselines/agentgym-k10s1-iter-3
 - 10-07 02:0x CDT | AgentGym k5s2 iter-1 direct eval (45008371) | hpg | **21/140** (0 err, 0 overflow) | eval/baselines/agentgym-k5s2-iter-1
+- 10-07 02:1x CDT | AgentGym k5s2 iter-2 direct eval (45008372) | hpg | **11/140** (0 err, 0 overflow) | eval/baselines/agentgym-k5s2-iter-2
