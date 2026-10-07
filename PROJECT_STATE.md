@@ -13,7 +13,8 @@ Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04)
   valid: 19, 21 corrections; needs teacher for iter 3). (b) **Root cancellations ≈ UFRC idle-GPU policy** (4 jobs; policy threatens
   account suspension): explore/eval/MC stages pin CUDA_VISIBLE_DEVICES to the first GPU of 2-GPU jobs. nvidia-smi 01:1x: IPR r2 1/2 idle,
   ETO control 2/2 idle (loading), LEAP K100 0% (teacher wait), ETO tp5 2/2 100%. HELD: IPR control 45008706, AgentGym k100s0 45027584_3.
-  Proposed: cancel IPR r2 + ETO control, Codex adds a second replica on GPU 2 for single-model stages (batch-invariant → same episodes).
+  01:4x: IPR r2 45008703 CANCELLED by root after 1:42 (the job with 1/2 idle) → policy confirmed; not resubmitted. Both ETO jobs in DPO
+  (2/2 at 100%), evals/Kang 1 GPU busy → nothing cancelled. Proposed: Codex adds a second replica on GPU 2 for single-model stages (batch-invariant → same episodes).
 - **00:5x CDT 10-07: hpg back; dept /blue QUOTA FULL** (project quota 2273 on /blue/fsu-compsci-dept: 19.63T/20T, shared by the whole
   dept; group yd24f project 2228: 11.84T/18T). Disk quota exceeded killed AgentGym k50s0 (eval-iter-2), k100s0 (train-2), k5s0-r2
   (eval-iter-3) and LEAP K50 (train-2) between 23:46 and 23:58 CDT; running jobs (LEAP K100, ETO tp5, IPR r2, Kang k100s1, AgentGym
