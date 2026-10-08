@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **00:37 CDT 10-08: hpg ControlMaster expired again** (Permission denied keyboard-interactive) — one notice sent; waiting.
+  Last seen 00:15: all chain heads pending — LEAP K50 g4 45082132 + K100 g4 45082137 (QOSGrpGRES, group), IPR r4 dpo1 45082398 +
+  ETO tp6 x3 45058903 (Priority, dept). LEAP K100 round 3: 18 corrections, N=2,880. Weekly report v2 sent (week01_ZH.md);
+  5 user decisions pending (adaptations, teacher re-run, IPR, second workflow, capability student) + _trash "删".
 - **15:4x CDT 10-07: research re-framing sent** (reports/research_plan_1007_ZH.md). Gap vs handoff: grounded Augmented-SFT /
   free-expansion arm (§8.2) not run; valid_seen saturates (K=50 Seed-SFT = teacher). Proposed N2 expansion controls at K=5/10 ×
   s0–2 (resample / covered types / uniform / diagnosis-targeted / matched irrelevant), N3 residual-barrier testbed (a: held-out-scene
