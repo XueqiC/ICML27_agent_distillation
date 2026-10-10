@@ -9,7 +9,9 @@ This page is the shortest complete path through the theory. Each node states one
 - **Proof** gives the full derivation.
 - **Experiments** gives the finite or controlled checks that test the node. It records why each check is run, how it is set up, what it found, and why that supports the node.
 
-**Sources.** v0.14.1 main framework (`docs/direction/v015_revision/Environment_Information_Theory_EN.md`), v0.15 optimizer and few-shot addendum (`.../Optimizer_State_and_Few_Shot_Theory_v015_EN.md`), and the warm-Adam extension (`docs/direction/v015_extension/Warm_Adam_Response_EN.md`). Equation numbers such as (14) or (A9) refer to those documents.
+**Central result.** Nodes N18–N20 give the framework's central theorem for real learners. To first order, the information that a feedback law must carry is the mean of the *optimizer's complete-state increment*, not the mean gradient. This statistic is sufficient to first order and necessary wherever first-order effects dominate. It is computed for SGD, momentum, Adam/AdamW (cold and warm), clipping, sign/Lion and LoRA. It can be measured at the actual training states.
+
+**Sources.** v0.14.1 main framework (`docs/direction/v015_revision/Environment_Information_Theory_EN.md`), v0.15 optimizer and few-shot addendum (`.../Optimizer_State_and_Few_Shot_Theory_v015_EN.md`), the warm-Adam extension (`docs/direction/v015_extension/Warm_Adam_Response_EN.md`) and the optimizer-transformed linear response (`docs/direction/v015_extension/Optimizer_Transformed_Linear_Response_EN.md`). Equation numbers such as (14) or (A9) refer to those documents.
 
 **Scope.** Every statement on this page is proved under the assumptions it states and has passed independent finite or controlled checks. Proofs are finite-dimensional or carry explicit regularity assumptions. The experiments are exact finite computations or controlled small networks; they are not real-model or benchmark results.
 
@@ -56,11 +58,14 @@ flowchart TD
   subgraph IV["IV · Optimizer state"]
     N11["N11 Cold-start Adam quotient<br/>and optimizer memory"]
     N12["N12 Optimizer warmth"]
+    N18["N18 Optimizer-transformed<br/>linear response"]
+    N19["N19 What each learner makes<br/>the feedback carry"]
   end
   subgraph V["V · Verification"]
     N13["N13 Stability–approximation<br/>tradeoff"]
     N14["N14 Frozen audit<br/>with transport"]
     N15["N15 Actual-state adaptive audit"]
+    N20["N20 First-order audit<br/>at actual states"]
   end
   subgraph VI["VI · Mechanism and method"]
     N16["N16 Coupling width"]
@@ -79,9 +84,20 @@ flowchart TD
   N12 --> N17
   N15 --> N17
   N16 --> N17
+  N05 --> N18
+  N06 --> N18
+  N10 --> N18
+  N18 --> N19
+  N11 --> N19
+  N12 --> N19
+  N18 --> N20
+  N14 --> N20
+  N15 --> N20
+  N19 --> N17
+  N20 --> N17
 ```
 
-The chain runs as follows. First, what the student can execute and what the data can identify (I). Then, what feedback does to the learner (II). Then, how much information sufficiency costs (III), and how the actual optimizer changes that cost (IV). Next, how sufficiency is checked with finite data (V). Last, the method that follows (VI).
+The chain runs as follows. First, what the student can execute and what the data can identify (I). Then, what feedback does to the learner (II). Then, how much information sufficiency costs (III), and how the actual optimizer changes that cost (IV, with the central theorem N18–N19). Next, how sufficiency is checked with finite data (V, including the first-order audit N20). Last, the method that follows (VI).
 
 ---
 
@@ -240,7 +256,7 @@ $$(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M
 ### IV · Optimizer state
 
 #### N11 · Cold-start Adam quotient and optimizer memory
-*Source:* Props. A2–A4, eqs. (A6)–(A10). *Uses:* N06, N10. *Used by:* N12.
+*Source:* Props. A2–A4, eqs. (A6)–(A10). *Uses:* N06, N10. *Used by:* N12, N19.
 
 **Proposition.** Consider bias-corrected Adam with $\epsilon$ outside the square root, started from a cold state $m_0=v_0=0$.
 
@@ -255,7 +271,7 @@ $$(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M
 [Proof](proofs/N11_adam_cold_start.md) · [Experiments](experiments/N11_adam_cold_start.md) · **proved**; V2–V4 PASS; E0–E3 confirm the C23 Adam gap is a cold-start optimizer effect
 
 #### N12 · Optimizer warmth switches the first-order feedback statistic
-*Source:* warm-Adam extension, Lemma W0, Props. W1–W2, Cor. W3. *Uses:* N05, N10, N11. *Used by:* N17.
+*Source:* warm-Adam extension, Lemma W0, Props. W1–W2, Cor. W3. *Uses:* N05, N10, N11. *Used by:* N17, N19.
 
 **Definitions.** The warmth of coordinate $i$ is $\kappa_i(y)=(1-\beta_2)G_i(y)^2/(\beta_2v_i)$, with $\kappa_i=\infty$ when $v_i=0$. The frozen-denominator surrogate $\tilde z^+$ is one momentum-SGD step with the fixed diagonal preconditioner $P=\operatorname{diag}(1/(a+\epsilon))$.
 
@@ -271,6 +287,44 @@ $$\big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac
 **Next.** The statistic that a feedback source must match switches with optimizer state. Cold Adam requires the joint sign law; warm Adam requires the mean preconditioned gradient. This predicts where the affine theory (N07–N10) applies to few-shot LoRA.
 
 [Proof](proofs/N12_optimizer_warmth.md) · [Experiments](experiments/N12_optimizer_warmth.md) · **proved** (finite-dimensional, explicit assumptions); E8 PASS
+
+#### N18 · Optimizer-transformed linear response (central theorem)
+*Source:* optimizer-transformed linear response, Theorems C1–C3 and §6. *Uses:* N05, N06, N10. *Used by:* N19, N20.
+
+**Setting.** The complete state is $x=(\theta,s)$, with $s$ the optimizer state (for example $m,v$). Any stateful first-order optimizer is an increment map $x^+=x+\Delta_t(x,G)$ of the consumed gradient $G$; clipping is included. The mean increment of a law $P$ is $\mu^P_t(x)=\mathbb E_P\,\Delta_t(x,G)$.
+
+**Theorem.** Assume the continuation is $C^{k+1}$ on the reachable segment (S$_k$).
+
+- **(C1)** One boundary:
+$$(K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).$$
+- **(C2)** Whole run:
+$$L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).$$
+  This gives a certificate in terms of $\lVert\mu^P_t-\mu^Q_t\rVert$, and a stopped version with $+\rho$.
+- **(C3)** Let $U=\operatorname{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace$. Matching $\Pi_U\mu$ is sufficient to first order. A mismatch is detected by some $V\in\mathcal V$ whenever its first-order term exceeds the remainder bound. The minimal number of first-order statistics is $d_0^{(1)}=\dim\operatorname{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace$; this is Theorem 8 applied to the linearized response class.
+- **(Hierarchy)** If two laws agree on $\mathbb E\Delta^{\otimes j}$ for $j\le k$, the per-round gap is at most $\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})$; for SGD this is $O(\eta^{k+1})$. The information order lives in the optimizer-transformed increment law, not in the raw data.
+
+**Next.** What a feedback law must carry is decided by the optimizer map $\Delta$. N19 computes it for the learners used in practice.
+
+[Proof](proofs/N18_optimizer_transformed_response.md) · [Experiments](experiments/N18_optimizer_transformed_response.md) · **proved**; V8 PASS; E10 confirms the representation on 10 optimizers (the C23 Adam gap $0.0769$ is predicted as $0.0757$)
+
+#### N19 · What each learner makes the feedback carry
+*Source:* optimizer-transformed linear response, Theorem C4(a)–(g). *Uses:* N11, N12, N18. *Used by:* N17.
+
+**Theorem (first-order statistic by learner).**
+
+| Learner | Statistic the feedback must match to first order |
+|---|---|
+| SGD | mean consumed gradient $\mathbb EG$ |
+| Heavy-ball, Nesterov | $\mathbb EG$, entering through both $\theta$ and $m$ |
+| Adam/AdamW, warm | $(\mathbb EG,\ \mathbb E\,G^{\odot2})$: preconditioned mean through $\theta,m$; second moment through $v$ |
+| Adam, cold step | sign law $\mathbb E\,h_\epsilon(G)$ in $\theta$; $\mathbb EG$ and $\mathbb E\,G^{\odot2}$ retained in $m,v$ |
+| Clipping (norm $c$) | clipped mean $\mathbb E\operatorname{clip}_c(G)$; if clipping is always active, the mean unit direction |
+| Lion / sign with momentum | flip probabilities; zero dependence in $\theta$ when momentum dominates |
+| LoRA at $B=0$ | step 1 leaves $A$ unchanged; the feedback enters only through the rank-$r$ sketch $\Gamma A_0^\top$, or its sign law under cold Adam |
+
+**Next.** Two feedback sources with the same mean gradient can therefore differ at first order. This happens under cold Adam, under clipping (different norm tails) and under warm Adam (different second moments). N20 shows how to measure the statistic.
+
+[Proof](proofs/N19_learner_statistics.md) · [Experiments](experiments/N19_learner_statistics.md) · **proved**; E11 PASS (five witnesses)
 
 ### V · Verification
 
@@ -313,6 +367,18 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 
 [Proof](proofs/N15_adaptive_audit.md) · [Experiments](experiments/N15_adaptive_audit.md) · **proved**; C16, C21, T13 PASS; E7 forecasts 559 replicas (empirical Bernstein)
 
+#### N20 · Measuring the first-order statistic at the actual states
+*Source:* optimizer-transformed linear response, Theorems C5–C6. *Uses:* N14, N15, N18. *Used by:* N17.
+
+**Theorem.**
+
+- **(C5)** Take bounded increments $\lVert X\rVert\le b$ in any dimension. Then $\lVert\bar X-\mu\rVert\le\tfrac b{\sqrt n}(1+\sqrt{2\log(1/\delta)})$ with probability $1-\delta$, and two-sample differences obey the analogous bound. At an actual state, the first-order part of the certificate therefore costs $n$ gradient evaluations per law and no training tail. The continuation constants $\Lambda_t$ and $M_{2,t}$ are calibrated separately by full-tail audits (N15).
+- **(C6)** If $\lvert\langle\nabla V(x),\mu^j-\mu^k\rangle\rvert>\tfrac{M_2}2(m_2^j+m_2^k)$, the first-order score ranks candidates $j$ and $k$ correctly. The run-level analogue holds as well.
+
+**Next.** A cheap statistic can rank providers only if three conditions hold. It must be the optimizer-transformed mean; it must be paired with the continuation gradient at the actual state; and it must be used where the margin dominates. Otherwise measured tails are required (N17).
+
+[Proof](proofs/N20_first_order_audit.md) · [Experiments](experiments/N20_first_order_audit.md) · **proved**; V9 PASS; E12: zero wrong signs above the margin
+
 ### VI · Mechanism and method
 
 #### N16 · Coupling width
@@ -329,15 +395,15 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 [Proof](proofs/N16_coupling_width.md) · [Experiments](experiments/N16_coupling_width.md) · **proved**; C17 PASS; C23(e) controlled neural
 
 #### N17 · Consequence-Calibrated Experience Distillation (CED)
-*Source:* §13 of v0.14.1, §6 of the addendum, §4 of the warm-Adam extension. *Uses:* N03, N12, N14, N15, N16.
+*Source:* §13 of v0.14.1, §6 of the addendum, §4 of the warm-Adam extension, §5 of the optimizer-transformed response. *Uses:* N03, N12, N14, N15, N16, N19, N20.
 
 **Derived design rules.** Each rule is a consequence of the cited nodes.
 
 1. *Acquire before compiling.* Facts that the $K$ demonstrations leave ambiguous must come from new permitted experiments. Replay and rewriting cannot supply them (N01, N02, N03).
 2. *Select by measured consequence.* A provider must be judged by its response under the actual update and a reference tail (N05). Teacher quality, policy value and mean gradient do not determine it (N04).
-3. *Record the optimizer state.* The statistic a provider must match is the joint sign law at a cold Adam state and the mean preconditioned gradient at a warm one (N11, N12). Responses are therefore measured at states whose warmth is recorded.
+3. *Match the learner's statistic, not the raw gradient.* A provider must match the optimizer-transformed mean increment of the actual learner (N18, N19), for example the clipped mean, the sign law at a cold Adam state, or the preconditioned mean and second moment at a warm one (N11, N12). Responses are therefore measured with the optimizer state and its warmth recorded.
 4. *Fit stable response models.* Response models are fitted under the bounded-coefficient objective of Thm. 18 (N13).
-5. *Account for coverage.* Selection uses audits with an explicit transport/exit term (N14), or lower confidence bounds at the actual states (N15).
+5. *Account for coverage, and use the first-order audit where it is valid.* Selection uses audits with an explicit transport/exit term (N14) or lower confidence bounds at the actual states (N15). Where the first-order margin dominates (N20), the optimizer-transformed score paired with the continuation gradient ranks correctly at the cost of gradient evaluations alone.
 6. *Freeze, then test transfer.* Method transfer and policy transfer are evaluated separately, with the selector frozen beforehand.
 
 **Established in the controlled learner (experiments page).**
@@ -345,6 +411,7 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 - Static update statistics (mean gradient, sign, $\Delta\theta$, $\Delta\theta$ with $m,v$) do not predict the full-tail response sign on held-out states (E6). Rule 2 therefore cannot be replaced by those statistics.
 - Measured short-tail responses select correctly across held-out states, $\epsilon$, learning rates and optimizer warmth. On threshold-type tasks short tails fail, and only the full tail is exact on every split (E6).
 - Moment warm-up reduces the differences between providers, but leaves static proxies non-predictive (E9).
+- Where the first-order margin holds, the oracle optimizer-transformed score makes no sign errors, while static proxies err about 36% of the time on the same rows. Outside the margin, measured tails are needed (E12, node N20).
 
 [Derivation](proofs/N17_ced_method.md) · [Experiments](experiments/N17_ced_method.md) · design rules **derived**; E6, E9 controlled findings
 
@@ -357,7 +424,8 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 | N01–N11, N13–N16 under their stated finite assumptions | Complete proofs; independent finite checks C1–C22 (C15 is the witness that the transport term is necessary), V1–V7, and package checks T01–T13 |
 | N12, the warm-Adam response bound in finite dimensions | Complete proof; E8 checks W0–W3 on 1.44M instances |
 | C23 Adam departures from the affine comparator are a cold-start optimizer effect | E1 and E2: the gap persists under a frozen Jacobian; five warm-moment steps reduce it from 0.077 to 0.003 |
-| Selection by measured response (N17, rules 2–3) | E6 and E9 in the controlled learner |
+| N18–N20, the optimizer-transformed linear response, catalog and first-order audit | Complete proofs; V8, V9 and E11 PASS. E10: every smooth optimizer's exact cells are within the bound, and the cold-Adam C23 gap is predicted to 1.6%. E12: zero wrong signs above the margin |
+| Selection by measured response (N17, rules 2–3) | E6, E9 and E12 in the controlled learner |
 
 ## 4. Reproducing the checks
 

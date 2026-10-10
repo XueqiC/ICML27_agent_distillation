@@ -61,7 +61,7 @@ Apply C1 with $k=1$ at each $X_t$ and sum. Measurability holds because $\mu$, $m
 - *First-moment block (momentum $m$).* $\Delta^m=O(1-\beta_1)$. The continuation depends on $m$ through later parameter increments, to leading order linearly, with coefficient $O(\eta/(1-\beta_1))$. Hence $\nabla^2_{mm}V=O(\eta^2/(1-\beta_1)^2)$, and the block's second-order contribution is $O(\eta^2)$.
 - *Second-moment block (Adam's $v$).* $\Delta^v=(1-\beta_2)(G^{\odot2}-v)$, and the continuation depends on $v$ through the denominators $(\hat v)^{-1/2}$ of later steps. Differentiating $(\hat v)^{-1/2}$ twice shows that, per coordinate, the second-order $v$ contribution is about $\Delta v_i/v_i^{\rm next}$ times the first-order one, where $v^{\rm next}$ is the second moment used by the next step. At a warm state this ratio is about the warmth $\kappa_i=(1-\beta_2)G_i^2/(\beta_2v_i)$ of node N12. This block's remainder is therefore first order in $\eta$ and second order in warmth. At the cold state the ratio is of order one, so the $v$-block term is not a small correction there.
 
-Consequently, the relative error of the first-order representation is $O(\eta)$ for SGD, momentum and sign-type optimizers, wherever S$_1$ holds. For Adam-type optimizers it is $O(\eta+\bar\kappa^2)$. Check E10 matches this: remainder slopes in $\eta$ are about 2 for every optimizer at $R=1$ and for SGD, momentum and sign at $R=4$, but about 1 for the Adam variants at $R=4$.
+Consequently, for SGD, momentum and sign-type optimizers the remainder is $O(\eta^2)$ wherever S$_1$ holds. For multi-round Adam-type optimizers it is first order in $\eta$, and its size relative to the first-order term is not small in general. Check E10 shows this. Remainder slopes in $\eta$ are about 2 for every optimizer at $R=1$, and for SGD, momentum and sign at $R=4$. They are about 1 for the Adam variants at $R=4$. On moment $N=3$ at $R=4$, the first-order term's relative error is 0.32–0.55 at every $\eta$, for cold Adam and after $W=5$ or $W=20$ warm-up. Warm-up reduces the absolute remainder. For Adam over several rounds, the first-order term is therefore reliable only where the margin condition C6 holds.
 
 **Smoothness scope.** With clipping or sign updates, a multi-step continuation is generally not smooth at states where some later gradient crosses the clip threshold or some later sign flips. There S$_1$ holds only on regions that avoid these kinks, for example when clipping is always active or momentum is flip-free. The catalog C4(e)–(f) computes $\mu$ exactly regardless. The remainder bound of C2 is claimed only where S$_1$ holds. In E10 the single exact-history cell that exceeds its empirical bound is multi-step clipped SGD.
 
@@ -75,7 +75,7 @@ $$\mathcal G^{(1)}_{t,x}=\big\{\,y\mapsto\langle\nabla V(x),D_t(x,y)\rangle:\ V\
 1. *Sufficiency.* If $\Pi_U(\mu^P-\mu^Q)=0$, then $\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)$ for every $V\in\mathcal V$.
 2. *Necessity.* If $\Pi_U(\mu^P-\mu^Q)\ne0$, some $V\in\mathcal V$ has $\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0$, and
 $$\lvert(K^P-K^Q)V(x)\rvert\ge\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).$$
-   Under the scaling of §2 the first term is $\Theta(\eta)$ and the second is $O(\eta^2)$, so the mismatch is detected for all sufficiently small $\eta$.
+   The mismatch is detected by that task whenever the first-order term exceeds the remainder bound. For SGD and momentum the first term is $\Theta(\eta)$ and the second is $O(\eta^2)$, so detection holds for all sufficiently small $\eta$. For multi-round Adam, use the margin condition C6.
 3. *Minimality.* On a finite message alphabet of size $m$, the minimal number of linear expectation statistics that determine every first-order term $\langle\nabla V(x),\mu^P-\mu^Q\rangle$, $V\in\mathcal V$, for all law pairs is
 $$d_0^{(1)}=\dim\operatorname{span}\big(\{1\}\cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\{\dim U,\ m-1\}.$$
 
@@ -152,7 +152,7 @@ then $\operatorname{sign}\big((K^{P_j}-K^{P_k})V(x)\big)=\operatorname{sign}\lan
 
 ## 6. Higher order: the optimizer-transformed moment hierarchy
 
-C1 with general $k$ gives the analogue of Theorems 11 and 17 for any optimizer. If two laws agree on $\mathbb E\Delta^{\otimes j}$ for $j\le k$ at the visited states, the per-round discrepancy is at most $\tfrac{M_{k+1}}{(k+1)!}(m_{k+1}^P+m_{k+1}^Q)$, which is $O(\eta^{k+1})$ under the scaling of §2.
+C1 with general $k$ gives the analogue of Theorems 11 and 17 for any optimizer. If two laws agree on $\mathbb E\Delta^{\otimes j}$ for $j\le k$ at the visited states, the per-round discrepancy is at most $\tfrac{M_{k+1}}{(k+1)!}(m_{k+1}^P+m_{k+1}^Q)$. For SGD this is $O(\eta^{k+1})$; E10 measures slope 3 when the first two moments match. For Adam's state blocks the rate in $\eta$ is not available in general.
 
 - For SGD these are the gradient moments, which is the classical case.
 - For cold Adam they are the moments of $h_\epsilon(G)$ in the parameter block. For $\epsilon\to0$ these are joint sign moments; the joint sign law is what A2 requires for the immediate output.

@@ -9,7 +9,9 @@
 - **证明**：完整推导。
 - **实验**：检验该节点的有限计算或受控实验，写明做这个实验的原因、设置和做法、得到的结果，以及结果如何支持该节点。
 
-**来源.** v0.14.1 主框架（`docs/direction/v015_revision/Environment_Information_Theory_EN.md`）、v0.15 优化器与 few-shot 附录（`.../Optimizer_State_and_Few_Shot_Theory_v015_EN.md`）和 warm-Adam 扩展（`docs/direction/v015_extension/Warm_Adam_Response_EN.md`）。文中 (14)、(A9) 这类式号均指这些文档里的编号。
+**中心结果.** N18–N20 是整个框架面向真实学习器的中心定理。在一阶意义下，反馈分布必须携带的信息是*优化器完整状态增量*的均值，而不是梯度均值。这个统计量在一阶意义下是充分的，并且在一阶效应占主导的地方也是必要的。对 SGD、momentum、Adam/AdamW（cold 与 warm）、梯度裁剪、sign/Lion 和 LoRA，都可以把它显式算出来，并且能在训练实际到达的状态上测量。
+
+**来源.** v0.14.1 主框架（`docs/direction/v015_revision/Environment_Information_Theory_EN.md`）、v0.15 优化器与 few-shot 附录（`.../Optimizer_State_and_Few_Shot_Theory_v015_EN.md`）、warm-Adam 扩展（`docs/direction/v015_extension/Warm_Adam_Response_EN.md`）和优化器变换后的线性 response（`docs/direction/v015_extension/Optimizer_Transformed_Linear_Response_EN.md`）。文中 (14)、(A9) 这类式号均指这些文档里的编号。
 
 **范围.** 本页每个陈述都在其所列假设下有完整证明，并通过了独立的有限计算或受控检验。证明都是有限维的，或者带有明确的正则性假设。实验是精确有限计算或受控小网络，不是真实模型或 benchmark 上的结果。
 
@@ -56,11 +58,14 @@ flowchart TD
   subgraph IV["IV · 优化器状态"]
     N11["N11 冷启动 Adam 商<br/>与优化器记忆"]
     N12["N12 优化器 warmth"]
+    N18["N18 优化器变换后的<br/>线性 response"]
+    N19["N19 各学习器要求反馈<br/>携带什么"]
   end
   subgraph V["V · 验证"]
     N13["N13 稳定性–近似<br/>权衡"]
     N14["N14 带 transport 的<br/>冻结 audit"]
     N15["N15 实际状态上的自适应 audit"]
+    N20["N20 实际状态上的<br/>一阶 audit"]
   end
   subgraph VI["VI · 机制与方法"]
     N16["N16 coupling width"]
@@ -79,9 +84,20 @@ flowchart TD
   N12 --> N17
   N15 --> N17
   N16 --> N17
+  N05 --> N18
+  N06 --> N18
+  N10 --> N18
+  N18 --> N19
+  N11 --> N19
+  N12 --> N19
+  N18 --> N20
+  N14 --> N20
+  N15 --> N20
+  N19 --> N17
+  N20 --> N17
 ```
 
-整条链的顺序是：先看学生能执行什么、数据能识别什么（I）；再看反馈对学习器做了什么（II）；然后看信息充分性要付出多少代价（III），以及实际优化器如何改变这个代价（IV）；接着看如何用有限数据检验充分性（V）；最后是由此推出的方法（VI）。
+整条链的顺序是：先看学生能执行什么、数据能识别什么（I）；再看反馈对学习器做了什么（II）；然后看信息充分性要付出多少代价（III），以及实际优化器如何改变这个代价（IV，含中心定理 N18–N19）；接着看如何用有限数据检验充分性（V，含一阶 audit N20）；最后是由此推出的方法（VI）。
 
 ---
 
@@ -240,7 +256,7 @@ $$(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M
 ### IV · 优化器状态
 
 #### N11 · 冷启动 Adam 的商与优化器记忆
-*来源：* Prop. A2–A4，式 (A6)–(A10)。*依赖：* N06、N10。*被用于：* N12。
+*来源：* Prop. A2–A4，式 (A6)–(A10)。*依赖：* N06、N10。*被用于：* N12、N19。
 
 **命题.** 考虑带 bias correction、$\epsilon$ 在根号外的 Adam，从冷状态 $m_0=v_0=0$ 出发。
 
@@ -255,7 +271,7 @@ $$(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M
 [证明](proofs/N11_adam_cold_start_ZH.md) · [实验](experiments/N11_adam_cold_start_ZH.md) · **已证明**；V2–V4 通过；E0–E3 确认 C23 中的 Adam gap 是冷启动优化器效应
 
 #### N12 · 优化器 warmth 切换一阶反馈统计量
-*来源：* warm-Adam 扩展，Lemma W0，Prop. W1–W2，Cor. W3。*依赖：* N05、N10、N11。*被用于：* N17。
+*来源：* warm-Adam 扩展，Lemma W0，Prop. W1–W2，Cor. W3。*依赖：* N05、N10、N11。*被用于：* N17、N19。
 
 **定义.** 坐标 $i$ 的 warmth 为 $\kappa_i(y)=(1-\beta_2)G_i(y)^2/(\beta_2v_i)$，$v_i=0$ 时记 $\kappa_i=\infty$。冻结分母的替代更新 $\tilde z^+$ 是一步带固定对角预条件子 $P=\operatorname{diag}(1/(a+\epsilon))$ 的 momentum SGD。
 
@@ -271,6 +287,44 @@ $$\big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac
 **下一步.** 反馈源需要匹配的统计量随优化器状态切换：冷 Adam 要匹配联合符号分布，warm Adam 要匹配平均预条件梯度。由此可以判断仿射理论（N07–N10）在 few-shot LoRA 上从哪里开始适用。
 
 [证明](proofs/N12_optimizer_warmth_ZH.md) · [实验](experiments/N12_optimizer_warmth_ZH.md) · **已证明**（有限维，假设明确）；E8 通过
+
+#### N18 · 优化器变换后的线性 response（中心定理）
+*来源：* 优化器变换后的线性 response，Theorem C1–C3 与 §6。*依赖：* N05、N06、N10。*被用于：* N19、N20。
+
+**设定.** 完整状态为 $x=(\theta,s)$，其中 $s$ 是优化器状态（如 $m,v$）。任何带状态的一阶优化器都可以写成 consumed gradient $G$ 的增量映射 $x^+=x+\Delta_t(x,G)$，裁剪也包含在内。分布 $P$ 的平均增量记为 $\mu^P_t(x)=\mathbb E_P\,\Delta_t(x,G)$。
+
+**定理.** 设延续值在可达线段上 $C^{k+1}$（S$_k$）。
+
+- **(C1)** 单边界：
+$$(K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).$$
+- **(C2)** 整次训练：
+$$L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).$$
+  由此得到以 $\lVert\mu^P_t-\mu^Q_t\rVert$ 表示的 certificate，以及带 $+\rho$ 的停时版本。
+- **(C3)** 令 $U=\operatorname{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace$。在一阶意义下，匹配 $\Pi_U\mu$ 就足够。若不匹配，只要某个 $V\in\mathcal V$ 的一阶项超过余项界，它就会检测到差异。一阶统计量的最小个数为 $d_0^{(1)}=\dim\operatorname{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace$，即把 Theorem 8 用于线性化后的 response 类。
+- **(层级)** 若两个分布在 $j\le k$ 时 $\mathbb E\Delta^{\otimes j}$ 都相等，则每轮差距至多为 $\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})$；对 SGD 来说就是 $O(\eta^{k+1})$。信息阶数由经优化器变换后的增量分布决定，而不是由原始数据决定。
+
+**下一步.** 反馈分布必须携带什么，完全由优化器映射 $\Delta$ 决定。N19 对实际常用的学习器把它算出来。
+
+[证明](proofs/N18_optimizer_transformed_response_ZH.md) · [实验](experiments/N18_optimizer_transformed_response_ZH.md) · **已证明**；V8 通过；E10 在 10 种优化器上确认了这一表示（C23 的 Adam gap $0.0769$ 被预测为 $0.0757$）
+
+#### N19 · 各学习器要求反馈携带什么
+*来源：* 优化器变换后的线性 response，Theorem C4(a)–(g)。*依赖：* N11、N12、N18。*被用于：* N17。
+
+**定理（各学习器的一阶统计量）.**
+
+| 学习器 | 反馈在一阶上必须匹配的统计量 |
+|---|---|
+| SGD | consumed gradient 的均值 $\mathbb EG$ |
+| Heavy-ball、Nesterov | $\mathbb EG$，同时经 $\theta$ 和 $m$ 起作用 |
+| Adam/AdamW（warm） | $(\mathbb EG,\ \mathbb E\,G^{\odot2})$：预条件均值经 $\theta$ 和 $m$ 起作用，二阶矩经 $v$ 起作用 |
+| Adam（cold 步） | $\theta$ 上是符号分布 $\mathbb E\,h_\epsilon(G)$；$m,v$ 中保留了 $\mathbb EG$ 与 $\mathbb E\,G^{\odot2}$ |
+| 梯度裁剪（范数 $c$） | 裁剪后的均值 $\mathbb E\operatorname{clip}_c(G)$；裁剪始终 active 时，只有平均单位方向起作用 |
+| Lion / 带动量的 sign 优化器 | 翻转概率；动量占优时，$\theta$ 上与反馈无关 |
+| LoRA（$B=0$ 时） | 第 1 步 $A$ 不动；反馈只经由秩 $r$ 的 sketch $\Gamma A_0^\top$ 进入（cold Adam 下是它的符号分布） |
+
+**下一步.** 由此可见，梯度均值相同的两个反馈源仍可能在一阶上不同：在 cold Adam 下，在裁剪下（范数尾部不同），以及在 warm Adam 下（二阶矩不同）都会发生。N20 讨论如何测量这个统计量。
+
+[证明](proofs/N19_learner_statistics_ZH.md) · [实验](experiments/N19_learner_statistics_ZH.md) · **已证明**；E11 通过（五个见证）
 
 ### V · 验证
 
@@ -313,6 +367,18 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 
 [证明](proofs/N15_adaptive_audit_ZH.md) · [实验](experiments/N15_adaptive_audit_ZH.md) · **已证明**；C16、C21、T13 通过；E7 的 empirical-Bernstein 预测为 559 个副本
 
+#### N20 · 在实际状态上测量一阶统计量
+*来源：* 优化器变换后的线性 response，Theorem C5–C6。*依赖：* N14、N15、N18。*被用于：* N17。
+
+**定理.**
+
+- **(C5)** 设增量有界，$\lVert X\rVert\le b$，维数任意。则以概率 $1-\delta$ 有 $\lVert\bar X-\mu\rVert\le\tfrac b{\sqrt n}(1+\sqrt{2\log(1/\delta)})$，两样本之差满足类似的界。因此在实际状态上，certificate 的一阶部分每个分布只需要 $n$ 次梯度计算，不需要训练尾段。延续值常数 $\Lambda_t$ 与 $M_{2,t}$ 要另外用全尾 audit 校准（N15）。
+- **(C6)** 若 $\lvert\langle\nabla V(x),\mu^j-\mu^k\rangle\rvert>\tfrac{M_2}2(m_2^j+m_2^k)$，一阶分数对候选 $j$、$k$ 的排序一定正确。整次训练层面也有同样的结论。
+
+**下一步.** 便宜的统计量要能给 provider 排对序，必须同时满足三个条件：它是经优化器变换后的均值；它要与实际状态上的延续值梯度配对；而且只在 margin 占优的地方使用。否则就需要实测的训练尾段（N17）。
+
+[证明](proofs/N20_first_order_audit_ZH.md) · [实验](experiments/N20_first_order_audit_ZH.md) · **已证明**；V9 通过；E12：margin 以上零判错
+
 ### VI · 机制与方法
 
 #### N16 · coupling width
@@ -329,15 +395,15 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 [证明](proofs/N16_coupling_width_ZH.md) · [实验](experiments/N16_coupling_width_ZH.md) · **已证明**；C17 通过；C23(e) 为受控神经网络实验
 
 #### N17 · Consequence-Calibrated Experience Distillation（CED）
-*来源：* v0.14.1 §13，附录 §6，warm-Adam 扩展 §4。*依赖：* N03、N12、N14、N15、N16。
+*来源：* v0.14.1 §13，附录 §6，warm-Adam 扩展 §4，优化器变换后的线性 response §5。*依赖：* N03、N12、N14、N15、N16、N19、N20。
 
 **推出的设计规则.** 每条规则都是所引节点的推论。
 
 1. *先获取，再编译.* $K$ 条示范没能确定的事实，必须来自新的、允许的实验，重放和改写都提供不了（N01、N02、N03）。
 2. *按实测后果选择.* 评判一个 provider，要看它在实际更新加参考尾段下的 response（N05）。teacher 质量、策略价值和平均梯度都决定不了这个 response（N04）。
-3. *记录优化器状态.* provider 需要匹配的统计量，在冷 Adam 状态下是联合符号分布，在 warm 状态下是平均预条件梯度（N11、N12）。因此测量 response 时要记录状态的 warmth。
+3. *匹配学习器的统计量，而不是原始梯度.* provider 必须匹配实际学习器的、经优化器变换后的平均增量（N18、N19），例如裁剪后的均值、cold Adam 状态下的符号分布、warm 状态下的预条件均值与二阶矩（N11、N12）。因此测量 response 时要记录优化器状态及其 warmth。
 4. *拟合稳定的 response 模型.* 在 Thm. 18 的有界系数目标下拟合 response 模型（N13）。
-5. *把覆盖算进去.* 选择时要么用带显式 transport/离开项的 audit（N14），要么在实际状态上用下置信界（N15）。
+5. *把覆盖算进去，并在适用处使用一阶 audit.* 选择时要么用带显式 transport/离开项的 audit（N14），要么在实际状态上用下置信界（N15）。在一阶 margin 占优的地方（N20），经优化器变换的分数配上延续值梯度就能排对序，代价只是梯度计算。
 6. *先冻结，再测迁移.* 选择器事先冻结，方法迁移和策略迁移分开评估。
 
 **在受控学习器中确立的事实（见实验页）.**
@@ -345,6 +411,7 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 - 在 held-out 状态上，静态更新统计量（平均梯度、符号、$\Delta\theta$、$\Delta\theta$ 加 $m,v$）预测不了全尾 response 的符号（E6）。因此规则 2 不能用这些统计量代替。
 - 实测的短尾 response 在 held-out 状态、$\epsilon$、学习率和优化器 warmth 变化下都能选对。在 threshold 型任务上短尾会选错，只有完整尾段在每个 split 上都准确（E6）。
 - moment warm-up 会缩小各 provider 之间的差别，但静态 proxy 仍然没有预测力（E9）。
+- 在一阶 margin 成立的行上，oracle 优化器变换分数零判错，而静态 proxy 在同样这些行上约有 36% 判错。margin 之外则需要实测的训练尾段（E12，节点 N20）。
 
 [推导](proofs/N17_ced_method_ZH.md) · [实验](experiments/N17_ced_method_ZH.md) · 设计规则**已推出**；E6、E9 为受控实验结论
 
@@ -357,7 +424,8 @@ $$\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\B
 | N01–N11、N13–N16 在各自所列有限假设下成立 | 完整证明；独立有限检验 C1–C22（其中 C15 是 transport 项必要性的见证）、V1–V7，以及包内检验 T01–T13 |
 | N12：有限维下的 warm-Adam response 界 | 完整证明；E8 在 1.44M 个实例上检验了 W0–W3 |
 | C23 中 Adam 相对仿射对照的偏离是冷启动优化器效应 | E1 与 E2：冻结 Jacobian 后 gap 仍在；用 5 步把矩热起来，gap 从 0.077 降到 0.003 |
-| 按实测 response 选择（N17 规则 2–3） | 受控学习器中的 E6 与 E9 |
+| N18–N20：优化器变换后的线性 response、各学习器统计量与一阶 audit | 完整证明；V8、V9、E11 通过。E10：所有光滑优化器的精确单元格都在界内，C23 的 cold-Adam gap 预测误差 1.6%。E12：margin 以上零判错 |
+| 按实测 response 选择（N17 规则 2–3） | 受控学习器中的 E6、E9 与 E12 |
 
 ## 4. 复现检验
 
