@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **18:4x CDT 10-10: central theorem added (user: "按照你的想法补上非平凡的中心定理…").** Optimizer-transformed linear
+  response (docs/direction/v015_extension/Optimizer_Transformed_Linear_Response_EN.md, a1566ce → corrected 5568846/db10cab):
+  C1 expansion in optimizer increments, C2 run-level representation + certificate, C3 sufficiency/necessity/minimality,
+  C4 catalog (SGD, momentum, warm/cold Adam(W), clipping, Lion, LoRA), C5 dimension-free estimation, C6 margin criterion.
+  Checks (Codex⑤, theory/v015_checks/otlr.py): V8/V9/E11 PASS; E10 INFO (smooth optimizers' exact cells within bound;
+  C23 cold-Adam gap 0.07691 predicted 0.07568, naive ≈0; multi-round Adam remainder first order in eta — first-order term
+  reliable only under the C6 margin); E12 INFO (0 wrong signs on 56 margin rows; static proxies 36% there; oracle 29%
+  outside). Framework nodes N18–N20 written (EN+ZH, db10cab). Codex⑥ (pid 3619094) drawing N18–N20 figures + polish.
+  theoretical_framework/ N01–N17 pushed f1200f0. User: "都做好了告诉我" → send one completion message.
 - **17:31 CDT 10-10: v0.15 A pilot SUBMITTED** on tree **c0b7b01** (Codex①+③ reviewed; clean-worktree CPU suite 1086 passed,
   5 env skips). scripts/ops_pilot_warm_1010.sh, out $B/reports/runs/pilot-warm-1010: 45476440 cold (save states 1–9), 45476441 mw32
   (moment warm-up 32), 45476442 lw32 (LR warm-up 32) — all K20 s0 main-table recipe 416,280 tokens, --log-warmth, 1×B200 32G 1h15;
