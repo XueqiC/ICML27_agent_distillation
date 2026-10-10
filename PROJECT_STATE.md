@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-- **15:03 CDT 10-10: user sent v0.15 revision** (Thm 19 erratum = v0.14.1 + optimizer-state/few-shot addendum + Followup). DONE ~16:xx:
+- **14:03 CDT 10-10: user sent v0.15 revision** (Thm 19 erratum = v0.14.1 + optimizer-state/few-shot addendum + Followup). DONE 14:35:
   verified (report docs/direction/2026-10-10_v015_verification_ZH.md; checks theory/v015_checks, commit 90ec27f/b8d79c4). C23 Adam gap =
   cold-start optimizer effect (frozen-Jacobian Adam reproduces it; warm m,v removes ~95%). Awaiting user: A micro-LoRA pilot plan (GPU) /
   B theory (warm-Adam lazy-regime response theorem; CPU).
