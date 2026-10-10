@@ -17,7 +17,7 @@ def test_v015_quick():
         env=env,cwd=here.parents[1],capture_output=True,text=True,timeout=300)
     assert output.exists(),process.stdout+process.stderr
     report=json.loads(output.read_text())
-    assert {r['id'] for r in report['groups']}=={*(f'V{i}' for i in range(1,8)),*(f'E{i}' for i in range(8))}
+    assert {r['id'] for r in report['groups']}=={*(f'V{i}' for i in range(1,8)),*(f'E{i}' for i in range(10))}
     failures=[r['id'] for r in report['groups'] if r['status']=='FAIL']
     assert not failures,json.dumps(report['counterexamples'],indent=2)
     assert process.returncode==0,process.stdout+process.stderr

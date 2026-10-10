@@ -1,33 +1,45 @@
 Independent v0.15 | master seed 150150 | quick=False
 START V1
-V1 PASS | old bound 0.02960414 < gap 1; best A4 ratio 1 | 4.70s
+V1 legacy data byte-identical=True
+V1 PASS | old bound 0.02960414 < gap 1; best A4 ratio 1 | 6.32s
 START V2
-V2 PASS | 300 quotient alphabets; inverse derivative reaches 10000000000000000000000 | 1.36s
+V2 legacy data byte-identical=True
+V2 PASS | 300 quotient alphabets; inverse derivative reaches 10000000000000000000000 | 1.93s
 START V3
-V3 PASS | largest A9 gap/bound 0.994079 | 0.91s
+V3 legacy data byte-identical=True
+V3 PASS | largest A9 gap/bound 0.994079 | 1.32s
 START V4
-V4 PASS | opposite-step witnesses on 80% of beta grid | 0.07s
+V4 legacy data byte-identical=True
+V4 PASS | opposite-step witnesses on 80% of beta grid | 0.10s
 START V5
-V5 PASS | 100 transcript families; strict Jensen 1/2 > 0 | 4.88s
+V5 legacy data byte-identical=True
+V5 PASS | 100 transcript families; strict Jensen 1/2 > 0 | 7.58s
 START V6
-V6 PASS | best A15 tightness ratio 1 | 2.84s
+V6 legacy data byte-identical=True
+V6 PASS | best A15 tightness ratio 1 | 4.62s
 START V7
-V7 PASS | linear witness: 65/32 > 1 | 0.24s
+V7 legacy data byte-identical=True
+V7 PASS | linear witness: 65/32 > 1 | 0.38s
 START E0
-E0 PASS | R=1: gap 0.076907458; R=4: gap 0.119610952 | 0.33s
+E0 legacy data byte-identical=True
+E0 PASS | R=1: gap 0.076907458; R=4: gap 0.119610952 | 0.51s
 START E1
-E1 PASS | 110 ablation cells; max relative map error 2.1e-15 | 1.32s
+E1 legacy data byte-identical=True
+E1 PASS | 110 ablation cells; max relative map error 2.1e-15 | 1.90s
 START E3
-E3 PASS | 2 neural epsilon-grid witnesses | 0.13s
+E3 legacy data byte-identical=True
+E3 PASS | 2 neural epsilon-grid witnesses | 0.18s
 START E2
 E2 completed moment N=2
 E2 completed moment N=3
 E2 completed moment N=4
 E2 completed parity N=2
 E2 completed parity N=3
-E2 INFO | 39/45 frozen-Adam gaps persist | 14.60s
+E2 legacy data byte-identical=True
+E2 INFO | 39/45 frozen-Adam gaps persist | 18.84s
 START E4
-E4 INFO | 36/40 anchor prediction failures at 0.001 | 0.26s
+E4 legacy data byte-identical=True
+E4 INFO | 36/40 anchor prediction failures at 0.001 | 0.40s
 START E5
 E5 completed m=4 q=uniform w=uniform
 E5 completed m=4 q=uniform w=nonuniform
@@ -41,7 +53,8 @@ E5 completed m=16 q=uniform w=uniform
 E5 completed m=16 q=uniform w=nonuniform
 E5 completed m=16 q=nonuniform w=uniform
 E5 completed m=16 q=nonuniform w=nonuniform
-E5 PASS | 944 exact K/query cells; replay gain zero | 18.53s
+E5 legacy data byte-identical=True
+E5 PASS | 944 exact K/query cells; replay gain zero | 24.44s
 START E6
 E6 completed held_out_states
 E6 completed held_out_task
@@ -50,7 +63,30 @@ E6 completed held_out_lr
 E6 completed held_out_epsilon_lr
 E6 completed fresh_to_warm
 E6 completed warm_to_fresh
-E6 INFO | 432 held-out rows; 38 proxy/split failures to beat best simple control | 1.14s
+E6 legacy data byte-identical=True
+E6 INFO | 432 held-out rows; 38 proxy/split failures to beat best simple control | 1.46s
 START E7
-E7 INFO | Hoeffding n=1016; pilot empirical-Bernstein forecast n=559 | 0.29s
-Completed in 54.51s; 0 unexpected failures
+E7 legacy data byte-identical=True
+E7 INFO | Hoeffding n=1016; pilot empirical-Bernstein forecast n=559 | 0.33s
+START E8
+E8 W0 best ratio 1
+E8 W1 PASS on 2496 law pairs
+E8 warmth trajectories completed moment N=2
+E8 warmth trajectories completed moment N=3
+E8 warmth trajectories completed moment N=4
+E8 warmth trajectories completed parity N=2
+E8 warmth trajectories completed parity N=3
+E8 gap sweep completed moment N=2
+E8 gap sweep completed moment N=3
+E8 gap sweep completed moment N=4
+E8 gap sweep completed parity N=2
+E8 gap sweep completed parity N=3
+E8 PASS | W0 best ratio 1; W1 PASS on 2496 law pairs; 210 gap cells | 37.13s
+START E9
+E9 paired held_out_states completed
+E9 paired held_out_task completed
+E9 paired held_out_epsilon completed
+E9 paired held_out_lr completed
+E9 paired held_out_epsilon_lr completed
+E9 INFO | 918 held-out rows; 0/8 cheap proxy/W pairs improve all three split-mean metrics | 2.97s
+Completed in 118.97s; 0 unexpected failures
