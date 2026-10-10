@@ -1,0 +1,326 @@
+{
+  "version": "0.13",
+  "seed": 2026100913,
+  "runtime": {
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0"
+  },
+  "scope": "Exact finite constructions and limited numerical audits; no LLM, WM post-training or real-agent experiment.",
+  "regret_decomposition": {
+    "total_regret": 0.45799999999999996,
+    "representation_term": 0.09999999999999987,
+    "information_term": 0.17500000000000004,
+    "algorithm_term": 0.18300000000000005,
+    "identity_residual": 0.0,
+    "data_Bayes_value": 0.675,
+    "postprocessed_Bayes_value": 0.6562000000000001
+  },
+  "perfect_teacher_information_gap": {
+    "Delta": 0.1,
+    "teacher_value_both_worlds": 1.0,
+    "demonstration_law": "s uniform; teacher action matches s; observed reward always one",
+    "student_class_optimum": 0.85,
+    "representation_floor_against_teacher": 0.15,
+    "passive_information_minimax_regret": 0.1,
+    "behavior_cloning_value": 0.75,
+    "policy_values": [
+      {
+        "p": 0.0,
+        "J_plus": 0.65,
+        "J_minus": 0.85
+      },
+      {
+        "p": 0.25,
+        "J_plus": 0.7,
+        "J_minus": 0.8
+      },
+      {
+        "p": 0.5,
+        "J_plus": 0.75,
+        "J_minus": 0.75
+      },
+      {
+        "p": 0.75,
+        "J_plus": 0.8,
+        "J_minus": 0.7
+      },
+      {
+        "p": 1.0,
+        "J_plus": 0.85,
+        "J_minus": 0.65
+      }
+    ],
+    "active_branch_query": "reset to state 1, execute teacher-dispreferred action 0",
+    "per_query_KL": 0.33891914415488145,
+    "expected_query_lower_bound_exact": 7.818959557028694,
+    "expected_query_lower_bound_simplified": 4.140617314452805,
+    "fixed_query_upper_budget": 38,
+    "exact_error_plus": 0.007614833395725717,
+    "exact_error_minus": 0.0029321173086665625,
+    "synthetic_compile_samples": 141,
+    "target_smoothing_tau": 0.125,
+    "branch_failure_budget": 0.05,
+    "compile_failure_budget": 0.025,
+    "joint_success_probability_lower_bound": 0.9249999999999999,
+    "compile_probability_radius": 0.12465593263618359,
+    "certified_compiled_regret": 0.049931186527236715,
+    "scope": "Fixed two-world query interface; known gap; synthetic target labels after identifying sign."
+  },
+  "evaluation_learning_separation": {
+    "all_student_policy_values": "J_E(p)=J_S(p)=1/2+p/20 for every p in [0,1]",
+    "optimal_teacher_value_both": 0.6,
+    "teacher_A_frequency_real": 0.75,
+    "teacher_A_frequency_source": 0.25,
+    "real_trained_student_value": 0.5375,
+    "source_trained_student_value": 0.5125,
+    "learning_loss": 0.025,
+    "scope": "Exact stationary student-class values, plus optimal teacher value; not full Bellman equivalence."
+  },
+  "learning_process_identity": {
+    "cases": 40,
+    "max_identity_residual": 1.5265566588595902e-16,
+    "examples": [
+      {
+        "actual_gap": -0.07980318980040968,
+        "signed_terms": [
+          0.006991215387197544,
+          0.00918793038885177,
+          0.020095175779704703,
+          -0.11607751135616379
+        ],
+        "sum_of_absolute_terms": 0.1523518329119178
+      }
+    ],
+    "scope": "Finite learning-state kernels, not a claim that value-to-go is cheaply observable."
+  },
+  "mean_update_counterexample": {
+    "eta": 0.6,
+    "expected_updated_parameter_both": 0.5,
+    "final_value_real": 0.29500000000000004,
+    "final_value_source": 0.25,
+    "loss": 0.04500000000000004,
+    "predicted_covariance_effect": 0.045,
+    "variance_real": 0.045000000000000005,
+    "variance_source": 0.0,
+    "scope": "Two teacher action labels per batch; identical one-label marginals and mean squared-loss gradient."
+  },
+  "minimal_linear_information": {
+    "required_linear_expectation_statistics": 2,
+    "matched_reduced_statistics_residual": 2.7755575615628914e-17,
+    "omitted_continuation_test_discrepancy": 0.39999999999999997,
+    "full_event_family_discrepancy": 0.39999999999999997,
+    "TV": 0.3999999999999999,
+    "not_claimed": "bit complexity, neural parameter count, or general query sample complexity"
+  },
+  "finite_calibration_certificate": {
+    "training_rounds": 3,
+    "states": 4,
+    "candidates": 3,
+    "tests": 2,
+    "real_queries": 49152,
+    "synthetic_queries": 147456,
+    "selected_candidate": 0,
+    "estimated_local_discrepancies": [
+      0.0075683593749999445,
+      0.0703125,
+      0.0224609375
+    ],
+    "true_local_discrepancies": [
+      0.0,
+      0.07206934547107585,
+      0.014413869094215142
+    ],
+    "real_radius": 0.0303786336903153,
+    "synthetic_radius": 0.032511064736246584,
+    "actual_max_learning_value_error": 0.0,
+    "certified_error_upper_bound": 0.2113741734046855,
+    "scope": "One finite audit with exact continuation tests and an exact reference candidate as positive control."
+  },
+  "interaction_moment_hierarchy": {
+    "sharp_orders": [
+      {
+        "deployment_horizon": 2,
+        "matched_through_order": 1,
+        "max_lower_moment_residual": 0.0,
+        "first_unmatched_moment": 0.25,
+        "exposure_checks": [
+          {
+            "independent_blocks": 1,
+            "actual_learning_gap": 0.25,
+            "exact_prediction": 0.25
+          },
+          {
+            "independent_blocks": 2,
+            "actual_learning_gap": 0.125,
+            "exact_prediction": 0.125
+          },
+          {
+            "independent_blocks": 4,
+            "actual_learning_gap": 0.0625,
+            "exact_prediction": 0.0625
+          },
+          {
+            "independent_blocks": 16,
+            "actual_learning_gap": 0.015625,
+            "exact_prediction": 0.015625
+          }
+        ]
+      },
+      {
+        "deployment_horizon": 3,
+        "matched_through_order": 2,
+        "max_lower_moment_residual": 0.0,
+        "first_unmatched_moment": -0.05555555555555561,
+        "exposure_checks": [
+          {
+            "independent_blocks": 1,
+            "actual_learning_gap": -0.05555555555555561,
+            "exact_prediction": -0.05555555555555561
+          },
+          {
+            "independent_blocks": 2,
+            "actual_learning_gap": -0.013888888888888902,
+            "exact_prediction": -0.013888888888888902
+          },
+          {
+            "independent_blocks": 4,
+            "actual_learning_gap": -0.0034722222222222376,
+            "exact_prediction": -0.0034722222222222255
+          },
+          {
+            "independent_blocks": 16,
+            "actual_learning_gap": -0.00021701388888888812,
+            "exact_prediction": -0.0002170138888888891
+          }
+        ]
+      },
+      {
+        "deployment_horizon": 4,
+        "matched_through_order": 3,
+        "max_lower_moment_residual": 0.0,
+        "first_unmatched_moment": 0.01171875,
+        "exposure_checks": [
+          {
+            "independent_blocks": 1,
+            "actual_learning_gap": 0.01171875,
+            "exact_prediction": 0.01171875
+          },
+          {
+            "independent_blocks": 2,
+            "actual_learning_gap": 0.00146484375,
+            "exact_prediction": 0.00146484375
+          },
+          {
+            "independent_blocks": 4,
+            "actual_learning_gap": 0.00018310546875,
+            "exact_prediction": 0.00018310546875
+          },
+          {
+            "independent_blocks": 16,
+            "actual_learning_gap": 2.86102294921875e-06,
+            "exact_prediction": 2.86102294921875e-06
+          }
+        ]
+      },
+      {
+        "deployment_horizon": 5,
+        "matched_through_order": 4,
+        "max_lower_moment_residual": 8.326672684688674e-17,
+        "first_unmatched_moment": -0.0023999999999999716,
+        "exposure_checks": [
+          {
+            "independent_blocks": 1,
+            "actual_learning_gap": -0.0023999999999999716,
+            "exact_prediction": -0.0023999999999999716
+          },
+          {
+            "independent_blocks": 2,
+            "actual_learning_gap": -0.00014999999999999823,
+            "exact_prediction": -0.00014999999999999823
+          },
+          {
+            "independent_blocks": 4,
+            "actual_learning_gap": -9.375000000000106e-06,
+            "exact_prediction": -9.374999999999889e-06
+          },
+          {
+            "independent_blocks": 16,
+            "actual_learning_gap": -3.662109374942676e-08,
+            "exact_prediction": -3.6621093749999567e-08
+          }
+        ]
+      }
+    ],
+    "nonlinear_update_boundary": {
+      "deployment_horizon": 1,
+      "mean_both": 0.5,
+      "threshold_update_value_source_1": 0.6666666666666666,
+      "threshold_update_value_source_2": 0.0
+    },
+    "scope": "IID complete experience blocks; fixed affine averaging; deployment success p^order. Replayed copies do not increase independent block count."
+  },
+  "joint_moment_affine_check": {
+    "task": "J(p)=p1*p2+(1-p1)*p1",
+    "blocks": 3,
+    "fixed_weights": [
+      0.1,
+      0.2,
+      0.3,
+      0.4
+    ],
+    "matched_coordinate_means": true,
+    "max_moment_error_through_order_2": 0.04999999999999999,
+    "actual_learning_gap": 0.014499999999999846,
+    "exact_covariance_prediction": 0.014500000000000002,
+    "C_J": 5.0,
+    "certified_bound": 0.24999999999999994,
+    "scope": "Exact enumeration of all complete block combinations; joint dependence differs."
+  },
+  "polynomial_update_information_degree": {
+    "construction": "p1=Z; p_i=p_(i-1)^2; terminal J(p)=p",
+    "cases": [
+      {
+        "deployment_decisions": 1,
+        "updates": 2,
+        "necessary_moment_order_for_this_pair": 2,
+        "matched_through_order": 1,
+        "exact_gap_fraction": "1/4",
+        "gap": 0.25
+      },
+      {
+        "deployment_decisions": 1,
+        "updates": 3,
+        "necessary_moment_order_for_this_pair": 4,
+        "matched_through_order": 3,
+        "exact_gap_fraction": "3/256",
+        "gap": 0.01171875
+      },
+      {
+        "deployment_decisions": 1,
+        "updates": 4,
+        "necessary_moment_order_for_this_pair": 8,
+        "matched_through_order": 7,
+        "exact_gap_fraction": "315/16777216",
+        "gap": 1.8775463104248047e-05
+      },
+      {
+        "deployment_decisions": 1,
+        "updates": 5,
+        "necessary_moment_order_for_this_pair": 16,
+        "matched_through_order": 15,
+        "exact_gap_fraction": "638512875/18446744073709551616",
+        "gap": 3.4613852311748267e-11
+      }
+    ],
+    "scope": "A permitted polynomial learner family, not a statement that neural optimizers typically require exponential order."
+  },
+  "plot_artifacts": {
+    "files": [
+      "/home/xueqi/hq/projects/ICML27_agent_distillation/theory/v014_repro/information_order_checks_v013.png",
+      "/home/xueqi/hq/projects/ICML27_agent_distillation/theory/v014_repro/information_order_checks_v013.svg"
+    ],
+    "matplotlib": "3.10.8",
+    "caption": "Exact finite constructions; no empirical neural-agent claim."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "output": "/home/xueqi/hq/projects/ICML27_agent_distillation/theory/v014_repro/results_v014_rerun.json",
+  "all_assertions_passed": true,
+  "primal_dual_residual": 8.881784197001252e-16,
+  "parity_orders_checked": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "exact_decay_cases": 20,
+  "neural_training_performed": false
+}
+$R/theory/.venv/bin/python verify_environment_information_v014.py --output    17.31s user 0.44s system 594% cpu 2.988 total
