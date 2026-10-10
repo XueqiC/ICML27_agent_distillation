@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate N01–N17 using committed evidence and exact specified examples.
+"""Regenerate N01–N20 using committed evidence and exact specified examples.
 
 Run from the repository root with:
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/make_figures.py
@@ -17,6 +17,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 import sys
@@ -69,6 +70,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle
 from matplotlib.colors import Normalize
+from matplotlib.text import Text
 
 # One style block. Every categorical artist receives an explicit color; the
 # default cycle contains only black, so an accidental implicit color is obvious.
@@ -104,7 +106,8 @@ BASENAMES = (
     'N01_decomposition', 'N02_queries', 'N03_floor', 'N04_static_vs_learning',
     'N05_response', 'N06_duality', 'N07_moment_order', 'N08_rates',
     'N09_approximation', 'N10_regime', 'N11_cold_adam', 'N12_warmth',
-    'N13_stability', 'N14_transport', 'N15_adaptive_audit', 'N16_coupling', 'N17_selection')
+    'N13_stability', 'N14_transport', 'N15_adaptive_audit', 'N16_coupling', 'N17_selection',
+    'N18_linear_response', 'N19_learner_statistics', 'N20_first_order_audit')
 FAMILIES = ('scalar affine powers', 'multivariate parity pullbacks', 'structured sum powers')
 FAMILY_NAMES = ('scalar affine powers', 'parity pullbacks', 'structured sum powers')
 PROXIES = ('input_moment_error', 'mean_gradient', 'sign_only', 'first_delta',
@@ -154,6 +157,7 @@ class Evidence:
         self.neural = self.documents['I']['controlled_neural']['details']
         self.captions = {}
         self.notes = []
+        self.audits = {}
 
     def c(self, id):
         return self.claims[id]['details']
@@ -174,7 +178,7 @@ def figure(n, size, footer='Exact finite computations.'):
 
 def title(ax, text, width=43):
     # Wrapping changes no title words; leave math expressions intact.
-    ax.set_title(text if '$' in text else textwrap.fill(text, width), pad=10)
+    ax.set_title(text if '$' in text else '\n'.join(textwrap.fill(line,width) for line in text.split('\n')), pad=10)
 
 
 def labels(ax, x, y):
@@ -203,11 +207,14 @@ def handle(color, text, marker=None, ls='-'):
 
 def group_title(fig, left, right, text):
     """A shared title for two ordinary constrained-layout axes (no dual axis)."""
-    left.set_title(text,fontsize=10,pad=10)
-    right.set_title(' ',fontsize=10,pad=10)
-    fig.canvas.draw()
-    p,q=left.get_position(),right.get_position()
-    left.title.set_x(((p.x0+q.x1)/2-p.x0)/p.width)
+    spacer='\n'.join(' ' for _ in text.split('\n'))
+    left.set_title(spacer,fontsize=10,pad=10)
+    right.set_title(spacer,fontsize=10,pad=10)
+    shared=fig.text(0,0,text,ha='center',va='bottom',fontsize=10)
+    shared.set_in_layout(False)
+    # Place after layout. An off-centre Axes title would make constrained_layout
+    # reserve the shared title's width against just the narrow left subpanel.
+    fig._shared_titles=getattr(fig,'_shared_titles',[])+[(left,right,shared)]
 
 
 def n01(d):
@@ -248,7 +255,7 @@ def n01(d):
     c.plot(weight, float(scale)*np.maximum(weight, 1-weight), color=BLUE, label='worst-case regret (primal)')
     c.plot(weight, float(scale)*np.minimum(weight, 1-weight), '--', color=ORANGE, label='dual objective')
     c.plot(j['policy_mixture'][0], j['primal_regret'], 'o', color=BLACK)
-    note(c, f"primal = dual = {j['primal_regret']:g}\n(JSON: robust_ambiguity_minimax)", x=.14, y=.98)
+    note(c, f"primal = dual = {j['primal_regret']:g}\n(committed robust ambiguity check)", x=.14, y=.98)
     labels(c, 'mixture weight', 'regret'); title(c, '(c) Minimax duality'); legend(c)
     d.captions['N01'] = ('N01. (a) Exact regret decomposition for four learners on one finite problem: the learner changes only the algorithm term. '
         '(b) Garbling the transcript never lowers the information term; monotone: a garbling can only raise the information term (Prop. 1.4). '
@@ -302,7 +309,7 @@ def n03(d):
           ('active',0,BLACK,'-','K demonstrations only')]:
         rr = sorted(only(rows, queries=queries), key=lambda r:r['K'])
         name = name.format(q=rr[0]['queries'], gain=number(rr[0]['replay_gain']))
-        if queries==0:name+=f', {F(1,2)}({1-F(rr[0]["q"][0])})^K'
+        if queries==0:name+=rf', $({F(1,2)})({1-F(rr[0]["q"][0])})^K$'
         # Wider dotted line keeps replay visible underneath the coincident baseline.
         a.plot(array(rr,'K'), np.maximum(array(rr,key), 1e-6), color=col, ls=ls,
                lw=2 if key=='replay' else 1.5, marker='s' if key=='replay' else None,
@@ -357,9 +364,9 @@ def n04(d):
         rr = [one(d.neural['configurations'],task=t,optimizer=o,step_size=e,updates=updates) for t,o,e in groups]
         require(all(r['neural_gap'] > 0 for r in rr),'N04 nonpositive neural gap on log axis')
         c.bar(np.arange(len(groups))+(j-.5)*.37,array(rr,'neural_gap'),width=.35,color=col,label=f'R={rr[0]["updates"]}')
-    c.set_xticks(np.arange(len(groups)),[f'{t}\n{o} {e:g}' for t,o,e in groups],rotation=65,ha='right')
+    c.set_xticks(np.arange(len(groups)),[f'{t}\n{o}\n{e:g}' for t,o,e in groups],fontsize=8)
     c.set_yscale('log'); labels(c,'configuration','trained-student return gap (log)')
-    title(c,'(c) controlled neural, not Gemma, not an external benchmark'); legend(c,ncol=2,y=-.62)
+    title(c,'(c) C23: trained-student gaps (controlled network)'); legend(c,ncol=2,y=-.43)
     d.captions['N04'] = (f'N04. (a) Identical static values for every aliased student, but frequency distillation yields {returns[0]} vs {returns[1]}. '
         '(b) Identical mean updates, but a curvature-dependent gap ±η²/8. (c) In a real tanh network, the statically equivalent sources still give different trained students '
         f'(exact enumeration, R ≤ {max(r["updates"] for r in rr)}).')
@@ -390,7 +397,7 @@ def n05(d):
     a.bar(range(len(contributions)),list(map(float,contributions)),color=[BLUE if v>=0 else ORANGE for v in contributions])
     a.axhline(float(total),color=BLACK,label=f'final gap = {float(total):.6f}')
     a.axhline(float(bound),color=GRAY,ls='--',label=f'bound (15) = {float(bound):.6f}')
-    note(a,f'Σ c_t = L(0) − L(S) exactly\n{float(sum(contributions)):.6f} = {float(total):.6f}',y=.39)
+    note(a,r'$\sum_t c_t = L(0) - L(S)$ exactly'+f'\n{float(sum(contributions)):.6f} = {float(total):.6f}',y=.39)
     labels(a,'round t','drift contribution'); title(a,'(a) Telescoping on a 3-state process'); legend(a)
     p,q = rational(['1/2',0,'1/2']),rational([0,1,0])
     responses = rational([[1,1,1],[0,'1/2',1],[0,0,1]])
@@ -399,7 +406,7 @@ def n05(d):
     b.set_xticks(range(len(responses)),['g₁','g₂','g₃\nseparating intervention'])
     labels(b,'response','expected final return'); title(b,'(b) One-boundary equivalence (16)'); legend(b,ncol=2)
     c.bar(range(len(cancellation)),list(map(float,cancellation)),color=[ORANGE,BLUE]); c.axhline(0,color=GRAY)
-    note(c,f'final gap = {gap}, Σ|drift| = {absolute}\nJSON: claims[C4].details.\ncancellation_absolute_drift',y=.97)
+    note(c,f'final gap = {gap}, Σ|drift| = {absolute}\nC4: committed cancellation witness',y=.97)
     c.set_xticks(range(len(cancellation))); labels(c,'round','drift'); title(c,'(c) Cancellation witness')
     d.captions['N05'] = ('N05. (a) The learning-value gap equals the occupancy-weighted sum of per-round response discrepancies (14), bounded by their absolute sum (15). '
         '(b) Two laws are interchangeable for one-boundary replacements exactly when they agree on every response (16). '
@@ -425,7 +432,7 @@ def n06(d):
                 a.plot(float(xx)+shift,-.60+.18*float(mass),'o',color=col)
                 a.text(float(xx)+shift,-.64,str(mass),ha='center',va='top',color=col)
     a.axhline(-.60,color=GRAY,lw=.5); a.set_ylim(-.76,1.1)
-    note(a,f'E_P φ = E_Q φ = {p@y}\n(P−Q)g = {(p-q)@g} = {int(2*error/error)}·dist∞',x=.02,y=.97)
+    note(a,rf'$E_P\varphi = E_Q\varphi = {p@y}$'+f'\n(P−Q)g = {(p-q)@g} = {int(2*error/error)}·dist∞',x=.02,y=.97)
     labels(a,'message y','value'); title(a,'(a) Worst matched pair attains 2·dist')
     legend(a,[handle(BLACK,'g(y) = y²'),handle(BLUE,f'h*(y), band ±{error}'),handle(ORANGE,'P mass','o'),handle(GREEN,'Q mass','o')],ncol=2)
     residuals=[]
@@ -451,8 +458,8 @@ def n07(d):
     fig,(a,b,c)=figure(3,(13,4.2))
     a.semilogy(array(scalar,'N'),abs(array(scalar,'delta')),color=BLUE,marker='o',label='scalar witness (26):\nlower moments equal')
     a.semilogy(array(parity,'N'),array(parity,'exact_value_gap'),color=ORANGE,marker='s',label='parity witness (27):\nall degree < N moments equal')
-    a.semilogy(array(scalar,'N'),list(map(float,closed)),color=BLACK,ls='--',label='N! / (2^(N−1) N^N)')
-    labels(a,'order N','learning-value gap |E_P J − E_Q J|'); title(a,'(a) Each order is needed'); legend(a)
+    a.semilogy(array(scalar,'N'),list(map(float,closed)),color=BLACK,ls='--',label=r'$N!/(2^{N-1}N^N)$')
+    labels(a,'order N',r'learning-value gap $|E_P J - E_Q J|$'); title(a,'(a) Each order is needed'); legend(a)
     ranks=c9['grid_ranks']; ks=sorted({r['k'] for r in ranks}); exact=0
     for i,k in enumerate(ks):
         rr=only(ranks,k=k); counts=[math.comb(k+r['N'],r['N']) for r in rr]
@@ -468,12 +475,12 @@ def n07(d):
         c.scatter(array(rr,'d'),array(rr,'width'),color=COLORS[i],marker=MARKERS[i],s=24,label=f'k={k}')
         c.scatter([full],[0],facecolors='none',edgecolors=COLORS[i],marker='o',s=40)
     c.set_xlim(-.25,maxd+.3); c.set_ylim(-.08,1.1)
-    labels(c,'number of nonconstant features d','worst-pair discrepancy'); title(c,'(c) Fewer than 2^k − 1 features: error 1')
+    labels(c,'number of nonconstant features d','worst-pair discrepancy'); title(c,r'(c) Fewer than $2^k - 1$ features: error 1')
     handles,_=c.get_legend_handles_labels(); handles.append(Line2D([],[],color=GRAY,marker='o',mfc='none',ls='',label='full interface\n(C9 assertion, PASS)'))
     legend(c,handles,ncol=2)
     d.captions['N07']=(f'Theorems 11–13 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); '
         f'parity laws keep gap {number(parity[0]["exact_value_gap"]):g} (package check). (b) the monomial evaluation rank on the grid equals C(k+N, N) '
-        f'in all {len(ranks)} configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2^k − 1 features leaves worst-case error 1 (C9).')
+        f'in all {len(ranks)} configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2ᵏ − 1 features leaves worst-case error 1 (C9).')
     return fig
 
 
@@ -484,12 +491,12 @@ def n08(d):
         rr=sorted(only(curves,family=family,N=N),key=lambda r:r['exposure']); x=array(rr,'exposure')
         for key,ls in [('iid_gap','-'),('replay_gap','--'),('descendant_gap',':')]:
             a.plot(x,abs(array(rr,key)),color=COLORS[i],ls=ls,marker=MARKERS[i] if key=='iid_gap' else None,
-                   label=f'{family} N={N}' if key=='iid_gap' else None)
+                   label=rf'{family} $N={N}$' if key=='iid_gap' else None)
         if family=='scalar':
             slope=math.log(abs(number(rr[-1]['iid_gap'])/number(rr[0]['iid_gap'])))/math.log(x[-1]/x[0])
             a.annotate(f'slope {slope:.0f}',xy=(x[-2],abs(number(rr[-2]['iid_gap']))),xytext=(-36,7),textcoords='offset points',color=COLORS[i])
-    a.set_xscale('log'); a.set_yscale('log'); labels(a,'training exposure n (blocks)','|learning-value gap|')
-    title(a,'(a) Only independent blocks decay: gap ∝ n^{1−N}')
+    a.set_xscale('log'); a.set_yscale('log'); labels(a,r'training exposure $n$ (blocks)','|learning-value gap|')
+    title(a,'(a) Only independent blocks decay:\n'+r'gap $\propto n^{1-N}$')
     handles,_=a.get_legend_handles_labels()
     handles.extend([handle(GRAY,name,ls=ls) for name,ls in [('independent blocks','-'),('replay of one block','--'),('descendants of one block',':')]])
     legend(a,handles,ncol=2)
@@ -500,14 +507,14 @@ def n08(d):
         coef=sp.Rational(r['predicted_coefficient'])
         require(sp.simplify(poly/inv**(r['r']-1)/coef-1)==0,'N08 cumulant normalization failed')
         ys=np.asarray(sp.lambdify(inv,poly,'numpy')(1/ns),dtype=float)*ns.astype(float)**(r['r']-1)/float(coef)
-        b.plot(ns,ys,color=COLORS[i],marker=MARKERS[i],markevery=(i*3,20),label=f'k={r["k"]}, r={r["r"]}',alpha=.85)
+        b.plot(ns,ys,color=COLORS[i],marker=MARKERS[i],markevery=(i*3,20),label=rf'$k={r["k"]},\ r={r["r"]}$',alpha=.85)
     for i,r in enumerate(r for r in cases if 'vanishing_contraction_r' in r):
         order=r['vanishing_contraction_r']; poly=sp.sympify(r['gap'],locals={'inverse_n':inv})
         ys=sp.lambdify(inv,poly,'numpy')(1/ns)*ns.astype(float)**(order-1)
-        b.plot(ns,ys,color=COLORS[i],ls='--',label=f'zero contraction, r={order}')
+        b.plot(ns,ys,color=COLORS[i],ls='--',label=rf'zero contraction, $r={order}$')
     b.axhline(1,color=GRAY,ls=':',lw=1.5); b.set_xscale('log'); b.set_ylim(-.12,1.12)
-    labels(b,'independent blocks n','n^{r−1}·gap / predicted coefficient')
-    title(b,'(b) Leading term = ⟨D^r J, Δκ_r⟩ / (r! n^{r−1})'); legend(b,ncol=2)
+    labels(b,r'independent blocks $n$',r'$n^{r-1}\cdot$gap / predicted coefficient')
+    title(b,'(b) Leading term =\n'+r'$\langle D^rJ,\Delta\kappa_r\rangle/(r!\,n^{r-1})$'); legend(b,ncol=2)
     c10=d.c('C10'); sweep=c10['fixed_problem_R_sweep']
     c.plot(array(sweep,'R'),array(sweep,'gap'),color=BLUE,marker='o',label='fixed-problem gap')
     c.plot(array(sweep,'R'),array(sweep,'bound'),color=ORANGE,ls='--',label='fixed-problem bound')
@@ -515,8 +522,8 @@ def n08(d):
     c.scatter(array(rr,'R'),[number(F(r['gap'])/F(r['bound'])) for r in rr],edgecolors=GREEN,facecolors='none',s=25,label='search gap / bound')
     c.axhline(1,color=GRAY,ls=':',lw=1.5); c.set_xscale('log'); c.set_ylim(0,1.1)
     best=F(c10['best_exact_ratio']); note(c,f'max over {d.claims["C10"]["n_instances"]} searched instances:\n{best} ≈ {float(best):.3f}',x=.28,y=.71)
-    labels(c,'rounds R','gap or ratio'); title(c,'(c) |gap| ≤ C_J δ_N, independent of R'); legend(c)
-    d.captions['N08']=('Theorems 14–15 in exact arithmetic. (a) independent blocks shrink the gap as n^{1−N}; replaying one block or training on its descendants leaves it constant (C18). '
+    labels(c,r'rounds $R$','gap or ratio'); title(c,r'(c) $|\mathrm{gap}|\leq C_J\delta_N$, independent of $R$'); legend(c)
+    d.captions['N08']=('Theorems 14–15 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). '
         f'(b) the leading coefficient equals the first-unmatched-cumulant contraction in all {len(regular)} cases; a zero contraction removes the leading term (C11). '
         f'(c) the round-independent bound holds for R up to {max(r["R"] for r in sweep)} and is nearly tight (C10).')
     return fig
@@ -526,16 +533,16 @@ def n09(d):
     rows=d.package['scalar_approximation']; N=16
     coeff=[F(math.comb(2*N,N),4**N)]+[F(2*math.comb(2*N,N-j),4**N) for j in range(1,N+1)]
     fig,(a,b,c)=figure(3,(13,4.2))
-    p=np.linspace(0,1,2001); a.plot(p,p**N,color=BLACK,lw=2,label=f'p^{N}')
+    p=np.linspace(0,1,2001); a.plot(p,p**N,color=BLACK,lw=2,label=rf'$p^{{{N}}}$')
     for q,col in zip((4,6,8),('#80B1D3','#377EB8','#084C81')):
         row=one(rows,N=N,q=q); exact=sum(coeff[q+1:])
         require(math.isclose(float(exact),row['Chebyshev_truncation_error'],abs_tol=1e-14),'N09 Chebyshev tail reproduction failed')
         pred=np.polynomial.chebyshev.chebval(2*p-1,list(map(float,coeff[:q+1])))
         require(math.isclose(max(abs(pred-p**N)),float(exact),abs_tol=1e-14),'N09 sampled Chebyshev error differs from exact tail')
-        a.plot(p,pred,color=col,label=f'h_{q}, sup error {row["Chebyshev_truncation_error"]:.3g}')
+        a.plot(p,pred,color=col,label=rf'$h_{{{q}}}$, sup error {row["Chebyshev_truncation_error"]:.3g}')
     parity=one(rows,N=N,q=0)['parity_best_degree_q_error']
     a.axhline(parity,color=GRAY,ls='--',label=f'parity below degree N: constant {parity:g}\n(best error {parity:g})')
-    labels(a,'p','value'); title(a,'(a) p^16 ≈ order-8 polynomial'); legend(a)
+    labels(a,'p','value'); title(a,r'(a) $p^{16}\approx$ order-8 polynomial'); legend(a)
     cutoff=1e-3; needed=[]
     ramp=('#86B9D4','#4D92BB','#17678B','#063E63')
     for i,n in enumerate(sorted({r['N'] for r in rows})):
@@ -545,11 +552,10 @@ def n09(d):
         hit=next(r for r in allrows if r['Chebyshev_truncation_error']<cutoff); needed.append((n,hit['q']))
         # q=N has exact zero error; display its threshold crossing, never log(0).
         b.plot(hit['q'],cutoff,'v',color=ramp[i],ms=6)
-        b.annotate(str(hit['q']),xy=(hit['q'],cutoff),xytext=(3,6),textcoords='offset points',color=ramp[i])
     b.axhline(parity,color=GRAY,ls=':',label='parity (all N)'); b.axhline(cutoff,color=BLACK,ls=':',label=f'threshold {cutoff:g}')
     c12=d.c('C12'); note(b,f'C12 (N ≤ {max(c12["N_range"])}): exact binomial tail\nmax tail/bound = {c12["exhaustive_tail_best_ratio"]:.3f}',y=.20)
     labels(b,'approximation order q','sup-norm error'); title(b,'(b) Needed order grows like √N')
-    handles,_=b.get_legend_handles_labels();handles.append(handle(GRAY,'Hoeffding upper',ls='--'));legend(b,handles,ncol=2)
+    handles,_=b.get_legend_handles_labels();handles.extend([handle(GRAY,'Hoeffding upper',ls='--'),handle(GRAY,'first crossing','v','')]);legend(b,handles,ncol=2)
     for i,name in enumerate(FAMILIES):
         family=one(d.c('C19')['families'],family=name); rr=family['curve']
         c.plot(array(rr,'feature_budget'),array(rr,'discrepancy'),color=COLORS[i],label=FAMILY_NAMES[i])
@@ -560,8 +566,8 @@ def n09(d):
         c.axvline(span,color=COLORS[i],ls=':',lw=1.5,ymax=.16+.09*i)
         c.text(span+(.10 if i!=2 else -.10),.04+.04*i,'exact span',color=COLORS[i],ha='left' if i!=2 else 'right')
     c.set_ylim(-.025,.55); labels(c,'number of nonconstant features d','worst-pair discrepancy')
-    title(c,'(c) Parity needs all 2^3 − 1 directions'); legend(c)
-    d.captions['N09']=('Exact degree does not measure approximate information complexity. (a)–(b) Chebyshev truncation of p^N has error equal to a binomial tail ≤ 2e^{−q²/N}; '
+    title(c,r'(c) Parity needs all $2^3 - 1$ directions'); legend(c)
+    d.captions['N09']=('Exact degree does not measure approximate information complexity. (a)–(b) Chebyshev truncation of pᴺ has error equal to a binomial tail ≤ 2 exp(−q²/N); '
         f'error {cutoff:g} needs only q = {", ".join(str(q) for _,q in needed)} for N = {", ".join(str(n) for n,_ in needed)} '
         f'(package check; C12 for N ≤ {max(c12["N_range"])}). Parity keeps error {parity:g} below degree N. '
         '(c) On the same grid and degree, scalar and structured families are exactly resolved by 3 features, parity only by 7 '
@@ -600,7 +606,7 @@ def n10(d):
     linear=[R*C*eta**2 for R in horizon]
     c.plot(list(horizon),list(map(float,errors)),color=BLUE,marker='o',label='geometric recursion (equality)')
     c.plot(list(horizon),list(map(float,linear)),color=ORANGE,ls='--',label='R C η²')
-    c.annotate(f'e_{chosen} = {errors[chosen-1]} > {linear[chosen-1]}',xy=(chosen,float(errors[chosen-1])),xytext=(.06,.47),textcoords='axes fraction',arrowprops=dict(arrowstyle='->',color=GRAY))
+    c.annotate(rf'$e_{{{chosen}}} = {errors[chosen-1]} > {linear[chosen-1]}$',xy=(chosen,float(errors[chosen-1])),xytext=(.06,.47),textcoords='axes fraction',arrowprops=dict(arrowstyle='->',color=GRAY))
     amp=d.c('C13')['amplification']
     note(c,'squaring witness: gaps\n'+', '.join(r['gap'] for r in amp[:2])+',\n'+', '.join(r['gap'] for r in amp[2:])+f'\nat R={min(r["R"] for r in amp)}…{max(r["R"] for r in amp)}')
     labels(c,'rounds R','accumulated error'); title(c,'Error accumulation needs stability'); legend(c)
@@ -618,10 +624,13 @@ def n11(d):
         bars=a.bar(np.arange(len(rr))+(i-1.5)*.2,[r['gaps'][key] for r in rr],width=.19,color=COLORS[i],label=key.replace('_',' '))
         if i<2:
             for bar,r in zip(bars,rr):
-                a.annotate(f'{r["gaps"][key]:.3f}',xy=(bar.get_x()+bar.get_width()/2,bar.get_height()),xytext=(0,3),textcoords='offset points',rotation=90,ha='center',va='bottom',fontsize=9)
+                negative=bar.get_height()<0
+                a.annotate(f'{r["gaps"][key]:.3f}',xy=(bar.get_x()+bar.get_width()/2,bar.get_height()),
+                           xytext=(0,-5-11*i if negative else 3+5*i),textcoords='offset points',
+                           rotation=0 if negative else 90,ha='center',va='top' if negative else 'bottom',fontsize=8)
     a.axhline(0,color=GRAY); a.margins(y=.32)
     a.set_xticks(range(len(rr)),[f'{r["task"]}\nN={r["N"]}\nη={r["eta"]:g}\nR={r["R"]}' for r in rr])
-    a.set_ylabel('final return gap E_P − E_Q'); title(a,'Same moments, different Adam response'); legend(a,ncol=2,y=-.38)
+    a.set_ylabel(r'final return gap $E_P - E_Q$'); title(a,'Same moments, different Adam response'); legend(a,ncol=2,y=-.38)
     rows=only(d.g('E1')['ablations'],task='moment',N=3)
     variants=('baseline','inside_sqrt','epsilon_1e-06','epsilon_0.0001','epsilon_0.01','epsilon_0.1','no_bias_correction','global_clip_0.1','sum_reduction','warm_5','shift_support')
     for i,variant in enumerate(variants):
@@ -648,7 +657,7 @@ def n11(d):
 
 
 def n12(d):
-    data=d.g('E8'); fig,(a,b,c)=figure(3,(13,4), 'Controlled small network, not a real-model result; W1 is an empirical consistency check.')
+    data=d.g('E8'); fig,(a,b,c)=figure(3,(13,4.8), 'Controlled small network, not a real-model result; W1 is an empirical consistency check.')
     horizons=(1,4,40); tasks=(('moment',3,'-'),('parity',2,'--'))
     for task,N,ls in tasks:
         for i,R in enumerate(horizons):
@@ -677,7 +686,11 @@ def n12(d):
     fit=one(data['W3']['fits'],task='moment',N=3,source='P',eta=.01,W=0)['fit']
     require(math.isclose(coeff,fit['c'],rel_tol=1e-12),'N12 inverse-count least-squares reproduction failed')
     b.set_xscale('log'); b.set_yscale('log')
-    note(b,f'median slope {fit["loglog_slope"]:.2f}, R² {fit["R2"]:.3f}\n(η={steps[0]["eta"]:g}, W={min(r["W"] for r in steps)})',x=.05,y=.28)
+    fits=warmth_fits(d)
+    annotation=(f'moment N=3, source P: fitted slope {fit["loglog_slope"]:.2f}, R² {fit["R2"]:.2f}\n'
+                f'median over {len(fits)} task/source series (η=0.01, W=0): '
+                f'slope {np.median([r["loglog_slope"] for r in fits]):.2f}, R² {np.median([r["R2"] for r in fits]):.3f}')
+    b.text(.5,-.51,annotation.replace('-','−'),transform=b.transAxes,ha='center',va='top',fontsize=8)
     labels(b,'prior gradient evaluations W+s','median warmth κ'); title(b,'Warmth decays like 1/(W+s)'); legend(b,ncol=3)
     panels=data['W1']['panels']; etas=sorted({p['eta'] for p in panels}); task_names=sorted({p['task'] for p in panels})
     allx,ally=[],[]
@@ -713,12 +726,12 @@ def n13(d):
         # All right endpoints equal one; stagger direct labels with leader lines.
         a.annotate(f'α = {alpha}',xy=(2,1),xytext=(.75,.74-.12*i),textcoords='axes fraction',color=COLORS[i],arrowprops=dict(arrowstyle='-',color=COLORS[i],lw=.6))
     a.set_xscale('symlog',linthresh=1e-4);a.set_xlim(0,2.2);a.set_ylim(0,1.05)
-    note(a,'markers: LP over law pairs\nlines: min{1, ε/α}',y=.28)
+    note(a,'markers: LP over law pairs\n'+r'lines: $\min\{1,\varepsilon/\alpha\}$',y=.28)
     labels(a,'tolerance ε','Wε(g)'); title(a,'C22: exact representation, small scale ⇒ weak certificate',width=50);legend(a,ncol=4)
     rr=d.package['noisy_feature_duality']['explicit_example']; eps=np.linspace(0,1.6,401)
     baseline=one(rr,tolerance=0.0)['closed_form']; transition=1-baseline
     b.axvspan(0,transition,color=BLUE,alpha=.08); b.axvspan(transition,1.6,color=ORANGE,alpha=.06)
-    b.plot(eps,np.minimum(1,baseline+eps),color=GRAY,label=f'min{{1, {baseline:g}+ε}}')
+    b.plot(eps,np.minimum(1,baseline+eps),color=GRAY,label=rf'$\min\{{1, {baseline:g}+\varepsilon\}}$')
     b.plot(array(rr,'tolerance'),array(rr,'primal'),'o',color=BLUE,label='primal')
     b.plot(array(rr,'tolerance'),array(rr,'dual'),'s',color=ORANGE,mfc='none',ms=7,label='dual')
     used=next(r['coefficient'][0] for r in rr if r['tolerance']<transition)
@@ -797,10 +810,10 @@ def n14(d):
     bars[-1].set_hatch('///');right.plot([1],[cap],marker='_',color=RED,ms=11,mew=2)
     for i,v in enumerate(vals):
         label=f'{v:.4f}↥' if v>cap else f'{v:.4g}'
-        right.text(i,min(v,cap)+.035,label,ha='center',rotation=90 if i==1 else 0)
-    right.set_xticks(range(len(vals)),['exact gap','charge a','charge ρ','term deleted'],rotation=50,ha='right')
-    right.set_ylim(0,cap*1.32)
-    right.annotate('invalid without\ntransport',xy=(3,reg['old_bound']),xytext=(.48,.35),textcoords='axes fraction',ha='left',va='top',color=RED,arrowprops=dict(arrowstyle='->',color=RED,lw=1.5))
+        right.text(i,min(v,cap)+(.10 if i==1 else .035),label,ha='center',fontsize=8)
+    right.set_xticks(range(len(vals)),['exact\ngap','charge\na','charge\nρ','term\ndeleted'],fontsize=8)
+    right.set_ylim(0,cap*1.6)
+    right.text(.98,.97,'invalid without\ntransport',transform=right.transAxes,ha='right',va='top',color=RED,fontsize=8)
     right.set_ylabel('gap or certificate (cap marked)')
     group_title(fig,left,right,'Uncovered state: charge a or ρ')
     d.captions['N14']=(f'N14. (A) Exact gap versus the transport-aware certificate on {len(pairs):,} random finite training processes (V1); no point lies above y = x. '
@@ -830,12 +843,7 @@ def pixel_gaps(fig, ax, bars, pixels=2):
     Counts/endpoints stay in data coordinates. A post-layout callback sets the
     inset after constrained_layout has settled; PDF uses the same physical gap.
     """
-    fig.canvas.draw()
-    gap=pixels/300/fig.get_figwidth()/ax.get_position().width*(ax.get_xlim()[1]-ax.get_xlim()[0])
-    for row in bars:
-        for j,bar in enumerate(row):
-            leftgap=gap/2 if j else 0;rightgap=gap/2 if j<len(row)-1 else 0
-            bar.set_x(bar.get_x()+leftgap);bar.set_width(max(0,bar.get_width()-leftgap-rightgap))
+    fig._pixel_gap_specs=getattr(fig,'_pixel_gap_specs',[])+[(ax,bars,pixels)]
 
 
 def n15(d):
@@ -846,7 +854,7 @@ def n15(d):
         vals=[-r['delta'] if key=='minus_delta' else r['expected_sum_B']-2*r['delta'] for r in rr]
         for j,v in enumerate(vals):a.plot([j-.25,j+.25],[v,v],color=col,ls=ls,label=name if j==0 else None)
     a.axhline(0,color=GRAY);a.set_ylim(-.85,.22)
-    a.set_xticks(x,[f'R={r["R"]}, M={r["M"]}\nn={r["n"]}, δ={r["delta"]:g}' for r in rr],rotation=35,ha='right')
+    a.set_xticks(x,[f'R={r["R"]}, M={r["M"]}\nn={r["n"]}\nδ={r["delta"]:g}' for r in rr],fontsize=8)
     last=rr[-1];a.annotate(f'selects the good candidate:\n{last["gain"]:+.3f}',xy=(x[-1],last['gain']),xytext=(.30,.90),textcoords='axes fraction',arrowprops=dict(arrowstyle='->',color=GRAY))
     replicas={r['replicas'] for r in rr};require(len(replicas)==1,'N15 differing training replica counts')
     a.set_ylabel('measured gain or guarantee');title(a,f'C16: gain ≥ −δ and ≥ E ΣB − 2δ ({rr[0]["replicas"]//1000}k runs each)');legend(a,y=-.39)
@@ -891,7 +899,7 @@ def n16(d):
     # Place direct labels in logarithmic display coordinates, with leader lines.
     prior=-np.inf
     for value,col,name in sorted(endpoints):
-        logpos=max(math.log10(value),prior+.23);prior=logpos
+        logpos=max(math.log10(value),prior+.34);prior=logpos
         a.annotate(name,xy=(max(r['updates'] for r in rows),value),xytext=(100,10**logpos),color=col,va='center',arrowprops=dict(arrowstyle='-',color=col,lw=.6))
     note(a,f'single common-state step:\nparameter difference = {d.neural["additive_null_parameter_residual"]:g} (exact null)',x=.05,y=.33)
     labels(a,'number of updates','|neural gap|');title(a,'Same labels, different packets: learning-consequence gap',width=51)
@@ -942,7 +950,7 @@ def n17(d):
             if split=='held_out_task' and p in ('short_tail_1','short_tail_4'):
                 b.annotate(f'{value:.3f}',xy=(value,y),xytext=(4,-9),textcoords='offset points',va='center')
         random=metrics['random']['selection_regret'];b.axvline(random,color=GRAY,ls='--' if j else ':',alpha=.7)
-        if j:b.text(random,-.85,f'random {random:.3f}',rotation=0,ha='center',va='bottom')
+        if j:b.text(random+.003,-.35,f'random {random:.3f}',rotation=0,ha='left',va='center',fontsize=8)
     b.set_yticks(ypos,PROXY_NAMES);b.invert_yaxis();b.set_xlabel('selection regret (bootstrap 95% intervals)')
     for tick,p in zip(b.get_yticklabels(),PROXIES):tick.set_color(PROXY_COLORS[p])
     title(b,'Short tails fail only where the task has a threshold')
@@ -977,6 +985,238 @@ def n17(d):
     return fig
 
 
+def finite(value):
+    """Missing numeric strings (including 'nan') never become plotted zeros."""
+    try:
+        return value is not None and math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def warmth_fits(d):
+    return [r['fit'] for r in only(d.g('E8')['W3']['fits'],eta=.01,W=0)
+            if finite(r['fit']['loglog_slope'])]
+
+
+OPTIMIZERS = ('SGD','heavy_ball','Nesterov','Adam_cold','Adam_warm5','Adam_warm20',
+              'AdamW','clipped_SGD','clipped_Adam','signSGD','Lion')
+OPTIMIZER_NAMES = ('SGD','heavy-ball','Nesterov','Adam cold','Adam warm W=5','Adam warm W=20',
+                   'AdamW','clipped SGD','clipped Adam','signSGD','Lion')
+OPTIMIZER_COLORS = (BLUE,ORANGE,GREEN,PURPLE,SKY,RED,'#8064A2','#A6761D','#6B8E23',BLACK,'#C46C92')
+
+
+def slope_guide(ax, x, y, slope, label=True):
+    xx=np.array([x/10,x]); yy=y*(xx/x)**slope
+    ax.plot(xx,yy,':',color=GRAY,lw=.8)
+    if label:
+        ax.annotate(rf'$\eta^{slope}$',xy=(xx[0],yy[0]),xytext=(0,-12),
+                    textcoords='offset points',color=GRAY,ha='center',fontsize=8)
+
+
+def n18(d):
+    data=d.g('E10'); cells=data['cells']; maxima=[]
+    for opt in OPTIMIZERS:
+        values=[float(r['ratio']) for r in only(cells,optimizer=opt)
+                if r['R'] in (1,4) and finite(r['ratio'])]
+        require(values,f'N18 no numeric exact ratios for {opt}')
+        maximum=max(values); expected=one(data['optimizer_summary'],optimizer=opt)['max_exact_ratio']
+        require(math.isclose(maximum,expected,rel_tol=0,abs_tol=1e-12),
+                f'N18 reproduction failed for {opt}: {maximum} != {expected}; refusing to draw')
+        maxima.append(maximum)
+    print('N18 reproduction PASS: all 11 exact-cell maxima match within 1e-12',flush=True)
+    fig,(a,b,c)=figure(3,(17,5.5),'Controlled small network; not a real-model result. Bounds use empirical curvature estimates; S1 is not certified.')
+    endpoints=[]; selected=('SGD','Adam_cold','Adam_warm20','signSGD')
+    for opt in selected:
+        ix=OPTIMIZERS.index(opt); col=OPTIMIZER_COLORS[ix]; name=OPTIMIZER_NAMES[ix]
+        for R,ls in [(1,'-'),(4,'--')]:
+            rr=sorted([r for r in only(cells,task='moment',N=3,optimizer=opt,R=R)
+                       if finite(r['remainder']) and float(r['remainder'])>1e-15],key=lambda r:r['eta'])
+            require(rr,f'N18 no remainder points for {opt}, R={R}')
+            a.loglog(array(rr,'eta'),array(rr,'remainder'),color=col,ls=ls,marker='o' if R==1 else 's',
+                     mfc=col if R==1 else 'white')
+            slope=one(one(data['optimizer_summary'],optimizer=opt)['slopes'],task='moment',N=3,R=R)['remainder_slope']
+            require(finite(slope),f'N18 missing selected slope: {opt}, {R}')
+            endpoints.append((rr[-1]['eta'],rr[-1]['remainder'],col,f'{name} R={R}: {slope:.2f}'))
+            guide={('Adam_cold',4):1,('signSGD',1):2,('SGD',1):3}.get((opt,R))
+            if guide:slope_guide(a,rr[-1]['eta'],rr[-1]['remainder'],guide)
+    # Allocate separate label rows next to the line ends; leaders retain identity.
+    a.set_xlim(.00075,8); a.set_ylim(1e-15,max(row[1] for row in endpoints)*15)
+    for ypos,(x,y,col,text) in zip(np.linspace(.19,.88,len(endpoints)),sorted(endpoints,key=lambda r:r[1])):
+        a.annotate(text,xy=(x,y),xytext=(.58,ypos),textcoords='axes fraction',
+                   ha='left',va='center',color=col,fontsize=8,
+                   arrowprops=dict(arrowstyle='-',color=col,lw=.5))
+    labels(a,r'step size $\eta$',r'remainder $|\mathrm{gap}-\mathrm{first\ order}|$')
+    title(a,'(a) Remainder order in '+r'$\eta$'+'\n(moment N=3)')
+    legend(a,[handle(GRAY,'R=1','o'),handle(GRAY,'R=4','s','--')],ncol=2)
+    pred=data['C23_prediction']; keys=('gap','first_order','naive_first_order','remainder','bound')
+    names=['measured gap','first order\n(increment)','first order\n(raw mean gradient)',
+           'remainder\n|gap − first order|','remainder bound']
+    for i,(key,col) in enumerate(zip(keys,(BLUE,GREEN,ORANGE,PURPLE,GRAY))):
+        v=abs(pred[key]); require(v>0,f'N18 zero C23 {key} on log axis')
+        b.barh(i,v-1e-12,left=1e-12,color=col,height=.6)
+        b.annotate(f'{pred[key]:.2g}'.replace('-', '−'),xy=(v,i),xytext=(4,0),
+                   textcoords='offset points',va='center',fontsize=9)
+    b.set_yticks(range(5),names);b.invert_yaxis();b.set_xscale('log');b.set_xlim(1e-12,1)
+    b.set_ylim(5.15,-.65);note(b,f'first order explains {pred["first_order"]/pred["gap"]:.1%} of the gap',y=.08)
+    labels(b,'absolute value','');title(b,'(b) C23 cold-Adam gap:\nincrement vs raw gradient')
+    bars=c.barh(range(len(OPTIMIZERS)),maxima,color=OPTIMIZER_COLORS,height=.68)
+    bars[OPTIMIZERS.index('clipped_SGD')].set_hatch('///')
+    c.set_yticks(range(len(OPTIMIZERS)),OPTIMIZER_NAMES);c.invert_yaxis();c.set_xlim(0,1.55)
+    c.axvline(1,color=GRAY,ls='--',label='remainder bound')
+    c.set_ylim(len(OPTIMIZERS)+2,-.8)
+    note(c,'multi-step clipped SGD:\nS1 not guaranteed',x=.05,y=.15)
+    mc=only(cells,R=40); exceed=sum(finite(r.get('excess_over_bound_after_four_SE')) and
+                                 float(r['excess_over_bound_after_four_SE'])>0 for r in mc)
+    labels(c,'max exact remainder / bound','');title(c,'(c) Bound check in exact cells\n(R = 1, 4)')
+    legend(c,[handle(GRAY,'remainder bound',ls='--')],y=-.22)
+    c.text(.5,-.34,f'R=40 Monte Carlo: {exceed} of {len(mc)} cells\nabove bound after 4 SE (sign-type)',
+           transform=c.transAxes,ha='center',va='top',fontsize=9)
+    d.captions['N18']=('N18. (A) Remainder orders for moment N=3; fitted slopes are read from E10. '
+        'The slope-2 line is a reference guide, while the selected signSGD series is approximately cubic. '
+        '(B) The optimizer-increment first-order term explains '+f'{pred["first_order"]/pred["gap"]:.1%}'+
+        ' of the C23 cold-Adam gap; the raw mean gradient is nearly blind. (C) All available exact-cell ratios are at most one '
+        'except multi-step clipped SGD. Curvature bounds are empirical, and S1 is not certified. '
+        'Controlled small network; not a real-model result.')
+    return fig
+
+
+def n19(d):
+    data=d.g('E11');fig=plt.figure(figsize=(15,8.5),layout='constrained')
+    grid=fig.add_gridspec(3,3,height_ratios=[1,1,.07])
+    a,b,c,e,f,t=[fig.add_subplot(grid[i,j]) for i in range(2) for j in range(3)]
+    foot=fig.add_subplot(grid[2,:]);foot.axis('off')
+    foot.text(.5,.5,'Controlled small networks; not a real-model result. Warm-Adam W1 bound covers only the linear v contribution.',
+              ha='center',va='center',fontsize=9,color='#555555')
+    block=data['clipped_mean'];rr=block['rows'];x=array(rr,'eta')
+    a.loglog(x,array(rr,'gap'),'o',color=BLUE,label='gap')
+    a.loglog(x,array(rr,'first_order'),color=ORANGE,label='first order')
+    a.loglog(x,array(rr,'remainder'),'-s',color=GREEN,mfc='white',label='remainder')
+    slope_guide(a,x[-1],rr[-1]['remainder'],2)
+    note(a,'raw means equal; clipped means differ by −1/2\n'+f'remainder slope {block["remainder_slope"]:.3f}',y=.98)
+    a.set_ylim(top=max(array(rr,'gap'))*30)
+    labels(a,r'step size $\eta$','absolute gap / remainder');title(a,'(a) Clipped SGD: the clipped mean decides');legend(a,ncol=3)
+    block=data['always_active'];rr=block['rows'];x=array(rr,'eta')
+    require(all(r['first_order']==0 for r in rr),'N19 always-active first order is not identically zero')
+    b.loglog(x,array(rr,'gap'),'-o',color=BLUE);slope_guide(b,x[-1],rr[-1]['gap'],2)
+    note(b,'first-order term = 0 at every '+r'$\eta$'+f'\ngap slope {block["slope"]:.5f}')
+    b.set_ylim(top=max(array(rr,'gap'))*10)
+    labels(b,r'step size $\eta$','gap');title(b,'(b) Always-active clipping:\nonly the direction matters')
+    warm=data['warm_Adam'];vals=np.r_[warm['first_order_blocks'],warm['measured_gap']]*1e6
+    c.bar(range(4),vals,color=[BLUE,ORANGE,GREEN,PURPLE],width=.65)
+    c.plot(2,warm['predicted_v_term']*1e6,'D',mfc='white',mec=BLACK,ms=7,label='predicted v term')
+    c.axhline(warm['W1_Lv_kappa_bound']*1e6,color=GRAY,ls='--',label=r'W1 bound $L_v\kappa$')
+    c.set_xticks(range(4),[r'$\theta$ block','m block','v block','measured\ngap'])
+    note(c,rf'equal gradient means ($\delta_1 = {np.max(np.abs(warm["delta1"])):g}$)')
+    c.set_ylim(0,max(vals)*1.35);labels(c,'',r'contribution / gap ($10^{-6}$)')
+    title(c,r'(c) Warm Adam: $E[G^2]$ enters through $v$');legend(c,ncol=2)
+    lion=data['Lion'];increments=[np.asarray(r['increment_difference']).reshape(3,-1) for r in lion]
+    for j,(col,name) in enumerate([(BLUE,r'$\theta$ block'),(ORANGE,'m block')]):
+        values=[np.max(abs(v[j])) for v in increments]
+        # Zero has no bar on the log scale; label it at the displayed floor.
+        for i,value in enumerate(values):
+            if value>0:e.bar(i+(j-.5)*.3,value-1e-4,bottom=1e-4,width=.28,color=col)
+            else:e.text(i+(j-.5)*.3,1.25e-4,'0 (exact)',ha='center',va='bottom',fontsize=9)
+    flips=[float(np.mean(r['flip_probability'])) for r in lion]
+    note(e,'mean flip fraction: '+', '.join(f'{v:g}' for v in flips))
+    e.set_yscale('log');e.set_ylim(1e-4,.25);e.set_xlim(-.5,1.5)
+    e.set_xticks([0,1],['momentum-dominated\nm=0.2','control\nm=0.005'])
+    labels(e,'',r'max $|$increment difference$|$');title(e,'(d) Lion: momentum dominance\nblinds the parameter step')
+    legend(e,[Patch(color=BLUE,label=r'$\theta$ block'),Patch(color=ORANGE,label='m block')],ncol=2)
+    annotations=[]
+    for i,block in enumerate(data['LoRA']):
+        rr=block['rows'];x=array(rr,'eta');col=COLORS[i]
+        f.loglog(x,abs(array(rr,'gap')),color=col,ls='-',label=f'rank {block["rank"]}: null')
+        f.loglog(x,array(rr,'range_gap'),color=col,ls='--',label=f'rank {block["rank"]}: range')
+        f.plot(x,array(rr,'range_first_order'),ls='',marker=MARKERS[i],color=col,mfc='white')
+        if i==0:
+            slope_guide(f,x[-1],abs(rr[-1]['gap']),2)
+            slope_guide(f,x[-1],rr[-1]['range_gap'],1)
+        audits=block['A_bitwise_audit']
+        annotations.append(f'rank {block["rank"]}: null-space slope {block["null_gap_slope"]:.5f};\nA unchanged: {sum(r["unchanged"] for r in audits)}/{len(audits)}')
+    note(f,'\n'.join(annotations),x=.03,y=.60)
+    labels(f,r'step size $\eta$','absolute gap');title(f,r'(e) LoRA at $B=0$: only the sketch'+ '\n'+r'$\Gamma A_0^{\mathsf{T}}$ matters')
+    handles,_=f.get_legend_handles_labels();handles.append(handle(GRAY,'range first order','o',''));legend(f,handles,ncol=2)
+    t.axis('off');title(t,'(f) Learner → first-order statistic')
+    table=[('SGD, momentum',r'$E\,G$'),('warm Adam',r'$E\,G$ and $E\,G^2$'),
+           ('cold Adam','sign law; '+r'$E\,G$, $E\,G^2$ in $m,v$'),
+           ('clipped SGD','clipped mean (direction\nif always active)'),('Lion','flip probability'),
+           ('LoRA, step 1',r'sketch $\Gamma A_0^{\mathsf{T}}$'+'\n(or its sign law)')]
+    for i,(learner,statistic) in enumerate(table):
+        t.text(.0,.92-.15*i,learner,transform=t.transAxes,color=BLACK,va='top')
+        t.text(.40,.92-.15*i,statistic,transform=t.transAxes,color=BLACK,va='top')
+    d.captions['N19']=('N19. Five witnesses of the learner-specific first-order statistic (Theorem C4). '
+        '(A) Equal raw means, different clipped means: first-order gap under clipping. '
+        '(B) Always-active clipping: equal mean directions give an O(eta²) gap. '
+        '(C) Warm Adam: with equal gradient means, the first-order term is carried entirely by the v block; '
+        'the W1 bound covers this linear contribution, not the entire measured gap. '
+        '(D) Momentum-dominated Lion: the parameter increment does not depend on the message. '
+        '(E) LoRA at initialization: null-space differences are second order, range differences first order. '
+        'Controlled small networks; not a real-model result.')
+    return fig
+
+
+AUDIT_METHODS=('oracle','mean_gradient','delta_plus_m_v','short_tail_4','random')
+AUDIT_NAMES=('oracle','mean gradient','Δθ+m,v','short tail 4','random')
+AUDIT_COLORS=(BLACK,BLUE,PURPLE,ORANGE,GRAY)
+
+
+def outside_oracle(d):
+    bins=d.g('E12')['bins'];summary=one(d.g('E12')['summary'],split='overall')
+    outside=[r for r in bins if float(r['high'])<=1];inside=[r for r in bins if r['low']>=1]
+    nout=sum(r['n'] for r in outside);nin=sum(r['n'] for r in inside)
+    rate=sum(r['n']*r['oracle'] for r in outside)/nout
+    combined=(nout*rate+nin*summary['oracle_wrong_sign_margin'])/(nout+nin)
+    error=abs(combined-summary['oracle_wrong_sign_eligible'])
+    return dict(rate=rate,combined=combined,error=error,valid=error<=.02,nout=nout,nin=nin)
+
+
+def n20(d):
+    concentration=d.g('V9');rows=concentration['rows'];data=d.g('E12');bins=data['bins']
+    summary=one(data['summary'],split='overall');check=outside_oracle(d)
+    print(f'N20 reproduction {"PASS" if check["valid"] else "DISCREPANCY"}: weighted oracle {check["combined"]:.10f}, '
+          f'stored {summary["oracle_wrong_sign_eligible"]:.10f}, difference {check["error"]:.10f} (tolerance 0.02)',flush=True)
+    fig,(a,b,c)=figure(3,(16,4.8),'Controlled small network and finite-vector Monte Carlo; not a real-model result.')
+    for law,col,name in [('sign',BLUE,'sign'),('clipped_Gaussian',ORANGE,'clipped Gaussian'),('sparse_spikes',GREEN,'sparse spikes')]:
+        ps=sorted({r['p'] for r in only(rows,law=law)})
+        vals=[max(r['quantile_over_bound'] for r in only(rows,law=law,p=p)) for p in ps]
+        a.semilogx(ps,vals,'-o',color=col,label=name)
+    maximum=max(r['quantile_over_bound'] for r in rows)
+    require(math.isclose(maximum,concentration['max_quantile_over_bound'],rel_tol=0,abs_tol=1e-12),'N20 V9 maximum does not reproduce')
+    a.axhline(1,color=GRAY,ls='--',label='C5 bound');a.set_xlim(1,1e5);a.set_ylim(0,1.1)
+    note(a,'worst failure rate:\n'+ '\n'.join(rf'$\delta={delta:g}$: {max(r["failure_rate"] for r in only(rows,delta=delta)):.5f}' for delta in (.05,.2))+
+         f'\nmax quantile / bound: {maximum:.3f}',y=.37)
+    labels(a,'dimension p','max quantile / C5 bound');title(a,'(a) Concentration does not\ndepend on dimension');legend(a,ncol=2)
+    containers=[];xs=np.arange(len(bins));width=.16
+    for j,(method,name,col) in enumerate(zip(AUDIT_METHODS,AUDIT_NAMES,AUDIT_COLORS)):
+        values=[r['oracle'] if method=='oracle' else r['proxies'][method] for r in bins]
+        bars=b.bar(xs+(j-2)*width,values,width=width,color=col,label=name);containers.append(bars)
+        if method=='oracle':
+            for bar,value in zip(bars,values):
+                if value==0:b.text(bar.get_x()+bar.get_width()/2,.015,'0',ha='center',va='bottom',fontsize=9)
+    b.set_xticks(xs,[f'[{r["low"]:g}, {float(r["high"]):g})\nn={r["n"]}' for r in bins])
+    border=next(i for i,r in enumerate(bins) if r['low']>=1)-.5
+    b.axvline(border,color=GRAY,ls='--');b.set_ylim(0,.88)
+    note(b,'margin > remainder bound (C6)',x=.04,y=.98)
+    labels(b,'first-order margin / remainder bound','wrong-sign rate');title(b,'(b) Wrong-sign rate by\nfirst-order margin');legend(b,ncol=3)
+    for i,(method,col) in enumerate(zip(AUDIT_METHODS,AUDIT_COLORS)):
+        inside=summary['oracle_wrong_sign_margin'] if method=='oracle' else summary['proxies'][method]['wrong_sign_margin']
+        outside=check['rate'] if method=='oracle' else summary['proxies'][method]['wrong_sign_outside_margin']
+        c.plot(inside,i-.10,'o',color=col,ms=6)
+        if method!='oracle' or check['valid']:c.plot(outside,i+.10,'o',mfc='white',mec=col,ms=6)
+    c.set_yticks(range(len(AUDIT_METHODS)),AUDIT_NAMES);c.invert_yaxis();c.set_xlim(-.03,.62);c.set_ylim(5.2,-.6)
+    note(c,f'margin rows: {summary["margin_rows"]} of {summary["eligible_rows"]} eligible',y=.10)
+    labels(c,'wrong-sign rate','');title(c,'(c) Inside vs outside the margin')
+    legend(c,[handle(BLACK,'inside margin','o',''),Line2D([],[],color=BLACK,marker='o',mfc='white',ls='',label='outside margin')],ncol=2)
+    pixel_gaps(fig,b,list(zip(*containers)))
+    d.captions['N20']=('N20. (A) The empirical deviation of the mean increment stays below 0.62 of the C5 bound at every tested '
+        'dimension from 1 to 100,000. (B) On the frozen E6 panels, the oracle has no wrong signs in bins at or above one quarter '
+        'of the remainder bound; this empirical observation is distinct from the C6 margin > bound condition. '
+        'Static proxies remain wrong 42% of the time in the largest-margin bin. (C) Inside the margin first order decides; '
+        'outside, measured short tails are more reliable here but retain nonzero error. The outside-margin oracle rate is '
+        'reconstructed with the specified bin-row weighting. Controlled small network; not a real-model result.')
+    return fig
+
+
 DESCRIPTIONS = (
     ('exact Fraction instance in N01; P:robust_ambiguity_minimax', 'Regret decomposition, garbling, and minimax duality.'),
     ('I:claims[id=C2].details.configurations; specified passive formula', 'Query counts, bound ratios, and passive impossibility.'),
@@ -995,6 +1235,9 @@ DESCRIPTIONS = (
     ('I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition}', 'Adaptive audit gains, replica cost, and variance sources.'),
     ('I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17]', 'Sequential regrouping effects and additive coupling width.'),
     ('V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results}', 'Held-out proxy selection, threshold failures, and warm-up transfer.'),
+    ('V:groups[id=E10].data.{cells,optimizer_summary,C23_prediction}', 'Optimizer-increment linear response, remainder orders, and empirical bound checks.'),
+    ('V:groups[id=E11].data', 'Clipping, warm Adam, Lion, and LoRA first-order statistics.'),
+    ('V:groups[id=V9].data; V:groups[id=E12].data.{bins,summary}', 'Dimension-free concentration and actual-state first-order margin audits.'),
 )
 
 
@@ -1015,8 +1258,10 @@ def discrepancies(d):
                 f'spec endpoint {expected:.4f}; data {actual:.10g}. Displayed {start["gaps"]["actual_Adam"]:.4f} → {actual:.4f}.')
     fit=one(d.g('E8')['W3']['fits'],task='moment',N=3,source='P',eta=.01,W=0)['fit']
     if f'{fit["loglog_slope"]:.2f}'!='-1.06' or f'{fit["R2"]:.3f}'!='0.999':
-        result.append(f'N12 B: the specified moment N=3, source P, η=0.01, W=0 series has slope {fit["loglog_slope"]:.10g} '
-                      f'and R² {fit["R2"]:.10g}, versus −1.06 and 0.999 in the spec. The actual series and its least-squares c/x guide are retained.')
+        fits=warmth_fits(d)
+        result.append(f'N12 B: moment N=3, source P has slope {fit["loglog_slope"]:.10g} and R² {fit["R2"]:.10g}. '
+                      f'The separate medians over {len(fits)} finite-slope task/source series at η=0.01, W=0 are '
+                      f'{np.median([r["loglog_slope"] for r in fits]):.10g} and {np.median([r["R2"] for r in fits]):.10g}. Both are now labelled.')
     w1=d.g('E8')['W1'];point=max(y/x for p in w1['panels'] for x,y in zip(p['r'],p['pointwise_residual']))
     result.append(f'N12 C clarification: pointwise max residual/r = {point:.10g} (within {100*(1-point):.3f}%); '
                   f'law-pair max gap/bound = {w1["best_ratio"]:.10g} (within {100*(1-w1["best_ratio"]):.3f}%). '
@@ -1027,6 +1272,24 @@ def discrepancies(d):
     shift=only(d.g('E1')['ablations'],task='moment',N=3,variant='shift_support')
     result.append(f'N11 wording: the plotted SGD gaps are small, not identically zero (max |actual SGD| = {sgd:.10g}); '
                   f'shifted-support residuals are '+', '.join(f'R={r["R"]}: {r["gap"]:.10g}' for r in shift)+'. Signed values are retained; caption says “small”/“nearly”.')
+    slope=one(one(d.g('E10')['optimizer_summary'],optimizer='signSGD')['slopes'],task='moment',N=3,R=1)['remainder_slope']
+    result.append(f'N18 A: the requested slope-2 guide is anchored to signSGD R=1, whose stored fitted slope is {slope:.10g} (approximately cubic). '
+                  'The requested reference guide and actual fitted slope are both retained.')
+    missing=sum(not finite(r['ratio']) for r in d.g('E10')['cells'] if r['R'] in (1,4))
+    result.append(f'N18 C: {missing} exact cells have nonnumeric ratios and are omitted, never zero-filled. '
+                  'E10 explicitly says smoothness S1 is not certified and curvature estimates are empirical. '
+                  'The caption reports observed ratios, not a verified uniform smoothness certificate.')
+    warm=d.g('E11')['warm_Adam']
+    result.append(f'N19 C: measured gap {warm["measured_gap"]:.10g} exceeds W1 bound {warm["W1_Lv_kappa_bound"]:.10g}; '
+                  f'the source caveat says this bound covers only the linear v contribution ({warm["predicted_v_term"]:.10g}), not the full nonlinear gap.')
+    check=outside_oracle(d);summary=one(d.g('E12')['summary'],split='overall')
+    result.append(f'N20 C: requested bin-row-weighted outside oracle rate = {check["rate"]:.10g}; combining with the inside rate gives '
+                  f'{check["combined"]:.10g} versus stored eligible rate {summary["oracle_wrong_sign_eligible"]:.10g} '
+                  f'(absolute difference {check["error"]:.10g}; tolerance 0.02: {"PASS" if check["valid"] else "FAIL; reconstructed point omitted"}). '
+                  'Bin n counts include zero-gold rows excluded from wrong-sign denominators, so row weighting is approximate. '
+                  'Stored proxy rates retain their original denominators.')
+    result.append('N20 caption: zero oracle error from ratio 0.25 is an empirical bin observation; the C6 separator remains at ratio 1. '
+                  'The outside-margin short-tail-4 error is nonzero; the caption does not claim perfect reliability.')
     return result
 
 
@@ -1044,12 +1307,66 @@ def strip_png_timestamps(path):
     path.write_bytes(b''.join(chunks))
 
 
+def text_audit(fig):
+    """Audit every visible rendered Text bbox, in 300-dpi pixel coordinates.
+
+    Matplotlib keeps off-view tick artists: exclude ticks outside the axis view,
+    plus descendants of invisible parents. No text-pair overlap is whitelisted.
+    An Annotation's bbox includes its leader; use Text's bbox for glyphs only.
+    """
+    fig.canvas.draw();renderer=fig.canvas.get_renderer()
+    ticks={}
+    for ax in fig.axes:
+        for axis,limits in ((ax.xaxis,ax.get_xlim()),(ax.yaxis,ax.get_ylim())):
+            for tick in axis.get_major_ticks()+axis.get_minor_ticks():
+                loc=tick.get_loc()
+                visible=(min(limits)<=loc<=max(limits) or any(math.isclose(loc,v,rel_tol=1e-12,abs_tol=0) for v in limits)) and ax.axison
+                ticks[id(tick.label1)]=visible;ticks[id(tick.label2)]=visible
+            ticks[id(axis.label)]=ax.axison;ticks[id(axis.offsetText)]=ax.axison
+    seen=set();items=[];raw_math=[]
+    def walk(artist,visible=True):
+        visible=visible and artist.get_visible()
+        if id(artist) in seen:return
+        seen.add(id(artist))
+        if isinstance(artist,Text) and visible and ticks.get(id(artist),True) and artist.get_text().strip():
+            bbox=Text.get_window_extent(artist,renderer)
+            if np.all(np.isfinite(bbox.extents)) and bbox.width>0 and bbox.height>0:
+                label=artist.get_text();axis=fig.axes.index(artist.axes) if artist.axes in fig.axes else None
+                items.append(dict(text=label,axes=axis,bbox=[round(float(v),3) for v in bbox.extents]))
+                if re.search(r'[_^{}]', ''.join(label.split('$')[::2])):raw_math.append(label)
+        for child in artist.get_children():walk(child,visible)
+    walk(fig)
+    overlaps=[]
+    for i,first in enumerate(items):
+        for j in range(i+1,len(items)):
+            second=items[j];a=first['bbox'];b=second['bbox']
+            w=min(a[2],b[2])-max(a[0],b[0]);h=min(a[3],b[3])-max(a[1],b[1])
+            if w>0 and h>0:
+                overlaps.append(dict(first=i,second=j,width_px=round(w,3),height_px=round(h,3)))
+    outside=[i for i,r in enumerate(items) if r['bbox'][0]<0 or r['bbox'][1]<0 or
+             r['bbox'][2]>fig.bbox.width or r['bbox'][3]>fig.bbox.height]
+    return dict(dpi=300,text_count=len(items),texts=items,overlaps=overlaps,outside_canvas=outside,raw_math=raw_math)
+
+
 def save(fig,basename,caption):
     # Keep all scatter/line/bar artists vector in PDF (no rasterized layers).
     for ax in fig.axes:
         for item in ax.get_children():
             if hasattr(item,'get_rasterized'):
                 require(not item.get_rasterized(),f'{basename}: unexpected rasterized artist')
+    fig.set_dpi(300)
+    # Settle constrained layout once, then use the same positions for PDF/PNG.
+    fig.canvas.draw();fig.canvas.draw()
+    fig.set_layout_engine('none')
+    for left,right,shared in getattr(fig,'_shared_titles',[]):
+        p,q=left.get_position(),right.get_position()
+        shared.set_position(((p.x0+q.x1)/2,max(p.y1,q.y1)+10/72/fig.get_figheight()))
+    for ax,rows,pixels in getattr(fig,'_pixel_gap_specs',[]):
+        gap=pixels/ax.bbox.width*(ax.get_xlim()[1]-ax.get_xlim()[0])
+        for row in rows:
+            for j,bar in enumerate(row):
+                leftgap=gap/2 if j else 0;rightgap=gap/2 if j<len(row)-1 else 0
+                bar.set_x(bar.get_x()+leftgap);bar.set_width(max(0,bar.get_width()-leftgap-rightgap))
     fig.savefig(HERE/f'{basename}.pdf',metadata={
         'CreationDate':None,'ModDate':None,'Title':basename,'Subject':caption,
         'Creator':'make_figures.py','Author':'',
@@ -1058,7 +1375,12 @@ def save(fig,basename,caption):
         'Title':basename,'Description':caption,'Software':'make_figures.py',
     })
     strip_png_timestamps(HERE/f'{basename}.png')
+    audit=text_audit(fig)
+    require(not audit['raw_math'],f'{basename}: unrendered formula text {audit["raw_math"]}')
+    print(f'{basename}: {audit["text_count"]} visible text artists, {len(audit["overlaps"])} bbox overlaps, '
+          f'{len(audit["outside_canvas"])} outside canvas',flush=True)
     plt.close(fig)
+    return audit
 
 
 def readme(d):
@@ -1066,9 +1388,11 @@ def readme(d):
         'Regenerate from the repository root (CPU only, no network):','',
         '```bash',"CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/make_figures.py",'```','',
         'For a subset, append `--only N12,N14`. Each basename produces a vector PDF with embedded Type 42 fonts and a 300 dpi PNG. '
-        'Captions are embedded in PDF Subject and PNG Description metadata. All figures use constrained layout, explicit colors, and fonts of at least 9 pt.','',
+        'Captions are embedded in PDF Subject and PNG Description metadata. All figures use constrained layout and explicit colors. '
+        'The style block uses 9 pt text; a few dense annotations and category labels use 8 pt.','',
         'JSON evidence is loaded from the named blobs in Git HEAD; uncommitted result files and `theory/v015_checks/raw/` are never read. '
-        'The N14 working-tree imports must match HEAD byte for byte. Temporary Matplotlib caches are confined to this directory and removed on exit.','',
+        'The N14 working-tree imports must match HEAD byte for byte. N18–N20 require only stored-data reproduction checks; '
+        'their specs do not request importing or running otlr.py. Temporary Matplotlib caches are confined to this directory and removed on exit.','',
         'Data-source abbreviations:','']
     lines.extend(f'- **{key}**: `{path}`' for key,path in SOURCES.items())
     lines+=['','| Basename | Node | Data sources / key paths | What it shows |','| --- | --- | --- | --- |']
@@ -1077,6 +1401,8 @@ def readme(d):
     lines+=['','## Data/spec differences','']+[f'- {s}' for s in discrepancies(d)]
     lines+=['','## Rendering choices and scope','',
         '- N09 B omits exact zero errors from the log curves. A triangle at the threshold marks every first crossing, including the zero-error endpoint for N=4.',
+        '- N18 uses a fixed 11-optimizer color order, skips missing numeric values, and verifies all exact-cell maxima before drawing. '
+        'N19 shows zero Lion increments as text at the log floor. N20 verifies its reconstructed oracle mixture within the specified 0.02 tolerance.',
         '- N11 retains tiny signed SGD and shifted-support gaps. N12 retains the noisy warmth trajectory and signed SGD comparators without smoothing.',
         '- N14 C uses adjacent strip and bar axes inside the requested panel. Its transport certificate is capped as specified and labelled with its full value. '
         'N14 A plots the 2,000 reproduced random instances plus the sharp witness; its 2,572-instance annotation is explicitly the committed full V1 summary.',
@@ -1090,29 +1416,46 @@ def readme(d):
         'The W1 source describes an empirical consistency check, not a uniform certificate.','',
         '## Determinism','',
         'Fixed `svg.hashsalt`, fixed jitter seed, explicit plotting order, fixed metadata, no PDF creation/modification date, and PNG timestamp stripping. '
-        'To verify, run the full command twice and compare SHA-256 hashes of every PDF and PNG. Byte identity is expected in the same interpreter/library/font environment.','']
+        'To verify, run `CUDA_VISIBLE_DEVICES=\'\' theory/.venv/bin/python theoretical_framework/figures/verify_figures.py`. '
+        'It regenerates all 20 figures twice, compares every PDF/PNG plus README and the text audit byte for byte, '
+        'and writes sizes and SHA-256 hashes to [verification.json](verification.json). '
+        'That report records the two-run result for all 42 generated files and the exact interpreter/library environment.','',
+        '## Rendered text audit','',
+        '`text_audit.json` records the bounding box of every visible text artist at 300 dpi, all intersecting pairs, '
+        'out-of-canvas text, and any unrendered formula characters. Off-view ticks and invisible descendants are excluded. '
+        'Bounding boxes are conservative, especially for rotated and multiline text. No overlapping pair is silently exempted.','',
+        '| Figure | Text artists | Bounding-box overlaps | Outside canvas |','| --- | ---: | ---: | ---: |']
+    for basename,audit in d.audits.items():
+        lines.append(f'| {basename[:3]} | {audit["text_count"]} | {len(audit["overlaps"])} | {len(audit["outside_canvas"])} |')
+    lines+=['','## Output sizes','', '| File | Bytes |','| --- | ---: |']
+    for basename in BASENAMES:
+        for suffix in ('pdf','png'):
+            path=HERE/f'{basename}.{suffix}'
+            if path.exists():lines.append(f'| `{path.name}` | {path.stat().st_size:,} |')
+    lines.append('')
     (HERE/'README.md').write_text('\n'.join(lines),encoding='utf-8')
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--only',help='Comma-separated node IDs, e.g. N12,N14 (default: all 17)')
+    parser.add_argument('--only',help='Comma-separated node IDs, e.g. N12,N14 (default: all 20)')
     args=parser.parse_args();nodes=[b[:3] for b in BASENAMES]
     requested=set(nodes if args.only is None else [v.strip().upper() for v in args.only.split(',')])
-    if not requested or not requested.issubset(nodes):parser.error('--only must contain node IDs N01 through N17')
+    if not requested or not requested.issubset(nodes):parser.error('--only must contain node IDs N01 through N20')
     evidence=Evidence()
-    builders=(n01,n02,n03,n04,n05,n06,n07,n08,n09,n10,n11,n12,n13,n14,n15,n16,n17)
+    builders=(n01,n02,n03,n04,n05,n06,n07,n08,n09,n10,n11,n12,n13,n14,n15,n16,n17,n18,n19,n20)
     for basename,builder in zip(BASENAMES,builders):
         node=basename[:3]
         if node not in requested:continue
         print(f'Generating {basename} …',flush=True)
         try:
             fig=builder(evidence)
-            save(fig,basename,evidence.captions[node])
+            evidence.audits[basename]=save(fig,basename,evidence.captions[node])
         except Exception as exc:
             plt.close('all')
             print(f'ERROR {node}: {type(exc).__name__}: {exc}',file=sys.stderr,flush=True)
             return 1
+    (HERE/'text_audit.json').write_text(json.dumps(evidence.audits,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     readme(evidence)
     for message in discrepancies(evidence):print('DATA NOTE:',message,flush=True)
     print(f'Wrote {len(requested)} PDF/PNG pairs and README.md under {HERE.relative_to(ROOT)}.',flush=True)
