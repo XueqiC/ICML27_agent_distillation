@@ -1,0 +1,96 @@
+{
+  "version": "0.15",
+  "scope": "Correction and supporting extensions; no neural training or award-level novelty claim",
+  "claims": [
+    {
+      "id": "A1",
+      "claim": "Frozen-audit learning bound with state-to-cell discrepancy transport",
+      "status": "proved_with_explicit_conditions",
+      "checks": [
+        "T01",
+        "T02",
+        "T12"
+      ],
+      "novelty": "erratum and quantitative application of stopped response identity"
+    },
+    {
+      "id": "A2",
+      "claim": "Cold Adam immediate-parameter exact response quotient",
+      "status": "proved_in_real_arithmetic_for_all_bounded_output_utilities",
+      "checks": [
+        "T03",
+        "T04",
+        "T05"
+      ],
+      "novelty": "algorithmic specialization; sign first-step has direct prior art"
+    },
+    {
+      "id": "A3",
+      "claim": "Margin-sensitive finite-epsilon sign approximation for Lipschitz utilities",
+      "status": "proved_with_regular_utility_and_gradient_mass_terms",
+      "checks": [
+        "T07"
+      ],
+      "novelty": "supporting approximation bound; no priority claim"
+    },
+    {
+      "id": "A4",
+      "claim": "Equal first signs or sign histories need not preserve multistep Adam consequences",
+      "status": "proved_by_exact_counterexample",
+      "checks": [
+        "T08"
+      ],
+      "novelty": "supporting optimizer-memory separation"
+    },
+    {
+      "id": "A5",
+      "claim": "K-dependent hidden-bit Bayes information floor",
+      "status": "proved_in_independent_fair_bit_noiseless_reveal_model",
+      "checks": [
+        "T09",
+        "T10"
+      ],
+      "novelty": "classical missing-mass specialization"
+    },
+    {
+      "id": "A6",
+      "claim": "Optimal additional hard-budget queries in the same finite model",
+      "status": "proved_under_freely_accessible_unit_cost_bit_queries",
+      "checks": [
+        "T09",
+        "T10"
+      ],
+      "novelty": "supporting finite decision result"
+    },
+    {
+      "id": "A7",
+      "claim": "Initial demo KL plus adaptive query KL information lower bound",
+      "status": "proved_under_conditional_KL_and_bounded_stopping_assumptions",
+      "checks": [
+        "T11"
+      ],
+      "novelty": "standard change-of-measure specialization"
+    },
+    {
+      "id": "external_C23",
+      "claim": "Reported small-neural SGD/Adam comparison",
+      "status": "user_reported_not_independently_rerun",
+      "blocker": "External source, raw results and complete optimizer semantics not available locally"
+    },
+    {
+      "id": "neural_proxy",
+      "claim": "Cheap optimizer-aware features approximate full-tail task responses",
+      "status": "unvalidated_hypothesis"
+    },
+    {
+      "id": "real_agent_method",
+      "claim": "Few-shot CED improves the specified student across task families",
+      "status": "not_executed_or_established"
+    },
+    {
+      "id": "award_level_novelty",
+      "claim": "ICML best-paper-level central theory",
+      "status": "not_established"
+    }
+  ]
+}

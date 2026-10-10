@@ -1,0 +1,13 @@
+{
+  "full_command": "CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --output theory/v015_checks/results_v015_independent.json",
+  "full_exit_code": 0,
+  "full_runtime_seconds": 72.07954192499164,
+  "quick_test_command": "CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 theory/.venv/bin/python -m pytest -c /dev/null --rootdir=theory/v015_checks --confcutdir=theory/v015_checks -p no:cacheprovider --basetemp=theory/v015_checks/quick/pytest_tmp theory/v015_checks/tests/test_v015_quick.py -q",
+  "quick_test_exit_code": 0,
+  "quick_test_passed": 1,
+  "quick_test_seconds": 12.45,
+  "source_hashes_verified": 10,
+  "artifact_hashes_verified": 121,
+  "result_sha256": "e3902e85865bb49eb3b504e71058816b23f013e7ac310bd7971c251586e4785d",
+  "unexpected_failures": 0
+}

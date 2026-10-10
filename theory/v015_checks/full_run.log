@@ -1,0 +1,56 @@
+Independent v0.15 | master seed 150150 | quick=False
+START V1
+V1 PASS | old bound 0.02960414 < gap 1; best A4 ratio 1 | 4.70s
+START V2
+V2 PASS | 300 quotient alphabets; inverse derivative reaches 10000000000000000000000 | 1.36s
+START V3
+V3 PASS | largest A9 gap/bound 0.994079 | 0.91s
+START V4
+V4 PASS | opposite-step witnesses on 80% of beta grid | 0.07s
+START V5
+V5 PASS | 100 transcript families; strict Jensen 1/2 > 0 | 4.88s
+START V6
+V6 PASS | best A15 tightness ratio 1 | 2.84s
+START V7
+V7 PASS | linear witness: 65/32 > 1 | 0.24s
+START E0
+E0 PASS | R=1: gap 0.076907458; R=4: gap 0.119610952 | 0.33s
+START E1
+E1 PASS | 110 ablation cells; max relative map error 2.1e-15 | 1.32s
+START E3
+E3 PASS | 2 neural epsilon-grid witnesses | 0.13s
+START E2
+E2 completed moment N=2
+E2 completed moment N=3
+E2 completed moment N=4
+E2 completed parity N=2
+E2 completed parity N=3
+E2 INFO | 39/45 frozen-Adam gaps persist | 14.60s
+START E4
+E4 INFO | 36/40 anchor prediction failures at 0.001 | 0.26s
+START E5
+E5 completed m=4 q=uniform w=uniform
+E5 completed m=4 q=uniform w=nonuniform
+E5 completed m=4 q=nonuniform w=uniform
+E5 completed m=4 q=nonuniform w=nonuniform
+E5 completed m=8 q=uniform w=uniform
+E5 completed m=8 q=uniform w=nonuniform
+E5 completed m=8 q=nonuniform w=uniform
+E5 completed m=8 q=nonuniform w=nonuniform
+E5 completed m=16 q=uniform w=uniform
+E5 completed m=16 q=uniform w=nonuniform
+E5 completed m=16 q=nonuniform w=uniform
+E5 completed m=16 q=nonuniform w=nonuniform
+E5 PASS | 944 exact K/query cells; replay gain zero | 18.53s
+START E6
+E6 completed held_out_states
+E6 completed held_out_task
+E6 completed held_out_epsilon
+E6 completed held_out_lr
+E6 completed held_out_epsilon_lr
+E6 completed fresh_to_warm
+E6 completed warm_to_fresh
+E6 INFO | 432 held-out rows; 38 proxy/split failures to beat best simple control | 1.14s
+START E7
+E7 INFO | Hoeffding n=1016; pilot empirical-Bernstein forecast n=559 | 0.29s
+Completed in 54.51s; 0 unexpected failures

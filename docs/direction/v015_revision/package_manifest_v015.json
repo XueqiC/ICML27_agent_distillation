@@ -1,0 +1,64 @@
+{
+  "version": "0.15",
+  "content_files": [
+    {
+      "path": "Environment_Information_Theory_EN.md",
+      "bytes": 71541,
+      "sha256": "7fd67fa9b05ce716a5ab8767ec652b76470d6ec9fa75797881993b4313ef13a3"
+    },
+    {
+      "path": "Coding_Agent_Followup_v015_EN.md",
+      "bytes": 22116,
+      "sha256": "6e7ce7f78713da6131569b0fe7109a5a06427101eaa6e725d981109300cc90fb"
+    },
+    {
+      "path": "Novelty_Update_v015_EN.md",
+      "bytes": 20032,
+      "sha256": "56a3b2f26adb3314840e744ced8cf56d25e5aaaac076ea59c19b4066f9588f25"
+    },
+    {
+      "path": "Optimizer_State_and_Few_Shot_Theory_v015_EN.md",
+      "bytes": 32924,
+      "sha256": "c65ecc610ab028946f8ed05e1c0c8e0f36a623df755be403a92790499d7621f3"
+    },
+    {
+      "path": "Proof_Review_v015_EN.md",
+      "bytes": 27262,
+      "sha256": "80d4565a5ae5329f0bf7455385be5aee917014224c9b4e65ca1670ad101bf1f8"
+    },
+    {
+      "path": "README_v015_EN.md",
+      "bytes": 5792,
+      "sha256": "9d60986b2fc83fdca717728dcb3a219a9485f74de5afb6ab81d72086634877dc"
+    },
+    {
+      "path": "claim_ledger_v015.json",
+      "bytes": 2999,
+      "sha256": "3823c832dc342c94b3105144f730b52d6ac3882370f70f04a0f319ee97e19805"
+    },
+    {
+      "path": "requirements_v015.txt",
+      "bytes": 13,
+      "sha256": "7bd6b8946940b79948c548c8048e545684b91c8edc9444d8dfc0c8f76a97c0a7"
+    },
+    {
+      "path": "results_v015.json",
+      "bytes": 8877,
+      "sha256": "a3ee3d80d7fdd7cbea84b6e8e6a3952f0bb1172e0e6f869604737e5fa09afe9e"
+    },
+    {
+      "path": "verify_v015_extensions.py",
+      "bytes": 16518,
+      "sha256": "695370fdf48576f447e76b9a32e57aacd0fdb2e5050a4e38113dcd8037f51dc6"
+    },
+    {
+      "path": "historical/English_Theory_and_Coding_Handoff_v014.zip",
+      "bytes": 388303,
+      "sha256": "640eb5097a791524a000fef6135658a810465ab26e7f509c80eaa822bed443c9"
+    }
+  ],
+  "excludes": [
+    "package_manifest_v015.json",
+    "Environment_Information_Theory_v015_Revision.zip"
+  ]
+}

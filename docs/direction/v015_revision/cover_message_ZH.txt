@@ -1,0 +1,68 @@
+我已据此完成 **v0.14.1 主稿修补和 v0.15 补充推导**，并完成独立模型代理证明复核、新颖性复查，以及 **13 组新增有限检验，全部通过**。这些新增检验不等同于复现你报告中的 C23；本轮没有运行真实 agent 训练。
+
+目前的判断是：**有限理论核心得到了有力支持，但从有限刻画到神经训练中可测、有效的信息准则，仍是尚未完成的核心贡献。** 不能把这个缺口视为最后补几个实验就能解决的问题。
+
+**1. Thm 19 的遗漏已经正式修补。**
+
+你给出的反例成立。之前的独立复核也漏掉了这个条件，需要明确承认。
+
+修订后，除了响应近似，还必须控制实际状态与审计 cell 之间的**特征差异传递误差** \(a_{t,j}(z)\)。局部误差界变为：
+
+\[
+B_t\!\left(\widehat D_j+e_0+e_S+a_{t,j}(z)\right)+2\tau_t.
+\]
+
+随后沿实际训练过程累加，并计入首次离开认证区域的概率 \(\rho\)。无法证明传递关系的状态必须计入退出事件。原反例因此会产生 \(a=1\) 或 \(\rho=1\)，不会再得到虚假的小证书。
+
+式 (40) 在原来的**状态无关、IID、affine** 假设下仍然成立。
+
+**2. Adam 的关键问题比“需要匹配符号”更深。**
+
+标准 Adam 从零动量开始时，首步是：
+
+\[
+\Delta\theta=-\eta\frac{G}{|G|+\epsilon}.
+\]
+
+符号更新是忽略 \(\epsilon\) 后的理想化形式，而且首步参数相同，并不意味着后续学习相同。这个首步机制已有明确前作，不能作为我们的主要创新。[arxiv.org](https://arxiv.org/pdf/1412.6980?utm_source=chatgpt.com)
+
+我补出了一个精确反例：在理想 \(\epsilon=0\)、\(\beta_1=\beta_2=1/2\) 下，首步梯度分别为 \(1\) 和 \(2\)，参数更新完全相同；第二步共同收到梯度 \(-3/4\)，更新方向却相反。原因是保留下来的动量不同。
+
+因此，方法的信息准则必须考虑 **参数、优化器状态与后续任务结果之间的关系**。仅从矩匹配改成符号匹配，仍然不够。新增推导还给出了有限 \(\epsilon\) 下、依赖梯度近零概率和任务响应光滑性的近似界。
+
+**3. \(K\) 已经显式进入理论，但需要说明环境结构。**
+
+在“独立公平隐藏事实、无噪声揭示、IID 示范”的有限模型中，已证明：
+
+\[
+R_{\mathrm{info}}(K)
+=\frac12\sum_j w_j(1-q_j)^K,
+\]
+
+其中 \(q_j\) 是一条完整示范揭示事实 \(j\) 的概率，\(w_j\) 是它在部署中的权重。
+
+同时推导了额外查询预算下的精确最优风险，以及“初始示范信息＋自适应查询信息”的 KL 下界。它们把**环境信息仍然不足**与**学习器没有利用好已有信息**区分开来；这个公式本身不是神经学生的训练误差保证。
+
+Missing-mass 与主动模仿学习已有直接理论基础，因此这些结果应承担统一框架中的连接作用。[arxiv.org](https://arxiv.org/pdf/2009.05990?utm_source=chatgpt.com)
+
+**4. 证书昂贵，但 1016 不是不可降低的下界。**
+
+1016 对副本是当前 Hoeffding 公式给出的充分样本量，不能据此证明任何有效审计都需要这个成本。下一轮应先测量配对方差和实际运行成本，再考虑有效的方差自适应界、少量完整训练审计，以及能够证明的状态传递关系。
+
+完整训练的随机对照实验，也可以验证方法的平均收益；其结论范围应明确，不能冒充每一步都有认证的局部决策保证。
+
+后续实验指令已经按下面的顺序写好：
+
+| 顺序 | 要解决的问题 |
+|---|---|
+| Adam 机制控制 | 用执行相同 Adam 递推的固定 Jacobian 模型，区分优化器效应与神经特征变化 |
+| 神经 proxy 验证 | 检查低成本指标能否预测完整后续训练的任务收益，并跨任务、状态和训练配置验证 |
+| 实际 LoRA 小规模试验 | 在指定模型上验证反馈选择方法，同时核算初始示范、额外信息、训练与审计成本 |
+
+**目前尚未建立的主要贡献，是一个在有用的神经训练区域内成立、成本可承受、能指导反馈获取与蒸馏的方法级理论保证。** 本轮补强了它的数学基础，也明确了哪些结果已有前作；还不能据此认定达到 ICML best paper 级别。
+
+完整材料已保存，压缩包包含原始 v0.14 历史包、修订正文、证明与新颖性复核、检验代码和结果：
+
+- Environment_Information_Theory_v015_Revision.zip[Environment_Information_Theory_v015_Revision.zip](sandbox:/workspace/scratch/b96b17c7c5f7/theory_work/ICML_agent_distillation/v015/Environment_Information_Theory_v015_Revision.zip)
+- :chatgpt-content-reference{index="4"}[Optimizer_State_and_Few_Shot_Theory_v015_EN.md](sandbox:/workspace/scratch/b96b17c7c5f7/theory_work/ICML_agent_distillation/v015/Optimizer_State_and_Few_Shot_Theory_v015_EN.md)
+- :chatgpt-content-reference{index="5"}[Coding_Agent_Followup_v015_EN.md](sandbox:/workspace/scratch/b96b17c7c5f7/theory_work/ICML_agent_distillation/v015/Coding_Agent_Followup_v015_EN.md)

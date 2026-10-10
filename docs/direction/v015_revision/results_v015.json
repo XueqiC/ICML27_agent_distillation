@@ -1,0 +1,358 @@
+{
+  "version": "0.15",
+  "seed": 15019,
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "scope": "New finite regression suite; not C23 replication or neural training",
+  "passed_groups": 13,
+  "failed_groups": 0,
+  "checks": {
+    "T01_coverage_erratum": {
+      "status": "PASS",
+      "old_statement_counterexample_reproduced": true,
+      "old_bound": 0.029604143746015967,
+      "actual_gap": 1.0,
+      "corrected_transport_bound_capped": 1,
+      "corrected_exit_bound": 1
+    },
+    "T02_local_transport_and_feature_drift": {
+      "status": "PASS",
+      "instances": 1200,
+      "maximum_local_gap_over_bound": 0.5026040302604576
+    },
+    "T03_cold_adam_and_positive_epsilon_inverse": {
+      "status": "PASS",
+      "cases": 480,
+      "maximum_update_error": 2.220446049250313e-16,
+      "maximum_inverse_error": 2.560114866767549e-07
+    },
+    "T04_exact_quotient_dimensions": {
+      "status": "PASS",
+      "gradient_atoms": 25,
+      "sign_patterns": 9,
+      "ideal_sign_statistic_dimension": 8,
+      "positive_epsilon_statistic_dimension": 24
+    },
+    "T05_joint_sign_marginal_counterexample": {
+      "status": "PASS",
+      "mean_updates_equal": true,
+      "bounded_same_sign_utility_gap": 1.0
+    },
+    "T06_moment_matched_optimizer_separation": {
+      "status": "PASS",
+      "matched_orders": [
+        0,
+        1,
+        2
+      ],
+      "moment_differences": [
+        "0",
+        "0",
+        "0",
+        "-1/18"
+      ],
+      "sgd_mean_parameter_gap": 0,
+      "ideal_adam_mean_parameter_gap": "1/10",
+      "finite_epsilon_mean_parameter_gap": "250/2703",
+      "note": "New finite witness, not external C23 or its task utility."
+    },
+    "T07_margin_sensitive_bound": {
+      "status": "PASS",
+      "instances": 1500,
+      "maximum_gap_over_bound": 0.7388279980117531,
+      "maximum_signed_violation": -0.0008467166958317791
+    },
+    "T08_same_signs_different_optimizer_memory": {
+      "status": "PASS",
+      "first_parameter_outputs_equal": true,
+      "gradient_sign_histories_equal": true,
+      "second_bias_corrected_moments": [
+        [
+          "-1/6",
+          "17/24"
+        ],
+        [
+          "1/6",
+          "41/24"
+        ]
+      ],
+      "second_parameter_deltas": [
+        0.019802950859533486,
+        -0.012751534261266765
+      ],
+      "threshold_task_gap": 1
+    },
+    "T09_exact_posterior_and_adaptive_query_optimum": {
+      "status": "PASS",
+      "d": 3,
+      "K_values": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "query_budgets": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "cases": 20,
+      "reveal_probabilities": [
+        "3/5",
+        "1/2",
+        "7/10"
+      ],
+      "exact_curves": [
+        {
+          "K": 0,
+          "optimal_risks_by_query_budget": [
+            "1/2",
+            "1/4",
+            "1/12",
+            "0"
+          ]
+        },
+        {
+          "K": 1,
+          "optimal_risks_by_query_budget": [
+            "5/24",
+            "1/40",
+            "1/120",
+            "0"
+          ]
+        },
+        {
+          "K": 2,
+          "optimal_risks_by_query_budget": [
+            "107/1200",
+            "1/400",
+            "1/1200",
+            "0"
+          ]
+        },
+        {
+          "K": 3,
+          "optimal_risks_by_query_budget": [
+            "469/12000",
+            "1/4000",
+            "1/12000",
+            "0"
+          ]
+        },
+        {
+          "K": 4,
+          "optimal_risks_by_query_budget": [
+            "2099/120000",
+            "1/40000",
+            "1/120000",
+            "0"
+          ]
+        }
+      ],
+      "note": "Full hidden-world posterior enumeration and query decision-tree minimization."
+    },
+    "T10_uniform_coverage_and_positive_part": {
+      "status": "PASS",
+      "cases": 35,
+      "exact_curves": [
+        {
+          "K": 0,
+          "risk": [
+            "1/2",
+            "3/8",
+            "1/4",
+            "1/8",
+            "0"
+          ]
+        },
+        {
+          "K": 1,
+          "risk": [
+            "3/8",
+            "1/4",
+            "1/8",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "K": 2,
+          "risk": [
+            "9/32",
+            "5/32",
+            "1/32",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "K": 3,
+          "risk": [
+            "27/128",
+            "11/128",
+            "1/128",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "K": 4,
+          "risk": [
+            "81/512",
+            "23/512",
+            "1/512",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "K": 5,
+          "risk": [
+            "243/2048",
+            "47/2048",
+            "1/2048",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "K": 6,
+          "risk": [
+            "729/8192",
+            "95/8192",
+            "1/8192",
+            "0",
+            "0"
+          ]
+        }
+      ],
+      "expectation_of_positive_part_counterexample": {
+        "K": 3,
+        "n": 2,
+        "correct": "1/128",
+        "incorrect": 0
+      }
+    },
+    "T11_adaptive_query_KL_enumeration": {
+      "status": "PASS",
+      "instances": 10,
+      "max_queries": 4,
+      "rows": [
+        {
+          "K": 0,
+          "direction": 0,
+          "delta": 0.1872,
+          "transcript_KL": 1.4771619086429302,
+          "KL_upper": 2.4620587853489253,
+          "binary_KL_lower": 0.9185731799956218,
+          "expected_queries": 2.96,
+          "query_lower_bound": 1.1043508095610741
+        },
+        {
+          "K": 0,
+          "direction": 1,
+          "delta": 0.1872,
+          "transcript_KL": 1.7930418880976169,
+          "KL_upper": 2.1293481386801516,
+          "binary_KL_lower": 0.9185731799956218,
+          "expected_queries": 2.56,
+          "query_lower_bound": 1.1043508095610741
+        },
+        {
+          "K": 1,
+          "direction": 0,
+          "delta": 0.18608,
+          "transcript_KL": 1.1861477292431324,
+          "KL_upper": 2.2593249967270435,
+          "binary_KL_lower": 0.9264943167042065,
+          "expected_queries": 2.3088,
+          "query_lower_bound": 0.706409822988657
+        },
+        {
+          "K": 1,
+          "direction": 1,
+          "delta": 0.18608,
+          "transcript_KL": 1.3532810339563308,
+          "KL_upper": 1.7868758784573844,
+          "binary_KL_lower": 0.9264943167042065,
+          "expected_queries": 1.7408,
+          "query_lower_bound": 0.706409822988657
+        },
+        {
+          "K": 2,
+          "direction": 0,
+          "delta": 0.167744,
+          "transcript_KL": 1.514922067055503,
+          "KL_upper": 2.5822740298418236,
+          "binary_KL_lower": 1.0643495868106463,
+          "expected_queries": 2.2896,
+          "query_lower_bound": 0.4646816113289821
+        },
+        {
+          "K": 2,
+          "direction": 1,
+          "delta": 0.167744,
+          "transcript_KL": 1.83186123544134,
+          "KL_upper": 2.346049470706994,
+          "binary_KL_lower": 1.0643495868106463,
+          "expected_queries": 2.0056,
+          "query_lower_bound": 0.4646816113289821
+        },
+        {
+          "K": 3,
+          "direction": 0,
+          "delta": 0.1412736,
+          "transcript_KL": 1.6157132862168329,
+          "KL_upper": 2.446894184531568,
+          "binary_KL_lower": 1.2948243223541307,
+          "expected_queries": 1.719376,
+          "query_lower_bound": 0.33430476923248303
+        },
+        {
+          "K": 3,
+          "direction": 1,
+          "delta": 0.1412736,
+          "transcript_KL": 1.9248925102897503,
+          "KL_upper": 2.3183347906587537,
+          "binary_KL_lower": 1.2948243223541307,
+          "expected_queries": 1.564816,
+          "query_lower_bound": 0.33430476923248303
+        },
+        {
+          "K": 4,
+          "direction": 0,
+          "delta": 0.12947664,
+          "transcript_KL": 2.021929120393405,
+          "KL_upper": 2.907944752865623,
+          "binary_KL_lower": 1.4121342687445106,
+          "expected_queries": 1.866208,
+          "query_lower_bound": 0.06787602704062656
+        },
+        {
+          "K": 4,
+          "direction": 1,
+          "delta": 0.12947664,
+          "transcript_KL": 2.3514488236431617,
+          "KL_upper": 2.808730438028994,
+          "binary_KL_lower": 1.4121342687445106,
+          "expected_queries": 1.746928,
+          "query_lower_bound": 0.06787602704062656
+        }
+      ]
+    },
+    "T12_stopped_occupancy_composition": {
+      "status": "PASS",
+      "instances": 400,
+      "bounds_below_one": 400,
+      "maximum_gap_over_bound": 0.47011150147278297
+    },
+    "T13_Hoeffding_allocation": {
+      "status": "PASS",
+      "sufficient_pairs": 1016,
+      "radius": 0.09995248689395907,
+      "is_necessary_lower_bound": false
+    }
+  }
+}

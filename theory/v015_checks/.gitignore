@@ -1,0 +1,6 @@
+.mplconfig/
+__pycache__/
+.pytest_cache/
+quick/
+quick_*.json
+raw/
