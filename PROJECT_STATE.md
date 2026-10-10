@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **10:40 CDT 10-10: hpg ControlMaster expired** (Permission denied keyboard-interactive) — one notice sent (msg 1558504551915454487);
+  waiting for user `ssh -fN -M hpg`. Last seen 09:40: all 15 pending (IPR dpo1 45439203 Priority). Monitor now dedupes the tunnel notice
+  (scratchpad/hpg_tunnel_notified marker; prints TUNNEL_BACK when reachable again).
 - **09:31 CDT 10-10: IPR r4 dpo1 45082398 OUT_OF_MEMORY** (160G; my 10-07 shrink sized from 4-GPU SFT, but DPO loads policy+reference
   per rank, ~52G/rank). GPUs were 0% for all 56 min: 24 min pipeline re-hash of completed stages + 31 min per-rank pair re-derivation (Lustre
   small files) before weight load. Resubmitted **45439203** (256G, same submit line, tree 6bac2da, no code change); x2 45082399 → afterok:45439203;
