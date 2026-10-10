@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **15:03 CDT 10-10: user sent v0.15 revision** (Thm 19 erratum = v0.14.1 + optimizer-state/few-shot addendum + Followup). DONE ~16:xx:
+  verified (report docs/direction/2026-10-10_v015_verification_ZH.md; checks theory/v015_checks, commit 90ec27f/b8d79c4). C23 Adam gap =
+  cold-start optimizer effect (frozen-Jacobian Adam reproduces it; warm m,v removes ~95%). Awaiting user: A micro-LoRA pilot plan (GPU) /
+  B theory (warm-Adam lazy-regime response theorem; CPU).
+- **GPU-idle fix status**: ec17316 (parallel hashing + rank-0 verification) built on hpg; read-only hashcheck job 45466718 (hpg-milan):
+  hashes equal, but listing is the new bottleneck (expert-mc 352k files 328 s ≈ 0.17 s/rollout dir) → Codex round 2 parallelizes the
+  rglob listing (3.11/3.12 semantics). r5 chain script scripts/ops_chain_ipr_r5.sh drafted (not submitted; will use the round-2 tree).
 - **13:4x CDT 10-10: USER CHOSE (a)** for the GPU-idle fix: ETO tp6 finishes on tree 6bac2da (45058903 x3 → 45058904 dpo3 160G → 45058905 eval);
   IPR r4 withdrawn — cancelled all 12 pending r4 jobs (45439203 dpo1, 45082399–45082409). Reason: identity.json is frozen and binds
   code_sha256, so a code fix cannot resume r4; r4 output tree (sft + x1 + pairs-1 done, dpo-1 attempt-000 OOM) stays in place as an
