@@ -17,6 +17,23 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **17:31 CDT 10-10: v0.15 A pilot SUBMITTED** on tree **c0b7b01** (Codex①+③ reviewed; clean-worktree CPU suite 1086 passed,
+  5 env skips). scripts/ops_pilot_warm_1010.sh, out $B/reports/runs/pilot-warm-1010: 45476440 cold (save states 1–9), 45476441 mw32
+  (moment warm-up 32), 45476442 lw32 (LR warm-up 32) — all K20 s0 main-table recipe 416,280 tokens, --log-warmth, 1×B200 32G 1h15;
+  45476443 probe on cold (cold, warmup:8/32, update:1/4/8, checkpoint:31221/104070/416280; 96G 2h; afterok cold);
+  45476444 BI dev140 eval of {cold,mw32,lw32}×{p10,p40} on one server (64G 3h; afterok all three). Monitor JOBS += these 5.
+- **17:0x CDT 10-10: user asked for theoretical_framework/** (main page + proofs/ + experiments/, EN+ZH, verdict-first,
+  PDF figures, final version only — memory feedback-theory-framework-docs-final-only). 68 pages + 17 figure specs written
+  (4 forks); Codex④ (pid 3251901, logs/codex_20261010_182538.log) writing figures/make_figures.py. User Q "best paper level?":
+  answered honestly — not yet (core characterization near-definitional, affine-only specializations, no real-model evidence).
+- **16:49 CDT 10-10: v0.15 A+B status.** B: E8/E9 committed d8b3da5 (E8 PASS: W1 holds on 2,496 law pairs, max gap/bound 0.988; warm-up
+  removes the short-horizon C23 gap — moment N=3 eta .1 R=1 0.077→0.0004 at W=10, R=4 0.120→0.0016 — but NOT the R=40 gap 0.005–0.05;
+  E9 negative: warm-up does not improve cheap proxies, wrong-sign +1–8 pts). A: Codex① (train/sft.py moment/LR warm-up, per-update
+  states; tools/adam_response_probe.py; train/optimizer_state.py) reviewed, uncommitted; Codex③ pid 2830575 (log logs/codex_20261010_174619.log,
+  spec scratchpad/codex_probe_fix_task.md): momentum-centred nu (old nu divides by a norm containing the gradient-free momentum step),
+  float64 Adam reference, checkpoint:<n> probe states (sft checkpoints already store optimizer m/v), --log-warmth. Then clean-worktree
+  suite → commit → new hpg tree → scripts/ops_pilot_warm_1010.sh <sha> (3 arms cold/mw32/lw32 on main-table K20 s0 recipe, probe on
+  cold, one 6-adapter BI dev140 eval {arm}×{p10,p40}). hpg-b200 backlog: 852 pending; SLURM estimates IPR r5 sft start 10-14 09:34.
 - **15:33 CDT 10-10: IPR r5 SUBMITTED** on tree **5e8443c** (parallel hashing + parallel listing + rank-0 verification; hpg read-only
   check job 45468513 on the r4 tree: all ~770k file hashes and pairs-1 digest/report identical; stage re-hash 235 s vs ~24 min,
   pair re-derivation 300 s vs ~31 min → DPO startup idle ~9 min vs ~55 min). CPU suite on a clean worktree: all pass once third_party
