@@ -1,6 +1,6 @@
 # Optimizer-transformed linear response: what a feedback law must carry for a real learner
 
-**Status:** working derivation, 2026-10-10. Proofs are complete for the stated finite-dimensional assumptions. The controlled checks E10–E12 (theory/v015_checks) test them before any of this enters `theoretical_framework/`. Prior work and the novelty boundary are in §7.
+**Status:** derivation, 2026-10-10. Proofs are complete for the stated finite-dimensional assumptions. Checks V8, V9 and E10–E12 (theory/v015_checks) ran on 10-10. The corrections they prompted are included: the C4(d) sign, the Adam scaling paragraph and the smoothness scope. Prior work and the novelty boundary are in §7.
 
 This note gives the central result that the framework was missing. The general characterization (Thm. 7 and Thm. 8 of the main theory) says that a feedback law must preserve the expectations of the continuation responses $\mathcal G$. The affine theory computes $\mathcal G$ only for convex-affine learners. This note computes the *first-order part* of $\mathcal G$ for every stateful first-order optimizer used in practice. It then shows that this part is the minimal first-order statistic, catalogs it for SGD, momentum, Adam and AdamW (cold and warm), clipping, sign/Lion optimizers and LoRA, and shows how to estimate and use it at the actual training states.
 
@@ -55,7 +55,15 @@ If S$_1$ holds only on certified sets $C_t$ with first-exit probability $\rho$, 
 $$L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big[(K_t^P-K_t^Q)V^P_{t+1}(X_t)\big].$$
 Apply C1 with $k=1$ at each $X_t$ and sum. Measurability holds because $\mu$, $m_2$ and $\nabla V$ are measurable functions of the state. The certificate follows from $\lvert\langle a,b\rangle\rvert\le\lVert a\rVert_*\lVert b\rVert$. The stopped version is Theorem 5.3 of node N05, applied with $\varepsilon_t(x)$ equal to the per-state bound. $\square$
 
-**Scaling.** Write the parameter block of the increment as $\Delta^\theta=\eta\,\tilde\Delta^\theta$. The optimizer-state block need not scale with $\eta$; Adam's $\Delta m=(1-\beta_1)(G-m)$, for example, is $O(1)$. Use the weighted norm $\lVert(\delta\theta,\delta s)\rVert_\eta=\lVert\delta\theta\rVert+\eta\lVert\delta s\rVert$. If the continuation depends on $s$ only through later parameter increments, each $O(\eta)$, then $\lVert\nabla_sV\rVert=O(\eta)$ and $M_2$ is $O(1)$ in this norm on a region of bounded radius. Under these scalings $m_2=O(\eta^2)$. A first-order mismatch $\mu^P-\mu^Q\ne0$ in the weighted dual pairing then produces a gap of order $\eta$, while a first-order match leaves $O(\eta^2)$ per round. The same split governs every optimizer below. The constants are properties of the continuation, not of the data.
+**Scaling: what the remainder is small in.** C1 and C2 are exact inequalities. This paragraph only describes when the remainder is small relative to the first-order term. It is an order-of-magnitude heuristic, not a further bound; the bound is C2 with $M_2$. Split the increment into blocks.
+
+- *Parameter block.* $\Delta^\theta=O(\eta)$, so its second-order contribution $\tfrac12\nabla^2_{\theta\theta}V[\Delta^\theta,\Delta^\theta]$ is $O(\eta^2)$.
+- *First-moment block (momentum $m$).* $\Delta^m=O(1-\beta_1)$. The continuation depends on $m$ through later parameter increments, to leading order linearly, with coefficient $O(\eta/(1-\beta_1))$. Hence $\nabla^2_{mm}V=O(\eta^2/(1-\beta_1)^2)$, and the block's second-order contribution is $O(\eta^2)$.
+- *Second-moment block (Adam's $v$).* $\Delta^v=(1-\beta_2)(G^{\odot2}-v)$, and the continuation depends on $v$ through the denominators $(\hat v)^{-1/2}$ of later steps. Differentiating $(\hat v)^{-1/2}$ twice shows that, per coordinate, the second-order $v$ contribution is about $\Delta v_i/v_i^{\rm next}$ times the first-order one, where $v^{\rm next}$ is the second moment used by the next step. At a warm state this ratio is about the warmth $\kappa_i=(1-\beta_2)G_i^2/(\beta_2v_i)$ of node N12. This block's remainder is therefore first order in $\eta$ and second order in warmth. At the cold state the ratio is of order one, so the $v$-block term is not a small correction there.
+
+Consequently, the relative error of the first-order representation is $O(\eta)$ for SGD, momentum and sign-type optimizers, wherever S$_1$ holds. For Adam-type optimizers it is $O(\eta+\bar\kappa^2)$. Check E10 matches this: remainder slopes in $\eta$ are about 2 for every optimizer at $R=1$ and for SGD, momentum and sign at $R=4$, but about 1 for the Adam variants at $R=4$.
+
+**Smoothness scope.** With clipping or sign updates, a multi-step continuation is generally not smooth at states where some later gradient crosses the clip threshold or some later sign flips. There S$_1$ holds only on regions that avoid these kinks, for example when clipping is always active or momentum is flip-free. The catalog C4(e)–(f) computes $\mu$ exactly regardless. The remainder bound of C2 is claimed only where S$_1$ holds. In E10 the single exact-history cell that exceeds its empirical bound is multi-step clipped SGD.
 
 ## 3. Necessity and minimality of the first-order statistic
 
@@ -99,7 +107,7 @@ $$\mu^P-\mu^Q=\Big(-\eta c_1P\,\delta_1+(\mathbb E_Pe-\mathbb E_Qe),\ \ (1-\beta
 
 - The increments are $\Delta^\theta=-\eta\lambda\theta-\eta h_\epsilon(G)$, $\Delta^m=(1-\beta_1)G$ and $\Delta^v=(1-\beta_2)G^{\odot2}$. First-order statistic: $(\mathbb E\,h_\epsilon(G),\ \mathbb E\,G,\ \mathbb E\,G^{\odot2})$.
 - The parameter block sees only the sign law as $\epsilon\to0$ (Prop. A2). The moment blocks retain the mean and the second moment (Prop. A4). The $\theta$-weight $\eta\nabla_\theta V$ multiplies an $O(1)$ sign difference. For equal-mean laws with different sign laws this is a first-order gap, which is what C23 measures.
-- **Prediction.** For R=1 the C23 Adam gap should match $\eta\langle\nabla_\theta V,\mathbb E_Ph_\epsilon(G)-\mathbb E_Qh_\epsilon(G)\rangle$ to $O(\eta^2)$.
+- **Prediction (checked in E10).** For R=1 the C23 Adam gap equals $-\eta\langle\nabla_\theta V,\mathbb E_Ph_\epsilon(G)-\mathbb E_Qh_\epsilon(G)\rangle+O(\eta^2)$, with no state-block term because the continuation after the last update does not depend on $m$ or $v$. Measured at moment $N=3$, $\eta=0.1$: gap $0.07691$, first-order term $0.07568$. The raw mean-gradient term is about $-9\times10^{-11}$, because the two label laws have equal means.
 
 **C4(e) Gradient clipping** (global norm $c$, before any base optimizer). Let $\operatorname{clip}_c(G)=G\min\{1,c/\lVert G\rVert\}$.
 

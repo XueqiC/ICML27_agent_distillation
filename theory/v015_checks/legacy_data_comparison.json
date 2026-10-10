@@ -1,6 +1,6 @@
 {
-  "previous_sha256": "e3902e85865bb49eb3b504e71058816b23f013e7ac310bd7971c251586e4785d",
-  "baseline_path": "theory/v015_checks/raw/results_before_E8_E9.json",
+  "previous_sha256": "4e24d851b5dca1ad6cafa43d811ab65a066039030a81b565f00842f4e787be4d",
+  "baseline_path": "theory/v015_checks/raw/results_before_otlr.json",
   "groups": [
     {
       "id": "V1",
@@ -120,6 +120,22 @@
       "raw_rerun_data_byte_identical": false,
       "old_sha256": "71f6598e180b1f648a609683960568cfd866c7019b21931de62f3213f63e586a",
       "new_sha256": "71f6598e180b1f648a609683960568cfd866c7019b21931de62f3213f63e586a",
+      "changed_fields": []
+    },
+    {
+      "id": "E8",
+      "data_byte_identical": true,
+      "raw_rerun_data_byte_identical": true,
+      "old_sha256": "87da09a3de0090f7ba82c8d7e47e292d6ba690fe3425598eb04dd855e521c867",
+      "new_sha256": "87da09a3de0090f7ba82c8d7e47e292d6ba690fe3425598eb04dd855e521c867",
+      "changed_fields": []
+    },
+    {
+      "id": "E9",
+      "data_byte_identical": true,
+      "raw_rerun_data_byte_identical": true,
+      "old_sha256": "da549f4f83af3f0db523e5bad5498783d1652e7c100d9c052a94d13f37d70971",
+      "new_sha256": "da549f4f83af3f0db523e5bad5498783d1652e7c100d9c052a94d13f37d70971",
       "changed_fields": []
     }
   ],

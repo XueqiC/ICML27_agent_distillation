@@ -1,34 +1,38 @@
 Independent v0.15 | master seed 150150 | quick=False
 START V1
 V1 legacy data byte-identical=True
-V1 PASS | old bound 0.02960414 < gap 1; best A4 ratio 1 | 6.32s
+V1 PASS | old bound 0.02960414 < gap 1; best A4 ratio 1 | 6.08s
 START V2
 V2 legacy data byte-identical=True
-V2 PASS | 300 quotient alphabets; inverse derivative reaches 10000000000000000000000 | 1.93s
+V2 PASS | 300 quotient alphabets; inverse derivative reaches 10000000000000000000000 | 1.84s
 START V3
 V3 legacy data byte-identical=True
-V3 PASS | largest A9 gap/bound 0.994079 | 1.32s
+V3 PASS | largest A9 gap/bound 0.994079 | 1.23s
 START V4
 V4 legacy data byte-identical=True
-V4 PASS | opposite-step witnesses on 80% of beta grid | 0.10s
+V4 PASS | opposite-step witnesses on 80% of beta grid | 0.12s
 START V5
 V5 legacy data byte-identical=True
-V5 PASS | 100 transcript families; strict Jensen 1/2 > 0 | 7.58s
+V5 PASS | 100 transcript families; strict Jensen 1/2 > 0 | 7.14s
 START V6
 V6 legacy data byte-identical=True
-V6 PASS | best A15 tightness ratio 1 | 4.62s
+V6 PASS | best A15 tightness ratio 1 | 4.26s
 START V7
 V7 legacy data byte-identical=True
-V7 PASS | linear witness: 65/32 > 1 | 0.38s
+V7 PASS | linear witness: 65/32 > 1 | 0.37s
+START V8
+V8 PASS | 140 exact polynomials; logistic max ratio 0.182664; 160 rank/LP panels | 2.94s
+START V9
+V9 PASS | 20000 trials/cell; max quantile/bound 0.615277 | 4.79s
 START E0
 E0 legacy data byte-identical=True
-E0 PASS | R=1: gap 0.076907458; R=4: gap 0.119610952 | 0.51s
+E0 PASS | R=1: gap 0.076907458; R=4: gap 0.119610952 | 0.39s
 START E1
 E1 legacy data byte-identical=True
-E1 PASS | 110 ablation cells; max relative map error 2.1e-15 | 1.90s
+E1 PASS | 110 ablation cells; max relative map error 2.1e-15 | 1.89s
 START E3
 E3 legacy data byte-identical=True
-E3 PASS | 2 neural epsilon-grid witnesses | 0.18s
+E3 PASS | 2 neural epsilon-grid witnesses | 0.16s
 START E2
 E2 completed moment N=2
 E2 completed moment N=3
@@ -36,10 +40,10 @@ E2 completed moment N=4
 E2 completed parity N=2
 E2 completed parity N=3
 E2 legacy data byte-identical=True
-E2 INFO | 39/45 frozen-Adam gaps persist | 18.84s
+E2 INFO | 39/45 frozen-Adam gaps persist | 17.71s
 START E4
 E4 legacy data byte-identical=True
-E4 INFO | 36/40 anchor prediction failures at 0.001 | 0.40s
+E4 INFO | 36/40 anchor prediction failures at 0.001 | 0.36s
 START E5
 E5 completed m=4 q=uniform w=uniform
 E5 completed m=4 q=uniform w=nonuniform
@@ -54,7 +58,7 @@ E5 completed m=16 q=uniform w=nonuniform
 E5 completed m=16 q=nonuniform w=uniform
 E5 completed m=16 q=nonuniform w=nonuniform
 E5 legacy data byte-identical=True
-E5 PASS | 944 exact K/query cells; replay gain zero | 24.44s
+E5 PASS | 944 exact K/query cells; replay gain zero | 23.43s
 START E6
 E6 completed held_out_states
 E6 completed held_out_task
@@ -64,10 +68,10 @@ E6 completed held_out_epsilon_lr
 E6 completed fresh_to_warm
 E6 completed warm_to_fresh
 E6 legacy data byte-identical=True
-E6 INFO | 432 held-out rows; 38 proxy/split failures to beat best simple control | 1.46s
+E6 INFO | 432 held-out rows; 38 proxy/split failures to beat best simple control | 1.48s
 START E7
 E7 legacy data byte-identical=True
-E7 INFO | Hoeffding n=1016; pilot empirical-Bernstein forecast n=559 | 0.33s
+E7 INFO | Hoeffding n=1016; pilot empirical-Bernstein forecast n=559 | 0.29s
 START E8
 E8 W0 best ratio 1
 E8 W1 PASS on 2496 law pairs
@@ -81,12 +85,126 @@ E8 gap sweep completed moment N=3
 E8 gap sweep completed moment N=4
 E8 gap sweep completed parity N=2
 E8 gap sweep completed parity N=3
-E8 PASS | W0 best ratio 1; W1 PASS on 2496 law pairs; 210 gap cells | 37.13s
+E8 legacy data byte-identical=True
+E8 PASS | W0 best ratio 1; W1 PASS on 2496 law pairs; 210 gap cells | 35.85s
 START E9
 E9 paired held_out_states completed
 E9 paired held_out_task completed
 E9 paired held_out_epsilon completed
 E9 paired held_out_lr completed
 E9 paired held_out_epsilon_lr completed
-E9 INFO | 918 held-out rows; 0/8 cheap proxy/W pairs improve all three split-mean metrics | 2.97s
-Completed in 118.97s; 0 unexpected failures
+E9 legacy data byte-identical=True
+E9 INFO | 918 held-out rows; 0/8 cheap proxy/W pairs improve all three split-mean metrics | 2.92s
+START E10
+E10 moment2 SGD completed
+E10 moment2 heavy_ball completed
+E10 moment2 Nesterov completed
+E10 moment2 Adam_cold completed
+E10 moment2 Adam_warm5 completed
+E10 moment2 Adam_warm20 completed
+E10 moment2 AdamW completed
+E10 moment2 clipped_SGD completed
+E10 moment2 clipped_Adam completed
+E10 moment2 signSGD completed
+E10 moment2 Lion completed
+E10 moment3 SGD completed
+E10 moment3 heavy_ball completed
+E10 moment3 Nesterov completed
+E10 moment3 Adam_cold completed
+E10 moment3 Adam_warm5 completed
+E10 moment3 Adam_warm20 completed
+E10 moment3 AdamW completed
+E10 moment3 clipped_SGD completed
+E10 moment3 clipped_Adam completed
+E10 moment3 signSGD completed
+E10 moment3 Lion completed
+E10 moment4 SGD completed
+E10 moment4 heavy_ball completed
+E10 moment4 Nesterov completed
+E10 moment4 Adam_cold completed
+E10 moment4 Adam_warm5 completed
+E10 moment4 Adam_warm20 completed
+E10 moment4 AdamW completed
+E10 moment4 clipped_SGD completed
+E10 moment4 clipped_Adam completed
+E10 moment4 signSGD completed
+E10 moment4 Lion completed
+E10 parity2 SGD completed
+E10 parity2 heavy_ball completed
+E10 parity2 Nesterov completed
+E10 parity2 Adam_cold completed
+E10 parity2 Adam_warm5 completed
+E10 parity2 Adam_warm20 completed
+E10 parity2 AdamW completed
+E10 parity2 clipped_SGD completed
+E10 parity2 clipped_Adam completed
+E10 parity2 signSGD completed
+E10 parity2 Lion completed
+E10 parity3 SGD completed
+E10 parity3 heavy_ball completed
+E10 parity3 Nesterov completed
+E10 parity3 Adam_cold completed
+E10 parity3 Adam_warm5 completed
+E10 parity3 Adam_warm20 completed
+E10 parity3 AdamW completed
+E10 parity3 clipped_SGD completed
+E10 parity3 clipped_Adam completed
+E10 parity3 signSGD completed
+E10 parity3 Lion completed
+E10 clipped_witness1 SGD completed
+E10 clipped_witness1 heavy_ball completed
+E10 clipped_witness1 Nesterov completed
+E10 clipped_witness1 Adam_cold completed
+E10 clipped_witness1 Adam_warm5 completed
+E10 clipped_witness1 Adam_warm20 completed
+E10 clipped_witness1 AdamW completed
+E10 clipped_witness1 clipped_SGD completed
+E10 clipped_witness1 clipped_Adam completed
+E10 clipped_witness1 signSGD completed
+E10 clipped_witness1 Lion completed
+E10 INFO | 990 cells; 26 empirical bound failures; 10 unavailable derivatives; C23 0.076907458 | 194.43s
+START E11
+E11 PASS | 5 catalog witnesses; always-active slope 1.99997; warm v term 2.50426e-06 | 1.67s
+START E12
+E12 audited warm5/0/moment
+E12 audited warm5/0/parity
+E12 audited warm5/4/moment
+E12 audited warm5/4/parity
+E12 audited warm9/0/moment
+E12 audited warm9/0/parity
+E12 audited warm9/4/moment
+E12 audited warm9/4/parity
+E12 audited fresh/0/threshold
+E12 audited fresh/4/threshold
+E12 audited warm2/0/threshold
+E12 audited warm2/4/threshold
+E12 audited fresh/1/moment
+E12 audited fresh/1/parity
+E12 audited fresh/5/moment
+E12 audited fresh/5/parity
+E12 audited warm2/1/moment
+E12 audited warm2/1/parity
+E12 audited warm2/5/moment
+E12 audited warm2/5/parity
+E12 audited fresh/2/moment
+E12 audited fresh/2/parity
+E12 audited fresh/6/moment
+E12 audited fresh/6/parity
+E12 audited warm2/2/moment
+E12 audited warm2/2/parity
+E12 audited warm2/6/moment
+E12 audited warm2/6/parity
+E12 audited fresh/3/moment
+E12 audited fresh/3/parity
+E12 audited fresh/7/moment
+E12 audited fresh/7/parity
+E12 audited warm2/3/moment
+E12 audited warm2/3/parity
+E12 audited warm2/7/moment
+E12 audited warm2/7/parity
+E12 audited fresh/0/moment
+E12 audited fresh/0/parity
+E12 audited fresh/4/moment
+E12 audited fresh/4/parity
+E12 INFO | 432 frozen rows; 396 smooth; 56 above margin; margin wrong-sign 0.0 | 20.11s
+Completed in 347.97s; 0 unexpected failures

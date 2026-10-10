@@ -1,77 +1,192 @@
 {
-  "full_command": "CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v015_checks/check_v015.py --output theory/v015_checks/results_v015_independent.json --legacy-baseline theory/v015_checks/raw/results_before_E8_E9.json",
+  "full_command": "CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v015_checks/check_v015.py --output theory/v015_checks/results_v015_independent.json --legacy-baseline theory/v015_checks/raw/results_before_otlr.json",
   "full_exit_code": 0,
-  "full_runtime_seconds": 121.10896902193781,
-  "group_statuses": {
-    "V1": "PASS",
-    "V2": "PASS",
-    "V3": "PASS",
-    "V4": "PASS",
-    "V5": "PASS",
-    "V6": "PASS",
-    "V7": "PASS",
-    "E0": "PASS",
-    "E1": "PASS",
-    "E3": "PASS",
-    "E2": "INFO",
-    "E4": "INFO",
-    "E5": "PASS",
-    "E6": "INFO",
-    "E7": "INFO",
-    "E8": "PASS",
-    "E9": "INFO"
-  },
-  "quick_test_command": [
-    "/home/xueqi/hq/projects/ICML27_agent_distillation/theory/.venv/bin/python",
-    "-m",
-    "pytest",
-    "-c",
-    "/dev/null",
-    "--rootdir=theory/v015_checks",
-    "--confcutdir=theory/v015_checks",
-    "-p",
-    "no:cacheprovider",
-    "--basetemp=theory/v015_checks/quick/pytest_tmp",
-    "theory/v015_checks/tests/test_v015_quick.py",
-    "-q"
+  "full_runtime_seconds": 350.72720526496414,
+  "groups": [
+    {
+      "id": "V1",
+      "status": "PASS",
+      "seconds": 6.076039979001507,
+      "key_number": "old bound 0.02960414 < gap 1; best A4 ratio 1"
+    },
+    {
+      "id": "V2",
+      "status": "PASS",
+      "seconds": 1.8406500519486144,
+      "key_number": "300 quotient alphabets; inverse derivative reaches 10000000000000000000000"
+    },
+    {
+      "id": "V3",
+      "status": "PASS",
+      "seconds": 1.23125655495096,
+      "key_number": "largest A9 gap/bound 0.994079"
+    },
+    {
+      "id": "V4",
+      "status": "PASS",
+      "seconds": 0.11597091797739267,
+      "key_number": "opposite-step witnesses on 80% of beta grid"
+    },
+    {
+      "id": "V5",
+      "status": "PASS",
+      "seconds": 7.14350090699736,
+      "key_number": "100 transcript families; strict Jensen 1/2 > 0"
+    },
+    {
+      "id": "V6",
+      "status": "PASS",
+      "seconds": 4.260387055925094,
+      "key_number": "best A15 tightness ratio 1"
+    },
+    {
+      "id": "V7",
+      "status": "PASS",
+      "seconds": 0.3695174619788304,
+      "key_number": "linear witness: 65/32 > 1"
+    },
+    {
+      "id": "V8",
+      "status": "PASS",
+      "seconds": 2.941908393986523,
+      "key_number": "140 exact polynomials; logistic max ratio 0.182664; 160 rank/LP panels"
+    },
+    {
+      "id": "V9",
+      "status": "PASS",
+      "seconds": 4.790494360029697,
+      "key_number": "20000 trials/cell; max quantile/bound 0.615277"
+    },
+    {
+      "id": "E0",
+      "status": "PASS",
+      "seconds": 0.38745436700992286,
+      "key_number": "R=1: gap 0.076907458; R=4: gap 0.119610952"
+    },
+    {
+      "id": "E1",
+      "status": "PASS",
+      "seconds": 1.888365380000323,
+      "key_number": "110 ablation cells; max relative map error 2.1e-15"
+    },
+    {
+      "id": "E3",
+      "status": "PASS",
+      "seconds": 0.1611689239507541,
+      "key_number": "2 neural epsilon-grid witnesses"
+    },
+    {
+      "id": "E2",
+      "status": "INFO",
+      "seconds": 17.710337155032903,
+      "key_number": "39/45 frozen-Adam gaps persist"
+    },
+    {
+      "id": "E4",
+      "status": "INFO",
+      "seconds": 0.35582477995194495,
+      "key_number": "36/40 anchor prediction failures at 0.001"
+    },
+    {
+      "id": "E5",
+      "status": "PASS",
+      "seconds": 23.4297088769963,
+      "key_number": "944 exact K/query cells; replay gain zero"
+    },
+    {
+      "id": "E6",
+      "status": "INFO",
+      "seconds": 1.4767248729476705,
+      "key_number": "432 held-out rows; 38 proxy/split failures to beat best simple control"
+    },
+    {
+      "id": "E7",
+      "status": "INFO",
+      "seconds": 0.2917994699673727,
+      "key_number": "Hoeffding n=1016; pilot empirical-Bernstein forecast n=559"
+    },
+    {
+      "id": "E8",
+      "status": "PASS",
+      "seconds": 35.853051936021075,
+      "key_number": "W0 best ratio 1; W1 PASS on 2496 law pairs; 210 gap cells"
+    },
+    {
+      "id": "E9",
+      "status": "INFO",
+      "seconds": 2.9175931670470163,
+      "key_number": "918 held-out rows; 0/8 cheap proxy/W pairs improve all three split-mean metrics"
+    },
+    {
+      "id": "E10",
+      "status": "INFO",
+      "seconds": 194.4270284010563,
+      "key_number": "990 cells; 26 empirical bound failures; 10 unavailable derivatives; C23 0.076907458"
+    },
+    {
+      "id": "E11",
+      "status": "PASS",
+      "seconds": 1.6743166419910267,
+      "key_number": "5 catalog witnesses; always-active slope 1.99997; warm v term 2.50426e-06"
+    },
+    {
+      "id": "E12",
+      "status": "INFO",
+      "seconds": 20.10878920601681,
+      "key_number": "432 frozen rows; 396 smooth; 56 above margin; margin wrong-sign 0.0"
+    }
   ],
+  "quick_test_command": "CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 theory/.venv/bin/python -m pytest -c /dev/null --rootdir=theory/v015_checks --confcutdir=theory/v015_checks -p no:cacheprovider --basetemp=theory/v015_checks/quick/pytest_tmp theory/v015_checks/tests/test_v015_quick.py -q",
   "quick_test_exit_code": 0,
   "quick_test_passed": 1,
-  "quick_test_seconds": 29.98,
-  "quick_test_wall_seconds": 30.225560930091888,
-  "selective_quick_command": "CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v015_checks/check_v015.py --quick --only E8,E9 --output theory/v015_checks/quick/extension_development.json",
-  "selective_quick_exit_code": 0,
-  "source_hashes_verified": 12,
-  "artifact_hashes_verified": 345,
-  "result_sha256": "4e24d851b5dca1ad6cafa43d811ab65a066039030a81b565f00842f4e787be4d",
-  "original_result_sha256": "e3902e85865bb49eb3b504e71058816b23f013e7ac310bd7971c251586e4785d",
-  "legacy_data_groups_byte_identical": 15,
-  "legacy_comparison_sha256": "6abe91d6a6b464ac6331a2f52f1fc61d10768cef9a64dd00391024735d1e290d",
+  "quick_test_seconds": 103.68,
+  "quick_suite_seconds": 99.98315103701316,
+  "source_hashes_verified": 14,
+  "artifact_hashes_verified": 357,
+  "immutable_helpers": {
+    "common.py": true,
+    "mathematics.py": true,
+    "experiments.py": true,
+    "warmth.py": true
+  },
+  "frozen_E6_E9_artifacts": {
+    "raw/E6_held_out_records.json": true,
+    "raw/E9_held_out_records.json": true,
+    "figs/E9.svg": true,
+    "figs/E9.png": true,
+    "figs/E6.png": true,
+    "figs/E6.svg": true,
+    "proxy_split_freeze_E9.json": true,
+    "proxy_split_freeze.json": true,
+    "proxy_models_frozen_E9.json": true,
+    "proxy_models_frozen.json": true
+  },
+  "legacy_data_groups_byte_identical": 17,
   "legacy_scientific_differences": [],
   "E7_current_timing_measurements": {
     "note": "Current execution timings. E7.data retains the original historical timing baseline by request; all scientific values and checks are recomputed.",
-    "original_report_sha256": "e3902e85865bb49eb3b504e71058816b23f013e7ac310bd7971c251586e4785d",
+    "original_report_sha256": "4e24d851b5dca1ad6cafa43d811ab65a066039030a81b565f00842f4e787be4d",
     "timing_fields": [
       {
         "path": [
           "measured_CPU_seconds"
         ],
         "historical_baseline": 0.03580167097970843,
-        "current_measurement": 0.04056730482261628
+        "current_measurement": 0.03564082004595548
       },
       {
         "path": [
           "measured_CPU_seconds_per_pilot_pair_set"
         ],
         "historical_baseline": 1.4917362908211847e-05,
-        "current_measurement": 1.6903043676090116e-05
+        "current_measurement": 1.4850341685814782e-05
       },
       {
         "path": [
           "total_pilot_and_exact_decomposition_CPU_seconds"
         ],
         "historical_baseline": 0.05138401791919023,
-        "current_measurement": 0.05722694203723222
+        "current_measurement": 0.05108147801365703
       },
       {
         "path": [
@@ -80,7 +195,7 @@
           "controlled_CPU_seconds_projection"
         ],
         "historical_baseline": 0.015156040714743236,
-        "current_measurement": 0.01717349237490756
+        "current_measurement": 0.01508794715278782
       },
       {
         "path": [
@@ -89,12 +204,40 @@
           "controlled_CPU_seconds_projection"
         ],
         "historical_baseline": 0.008338805865690423,
-        "current_measurement": 0.009448801414934375
+        "current_measurement": 0.008301341002370463
       }
     ]
   },
-  "E9_frozen_before_held_out_verified": true,
-  "unexpected_failures": 0,
+  "guards_and_atomic_reader_test": {
+    "verifier_read": true,
+    "package_result_read": true,
+    "outside_write": true,
+    "network_audit_blocks_connect": true,
+    "atomic_reader_iterations": 761,
+    "atomic_reader_errors": [],
+    "CPU_only": true,
+    "BLAS_one_thread": true,
+    "atomic_writer": "final atomic_bytes/atomic_text with mode retention"
+  },
+  "result_sha256": "8f2f639fa34f9d6e4c2141d1d4f18af24a2a96e8c49422602a2b76ad83dba725",
+  "legacy_comparison_sha256": "7cbd73a3ac93e77e48984f69391ef20c222cb0b4c1085e6c112647491717f212",
+  "E10_exact_bound_failures": 1,
+  "E10_MC_point_bound_exceedances": 25,
+  "E10_MC_exceedances_after_four_SE": 2,
+  "E10_unavailable_derivatives": 10,
+  "limitations": [
+    "R=40 exact continuation enumeration is infeasible (up to 4^39 tails per boundary); reported C2 scores are Monte Carlo with SE, not exact gradients or exact gaps.",
+    "C2 smoothness is not assumed for sign/clipping kinks, cold Adam zero-gradient coordinates, or a threshold utility. Nonfinite central probes are retained as UNAVAILABLE.",
+    "Mhat2 is a sampled/hill-climbed directional segment constant, never padded after observing a gap. Every ratio >1 is a recorded cell FAIL, so E10 cannot receive PASS.",
+    "A scalar norm threshold cannot split tied gradient norms; unattainable 30--70% clipping bands are reported, not jittered.",
+    "The C4(e) 4/-4/3/0 witness cannot be the original fixed-network label law; it is included across all optimizers/rates/horizons as linear-logit CE with (feature,target)=(8,0),(8/3,1),(0,1/2), plus the direct E11(a) control.",
+    "Threshold-return rows are discontinuous and ineligible for C6; formal finite-difference scores are recorded but no smooth remainder bound is claimed.",
+    "All smooth bounds use unpadded sampled/hill-climbed directional curvature, so zero wrong signs above margin is empirical, not a certified guarantee.",
+    "E6 zero-prediction convention is preserved: prediction zero is not a wrong sign. Counts with nonzero gold use abs(gold)>1e-10."
+  ],
+  "unexpected_execution_or_consistency_failures": 0,
   "repository_tests_run": false,
-  "commits_created": false
+  "commits_created": false,
+  "network_used": false,
+  "GPU_used": false
 }
