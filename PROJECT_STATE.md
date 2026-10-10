@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-- **15:2x CDT 10-10: IPR r5 SUBMITTED** on tree **5e8443c** (parallel hashing + parallel listing + rank-0 verification; hpg read-only
+- **15:33 CDT 10-10: IPR r5 SUBMITTED** on tree **5e8443c** (parallel hashing + parallel listing + rank-0 verification; hpg read-only
   check job 45468513 on the r4 tree: all ~770k file hashes and pairs-1 digest/report identical; stage re-hash 235 s vs ~24 min,
   pair re-derivation 300 s vs ~31 min → DPO startup idle ~9 min vs ~55 min). CPU suite on a clean worktree: all pass once third_party
   is linked (main-tree failures were Codex editing concurrently). Chain (scripts/ops_chain_ipr_r5.sh, out reports/runs/baselines/ipr-k20s0-r5):
