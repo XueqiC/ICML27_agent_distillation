@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **15:2x CDT 10-10: IPR r5 SUBMITTED** on tree **5e8443c** (parallel hashing + parallel listing + rank-0 verification; hpg read-only
+  check job 45468513 on the r4 tree: all ~770k file hashes and pairs-1 digest/report identical; stage re-hash 235 s vs ~24 min,
+  pair re-derivation 300 s vs ~31 min → DPO startup idle ~9 min vs ~55 min). CPU suite on a clean worktree: all pass once third_party
+  is linked (main-tree failures were Codex editing concurrently). Chain (scripts/ops_chain_ipr_r5.sh, out reports/runs/baselines/ipr-k20s0-r5):
+  45470256 sft (4 GPU 96G) → 45470257 x1 → 45470258 dpo1 (4 GPU 256G) → … x6 45470267 → dpo6 45470268 → 45470269 eval. Monitor JOBS = ETO 3 + r5 14.
+- **15:05 CDT 10-10: user "关于AB你可以按照你想的来，做完以后最后结合这次所有的v0.15写成报告"** → doing both: B theory (docs/direction/v015_extension/
+  Warm_Adam_Response_EN.md, Props W1–W2, Cor W3; Codex E8/E9 controlled checks) and A Gemma pilot (Codex: train/sft.py moment warm-up /
+  lr warmup / per-update state saves + tools/adam_response_probe.py; then hpg 1×B200 runs, ~8 GPU-h). Final: one combined v0.15 report.
 - **14:03 CDT 10-10: user sent v0.15 revision** (Thm 19 erratum = v0.14.1 + optimizer-state/few-shot addendum + Followup). DONE 14:35:
   verified (report docs/direction/2026-10-10_v015_verification_ZH.md; checks theory/v015_checks, commit 90ec27f/b8d79c4). C23 Adam gap =
   cold-start optimizer effect (frozen-Jacobian Adam reproduces it; warm m,v removes ~95%). Awaiting user: A micro-LoRA pilot plan (GPU) /
