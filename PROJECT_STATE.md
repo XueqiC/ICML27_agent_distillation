@@ -17,6 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:39 CDT 10-10: hpg back** (user re-opened ControlMaster); no change during outage, all 15 pending (heads 45439203 + 45058903 Priority).
 - **10:40 CDT 10-10: hpg ControlMaster expired** (Permission denied keyboard-interactive) — one notice sent (msg 1558504551915454487);
   waiting for user `ssh -fN -M hpg`. Last seen 09:40: all 15 pending (IPR dpo1 45439203 Priority). Monitor now dedupes the tunnel notice
   (scratchpad/hpg_tunnel_notified marker; prints TUNNEL_BACK when reachable again).
