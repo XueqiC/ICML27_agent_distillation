@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **09:31 CDT 10-10: IPR r4 dpo1 45082398 OUT_OF_MEMORY** (160G; my 10-07 shrink sized from 4-GPU SFT, but DPO loads policy+reference
+  per rank, ~52G/rank). GPUs were 0% for all 56 min: 24 min pipeline re-hash of completed stages + 31 min per-rank pair re-derivation (Lustre
+  small files) before weight load. Resubmitted **45439203** (256G, same submit line, tree 6bac2da, no code change); x2 45082399 → afterok:45439203;
+  dpo2–dpo6 MinMemoryNode → 256G; ETO tp6 dpo3 45058904 96G → 160G (2-GPU DPO peak 104G). Monitor JOBS list updated. Open: ~55 min GPU-idle
+  startup in every resumed DPO segment (idle-GPU policy risk) — proposed Codex fix (hash cache + rank-0 pair derivation), needs a new tree.
 - **03:22 CDT 10-10: USER DECISION on v0.14** — "V0.14和v2关系不大，他是一个解决这类问题的通用理论框架": v0.14 is a general theory
   framework, NOT a theory layer of v2. Goal: complete the framework, derive a suitable novel agent-distillation method from it, test it
   experimentally. First step (in progress): verify the theory per the whole package (= plan gate G1 + §9 finite experiments).
