@@ -1,0 +1,320 @@
+{
+  "version": "0.14",
+  "manuscript": "Environment_Information_Theory_EN.md",
+  "manuscript_sha256": "9271ae051b6a31fc15907a0469354e46a8d043493f9cf353daca2809c58ac1e6",
+  "independent_review": "Independent_Proof_Audit_EN.md",
+  "review_type": "independent model-agent audit",
+  "claims": [
+    {
+      "claim_id": "v014_01",
+      "statement": "Proposition 1: an exact decomposition",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A1",
+        "A2"
+      ],
+      "critical_scope": "Explicit finite prior and same initial information; not a decomposition of separately maximized worst cases.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:regret_decomposition"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_02",
+      "statement": "Proposition 2: decision ambiguity, rather than full environment recovery",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A3",
+        "D2"
+      ],
+      "critical_scope": "Finite classes; robust guarantee is mixture-averaged; confidence-set construction is separate.",
+      "finite_check_evidence": [
+        "results_v014.json:robust_ambiguity_minimax"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_03",
+      "statement": "Proposition 3: generation cannot create conditionally absent facts",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A4"
+      ],
+      "critical_scope": "Conditional independence given initial information and full transcript.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:regret_decomposition"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_04",
+      "statement": "Theorem 4: passive impossibility and active attainability in the same family",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A5",
+        "A6",
+        "A7",
+        "A8"
+      ],
+      "critical_scope": "Specified two-world family, permitted branch interface, known gap, uniform 0<delta<1/2.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:perfect_teacher_information_gap"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_05",
+      "statement": "Proposition 5: identical policy values, different distilled students",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A9"
+      ],
+      "critical_scope": "Restricted aliased student class; not full Bellman value equivalence.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:evaluation_learning_separation"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_06",
+      "statement": "Proposition 6: identical mean updates, different learning values",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A10"
+      ],
+      "critical_scope": "Specified one-step affine update and nonlinear deployment utility.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:mean_update_counterexample"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_07",
+      "statement": "Theorem 7: exact composition and operational necessity",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A11",
+        "A12",
+        "A13",
+        "A14"
+      ],
+      "critical_scope": "Common initial complete-state law; declared suffixes; one-boundary necessity, not one aggregate endpoint.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:learning_process_identity"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_08",
+      "statement": "Theorem 8: exact sufficiency, sharp approximation duality, and transfer",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A24",
+        "B1",
+        "A28"
+      ],
+      "critical_scope": "Fixed linear expectation features; unrestricted pairs of finite-alphabet laws; not a fixed-reference equality.",
+      "finite_check_evidence": [
+        "results_v014.json:noisy_feature_duality"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_09",
+      "statement": "Corollary 9: unrestricted learning can require the full distribution",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A25"
+      ],
+      "critical_scope": "Very broad event-selecting learner family; no assertion about actual neural SGD.",
+      "finite_check_evidence": [],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_10",
+      "statement": "Lemma 10: deployment produces a polynomial response",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A16"
+      ],
+      "critical_scope": "Fixed finite parameter-blind harness and at most N binary decisions.",
+      "finite_check_evidence": [],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_11",
+      "statement": "Theorem 11: necessary and sufficient joint information order",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A17"
+      ],
+      "critical_scope": "Independent complete blocks, predetermined convex affine averaging, all declared tasks.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:interaction_moment_hierarchy"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_12",
+      "statement": "Theorem 12: sharp exact hierarchy and a constant-gap joint witness",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A18",
+        "B3"
+      ],
+      "critical_scope": "Exact scalar witness shrinks with order; multivariate parity gives constant gap with growing contexts.",
+      "finite_check_evidence": [
+        "results_v014.json:constant_gap_parity",
+        "results_v014.json:scalar_exact_decay"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_13",
+      "statement": "Theorem 13: sharp linear-statistic counts and a broad-task barrier",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "C2"
+      ],
+      "critical_scope": "Features fixed across all specified tasks and laws; statistic count is not bit or sample complexity.",
+      "finite_check_evidence": [
+        "results_v014.json:grid_response_dimensions"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_14",
+      "statement": "Theorem 14: a discrepancy bound independent of training rounds",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A19"
+      ],
+      "critical_scope": "Convex affine IID-block update; generic constants may be uninformative.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:joint_moment_affine_check"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_15",
+      "statement": "Theorem 15: the first unmatched interaction controls averaging decay",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A20",
+        "A21"
+      ],
+      "critical_scope": "Independent blocks, common mean, matching lower cumulants, nonzero leading contraction for Theta rate.",
+      "finite_check_evidence": [
+        "results_v014.json:scalar_exact_decay"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_16",
+      "statement": "Proposition 16: two degree-\\(N\\) tasks can require very different accuracy orders",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "B2",
+        "B3"
+      ],
+      "critical_scope": "Scalar power upper bound versus multivariate parity lower bound; finite-sample coefficient stability is separate.",
+      "finite_check_evidence": [
+        "results_v014.json:scalar_approximation",
+        "results_v014.json:constant_gap_parity"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_17",
+      "statement": "Theorem 17: information order is a composition property",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A22",
+        "A23",
+        "A15"
+      ],
+      "critical_scope": "Independent blocks and known polynomial update coordinates; degree is coordinate-dependent.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:polynomial_update_information_degree"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_18",
+      "statement": "Theorem 18: an exact stability\u2013approximation tradeoff",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "D1"
+      ],
+      "critical_scope": "Finite unrestricted pair-law LP; fixed-reference/restricted families need their own feasible dual.",
+      "finite_check_evidence": [
+        "results_v014.json:noisy_feature_duality"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_19",
+      "statement": "Theorem 19: frozen finite-interface selection",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "A27",
+        "A28",
+        "A29",
+        "A30"
+      ],
+      "critical_scope": "Candidates/features frozen before independent audit; new audit-built provider requires a new audit or valid correction; fresh downstream draws.",
+      "finite_check_evidence": [
+        "baseline_v013/results_v013.json:finite_calibration_certificate"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_20",
+      "statement": "Theorem 20: actual-state adaptive auditing without a checkpoint-coverage assumption",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "C3"
+      ],
+      "critical_scope": "Exact restoration, full reference tails, independent pairs, fresh actual update, predictable confidence budgets; expected terminal guarantee includes audit-failure penalty.",
+      "finite_check_evidence": [
+        "results_v014.json:adaptive_gate_expectations"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    },
+    {
+      "claim_id": "v014_21",
+      "statement": "Proposition 21: exactly when dependence can matter",
+      "proof_status": "explicit proof; independent model-agent review; not formal verification",
+      "review_items": [
+        "C1"
+      ],
+      "critical_scope": "Full coupling polytope with positive marginals and all Cartesian-product pairs valid; not arbitrary forbidden-pair constraints.",
+      "finite_check_evidence": [
+        "results_v014.json:coupling_and_additive_null"
+      ],
+      "neural_training_evidence": null,
+      "novelty_status": "Classical tools credited; integrated-framework novelty is under review, not established."
+    }
+  ],
+  "note": "The JSON summarizes scope. The complete mathematical statements and proofs in the manuscript govern interpretation. Empty finite-check lists do not mean an unproved claim; finite checking is supplemental."
+}

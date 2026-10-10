@@ -1,0 +1,105 @@
+{
+  "package_version": "0.14",
+  "date_UTC": "2026-10-10",
+  "proof_reviewed_main_sha256": "9271ae051b6a31fc15907a0469354e46a8d043493f9cf353daca2809c58ac1e6",
+  "review_type": "independent model-agent proof and novelty reviews",
+  "neural_training_performed": false,
+  "hash_scope": "All listed package members except this manifest and the archive itself.",
+  "files": [
+    {
+      "path": "CED_Method_EN.md",
+      "bytes": 20000,
+      "sha256": "bdc911d6c35229810e49bfb00e8b09fea2c406a730d1f1e46990c3de2c9c7caa"
+    },
+    {
+      "path": "Coding_Agent_Execution_Plan_EN.md",
+      "bytes": 65847,
+      "sha256": "c5926283fda36b3281b4dc3463bcc28ecce08eaf72c7b89e8bb742fad7368210"
+    },
+    {
+      "path": "Environment_Information_Theory_EN.md",
+      "bytes": 67221,
+      "sha256": "9271ae051b6a31fc15907a0469354e46a8d043493f9cf353daca2809c58ac1e6"
+    },
+    {
+      "path": "Independent_Novelty_Audit_EN.md",
+      "bytes": 45568,
+      "sha256": "69d69f214e1db8744d7feee9cb356856f24152c7e7a2ae569cafc15f7782d3b6"
+    },
+    {
+      "path": "Independent_Proof_Audit_EN.md",
+      "bytes": 72846,
+      "sha256": "967662dd7bb43e309597d63f9cb0318ac04d02df785ad6de03e1b365e4e74791"
+    },
+    {
+      "path": "README_v014_EN.md",
+      "bytes": 8507,
+      "sha256": "85a74f5abb913cbf618a461c25b075eb6c1125cfcccde0a54417e187ac022845"
+    },
+    {
+      "path": "START_HERE_Coding_Agent_EN.md",
+      "bytes": 8518,
+      "sha256": "9c38bb67529ec7bb516a7e569abdf50e007940aebb7e63cf5c71bfefbf2644af"
+    },
+    {
+      "path": "claim_ledger_v014.json",
+      "bytes": 14511,
+      "sha256": "77e7d7eec2ef0b8dc72687d6c75ae316c4973a26f6062bfad6dc10bb49f75631"
+    },
+    {
+      "path": "experiment_config_v014.yaml",
+      "bytes": 16177,
+      "sha256": "7ac3d8363b6e3fcb8a09083d001c7b469ab905c9222efdb8a69b5ab04732148e"
+    },
+    {
+      "path": "requirements_validation_v014.txt",
+      "bytes": 182,
+      "sha256": "0646084ffe518a59199aa94fcb8d752cffb51801e5d02f7e5da658d52f281ed4"
+    },
+    {
+      "path": "results_v014.json",
+      "bytes": 25413,
+      "sha256": "36f29db637282de98c75d87878fc6a8945656c5320bfcd9036a41f11e9d9ad13"
+    },
+    {
+      "path": "runtime_audit_v014.json",
+      "bytes": 1544,
+      "sha256": "54d7afb4fec4b4b30d530af21743ce30d8dbd04e566f7363e2c16c77d8cc7b52"
+    },
+    {
+      "path": "theory_checks_v014.png",
+      "bytes": 221299,
+      "sha256": "9e0d9b3c05018332652ef5d03933a04c60491610b910b39abfe7ed196cfa73ce"
+    },
+    {
+      "path": "theory_checks_v014.svg",
+      "bytes": 118561,
+      "sha256": "5875dc13afa9c2c4b42aeb7778c82c3636f7549eea392f65ea5069162876f6a0"
+    },
+    {
+      "path": "verify_environment_information_v014.py",
+      "bytes": 17724,
+      "sha256": "683865f17a225872d8b325905ab3f9e18db46bc4ae10e1b3eed22b659faeb2fc"
+    },
+    {
+      "path": "baseline_v013/Environment_Information_Theory_v013_ZH.md",
+      "bytes": 49397,
+      "sha256": "ec2648ad01b80a28e6c5476b0bb515672d183add67af12bf1b6ac95d436ab4e3"
+    },
+    {
+      "path": "baseline_v013/Stage1_Information_Validation_v013_ZH.md",
+      "bytes": 15965,
+      "sha256": "f817ec79cecc52bbf777969721b41fe47dc4112d394189b3edd24e8580976339"
+    },
+    {
+      "path": "baseline_v013/verify_environment_information_v013.py",
+      "bytes": 21205,
+      "sha256": "f978a951fcfe3ba5d926f1e9a75f6d7f54b08ceb29a80d91be171b8fea350d21"
+    },
+    {
+      "path": "baseline_v013/results_v013.json",
+      "bytes": 10784,
+      "sha256": "9615f1d2506bb8e6d9721ef3836cc8331a307dd2831130449c17aca208f5f262"
+    }
+  ]
+}

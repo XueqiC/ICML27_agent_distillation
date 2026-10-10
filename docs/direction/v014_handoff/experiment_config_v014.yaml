@@ -1,0 +1,456 @@
+schema_version: "0.14"
+project: environment_information_agent_distillation
+method: consequence_calibrated_experience_distillation
+status: specification_not_executed
+created_date_utc: "2026-10-10"
+
+# This is an implementation contract. The eic CLI does not exist yet.
+# Resolve every null prerequisite before enabling a paid/training stage.
+execution:
+  real_training_completed: false
+  training_host: null
+  repository_commit: null
+  dependency_lock_hash: null
+  accelerator_manifest: null
+  output_root: runs_v014
+  allow_mock_results: false
+  allow_model_substitution: false
+  fail_on_missing_prerequisite: true
+  paid_api_budget_resolved: false
+  hardware_allocation_resolved: false
+  required_prerequisites:
+    - exact_model_access
+    - verified_gpu_runtime
+    - pinned_dependencies
+    - benchmark_data
+    - complete_state_restore
+    - frozen_partitions
+    - measured_cost_forecast
+
+models:
+  teacher:
+    requested_id: gpt-6-luna
+    access: sampled_outputs_only
+    returned_model_id: null
+    generation_config: null
+    response_cache_manifest: null
+    logits_available: false
+    gradients_available: false
+    hidden_states_available: false
+    official_source: https://developers.openai.com/api/docs/models/gpt-6-luna
+  student:
+    repository_id: google/gemma-4-12B-it
+    repository_revision: null
+    checkpoint_hash: null
+    config_hash: null
+    processor_revision: null
+    tokenizer_hash: null
+    chat_template_hash: null
+    trainable_module_manifest: null
+    official_source: https://huggingface.co/google/gemma-4-12B-it
+  prohibit_chinese_checkpoints_or_components: true
+
+research_scope:
+  environment_information_general: true
+  unifying_object: required_environment_information_relative_to_learner_and_task_family
+  logical_chain:
+    - identification_under_allowed_queries
+    - continuation_response_tests
+    - approximate_information_sufficiency
+    - composition_through_actual_training
+    - independent_verification_and_transfer
+  world_model_required: false
+  full_distribution_matching_required: false
+  coupling_is_sole_novelty: false
+  coupling_failure_stops_project: false
+  few_shot_unit: complete_initial_teacher_demonstrations_per_task_family
+  primary_k: 32
+  sensitivity_k: [4, 8, 16, 32]
+  claim_neural_moment_sufficiency_without_assumptions: false
+  claim_best_paper_readiness: false
+
+environments:
+  - name: alfworld
+    official_source: https://github.com/alfworld/alfworld
+    code_revision: null
+    data_revision: null
+    task_family_map: null
+    partition_manifest: null
+    restore_mode: unresolved_snapshot_or_verified_prefix_replay
+    restore_test_report: null
+  - name: appworld
+    official_source: https://github.com/StonyBrookNLP/appworld
+    code_revision: null
+    data_revision: null
+    task_family_map: null
+    partition_manifest: null
+    restore_mode: database_snapshot_plus_full_process_and_agent_state
+    restore_test_report: null
+
+deployment:
+  identical_harness_across_arms: true
+  student_observation_schema: null
+  teacher_observation_schema: null
+  context_limit_tokens: null
+  history_truncation_rule: null
+  action_parser_revision: null
+  max_environment_steps: null
+  allowed_retry_rule: null
+  reset_policy: episode_initialization_only
+  decoding_config: null
+  thinking_mode: null
+  reward_range: [0.0, 1.0]
+  evaluator_revision: null
+  benchmark_ground_truth_in_policy_inputs: false
+
+partitions:
+  group_keys:
+    - task_family_id
+    - task_template_id
+    - task_instance_id
+    - generator_seed_group
+    - parent_trajectory_group
+  roles:
+    - support
+    - pilot
+    - reference_fit
+    - calibration
+    - metric_test
+    - deployment
+    - heldout_recipe
+    - heldout_family
+    - heldout_domain
+  immutable_manifest_hash: null
+  allow_target_test_metric_refit: false
+
+learner:
+  initial_recipe_status: pilot_grid_not_final
+  update_type: adapter_finetuning
+  precision: bf16_if_supported_and_frozen
+  optimizer: AdamW
+  learning_rate_grid: [0.00001, 0.00003, 0.0001]
+  adapter_rank_grid: [8, 16]
+  adapter_target_modules: null
+  quantization: unresolved_and_must_be_frozen
+  max_sequence_length: null
+  batch_unit: complete_valid_trajectory_packet
+  tokenization_fixed_per_unit: true
+  supervision_mask_fixed_per_unit: true
+  per_token_weight_fixed_per_unit: true
+  allow_cross_unit_attention: false
+  main_recipe_id: null
+  heldout_recipe_ids: []
+  full_snapshot_required: true
+  snapshot_fields:
+    - parameters_and_adapters
+    - optimizer_moments
+    - scheduler
+    - mixed_precision_scaler
+    - python_rng
+    - numpy_rng
+    - framework_cpu_rng
+    - all_device_rng
+    - data_sampler_rng_and_cursor
+    - replay_buffer
+    - gradient_accumulation_state
+    - pending_gradients_if_any
+    - environment_state_and_rng
+    - agent_history_and_memory
+    - decoder_state_if_active
+    - train_eval_mode
+    - normalization_state
+    - software_lock
+    - recipe_and_step_counters
+
+candidate_selection:
+  unit: executable_query_feedback_compilation_or_experience_provider
+  method_branches:
+    - environment_query_selection
+    - feedback_content_and_compilation
+    - training_state_coverage
+    - adaptation_across_task_and_learner_families
+    - optional_complete_packet_coupling
+  candidate_count_pilot: 4
+  candidate_set_hash: null
+  frozen_before_confirmatory_calibration: true
+  panel_manifest: null
+  objective: freeze_fidelity_or_signed_improvement_objective_per_experiment
+  fidelity_objective: minimize_declared_continuation_response_test_discrepancy
+  signed_improvement_objective: maximize_minimum_panel_cell_lower_confidence_bound_on_signed_advantage
+  fidelity_implies_improvement: false
+  preserve_action_feedback_semantics_in_compiled_targets: true
+  reference_provider_id: null
+  allow_surrogate_as_observed_return: false
+  fresh_downstream_training_draws_required: true
+  reuse_requires_explicit_conditional_analysis: true
+  adaptive_candidate_generation_requires_new_audit: true
+  finite_panel_only_certificate: true
+  adaptive_current_state_audit:
+    status: reviewed_finite_conditions_only
+    theory_reference: Environment_Information_Theory_EN.md_section_11_theorem_20
+    optional_expensive_gold_branch: true
+    certificate_enabled: false
+    neural_certificate_enabled: false
+    require_all_reviewed_assumptions_before_certificate: true
+    operational_requirements:
+      - complete_exact_learner_and_environment_restore
+      - frozen_candidates_replica_count_and_failure_allocation_before_audit
+      - correct_full_reference_tail_marginals
+      - independent_paired_training_replicas_per_candidate
+      - audit_does_not_modify_actual_state
+      - reference_ignores_auxiliary_audit_records
+      - fresh_actual_update_after_selection
+      - reference_fallback
+      - cumulative_conditional_failure_allocation_at_most_delta
+    conditional_sampling_and_failure_budget_required: true
+    proxy_branch_remains_empirical: true
+    reviewed_conclusions:
+      high_probability: predictable_cumulative_drift_at_least_sum_selected_lower_bounds
+      unconditional_expected_gain_floor: minus_delta
+      unconditional_expected_gain_bound: expected_sum_selected_lower_bounds_minus_two_delta
+      high_probability_realized_terminal_return: false
+      terminal_expectation_conditioned_on_all_audits_pass: false
+    worst_case_single_audit_example:
+      candidate_count: 4
+      failure_allocation: 0.05
+      desired_radius: 0.1
+      independent_paired_replicas_per_candidate: 1016
+      paired_experiments_all_candidates_without_reuse: 4064
+      full_tail_branch_executions_without_reuse: 8128
+      small_pilot_supports_this_certificate: false
+    deployment_repeats_replace_independent_training_replicas: false
+    within_audit_adaptive_stopping_with_fixed_sample_radius: false
+
+consequence_measurement:
+  gold: actual_update_then_full_declared_reference_tail_then_real_deployment
+  continuation_modes:
+    - adaptive_reference_tail
+    - frozen_replay_tail_separately_labelled
+  paired_full_snapshot: true
+  coupled_exogenous_randomness_only: true
+  pilot:
+    parent_checkpoints: 3
+    candidate_providers: 4
+    independent_block_draws: 2
+    short_tail_optimizer_updates: [1, 8]
+    evaluation_instances_per_fork: 8
+    candidate_executions: 48
+    reference_executions_without_reuse: 48
+    total_deployment_episodes_without_reuse: 768
+    total_tail_optimizer_updates_without_reuse: 432
+    initial_block_updates_without_reuse: 96
+  extended_audit_tails: [0, 32, full_remaining_horizon]
+  full_tail_subset_chosen_without_full_tail_outcomes: true
+
+metrics:
+  frozen_feature_manifest: null
+  proposed:
+    - projected_gradient_mean
+    - actual_update_mean
+    - projected_gradient_or_update_covariance
+    - joint_complete_block_statistics
+    - short_tail_consequence
+    - multi_snapshot_multi_tail_consequence
+  gold_target: signed_real_deployment_difference_after_declared_remaining_training
+  controls:
+    - teacher_supervised_loss
+    - action_agreement
+    - random_score
+    - constant_score
+    - permuted_consequence_labels_grouped
+    - training_step_index
+    - checkpoint_norm
+    - task_identity_only
+    - reversed_metric_sign
+    - identical_source_different_name
+    - noop_vs_noop
+  heldout_metrics:
+    - selection_regret
+    - spearman
+    - kendall
+    - mean_absolute_error
+    - r_squared_vs_training_mean
+    - sign_error_and_abstention
+    - incremental_predictive_value
+  low_dimensional_projection_is_sufficiency_claim: false
+  empirical_residual_implies_global_certificate: false
+
+coupling_gate:
+  scope: coupling_branch_only
+  optional: true
+  required_before_main_wave: false
+  required_before_expanding_coupling_branch: true
+  failure_action: stop_or_narrow_coupling_branch_only
+  independent_branches_may_continue:
+    - environment_query_selection
+    - feedback_content_and_compilation
+    - training_state_coverage
+    - adaptation_across_task_and_learner_families
+  unit: immutable_complete_valid_trajectory
+  design: balanced_two_slot_permutation_cycle
+  pairing_no_self_pairs: same_constraint_for_all_providers
+  exact_full_cycle_invariants:
+    - trajectory_multiset
+    - slot_marginals
+    - tokenization
+    - supervision_masks
+    - per_token_weights
+    - total_supervised_tokens
+    - total_optimizer_updates
+    - initial_parameters
+    - initial_optimizer_state
+    - learning_rate_schedule
+    - deployment_permissions
+  comparisons:
+    - random_grouping
+    - consequence_calibrated_grouping
+    - gradient_diversity_grouping
+    - antithetic_or_variance_minimizing_grouping
+    - same_data_meta_reweighting
+  null_update: frozen_additive_full_batch_sgd
+  nonnull_recipes:
+    - sequential_minibatch_sgd
+    - adamw_packet_updates
+  per_packet_token_count_normalization_allowed: false
+  context_splicing_allowed: false
+  group_order_factorial_required_if_both_optimized: true
+  interpret_within_cycle_packets_as_iid: false
+
+joint_theory_prediction_panel:
+  status: to_execute_in_small_controlled_systems_before_neural_extension
+  exact_and_empirical_results_separate: true
+  predictions:
+    - identification_depends_on_allowed_queries
+    - equal_static_values_can_hide_unequal_learning_value
+    - lower_order_feedback_insufficient_on_parity_tasks
+    - same_degree_scalar_and_multivariate_response_complexity_differs
+    - structured_multivariate_response_can_have_low_complexity
+    - required_information_depends_on_update_rule
+    - reference_fidelity_distinct_from_improvement
+    - local_response_errors_compose_through_training
+    - measured_feature_error_interacts_with_response_coefficient_stability
+    - reusable_information_is_relative_to_task_and_learner_family
+  complexity_experiment:
+    domain: declared_enumerable_finite_message_grid
+    exact_span_includes_constant_function: true
+    exact_rank_validation: rational_or_high_precision_where_tractable
+    approximation_metric: maximum_absolute_response_error_over_declared_grid
+    svd_frobenius_error_is_uniform_certificate: false
+    ambient_monomial_count_is_always_minimal_dimension: false
+  parity_experiment:
+    dimensions: small_fully_enumerable
+    matched_tests: declared_lower_order_and_proper_subset_feedback_tests
+    full_interaction_test: measured_separately
+  neural_extension:
+    affine_moment_theorem_applied_unconditionally: false
+    real_full_state_restore_required: true
+    heldout_response_calibration_required: true
+    all_finite_constructions_must_be_repeated_with_12b_model: false
+  finite_gold_noisy_feature_dual:
+    theory_reference: Environment_Information_Theory_EN.md_section_10_theorem_18
+    compare_primal_and_dual_independently: true
+    test_scaled_binary_response_feature: true
+    zero_approximation_residual_implies_zero_operational_error: false
+    neural_implementation_required: false
+
+baselines:
+  access_panel:
+    - same_feedback_bank
+    - end_to_end_equal_access
+  main_arms:
+    - teacher_sft
+    - sampled_output_on_policy_or_dagger
+    - cost_sensitive_student_continuation
+    - strongest_pilot_gradient_or_trajectory_matching
+    - equal_access_uniform_complete_blocks
+    - ced
+  base_evaluation: true
+  additional_controls:
+    - sft_repeated_exposure
+    - lols_style_continuation
+    - less_or_grace_style_gradient_score
+    - postop_reference_loss_metaweighting
+    - frozen_student_rollout_consequence_score
+    - same_data_posttraining_return_optimization
+  verify_original_paper_access_requirements: true
+  label_output_only_adaptations: true
+  privileged_teacher_scoring_track_separate: true
+
+waves:
+  pilot:
+    begin_with_small_joint_theory_prediction_panel: true
+    environments: 1
+    k: 32
+    independent_training_seeds: 3
+    final_evidence: false
+    initial_method_branch: one_feasible_query_content_or_provider_branch
+    coupling_branch_optional: true
+    adaptive_gold_audit_optional: true
+    branch_failure_stops_other_branches: false
+  primary:
+    k: 32
+    main_arms: 6
+    independent_training_seeds_initial: 5
+    training_runs_per_environment_initial: 30
+    seeds_must_be_power_checked: true
+  external_confirmation:
+    environments: 1
+    freeze_metric_before_target_evaluation: true
+  targeted_scaling:
+    k: [4, 8, 16, 32]
+    arms: [ced, strongest_same_access_baseline]
+    fresh_evidence_and_replay_axes_separate: true
+    heldout_recipe_required: true
+
+statistics:
+  primary_estimand: family_balanced_mean_real_deployment_reward
+  primary_contrast: ced_minus_strongest_predeclared_same_access_baseline
+  family_weights: equal
+  paired_support_and_evaluation: true
+  training_seed_is_replication_unit: true
+  episode_only_inference_is_conditional_on_trained_models: true
+  token_level_inference_for_main_utility: false
+  cluster_structure: training_seed_by_task_family_with_instance_dependence
+  inference_method: preregister_after_pilot_and_before_sealed_outcomes
+  multiple_contrasts: holm
+  desired_improvement_planning_value: 0.03
+  noninferiority_margin_planning_value: 0.02
+  final_practical_margins_frozen: false
+  nonsignificance_implies_equivalence: false
+  total_confidence_failure_budget: 0.05
+  failure_budget_allocation:
+    calibration: 0.02
+    tail_or_proxy_error: 0.01
+    coverage_if_claimed: 0.01
+    final_deployment: 0.01
+  use_same_failure_budget_for_unestimated_terms: false
+  optional_stopping_without_valid_method: false
+
+reporting:
+  preserve_negative_signed_learning_loss: true
+  report_all_seeds_and_failed_cells: true
+  report_claim_assumption_violations: true
+  report_branch_failures_separately_from_framework_failures: true
+  require_joint_prediction_evidence_for_framework_claim: true
+  report_independent_evidence_separately_from_exposure: true
+  count_all_reference_tail_costs: true
+  count_all_failed_teacher_calls_and_retries: true
+  checkpoints_required_for_training_claim: true
+  immutable_raw_episode_records_required: true
+  reproducible_tables_without_api_or_retraining: true
+  required_outputs:
+    - runtime_audit
+    - dependency_lock
+    - split_manifest
+    - access_manifest
+    - complete_state_restore_audit
+    - actual_trained_checkpoints
+    - training_logs
+    - raw_deployment_jsonl
+    - metric_heldout_predictions
+    - coupling_invariant_audit
+    - baseline_fidelity_notes
+    - theorem_experiment_ledger
+    - cost_ledger
+    - limitations_and_go_no_go
+

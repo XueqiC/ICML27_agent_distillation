@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:4x CDT 10-09: hpg reachable again; v0.14 handoff received** (English theory + proof/novelty audits + CED method + coding-agent plan;
+  stored docs/direction/v014_handoff/, reading note docs/direction/2026-10-09_v014_reading_note_ZH.md). Not yet adopted — asked user:
+  v0.14 vs v2 relation, K per-family (K=32 sits in ALFWorld saturation), pilot power (8 eval tasks/fork), baseline list vs official-code rule, seeds.
+  LEAP done 10-08 14:3x CDT: K50 52/53/75/**81**, K100 49/68/92/**82** (last iterate). Still pending since 10-07 (mlperf reservation to 10-12 08:00 CDT):
+  IPR r4 dpo1 45082398 (QOSGrpGRES) → … → 45082409 eval; ETO tp6 x3 45058903 (Priority) → 45058904 → 45058905.
 - **00:37 CDT 10-08: hpg ControlMaster expired again** (Permission denied keyboard-interactive) — one notice sent; waiting.
   Last seen 00:15: all chain heads pending — LEAP K50 g4 45082132 + K100 g4 45082137 (QOSGrpGRES, group), IPR r4 dpo1 45082398 +
   ETO tp6 x3 45058903 (Priority, dept). LEAP K100 round 3: 18 corrections, N=2,880. Weekly report v2 sent (week01_ZH.md);
