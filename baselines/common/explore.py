@@ -12,7 +12,7 @@ from sed.config import load_config
 from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_files
 from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode, replay_episode
-from sed.seed_evidence import artifact_hashes
+from sed.seed_evidence import artifact_hashes_batch, artifact_hashes
 from sed.storage import digest, write_json
 from students.vllm_student import Student, context_options
 
@@ -144,21 +144,28 @@ def checked_rollouts(root, manifest, freeze):
     if [r["task_id"] for r in receipts] != [t["task_id"] for t in tasks]:
         raise ValueError("Exploration receipts differ from frozen task list")
     result = []
-    for receipt, task in zip(receipts, tasks):
+    def directory_for(receipt):
         directory = (root / receipt["episode_dir"]).resolve()
-        if not directory.is_relative_to(root) or artifact_hashes(directory) != receipt["episode_hashes"]:
+        if not directory.is_relative_to(root):
             raise ValueError("Exploration evidence changed")
-        if (receipt.get("source") != "student_exploration" or receipt.get("trusted_seed") is not False
-                or not receipt.get("training_eligible") or type(receipt["won"]) is not bool):
-            raise ValueError("Unknown/incomplete exploration cannot become a negative pair")
-        episode = json.loads((directory / "episode.json").read_text())
-        replay = json.loads((directory / "replay.json").read_text())
-        if (episode["task_id"] != task["task_id"] or episode["split"] != "train"
-                or episode["game_sha256"] != task["game_sha256"] or not episode["complete"]
-                or episode["status"] != "ok" or episode["success"] != receipt["won"]
-                or not replay["matched"] or replay != receipt["replay"]):
-            raise ValueError("Exploration receipt disagrees with real execution/replay")
-        result.append((receipt, episode))
+        return directory
+    with artifact_hashes_batch(lambda receipt=receipt: directory_for(receipt)
+                               for receipt in receipts) as readers:
+        for receipt, task, hashes in zip(receipts, tasks, readers):
+            directory = (root / receipt["episode_dir"]).resolve()
+            if not directory.is_relative_to(root) or hashes() != receipt["episode_hashes"]:
+                raise ValueError("Exploration evidence changed")
+            if (receipt.get("source") != "student_exploration" or receipt.get("trusted_seed") is not False
+                    or not receipt.get("training_eligible") or type(receipt["won"]) is not bool):
+                raise ValueError("Unknown/incomplete exploration cannot become a negative pair")
+            episode = json.loads((directory / "episode.json").read_text())
+            replay = json.loads((directory / "replay.json").read_text())
+            if (episode["task_id"] != task["task_id"] or episode["split"] != "train"
+                    or episode["game_sha256"] != task["game_sha256"] or not episode["complete"]
+                    or episode["status"] != "ok" or episode["success"] != receipt["won"]
+                    or not replay["matched"] or replay != receipt["replay"]):
+                raise ValueError("Exploration receipt disagrees with real execution/replay")
+            result.append((receipt, episode))
     return result
 
 

@@ -1,6 +1,10 @@
 """Validate environment evidence separately from model-visible training fields."""
 import json
-from collections import Counter
+import os
+from collections import Counter, deque
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
+from itertools import islice
 from pathlib import Path
 
 from sed.manifest import authorize_task, resolve_task, frozen_write
@@ -21,21 +25,96 @@ def environment_won(directory, episode):
 
 
 def artifact_hashes(directory):
-    directory = Path(directory)
-    return {str(p.relative_to(directory)): file_hash(p) for p in sorted(directory.rglob("*"))
-            if p.is_file() and not p.name.endswith(".lock")}
+    return artifact_hashes_many([Path(directory)])[0]
 
 
-def checked_episode(root, receipt):
+def _hash_entry(path):
+    return file_hash(path) if path.is_file() and not path.name.endswith(".lock") else None
+
+
+@contextmanager
+def artifact_hashes_batch(directories):
+    """Yield ordered hash readers; raise I/O errors only when a reader is called.
+
+    Paths may be thunks so receipt/path errors keep their original check order.
+    Prefetch at most one directory per worker and one file per worker/directory;
+    all files share the same pool, with bounded pending work even for large trees.
+    Listing deliberately retains pathlib's dotfile/symlink traversal semantics.
+    """
+    workers = int(os.environ.get("SED_HASH_WORKERS", "16"))
+    if workers < 1:
+        raise ValueError("SED_HASH_WORKERS must be positive")
+
+    def prepare(value, pool):
+        try:
+            directory = Path(value() if callable(value) else value)
+            paths = sorted(directory.rglob("*"))
+            if pool is None:
+                return {str(p.relative_to(directory)): file_hash(p) for p in paths
+                        if p.is_file() and not p.name.endswith(".lock")}
+            paths = iter(paths)
+            pending = deque((p, pool.submit(_hash_entry, p)) for p in islice(paths, workers))
+            def collect():
+                result = {}
+                while pending:
+                    path, future = pending.popleft()
+                    sha = future.result()
+                    if sha is not None:
+                        result[str(path.relative_to(directory))] = sha
+                    for path in paths:
+                        pending.append((path, pool.submit(_hash_entry, path)))
+                        break
+                return result
+            return collect
+        except Exception as error:
+            if pool is None:
+                raise
+            failed = Future()
+            failed.set_exception(error)
+            return failed.result
+
+    if workers == 1:
+        yield (lambda value=value: prepare(value, None) for value in directories)
+        return
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        def readers():
+            values = iter(directories)
+            pending = deque(prepare(value, pool) for _, value in zip(range(workers), values))
+            while pending:
+                yield pending.popleft()
+                for value in values:
+                    pending.append(prepare(value, pool))
+                    break
+        yield readers()
+
+
+def artifact_hashes_many(directories):
+    with artifact_hashes_batch(directories) as readers:
+        return [read() for read in readers]
+
+
+def _episode_directory(root, receipt):
     directory = (Path(root) / receipt["episode_dir"]).resolve()
     if not directory.is_relative_to(Path(root).resolve()):
         raise ValueError("Episode path escapes collection")
-    if artifact_hashes(directory) != receipt["episode_hashes"]:
+    return directory
+
+
+def checked_episode(root, receipt, *, _hashes=None):
+    directory = _episode_directory(root, receipt)
+    if (_hashes() if _hashes is not None else artifact_hashes(directory)) != receipt["episode_hashes"]:
         raise ValueError("Episode evidence changed")
     episode = json.loads((directory / "episode.json").read_text())
     if not environment_won(directory, episode):
         raise ValueError("Seed lacks a real environment win")
     return episode
+
+
+def checked_episodes(root, receipts):
+    with artifact_hashes_batch(lambda receipt=receipt: _episode_directory(root, receipt)
+                               for receipt in receipts) as readers:
+        for receipt, hashes in zip(receipts, readers):
+            yield checked_episode(root, receipt, _hashes=hashes)
 
 
 def receipt_path(root, receipt):
@@ -103,40 +182,47 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     parents = {r["task_id"]: kind for kind in selection["type_order"] for r in selection["selected"][kind]}
     # Every failed/interrupted attempt remains referenced and checked too.
     seen_attempts = {}
-    for receipt in collection["attempts"]:
-        if json.loads(receipt_path(evidence_root, receipt).read_text()) != receipt:
-            raise ValueError("Stored receipt differs from collection")
-        directory = (evidence_root / receipt["episode_dir"]).resolve()
-        if (artifact_hashes(directory) != receipt["episode_hashes"]
-                or artifact_hashes(directory.parent / "teacher") != receipt["teacher_hashes"]):
-            raise ValueError("Attempt evidence changed")
-        prior = seen_attempts.setdefault(receipt["task_id"], [])
-        episode_file = directory / "episode.json"
-        episode = json.loads(episode_file.read_text()) if episode_file.exists() else {}
-        if (type(receipt["attempt"]) is not int or receipt["attempt"] != len(prior) + 1
-                or receipt["attempt"] > 3 or any(r["won"] for r in prior)
-                or receipt["won"] != environment_won(directory, episode)):
-            raise ValueError("Attempt sequence/win disagrees with environment evidence")
-        prior.append(receipt)
-        task = resolve_task(manifest, freeze, receipt["task_id"])
-        authorize_task(task, "generation")
-        if (task["source_split"] != "train" or receipt["task_id"] not in candidates
-                or receipt["group_id"] != task["group_id"] or receipt["task_type"] != task["task_type"]
-                or parents.get(receipt["selection_parent_task_id"]) != task["task_type"]):
-            raise ValueError("Receipt differs from frozen TRAIN selection")
+    directories = (lambda receipt=receipt, teacher=teacher:
+                   (evidence_root / receipt["episode_dir"]).resolve().parent / "teacher" if teacher
+                   else (evidence_root / receipt["episode_dir"]).resolve()
+                   for receipt in collection["attempts"] for teacher in (False, True))
+    with artifact_hashes_batch(directories) as hashes:
+        for receipt in collection["attempts"]:
+            if json.loads(receipt_path(evidence_root, receipt).read_text()) != receipt:
+                raise ValueError("Stored receipt differs from collection")
+            directory = (evidence_root / receipt["episode_dir"]).resolve()
+            if (next(hashes)() != receipt["episode_hashes"]
+                    or next(hashes)() != receipt["teacher_hashes"]):
+                raise ValueError("Attempt evidence changed")
+            prior = seen_attempts.setdefault(receipt["task_id"], [])
+            episode_file = directory / "episode.json"
+            episode = json.loads(episode_file.read_text()) if episode_file.exists() else {}
+            if (type(receipt["attempt"]) is not int or receipt["attempt"] != len(prior) + 1
+                    or receipt["attempt"] > 3 or any(r["won"] for r in prior)
+                    or receipt["won"] != environment_won(directory, episode)):
+                raise ValueError("Attempt sequence/win disagrees with environment evidence")
+            prior.append(receipt)
+            task = resolve_task(manifest, freeze, receipt["task_id"])
+            authorize_task(task, "generation")
+            if (task["source_split"] != "train" or receipt["task_id"] not in candidates
+                    or receipt["group_id"] != task["group_id"] or receipt["task_type"] != task["task_type"]
+                    or parents.get(receipt["selection_parent_task_id"]) != task["task_type"]):
+                raise ValueError("Receipt differs from frozen TRAIN selection")
     groups, slots, counts = set(), set(), Counter()
-    for receipt in collection["verified"]:
-        task = resolve_task(manifest, freeze, receipt["task_id"])
-        if (receipt not in collection["attempts"] or receipt["won"] is not True
-                or task["group_id"] in groups or receipt["selection_parent_task_id"] in slots):
-            raise ValueError("Seeds must be distinct TRAIN groups and selection slots")
-        episode = checked_episode(evidence_root, receipt)
-        if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
-                or episode["split"] != "train"):
-            raise ValueError("Episode differs from frozen TRAIN task")
-        groups.add(task["group_id"])
-        slots.add(receipt["selection_parent_task_id"])
-        counts[task["task_type"]] += 1
+    with artifact_hashes_batch(lambda receipt=receipt: _episode_directory(evidence_root, receipt)
+                               for receipt in collection["verified"]) as readers:
+        for receipt, hashes in zip(collection["verified"], readers):
+            task = resolve_task(manifest, freeze, receipt["task_id"])
+            if (receipt not in collection["attempts"] or receipt["won"] is not True
+                    or task["group_id"] in groups or receipt["selection_parent_task_id"] in slots):
+                raise ValueError("Seeds must be distinct TRAIN groups and selection slots")
+            episode = checked_episode(evidence_root, receipt, _hashes=hashes)
+            if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
+                    or episode["split"] != "train"):
+                raise ValueError("Episode differs from frozen TRAIN task")
+            groups.add(task["group_id"])
+            slots.add(receipt["selection_parent_task_id"])
+            counts[task["task_type"]] += 1
     if (any(counts[kind] != quota for kind, quota in selection["quotas"].items())
             or collection["K"] != selection["K"] or collection["trusted_trajectories"] != len(groups)
             or collection["unique_instances"] != len(groups) or collection["task_groups"] != len(groups)):

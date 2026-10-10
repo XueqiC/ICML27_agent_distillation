@@ -4,6 +4,7 @@ Production is GPU-only. train_loop/objective functions also support tiny CPU
 models for offline verification; no alternate foundation model is selected.
 """
 import argparse
+from datetime import timedelta
 from functools import partial
 import json
 import math
@@ -18,7 +19,7 @@ from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_s
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
-from sed.seed_evidence import checked_episode, load_verified_collection, artifact_hashes
+from sed.seed_evidence import checked_episodes, load_verified_collection, artifact_hashes
 from sed.storage import digest, file_hash, write_json, JsonlLedger, fsync_dir
 from train.dataset import load_tokenizer
 from train.modeling import copy_base_assets, load_student, snapshot_metadata
@@ -26,6 +27,29 @@ from train.modeling import copy_base_assets, load_student, snapshot_metadata
 
 def text_parameter(name):
     return name.startswith("model.language_model.") or name.startswith("lm_head.")
+
+
+def rank_zero_data(rank, world, compute_fn, group, *, broadcast=None):
+    """Hand off rank 0's verified objects on the long-timeout CPU group."""
+    if world == 1:
+        return compute_fn()
+    if broadcast is None:
+        from torch.distributed import broadcast_object_list as broadcast
+    message = [None]
+    if rank == 0:
+        try:
+            value = compute_fn()
+        except BaseException:
+            # Send no raw exception text; rank 0 retains the original traceback.
+            message[0] = (False, None)
+            broadcast(message, src=0, group=group)
+            raise
+        message[0] = (True, value)
+    broadcast(message, src=0, group=group)
+    ok, value = message[0]
+    if not ok:
+        raise RuntimeError("Rank 0 startup validation failed; see rank 0 traceback")
+    return value
 
 
 def validate_checkpoint(path, student=None, *, base_snapshot=None):
@@ -496,9 +520,9 @@ def train_lora(args):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, _, root = load_verified_collection(args.verified, manifest, freeze)
     tokenizer = load_tokenizer(args.snapshot)
-    examples = [conversation(checked_episode(root, r), tokenizer, source="trusted_teacher_seed",
+    examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
                              packing=args.packing, max_length=args.max_length)
-                for r in collection["verified"]]
+                for episode in checked_episodes(root, collection["verified"])]
     plan = dose(len(examples), args.original_batch, epochs=args.epochs)
     model = prepare_lora_model(args.snapshot)
     peft_config = model.peft_config["default"]
@@ -584,58 +608,63 @@ def main(argv=None):
     device = torch.device("cuda", local_rank)
     dist.init_process_group("nccl", device_id=device)
     try:
+        verification_group = dist.new_group(backend="gloo", timeout=timedelta(hours=4))
         set_seed(args.seed)
         torch.backends.cuda.matmul.allow_tf32 = True
-        config = load_config(args.config)
-        if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
-                or config["environment"]["max_episode_steps"] != 40):
-            raise ValueError("Baseline harness protocol differs")
-        config["training"]["adaptation"] = "full_parameter_text_fsdp2"
-        if args.objective in {"dpo", "ipr"}:
-            validate_checkpoint(args.snapshot, config["models"]["student"], base_snapshot=args.base_snapshot)
-            validate_checkpoint(args.reference, config["models"]["student"], base_snapshot=args.base_snapshot)
-        manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-        tokenizer = load_tokenizer(args.snapshot)
-        inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
-        if args.objective == "sft":
-            if args.sft_data:
-                from baselines.agentgym.data import training_examples
-                examples = training_examples(args.sft_data, config, tokenizer,
+        def prepare_data():
+            config = load_config(args.config)
+            if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
+                    or config["environment"]["max_episode_steps"] != 40):
+                raise ValueError("Baseline harness protocol differs")
+            config["training"]["adaptation"] = "full_parameter_text_fsdp2"
+            if args.objective in {"dpo", "ipr"}:
+                validate_checkpoint(args.snapshot, config["models"]["student"], base_snapshot=args.base_snapshot)
+                validate_checkpoint(args.reference, config["models"]["student"], base_snapshot=args.base_snapshot)
+            manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+            tokenizer = load_tokenizer(args.snapshot)
+            inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
+            if args.objective == "sft":
+                if args.sft_data:
+                    from baselines.agentgym.data import training_examples
+                    examples = training_examples(args.sft_data, config, tokenizer,
+                                                 packing=args.packing, max_length=args.max_length)
+                    inputs += [args.sft_data, Path(args.sft_data).parent / "provenance.json"]
+                else:
+                    collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
+                    examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
                                              packing=args.packing, max_length=args.max_length)
-                inputs += [args.sft_data, Path(args.sft_data).parent / "provenance.json"]
+                                for episode in checked_episodes(root, collection["verified"])]
+                    inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
             else:
-                collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-                examples = [conversation(checked_episode(root, receipt), tokenizer, source="trusted_teacher_seed",
-                                         packing=args.packing, max_length=args.max_length)
-                            for receipt in collection["verified"]]
-                inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
-        else:
-            if args.objective == "ipr":
-                from baselines.ipr.pairs import load_pair_data, preference_conversation as encode_pair
-                details = json.loads((Path(args.pairs).parent / "provenance.json").read_text())["details"]
-                for source, checkpoint in (("expert_mc", args.reference), ("exploration", args.snapshot)):
-                    serving = json.loads((Path(details[source]) / "provenance.json").read_text())
-                    server = serving["config"]["server_provenance"]["config"]["server"]
-                    if (Path(server["model_path"]).resolve() != Path(checkpoint).resolve()
-                            or server["training_provenance_sha256"] != file_hash(Path(checkpoint).parent / "provenance.json")):
-                        raise ValueError("IPR init/reference differs from exploration/fixed SFT MC model")
-            else:
-                from baselines.eto.pairs import load_pair_data
-                encode_pair = preference_conversation
-            pairs = load_pair_data(args.pairs, config)
-            examples = [encode_pair(pair, tokenizer) for pair in pairs]
-            inputs += [args.pairs, Path(args.pairs).parent / "provenance.json"]
-            inputs += [Path(args.reference) / "training_state.json", Path(args.reference).parent / "provenance.json"]
+                if args.objective == "ipr":
+                    from baselines.ipr.pairs import load_pair_data, preference_conversation as encode_pair
+                    details = json.loads((Path(args.pairs).parent / "provenance.json").read_text())["details"]
+                    for source, checkpoint in (("expert_mc", args.reference), ("exploration", args.snapshot)):
+                        serving = json.loads((Path(details[source]) / "provenance.json").read_text())
+                        server = serving["config"]["server_provenance"]["config"]["server"]
+                        if (Path(server["model_path"]).resolve() != Path(checkpoint).resolve()
+                                or server["training_provenance_sha256"] != file_hash(Path(checkpoint).parent / "provenance.json")):
+                            raise ValueError("IPR init/reference differs from exploration/fixed SFT MC model")
+                else:
+                    from baselines.eto.pairs import load_pair_data
+                    encode_pair = preference_conversation
+                pairs = load_pair_data(args.pairs, config)
+                examples = [encode_pair(pair, tokenizer) for pair in pairs]
+                inputs += [args.pairs, Path(args.pairs).parent / "provenance.json"]
+                inputs += [Path(args.reference) / "training_state.json", Path(args.reference).parent / "provenance.json"]
+            return examples, inputs, config, tokenizer.chat_template
+        examples, inputs, config, chat_template = rank_zero_data(rank, world, prepare_data, verification_group)
         plan = dose(len(examples), args.original_batch, epochs=args.epochs)
         output = Path(args.output)
         provenance = None
-        if rank == 0:
+        def record_provenance():
+            nonlocal provenance
             output.mkdir(parents=True, exist_ok=False)
             config["baseline_training"] = {**vars(args), **plan, "world_size": world,
                 "snapshot": snapshot_metadata(args.snapshot), "base_snapshot": snapshot_metadata(args.base_snapshot),
                 "snapshot_artifact_sha256": artifact_hashes(args.snapshot),
                 "base_artifact_sha256": artifact_hashes(args.base_snapshot),
-                "examples_sha256": digest(examples), "template_sha256": digest(tokenizer.chat_template),
+                "examples_sha256": digest(examples), "template_sha256": digest(chat_template),
                 "attention": "sdpa", "master_dtype": "float32", "compute_dtype": "bfloat16",
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
@@ -654,6 +683,7 @@ def main(argv=None):
                 "chosen_nll_weight": 1 if args.objective == "ipr" else 0}
             provenance = write_provenance(output, command="baseline_fsdp_train", config=config, inputs=inputs)
             write_json(output / "example_sources.json", [e.get("label_provenance", {"task_id": e.get("task_id")}) for e in examples])
+        rank_zero_data(rank, world, record_provenance, verification_group)
         dist.barrier()
         mesh = init_device_mesh("cuda", (world,))
         model = shard_model(prepare_model(args.snapshot), mesh=mesh)

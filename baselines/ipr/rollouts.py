@@ -12,7 +12,7 @@ from sed.config import load_config
 from sed.manifest import authorize_task, load_frozen, resolve_task, verify_task_files
 from sed.provenance import write_provenance
 from sed.runner import _environment, episode_metrics
-from sed.seed_evidence import artifact_hashes, checked_episode, load_verified_collection
+from sed.seed_evidence import artifact_hashes_batch, artifact_hashes, checked_episodes, load_verified_collection
 from sed.storage import digest, file_hash, write_json
 from students.vllm_student import Student, context_options
 
@@ -25,8 +25,7 @@ def seeds(verified, config):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, _, root = load_verified_collection(verified, manifest, freeze)
     result = []
-    for receipt in collection["verified"]:
-        episode = checked_episode(root, receipt)
+    for receipt, episode in zip(collection["verified"], checked_episodes(root, collection["verified"])):
         task = resolve_task(manifest, freeze, episode["task_id"])
         authorize_task(task, "generation")
         if task["source_split"] != "train":
@@ -133,26 +132,33 @@ def checked_rollouts(root, config, *, expected_kind=None, expected_iteration=Non
     if details["kind"] != "explore" and read(root / "values.json") != step_values(receipts):
         raise ValueError("IPR step values differ from all five outcomes")
     checked = []
-    for receipt, (task, parent, lineage) in zip(receipts, plan):
+    def directory_for(receipt):
         directory = (root / receipt["directory"]).resolve()
         if not directory.is_relative_to(root / "rollouts"):
             raise ValueError("Rollout path escapes evidence root")
-        stored = read(directory / "receipt.json")
-        hashes = artifact_hashes(directory)
-        hashes.pop("receipt.json")
-        if (stored != {k: v for k, v in receipt.items() if k != "directory"}
-                or hashes != receipt["artifact_sha256"] or any(receipt[k] != v for k, v in lineage.items())):
-            raise ValueError("IPR rollout evidence changed")
-        if not receipt["training_eligible"] or type(receipt["success"]) is not bool:
-            raise ValueError("Unknown/incomplete IPR execution cannot become training evidence")
-        episode = read(directory / "episode/episode.json")
-        branch = episode["ipr_branch"]
-        if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
-                or episode["split"] != "train" or not episode["complete"] or episode["status"] != "ok"
-                or episode["success"] != receipt["success"] or not branch["replay_matched"]
-                or any(branch[k] != v for k, v in lineage.items())):
-            raise ValueError("IPR receipt disagrees with real execution")
-        checked.append((receipt, episode))
+        return directory
+    with artifact_hashes_batch(lambda receipt=receipt: directory_for(receipt)
+                               for receipt in receipts) as readers:
+        for receipt, (task, parent, lineage), hashes in zip(receipts, plan, readers):
+            directory = (root / receipt["directory"]).resolve()
+            if not directory.is_relative_to(root / "rollouts"):
+                raise ValueError("Rollout path escapes evidence root")
+            stored = read(directory / "receipt.json")
+            hashes = hashes()
+            hashes.pop("receipt.json")
+            if (stored != {k: v for k, v in receipt.items() if k != "directory"}
+                    or hashes != receipt["artifact_sha256"] or any(receipt[k] != v for k, v in lineage.items())):
+                raise ValueError("IPR rollout evidence changed")
+            if not receipt["training_eligible"] or type(receipt["success"]) is not bool:
+                raise ValueError("Unknown/incomplete IPR execution cannot become training evidence")
+            episode = read(directory / "episode/episode.json")
+            branch = episode["ipr_branch"]
+            if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
+                    or episode["split"] != "train" or not episode["complete"] or episode["status"] != "ok"
+                    or episode["success"] != receipt["success"] or not branch["replay_matched"]
+                    or any(branch[k] != v for k, v in lineage.items())):
+                raise ValueError("IPR receipt disagrees with real execution")
+            checked.append((receipt, episode))
     return checked
 
 

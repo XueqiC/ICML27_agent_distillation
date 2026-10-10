@@ -12,7 +12,7 @@ from baselines.common.explore import checked_rollouts
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
-from sed.seed_evidence import checked_episode, load_verified_collection
+from sed.seed_evidence import checked_episodes, load_verified_collection
 from sed.storage import digest, write_json
 
 
@@ -64,8 +64,7 @@ def pair_data(verified, exploration, config):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, _, evidence_root = load_verified_collection(verified, manifest, freeze)
     experts = []
-    for receipt in collection["verified"]:
-        episode = checked_episode(evidence_root, receipt)
+    for receipt, episode in zip(collection["verified"], checked_episodes(evidence_root, collection["verified"])):
         experts.append({"task_id": receipt["task_id"], "won": True,
                         "parent_seed_ids": [episode["episode_id"]], "messages": episode_messages(episode)})
     rollouts = [{"task_id": r["task_id"], "won": r["won"], "messages": episode_messages(e)}
