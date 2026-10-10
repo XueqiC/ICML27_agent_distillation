@@ -22,8 +22,11 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   experimentally. First step (in progress): verify the theory per the whole package (= plan gate G1 + §9 finite experiments).
   Done: manifest hashes 19/19 OK; v0.14 + v0.13 scripts rerun bit-identical (theory/v014_repro/, env theory/.venv py3.12 pinned deps + sympy).
   My proof pass Prop1–Prop21: no math error found; one statement gap (Thm 19/(39) implicitly assumes visited certified states are audited cells).
-  Running: Codex pid 1599419 (started 03:30 CDT) implementing theory/independent_checks/SPEC.md C1–C23 (independent suite + controlled
-  small-neural stage); watcher task b84qbwtfr. Discord work-log msg 1558394475380736042. Still open from 10-09: B (K counting), seeds, baselines.
+  DONE 05:1x CDT: independent suite C1–C23 (theory/independent_checks/, Codex-built, reviewed + rerun by me, identical): 22 PASS / 1 FAIL
+  (C15 = Thm 19 (39) coverage gap, exact counterexample). Controlled small net: affine holds in lazy SGD; Adam breaks it (sign update →
+  threshold learner). Report docs/direction/2026-10-10_v014_verification_ZH.md sent. Awaiting user: which next step (fix Thm 19 wording →
+  v0.14.1; theory-completion priorities: optimizer-aware info requirement / role of K / lazy-regime response theorem / state shift;
+  G2/G3 restore audit). Still open from 10-09: B (K counting), seeds, baselines.
 - **02:14 CDT 10-10: still all 15 pending** (IPR r4 dpo1 45082398 now QOSGrpMemLimit = dept mem cap; ETO tp6 x3 45058903 Priority; rest Dependency).
   Monitoring = session cron c7e05476 hourly at :17 running scratchpad/hpg_check_once.sh (silent on NO_CHANGE; seen-file dedupes events).
   Session-only: after a restart, recreate the script (copy of the loop in hpg_monitor_1009.sh without the loop) + cron.

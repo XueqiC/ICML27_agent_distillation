@@ -1,0 +1,54 @@
+Starting C1
+C1: PASS (1.40s) — max assertion residual 1.33e-15
+Starting C2
+C2: PASS (0.34s) — minimum SPRT/lower-bound ratio 1
+Starting C3
+C3: PASS (0.02s) — Prop 5 gap 1/40; Prop 6 gap eta²/8
+Starting C4
+C4: PASS (9.93s) — max assertion residual 0
+Starting C5
+C5: PASS (8.35s) — max assertion residual 5.76e-14
+Starting C6
+C6: PASS (2.34s) — largest coefficient ratio 0.666667
+Starting C7
+C7: PASS (0.37s) — max assertion residual 0
+Starting C8
+C8: PASS (5.53s) — max assertion residual 0
+Starting C9
+C9: PASS (3.60s) — max assertion residual 2.3e-12
+Starting C10
+C10: PASS (2.18s) — largest gap/bound ratio 0.964912
+Starting C11
+C11: PASS (0.43s) — max assertion residual 0
+Starting C12
+C12: PASS (0.19s) — max assertion residual 1.04e-17
+Starting C13
+C13: PASS (1.79s) — max assertion residual 0
+Starting C14
+C14: PASS (2.34s) — max assertion residual 9.8e-13
+Starting C15
+C15: FAIL (0.04s) — coverage gap 1 > bound 0.0296041
+Starting C16
+C16: PASS (1.45s) — point-estimate gain -78/15625; audit count 1016
+Starting C17
+C17: PASS (2.73s) — median width-bound slack 0.230568
+Starting C18
+C18: PASS (2.74s) — independent n^(1−N); replay/descendants constant
+Starting C19
+C19: PASS (4.37s) — span dimensions 4, 8, 4
+Starting C20
+C20: PASS (0.00s) — omitted-feature gap 1/2; coverage gap = rho = 1
+Starting C21
+C21: PASS (0.11s) — max assertion residual 0
+Starting C22
+C22: PASS (0.08s) — W = min(1, epsilon/alpha)
+Starting C23
+controlled neural, not Gemma, not an external benchmark: completed Prop5 N=1
+controlled neural, not Gemma, not an external benchmark: completed Prop6 N=2
+controlled neural, not Gemma, not an external benchmark: completed moment N=2
+controlled neural, not Gemma, not an external benchmark: completed moment N=3
+controlled neural, not Gemma, not an external benchmark: completed moment N=4
+controlled neural, not Gemma, not an external benchmark: completed parity N=2
+controlled neural, not Gemma, not an external benchmark: completed parity N=3
+C23: PASS (2.87s) — 57 local agreements / 69 departures; null 0
+Wrote /home/xueqi/hq/projects/ICML27_agent_distillation/theory/independent_checks/results_independent_v014.json; {'PASS': 22, 'FAIL': 1, 'INFO': 0}
