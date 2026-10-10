@@ -2,7 +2,9 @@
 import builtins
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+import errno
 import json
+import os
 from pathlib import Path
 import pickle
 import threading
@@ -42,7 +44,223 @@ def hash_tree(tmp_path):
     (root / "link_dir").symlink_to("nested", target_is_directory=True)
     (root / "link.lock").symlink_to("large")
     (root / "dangling").symlink_to("missing")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "external").write_text("outside")
+    (root / "link_outside").symlink_to(outside, target_is_directory=True)
     return root
+
+
+def assert_listing_reference(directory, monkeypatch):
+    expected = sorted(directory.rglob("*"))
+    expected_hashes = old_hashes(directory)
+    listings = []
+    def sorted_paths(paths):
+        paths = sorted(paths)
+        listings.append(paths)
+        return paths
+    with monkeypatch.context() as patch:
+        patch.setattr(seed_evidence, "sorted", sorted_paths, raising=False)
+        actual = seed_evidence.artifact_hashes(directory)
+    assert listings == [expected]
+    assert all(type(path) is type(directory) for path in listings[0])
+    assert list(actual.items()) == list(expected_hashes.items())
+    assert canonical_bytes(actual) == canonical_bytes(expected_hashes)
+
+
+@pytest.mark.parametrize("workers", [1, 2, 16])
+@pytest.mark.parametrize("wide", [False, True])
+def test_listing_matches_live_pathlib(hash_tree, monkeypatch, workers, wide):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    if wide:
+        for i in range(128):
+            directory = hash_tree / f"sub{i}" / ".nested"
+            directory.mkdir(parents=True)
+            for j in range(9):
+                (directory / str(j)).write_text(f"{i}:{j}")
+    (hash_tree / "line\nbreak").write_text("newline")
+    (hash_tree / "é").write_text("unicode")
+    assert_listing_reference(hash_tree, monkeypatch)
+    # Relative roots, a symlink used as the root, non-directories and absent roots.
+    monkeypatch.chdir(hash_tree.parent)
+    for directory in (Path("tree"), Path("tree/link_dir"), Path("tree/link_outside"),
+                      Path("tree/empty_file"), Path("tree/dangling"), Path("missing")):
+        assert_listing_reference(directory, monkeypatch)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can read chmod 000 directories")
+@pytest.mark.parametrize("workers", [1, 2, 16])
+def test_listing_unreadable_directory(hash_tree, monkeypatch, workers):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    unreadable = hash_tree / "unreadable"
+    unreadable.mkdir()
+    (unreadable / "hidden").write_text("unreadable")
+    unreadable.chmod(0)
+    try:
+        assert_listing_reference(hash_tree, monkeypatch)
+        assert_listing_reference(unreadable, monkeypatch)
+    finally:
+        unreadable.chmod(0o700)
+
+
+@pytest.mark.parametrize("workers", [2, 16])
+@pytest.mark.parametrize("single_tree", [False, True])
+def test_scans_share_bounded_pool_across_and_within_trees(tmp_path, monkeypatch, workers, single_tree):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    directories = [tmp_path / str(i) for i in range(128)]
+    for directory in directories:
+        directory.mkdir()
+        (directory / "file").write_text("evidence")
+    roots = [tmp_path] if single_tree else directories
+    expected = [old_hashes(d) for d in roots]
+    parent, seen, pools = threading.get_ident(), set(), []
+    active = {"scan": 0, "all": 0}
+    peak = active.copy()
+    lock, barrier = threading.Lock(), threading.Barrier(workers)
+    first_scans = set()
+    original_scandir = os.scandir
+    class Pool(ThreadPoolExecutor):
+        def __init__(self, **kwargs):
+            pools.append(kwargs["max_workers"])
+            super().__init__(**kwargs)
+        def submit(self, fn, *args, **kwargs):
+            keys = ("scan", "all") if getattr(fn, "__name__", None) == "scan" else ("all",)
+            with lock:
+                for key in keys:
+                    active[key] += 1
+                    peak[key] = max(peak[key], active[key])
+            def done(_):
+                with lock:
+                    for key in keys:
+                        active[key] -= 1
+            future = super().submit(fn, *args, **kwargs)
+            future.add_done_callback(done)
+            return future
+    def scandir(path):
+        with lock:
+            seen.add(threading.get_ident())
+            rendezvous = Path(path) != tmp_path and Path(path) not in first_scans
+            if rendezvous:
+                first_scans.add(Path(path))
+                rendezvous = len(first_scans) <= workers
+        if rendezvous:
+            barrier.wait(timeout=10)
+        return original_scandir(path)
+    monkeypatch.setattr(seed_evidence, "ThreadPoolExecutor", Pool)
+    monkeypatch.setattr(os, "scandir", scandir)
+    assert seed_evidence.artifact_hashes_many(roots) == expected
+    assert pools == [workers]
+    assert parent not in seen and len(seen) == workers
+    assert peak["scan"] == workers
+    assert peak["all"] <= workers * (workers + 1)
+
+
+@pytest.mark.parametrize("workers", [1, 2, 16])
+@pytest.mark.parametrize("operation", ["open", "iterate", "close", "is_dir"])
+@pytest.mark.parametrize("number", [errno.EACCES, errno.ENOENT, errno.EIO])
+def test_listing_errors_match_live_pathlib(tmp_path, monkeypatch, workers, operation, number):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    victim = tmp_path / "bad"
+    victim.mkdir()
+    (victim / "file").write_text("evidence")
+    (tmp_path / "good").write_text("retained")
+    original_scandir = os.scandir
+    error = OSError(number, "injected listing error", str(victim))
+    class Entry:
+        def __init__(self, entry):
+            self.entry, self.name = entry, entry.name
+        def is_dir(self, **kwargs):
+            if self.name == "bad":
+                raise error
+            return self.entry.is_dir(**kwargs)
+    class Scan:
+        def __init__(self, path):
+            self.path, self.entries, self.count = Path(path), original_scandir(path), 0
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            self.entries.close()
+            if self.path == victim and operation == "close":
+                raise error
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if self.path == victim and operation == "iterate" and self.count:
+                raise error
+            self.count += 1
+            entry = next(self.entries)
+            return Entry(entry) if operation == "is_dir" else entry
+    def scandir(path):
+        if Path(path) == victim and operation == "open":
+            raise error
+        return Scan(path)
+    monkeypatch.setattr(os, "scandir", scandir)
+    try:
+        sorted(tmp_path.rglob("*"))
+    except Exception as expected:
+        with pytest.raises(type(expected)) as caught:
+            seed_evidence.artifact_hashes(tmp_path)
+        assert caught.value.args == expected.args
+        assert caught.value.filename == expected.filename
+    else:
+        assert_listing_reference(tmp_path, monkeypatch)
+
+
+@pytest.mark.parametrize("workers", [1, 2, 16])
+@pytest.mark.parametrize("failure", ["sibling", "classification"])
+def test_listing_first_error_follows_live_traversal(tmp_path, monkeypatch, workers, failure):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    (tmp_path / "a" / "deep").mkdir(parents=True)
+    (tmp_path / "b").mkdir()
+    original_scandir = os.scandir
+    class Entry:
+        def __init__(self, entry):
+            self.entry, self.name = entry, entry.name
+        def is_dir(self, **kwargs):
+            if self.name == "b" and failure == "classification":
+                raise RuntimeError("parent classification")
+            return self.entry.is_dir(**kwargs)
+    class Scan:
+        def __init__(self, entries):
+            self.entries = entries
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def __iter__(self):
+            return iter(self.entries)
+    def scandir(path):
+        name = str(Path(path).relative_to(tmp_path))
+        failures = {"a/deep", "b"} if failure == "sibling" else {"a"}
+        if name in failures:
+            raise RuntimeError(name)
+        with original_scandir(path) as entries:
+            return Scan([Entry(e) for e in sorted(entries, key=lambda e: e.name)])
+    monkeypatch.setattr(os, "scandir", scandir)
+    with pytest.raises(RuntimeError) as expected:
+        sorted(tmp_path.rglob("*"))
+    with pytest.raises(RuntimeError) as actual:
+        seed_evidence.artifact_hashes(tmp_path)
+    assert actual.value.args == expected.value.args
+
+
+@pytest.mark.parametrize("workers", [2, 16])
+def test_listing_errors_are_deferred_in_batch_order(tmp_path, monkeypatch, workers):
+    monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    good, bad = tmp_path / "good", tmp_path / "bad"
+    good.mkdir()
+    bad.mkdir()
+    original_scandir = os.scandir
+    def scandir(path):
+        if Path(path) == bad:
+            raise RuntimeError("later listing failed")
+        return original_scandir(path)
+    monkeypatch.setattr(os, "scandir", scandir)
+    with seed_evidence.artifact_hashes_batch([good, bad]) as readers:
+        first, second = next(readers), next(readers)
+        assert first() == {}
+        with pytest.raises(RuntimeError, match="later listing failed"):
+            second()
 
 
 @pytest.mark.parametrize("workers", [1, 16])

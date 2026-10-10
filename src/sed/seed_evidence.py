@@ -1,9 +1,11 @@
 """Validate environment evidence separately from model-visible training fields."""
 import json
 import os
+import sys
 from collections import Counter, deque
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import contextmanager
+from errno import EBADF, ELOOP, ENOENT, ENOTDIR
 from itertools import islice
 from pathlib import Path
 
@@ -32,46 +34,182 @@ def _hash_entry(path):
     return file_hash(path) if path.is_file() and not path.name.endswith(".lock") else None
 
 
+class _DirectoryListing:
+    """One scan task; mirror CPython 3.11/3.12 pathlib's ** then * selectors.
+
+    Keep the wildcard and descent scans separate, as pathlib does: their error
+    scopes differ, especially Path.walk's iterator errors on 3.12. DirEntry's
+    no-follow directory check in both local versions avoids symlink target stats.
+    Workers record errors; the caller later visits them in pathlib's order.
+    """
+    def __init__(self, directory, *, root=False):
+        self.directory, self.root = directory, root
+        self.paths, self.children = [], []
+        self.error = self.walk_error = None
+
+    def scan(self):
+        modern = sys.version_info >= (3, 12)
+        try:
+            if self.root:
+                sys.audit("pathlib.Path.rglob", self.directory, "*")
+                if not self.directory.is_dir():
+                    return
+            try:
+                with os.scandir(self.directory) as entries:
+                    entries = list(entries)
+            except OSError as error:
+                if not modern and not isinstance(error, PermissionError):
+                    raise
+            else:
+                self.paths = [self.directory / entry.name for entry in entries]
+        except Exception as error:
+            self.error = error
+            return
+        try:
+            if modern:
+                # Path.walk suppresses open errors, but not iterator/close errors.
+                try:
+                    entries = os.scandir(self.directory)
+                except OSError:
+                    return
+                with entries:
+                    for entry in entries:
+                        try:
+                            is_dir = entry.is_dir(follow_symlinks=False)
+                        except OSError:
+                            is_dir = False
+                        if is_dir:
+                            self.children.append(_DirectoryListing(self.directory / entry.name))
+            else:
+                try:
+                    with os.scandir(self.directory) as entries:
+                        entries = list(entries)
+                    for entry in entries:
+                        try:
+                            is_dir = entry.is_dir(follow_symlinks=False)
+                        except OSError as error:
+                            if (error.errno not in (ENOENT, ENOTDIR, EBADF, ELOOP)
+                                    and getattr(error, "winerror", None) not in (21, 123, 1921)):
+                                raise
+                            continue
+                        if is_dir:
+                            self.children.append(_DirectoryListing(self.directory / entry.name))
+                except PermissionError:
+                    pass
+        except Exception as error:
+            self.walk_error = error
+            if modern:
+                self.children.clear()  # walk yields only after the scan closes.
+
+    def collect(self):
+        paths, pending = [], [self]
+        modern = sys.version_info >= (3, 12)
+        if modern:
+            if self.error is not None:
+                raise self.error
+            paths.extend(self.paths)
+        while pending:
+            node = pending.pop()
+            if isinstance(node, Exception):
+                raise node
+            if modern:
+                if node.walk_error is not None:
+                    raise node.walk_error
+                # 3.12 yields every child's wildcard results before walking them.
+                for child in node.children:
+                    if child.error is not None:
+                        raise child.error
+                    paths.extend(child.paths)
+            else:
+                if node.error is not None:
+                    raise node.error
+                paths.extend(node.paths)
+                if node.walk_error is not None:
+                    pending.append(node.walk_error)
+            pending.extend(reversed(node.children))
+        return sorted(paths)
+
+
 @contextmanager
 def artifact_hashes_batch(directories):
     """Yield ordered hash readers; raise I/O errors only when a reader is called.
 
     Paths may be thunks so receipt/path errors keep their original check order.
-    Prefetch at most one directory per worker and one file per worker/directory;
-    all files share the same pool, with bounded pending work even for large trees.
-    Listing deliberately retains pathlib's dotfile/symlink traversal semantics.
+    Prefetch at most one tree per worker and one file per worker/tree.
+    Scans and files share one pool. The caller schedules at most one scan per
+    worker, including separate tasks for subdirectories within a large tree.
     """
     workers = int(os.environ.get("SED_HASH_WORKERS", "16"))
     if workers < 1:
         raise ValueError("SED_HASH_WORKERS must be positive")
 
+    ready, scanning = deque(), {}
+
+    def failed_reader(error):
+        failed = Future()
+        failed.set_exception(error)
+        return failed.result
+
+    def hash_reader(root, pool):
+        try:
+            paths = iter(root.collect())
+            pending = deque((p, pool.submit(_hash_entry, p)) for p in islice(paths, workers))
+        except Exception as error:
+            return failed_reader(error)
+        def collect():
+            result = {}
+            while pending:
+                path, future = pending.popleft()
+                sha = future.result()
+                if sha is not None:
+                    result[str(path.relative_to(root.directory))] = sha
+                for path in paths:
+                    pending.append((path, pool.submit(_hash_entry, path)))
+                    break
+            return result
+        return collect
+
+    def schedule(pool):
+        while ready and len(scanning) < workers:
+            tree = ready.popleft()
+            node = tree["todo"].popleft()
+            scanning[pool.submit(node.scan)] = tree, node
+            if tree["todo"]:
+                ready.append(tree)
+
+    def advance(pool):
+        done, _ = wait(scanning, return_when=FIRST_COMPLETED)
+        for future in done:
+            tree, node = scanning.pop(future)
+            future.result()
+            if node.children and not tree["todo"]:
+                ready.append(tree)
+            tree["todo"].extend(node.children)
+            tree["remaining"] += len(node.children) - 1
+            if not tree["remaining"]:
+                tree["read"] = hash_reader(tree["root"], pool)
+        schedule(pool)
+
     def prepare(value, pool):
         try:
             directory = Path(value() if callable(value) else value)
-            paths = sorted(directory.rglob("*"))
             if pool is None:
+                paths = sorted(directory.rglob("*"))
                 return {str(p.relative_to(directory)): file_hash(p) for p in paths
                         if p.is_file() and not p.name.endswith(".lock")}
-            paths = iter(paths)
-            pending = deque((p, pool.submit(_hash_entry, p)) for p in islice(paths, workers))
+            root = _DirectoryListing(directory, root=True)
+            tree = {"root": root, "todo": deque([root]), "remaining": 1}
+            ready.append(tree)
+            schedule(pool)
             def collect():
-                result = {}
-                while pending:
-                    path, future = pending.popleft()
-                    sha = future.result()
-                    if sha is not None:
-                        result[str(path.relative_to(directory))] = sha
-                    for path in paths:
-                        pending.append((path, pool.submit(_hash_entry, path)))
-                        break
-                return result
+                while tree["remaining"]:
+                    advance(pool)
+                return tree["read"]()
             return collect
         except Exception as error:
             if pool is None:
                 raise
-            failed = Future()
-            failed.set_exception(error)
-            return failed.result
+            return failed_reader(error)
 
     if workers == 1:
         yield (lambda value=value: prepare(value, None) for value in directories)
