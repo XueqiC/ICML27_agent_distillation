@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:4x CDT 10-10: USER CHOSE (a)** for the GPU-idle fix: ETO tp6 finishes on tree 6bac2da (45058903 x3 → 45058904 dpo3 160G → 45058905 eval);
+  IPR r4 withdrawn — cancelled all 12 pending r4 jobs (45439203 dpo1, 45082399–45082409). Reason: identity.json is frozen and binds
+  code_sha256, so a code fix cannot resume r4; r4 output tree (sft + x1 + pairs-1 done, dpo-1 attempt-000 OOM) stays in place as an
+  abandoned run (disclose). Next: Codex fix (parallel artifact_hashes, byte-identical; rank-0-only validation/pair derivation in
+  fsdp_train with gloo handoff) → review/tests → new tree → CPU-job hash-equality + timing check on the r4 tree → IPR **r5** fresh chain
+  (sft→x1→dpo1…dpo6→eval; sizing sft 4-GPU 96G, x 1-GPU 32G, dpo 4-GPU 256G, eval 32G). Monitor JOBS = ETO 3 only.
 - **13:39 CDT 10-10: hpg back** (user re-opened ControlMaster); no change during outage, all 15 pending (heads 45439203 + 45058903 Priority).
 - **10:40 CDT 10-10: hpg ControlMaster expired** (Permission denied keyboard-interactive) — one notice sent (msg 1558504551915454487);
   waiting for user `ssh -fN -M hpg`. Last seen 09:40: all 15 pending (IPR dpo1 45439203 Priority). Monitor now dedupes the tunnel notice
