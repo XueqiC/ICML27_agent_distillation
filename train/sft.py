@@ -19,6 +19,8 @@ from sed.storage import digest, write_json, JsonlLedger, fsync_dir
 from sed.seed_evidence import artifact_hashes, verified_collection_inputs
 from train.dataset import load_tokenizer, build_verified_dataset, mask_report
 from train.modeling import attach_lora, load_student, snapshot_metadata
+from train.optimizer_state import (adamw, learning_rate_at, save_update_state,
+                                   trainable_state, assert_trainable_equal, warmth_statistics)
 
 
 def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
@@ -110,6 +112,66 @@ def turn_loss_sum(model, row, device):
     return torch.nn.functional.cross_entropy(output.logits[0].float(), labels[target_positions], reduction="sum")
 
 
+def token_mean_backward(model, examples, batch):
+    """Accumulate the frozen batch exactly as Seed-SFT (caller clears grads)."""
+    import torch
+    device = next(model.parameters()).device
+    total_loss, actual_tokens = 0.0, 0
+    for index in batch["indices"]:
+        row = examples[index]
+        actual_tokens += sum(v != -100 for v in row["labels"])
+        loss = turn_loss_sum(model, row, device)
+        if not torch.isfinite(loss):
+            raise ValueError("Nonfinite SFT loss")
+        total_loss += float(loss.detach())
+        (loss / batch["supervised_tokens"]).backward()
+    if actual_tokens != batch["supervised_tokens"]:
+        raise ValueError("Realized exposure differs from frozen update plan")
+    return total_loss, actual_tokens
+
+
+def warmup_exposure(examples, plan, steps):
+    batches = [plan[i % len(plan)] for i in range(steps)]
+    return {"steps": steps, "supervised_tokens": sum(b["supervised_tokens"] for b in batches),
+            "examples": sum(len(b["indices"]) for b in batches),
+            "forward_tokens": sum(len(examples[i]["input_ids"]) for b in batches for i in b["indices"]),
+            "source": "extra gradient exposure on the same frozen seed data; no new data",
+            "counted_in_supervised_tokens_seen": False, "real_update_data_cursor": 0}
+
+
+def moment_warmup(model, optimizer, examples, plan, steps, *, gradient_clip=1.0, ledger=None,
+                  log_warmth=False):
+    """Advance m/v/step at exactly zero LR; real updates still start at plan[0]."""
+    import torch
+    before = trainable_state(model)
+    rates = [group["lr"] for group in optimizer.param_groups]
+    parameters = [p for p in model.parameters() if p.requires_grad]
+    model.train()
+    try:
+        for group in optimizer.param_groups:
+            group["lr"] = 0.0
+        for step in range(1, steps + 1):
+            batch = plan[(step - 1) % len(plan)]
+            optimizer.zero_grad(set_to_none=True)
+            loss, tokens = token_mean_backward(model, examples, batch)
+            norm = torch.nn.utils.clip_grad_norm_(parameters, gradient_clip, error_if_nonfinite=True)
+            warmth = {"warmth": warmth_statistics(optimizer)} if log_warmth else {}
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+            if ledger is not None:
+                ledger.append({"step": step, "plan_index": (step - 1) % len(plan),
+                               "indices": batch["indices"], "supervised_tokens": tokens,
+                               "loss": loss / tokens, "gradient_norm": float(norm),
+                               "clip_active": bool(gradient_clip / (norm + 1e-6) < 1), "learning_rate": 0.0,
+                               **warmth},
+                              unique_key="step")
+        assert_trainable_equal(model, before)
+    finally:
+        for group, rate in zip(optimizer.param_groups, rates):
+            group["lr"] = rate
+    return warmup_exposure(examples, plan, steps)
+
+
 def checkpoint_metadata(batch, *, updates, wall_seconds, update_seconds, peak_memory,
                         peak_reserved, bank_tokens, identity_sha256):
     return {"schema_version": 1, "supervised_tokens": batch["cumulative_supervised_tokens"],
@@ -129,10 +191,14 @@ def checkpoint_metadata(batch, *, updates, wall_seconds, update_seconds, peak_me
 
 
 def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=None,
-               identity_sha256, gradient_clip=1.0):
+               identity_sha256, gradient_clip=1.0, moment_warmup_steps=0,
+               lr_warmup_steps=0, save_every_update_through=0, log_warmth=False):
     import torch
     if not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Learning rate must be finite and positive")
+    if any(type(n) is not int or n < 0 for n in
+           (moment_warmup_steps, lr_warmup_steps, save_every_update_through)):
+        raise ValueError("Warmup and state-save counts must be nonnegative integers")
     if any(e.get("label_provenance", {}).get("training_eligible") is False for e in examples):
         raise ValueError("Diagnostic examples cannot enter training")
     output = Path(output)
@@ -142,32 +208,26 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
     if cuda:
         torch.cuda.reset_peak_memory_stats(device)
     parameters = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(parameters, lr=learning_rate, weight_decay=0.0,
-                                 betas=(0.9, 0.999), eps=1e-8, foreach=False, fused=False)
+    optimizer = adamw(parameters, learning_rate)
     model.train()
     empty_visible_counts = [e.get("empty_visible_turns_masked", 0) for e in examples]
     start, compute_seconds, checkpoints = time.monotonic(), 0.0, []
     ledger = JsonlLedger(output / "updates.jsonl")
+    warm = {}
+    if moment_warmup_steps:
+        warm = {"moment_warmup_exposure": moment_warmup(model, optimizer, examples, plan,
+                    moment_warmup_steps, gradient_clip=gradient_clip,
+                    ledger=JsonlLedger(output / "moment_warmup.jsonl"), log_warmth=log_warmth)}
     for update, batch in enumerate(plan, 1):
         if cuda:
             torch.cuda.synchronize(device)
         tick = time.monotonic()
         optimizer.zero_grad(set_to_none=True)
-        total_loss = 0.0
-        actual_tokens = 0
-        for index in batch["indices"]:  # microbatch = one complete turn or episode
-            row = examples[index]
-            cost = sum(v != -100 for v in row["labels"])
-            actual_tokens += cost
-            loss = turn_loss_sum(model, row, device)
-            if not torch.isfinite(loss):
-                raise ValueError("Nonfinite SFT loss")
-            total_loss += float(loss.detach())
-            # Weight by actual supervised tokens, never by number of turns.
-            (loss / batch["supervised_tokens"]).backward()
-        if actual_tokens != batch["supervised_tokens"]:
-            raise ValueError("Realized exposure differs from frozen update plan")
+        total_loss, actual_tokens = token_mean_backward(model, examples, batch)
         grad_norm = torch.nn.utils.clip_grad_norm_(parameters, gradient_clip, error_if_nonfinite=True)
+        warmth = {"warmth": warmth_statistics(optimizer)} if log_warmth else {}
+        if lr_warmup_steps:
+            optimizer.param_groups[0]["lr"] = learning_rate_at(learning_rate, lr_warmup_steps, update)
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         if cuda:
@@ -175,7 +235,15 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         seconds = time.monotonic() - tick
         compute_seconds += seconds
         ledger.append({"update": update, **batch, "loss": total_loss / actual_tokens,
-                       "seconds": seconds, "gradient_norm": float(grad_norm)}, unique_key="update")
+                       "seconds": seconds, "gradient_norm": float(grad_norm),
+                       **warmth,
+                       **({"learning_rate": optimizer.param_groups[0]["lr"]} if lr_warmup_steps else {})},
+                      unique_key="update")
+        if update <= save_every_update_through:
+            save_update_state(model, optimizer, output, update=update, batch=batch, plan=plan,
+                              learning_rate=learning_rate, lr_warmup_steps=lr_warmup_steps,
+                              gradient_clip=gradient_clip, identity_sha256=identity_sha256,
+                              moment_warmup_steps=moment_warmup_steps, extra=warm, tokenizer=tokenizer)
         if batch["requested_endpoints"] or batch["final"]:
             metadata = checkpoint_metadata(batch, updates=update, wall_seconds=time.monotonic() - start,
                 update_seconds=compute_seconds,
@@ -184,6 +252,7 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
                 bank_tokens=sum(e["supervised_tokens"] for e in examples), identity_sha256=identity_sha256)
             metadata.update(empty_visible_turns_masked=sum(empty_visible_counts),
                             empty_visible_turn_examples=sum(count > 0 for count in empty_visible_counts))
+            metadata.update(warm)
             name = f"checkpoint-tokens-{batch['cumulative_supervised_tokens']}"
             staging = output / ("." + name + ".partial")
             staging.mkdir(exist_ok=False)
@@ -218,6 +287,10 @@ def main(argv=None):
     parser.add_argument("--checkpoint-tokens", type=int, nargs="*", default=[])
     parser.add_argument("--tokens-per-update", type=int, default=512)
     parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--moment-warmup-steps", type=int, default=0)
+    parser.add_argument("--lr-warmup-steps", type=int, default=0)
+    parser.add_argument("--save-every-update-through", type=int, default=0)
+    parser.add_argument("--log-warmth", action="store_true")
     parser.add_argument("--rank", type=int, default=16)
     parser.add_argument("--alpha", type=int, default=32)
     parser.add_argument("--dropout", type=float, default=0.0)
@@ -229,6 +302,8 @@ def main(argv=None):
         parser.error("Specify --supervised-tokens and/or --passes")
     if args.rank < 1 or args.alpha < 1 or not 0 <= args.dropout < 1:
         parser.error("Invalid LoRA settings")
+    if min(args.moment_warmup_steps, args.lr_warmup_steps, args.save_every_update_through) < 0:
+        parser.error("Warmup and state-save counts must be nonnegative")
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
     preparation_start = time.monotonic()
@@ -250,13 +325,20 @@ def main(argv=None):
                          checkpoint_tokens=args.checkpoint_tokens, packing=args.packing,
                          turn_counts=[e["turn_count"] for e in examples])
     report = mask_report(examples, tokenizer)
-    config["sft"] = {**vars(args), "base_snapshot": metadata, "dtype": "bfloat16",
+    # Omit disabled additions even from provenance, preserving the legacy config.
+    options = {k: v for k, v in vars(args).items() if v or k not in {
+        "moment_warmup_steps", "lr_warmup_steps", "save_every_update_through", "log_warmth"}}
+    config["sft"] = {**options, "base_snapshot": metadata, "dtype": "bfloat16",
                      "enable_thinking": False, "microbatch": 1, "gradient_checkpointing": True,
                      "loss": "supervised_token_mean_per_update", "attention": "eager",
                      "template_sha256": digest(tokenizer.chat_template), "plan_sha256": digest(plan),
                      "examples_sha256": digest(examples), "optimizer": "AdamW", "weight_decay": 0.0,
                      "betas": [0.9, 0.999], "eps": 1e-8, "gradient_clip": 1.0,
                      "scheduler": "constant", "deterministic_algorithms": True}
+    if args.lr_warmup_steps:
+        config["sft"]["scheduler"] = "linear_warmup_then_constant"
+    if args.moment_warmup_steps:
+        config["sft"]["moment_warmup_exposure"] = warmup_exposure(examples, plan, args.moment_warmup_steps)
     provenance = write_provenance(output, command="sft", config=config,
                       inputs=[args.config, *verified_collection_inputs(args.verified, manifest, freeze),
                               config["paths"]["manifest"],
@@ -274,7 +356,11 @@ def main(argv=None):
     write_json(output / "preparation.json", preparation)
     print(json.dumps({"preparation": preparation}), flush=True)
     checkpoints = train_loop(model, examples, plan, output, learning_rate=args.learning_rate,
-                             tokenizer=tokenizer, identity_sha256=digest(provenance))
+                             tokenizer=tokenizer, identity_sha256=digest(provenance),
+                             moment_warmup_steps=args.moment_warmup_steps,
+                             lr_warmup_steps=args.lr_warmup_steps,
+                             save_every_update_through=args.save_every_update_through,
+                             log_warmth=args.log_warmth)
     print(json.dumps({"checkpoints": [c["path"] for c in checkpoints],
                       "supervised_tokens": checkpoints[-1]["supervised_tokens"]}))
 

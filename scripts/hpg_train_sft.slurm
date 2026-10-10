@@ -27,4 +27,14 @@ if [[ -n "$CHECKPOINT_TOKENS" ]]; then
     read -r -a endpoints <<< "$CHECKPOINT_TOKENS"
     args+=(--checkpoint-tokens "${endpoints[@]}")
 fi
+if [[ -n "${MOMENT_WARMUP_STEPS:-}" && "$MOMENT_WARMUP_STEPS" != 0 ]]; then
+    args+=(--moment-warmup-steps "$MOMENT_WARMUP_STEPS")
+fi
+if [[ -n "${LR_WARMUP_STEPS:-}" && "$LR_WARMUP_STEPS" != 0 ]]; then
+    args+=(--lr-warmup-steps "$LR_WARMUP_STEPS")
+fi
+if [[ -n "${SAVE_EVERY_UPDATE_THROUGH:-}" && "$SAVE_EVERY_UPDATE_THROUGH" != 0 ]]; then
+    args+=(--save-every-update-through "$SAVE_EVERY_UPDATE_THROUGH")
+fi
+if [[ "${LOG_WARMTH:-}" == 1 ]]; then args+=(--log-warmth); fi
 "$TRAIN_PYTHON" train/sft.py "${args[@]}"
