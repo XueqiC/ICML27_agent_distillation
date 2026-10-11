@@ -1,11 +1,13 @@
 """Offline regressions for GitHub math syntax; no credentials or network."""
 import contextlib
+import hashlib
 import importlib.util
 import io
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 
 spec = importlib.util.spec_from_file_location(
@@ -95,6 +97,103 @@ class MarkdownTests(unittest.TestCase):
         text = "```math\n\\mathbb E[(M_K-n)_+]\n```\n"
         self.assertEqual(self.validate(text)[0], 0)
 
+    def test_measured_list_fence_failure(self):
+        text = "- **(b)** text $`x`$\n\n  ```math\n  z=1\n  ```\n"
+        self.assertIn("math-fence-in-list", self.validate(text)[1])
+
+    def test_list_fences_fail_regardless_of_inline_math_location(self):
+        for inline in ("$`x`$", "$x$"):
+            for marker in ("```", "~~~"):
+                for prefix, suffix in (
+                    (f"- {inline}\n- display", ""),
+                    ("- display", f"\n- {inline}\n"),
+                    (f"- display {inline}", ""),
+                    ("- display", f"\n  after {inline}\n"),
+                    ("- display", ""),
+                ):
+                    with self.subTest(inline=inline, marker=marker, prefix=prefix, suffix=suffix):
+                        text = f"{prefix}\n\n  {marker}math\n  z=1\n  {marker}\n{suffix}"
+                        self.assertIn("math-fence-in-list", self.validate(text)[1])
+
+    def test_numbered_nested_and_same_line_list_fences(self):
+        for text in (
+            "1. text\n\n   ```math\n   z=1\n   ```\n",
+            "12) text\n\n    ~~~math\n    z=1\n    ~~~\n",
+            "- outer\n  - inner\n\n    ```math\n    z=1\n    ```\n",
+            "1. outer\n   2. inner\n      - deep\n\n        ```math\n        z=1\n        ```\n",
+            "- item\n  continuation\n\n  ```math\n  z=1\n  ```\n",
+            "- ```math\n  z=1\n  ```\n",
+            "1. - ~~~math\n     z=1\n     ~~~\n",
+            "> - inner\n>\n>   ```math\n>   z=1\n>   ```\n",
+            "- outer\n\n  > ```math\n  > z=1\n  > ```\n",
+            "- > ```math\n  > z=1\n  > ```\n",
+        ):
+            with self.subTest(text=text):
+                self.assertIn("math-fence-in-list", self.validate(text)[1])
+
+    def test_indented_math_fences_without_lists_are_rejected(self):
+        for indent in (" ", "  ", "   ", "    ", "\t"):
+            with self.subTest(indent=indent):
+                text = f"{indent}```math\n{indent}z=1\n{indent}```\n"
+                self.assertIn("math-fence-in-list", self.validate(text)[1])
+
+    def test_measured_top_level_math_passes(self):
+        for text in (
+            "**(b)** text $`x`$\n\n```math\nz=1\n```\n",
+            "$`x`$\n\n```math\nz=1\n```\n\n$`y`$\n",
+            "- text $`x`$\n\n```math\nz=1\n```\n",
+            "1. text $`x`$\n\n~~~math\nz=1\n~~~\n",
+            "- outer\n  - inner $`x`$\n\n```math\nz=1\n```\n",
+            "> text $`x`$\n>\n> ```math\n> z=1\n> ```\n",
+            "- text $`x`$\n\n> ```math\n> z=1\n> ```\n",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(self.validate(text), (0, ""))
+
+    def test_list_containers_and_fence_contents(self):
+        text = "- outer\n  - inner\n\n  ```math\n  z=1\n  ```\n\n```math\nz=2\n```\n"
+        openings = [row for row in check.block_lines(text) if row[3]]
+        self.assertEqual([row[4] for row in openings], [True, False])
+        text = "````markdown\n- item\n\n  ```math\n  z=1\n  ```\n````\n"
+        self.assertNotIn("math-fence-in-list", self.validate(text)[1])
+
+    def test_converted_numbered_clauses_keep_reference_allowance(self):
+        self.assertEqual(self.validate("**1.** Condition.\n\nBy (1), done.\n")[0], 0)
+
+    def test_scope_includes_all_framework_markdown_without_expanding_label_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            names = ["theoretical_framework/README.md",
+                     "theoretical_framework/proofs/N01.md",
+                     "theoretical_framework/experiments/N01.md",
+                     "theoretical_framework/figures/README.md",
+                     "theoretical_framework/figures/specs/N01.md",
+                     "theoretical_framework/tools/README.md",
+                     "theoretical_framework/extra/deep/page.md",
+                     "docs/direction/2026-10-11_v015_progress_ZH.md",
+                     "docs/direction/v015_extension/Extra.md",
+                     "docs/direction/v015_revision/untouched.md",
+                     "docs/direction/v014_handoff/untouched.md"]
+            for name in names:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+            files, labels = check.scope(root)
+            self.assertEqual(set(files), {root / name for name in names[:-2]})
+            self.assertIn(root / names[1], labels)
+            self.assertIn(root / names[3], labels)
+            for index in (4, 5, 6, 8):
+                self.assertNotIn(root / names[index], labels)
+            spec = root / names[4]
+            spec.write_text("Thm. 7, (32), C23.\n\n  ```math\n  z=1\n  ```\n", encoding="utf-8")
+            report = check.Report()
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                check.offline([spec], labels, report)
+            self.assertIn("math-fence-in-list", out.getvalue())
+            self.assertNotIn("nonlocal", out.getvalue())
+            self.assertNotIn("unlinked", out.getvalue())
+
     def test_math_body_safety_checks_still_apply(self):
         cases = {
             "$` x `$": "space at an inline math boundary",
@@ -140,6 +239,24 @@ class MarkdownTests(unittest.TestCase):
 
     def test_heading_slug_collisions_still_work(self):
         self.assertEqual(check.headings("# Same\n\n# Same\n"), {"same": 1, "same-1": 3})
+
+    def test_heading_slug_drops_superscript_number(self):
+        heading = '## Panel C — "Warm Adam: E[G²] enters through v"'
+        self.assertEqual(check.headings(heading), {
+            "panel-c--warm-adam-eg-enters-through-v": 1,
+        })
+
+    def test_heading_slug_drops_subscript_number_but_keeps_modifier_letter(self):
+        heading = '## Panel E — "LoRA at B=0: only the sketch ΓA₀ᵀ matters"'
+        self.assertEqual(check.headings(heading), {
+            "panel-e--lora-at-b0-only-the-sketch-γaᵀ-matters": 1,
+        })
+
+    def test_heading_slug_unicode_word_categories(self):
+        # Keep letters, combining marks, decimal digits and connector punctuation;
+        # drop letter numbers (Ⅳ) and other numbers (½), symbols and non-space whitespace.
+        self.assertEqual(check.github_slug("Ée\u0301 中ᵀ 0١ a_b‿c - Ⅳ½+\t"),
+                         "ée\u0301-中ᵀ-0١-a_b‿c---")
 
     def test_online_html_parser_behavior_is_unchanged(self):
         parser = check.RenderedHTML()
@@ -244,6 +361,219 @@ class OnlineHTMLTests(unittest.TestCase):
         rendered = (r"<pre>\alpha $</pre><code>\beta $</code>"
                     r'<div class="mermaid">\gamma $</div>')
         self.assertEqual(self.validate(rendered)[0], 0)
+
+    def test_raw_math_pre_is_rejected(self):
+        errors, output = self.validate('<pre class="code" lang="math"><code>z=1</code></pre>')
+        self.assertEqual(errors, 1)
+        self.assertIn("unrendered display math", output)
+
+    def test_svg_and_encoded_visible_math(self):
+        self.assertEqual(self.validate(r'<svg><text>$ \alpha</text></svg>')[0], 0)
+        self.assertIn("unrendered math", self.validate('<p>&#36;x&#36; &#92;alpha</p>')[1])
+
+
+class FakeGit:
+    """In-memory Git object graph; never calls Git or touches a real ref."""
+    def __init__(self, fail=None):
+        self.calls = []
+        self.objects = {}
+        self.fail = fail
+
+    def __call__(self, args, data=None):
+        self.calls.append((args, data))
+        if args[:3] == ["remote", "get-url", "origin"]:
+            return "git@github.com:example/theory.git"
+        if args[0] == "push":
+            if self.fail == "push" and "-f" in args or self.fail == "delete" and "--delete" in args:
+                raise RuntimeError("Injected Git failure")
+            return ""
+        kind = "blob" if args[0] == "hash-object" else "tree" if args[0] == "mktree" else "commit"
+        oid = hashlib.sha1(kind.encode() + b"\0" + data).hexdigest()
+        self.objects[oid] = (kind, data, args)
+        return oid
+
+
+class BlobTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        base = Path(self.temporary.name)
+        self.root = base / "repository"
+        self.cache = base / "cache"
+        self.paths = [self.root / "theoretical_framework/figures/specs/中文 page.md",
+                      self.root / "docs/direction/v015_extension/page.md"]
+        for path in self.paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# Title\n", encoding="utf-8")
+        self.git = FakeGit()
+        self.requests = []
+        self.html = '<h1 id="user-content-title">Title</h1><math-renderer>z=1</math-renderer>'
+        self.report = check.Report()
+        self.out = io.StringIO()
+        self.sleeps = []
+        # No test may accidentally fall through to live network/Git/credentials.
+        for obj, name in ((check, "urlopen"), (check, "credential"), (check.subprocess, "run")):
+            guard = patch.object(obj, name, side_effect=AssertionError("live I/O attempted"))
+            guard.start()
+            self.addCleanup(guard.stop)
+
+    def opener(self, request, timeout):
+        self.requests.append(request)
+        return io.BytesIO(self.html.encode())
+
+    def run_blob(self, **kwargs):
+        with contextlib.redirect_stdout(self.out):
+            check.blob(self.paths, self.cache, self.report, root=self.root, git=self.git,
+                       get_credential=lambda: "fake-token", opener=kwargs.pop("opener", self.opener),
+                       sleep=self.sleeps.append, **kwargs)
+
+    def test_working_tree_snapshot_preserves_paths_and_has_no_parent(self):
+        self.paths[0].write_bytes(b"working version, not index or HEAD\n")
+        sha = check.build_blob_commit(self.paths, self.root, self.git)
+        kind, _, args = self.git.objects[sha]
+        self.assertEqual(kind, "commit")
+        self.assertNotIn("-p", args)
+        self.assertEqual(args[-2], "commit-tree")
+        reconstructed = {}
+
+        def walk(oid, prefix=""):
+            kind, data, args = self.git.objects[oid]
+            self.assertEqual(kind, "tree")
+            self.assertEqual(args, ["mktree", "-z"])
+            for record in data.rstrip(b"\0").split(b"\0"):
+                info, name = record.decode().split("\t")
+                mode, kind, child = info.split()
+                if kind == "tree":
+                    self.assertEqual(mode, "040000")
+                    walk(child, prefix + name + "/")
+                else:
+                    self.assertEqual(mode, "100644")
+                    reconstructed[prefix + name] = self.git.objects[child][1]
+        walk(args[-1])
+        self.assertEqual(reconstructed, {p.relative_to(self.root).as_posix(): p.read_bytes() for p in self.paths})
+        self.assertTrue(all(args == ["hash-object", "-w", "--stdin"]
+                            for kind, _, args in self.git.objects.values() if kind == "blob"))
+
+    def test_real_file_view_request_and_cleanup(self):
+        self.run_blob()
+        self.assertEqual(self.report.errors, 0)
+        self.assertEqual(len(self.requests), len(self.paths))
+        push = next(args for args, _ in self.git.calls if args[:2] == ["push", "-f"])
+        sha, ref = push[-1].split(":")
+        self.assertEqual(push[:3], ["push", "-f", "origin"])
+        self.assertEqual(ref, "refs/render-check/tmp")
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+        for request in self.requests:
+            self.assertEqual(request.get_method(), "GET")
+            self.assertEqual(request.get_header("Accept"), "application/vnd.github.html")
+            self.assertEqual(request.get_header("Authorization"), "Bearer fake-token")
+            self.assertTrue(request.full_url.startswith("https://api.github.com/repos/example/theory/contents/"))
+            self.assertTrue(request.full_url.endswith(f"?ref={sha}"))
+            self.assertNotIn("fake-token", request.full_url)
+        self.assertIn("%E4%B8%AD%E6%96%87%20page.md", self.requests[0].full_url)
+        for cached in self.cache.glob("*.html"):
+            self.assertEqual(cached.read_text(), self.html)
+        self.assertNotIn("fake-token", self.out.getvalue() + repr(self.git.calls))
+
+    def test_cleanup_after_fetch_failure(self):
+        def fail(request, timeout):
+            raise URLError("untrusted network error with fake-token")
+        with self.assertRaisesRegex(RuntimeError, "GitHub Markdown request failed") as error:
+            self.run_blob(opener=fail)
+        self.assertNotIn("fake-token", str(error.exception))
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_cleanup_after_push_failure_or_interruption(self):
+        self.git.fail = "push"
+        with self.assertRaisesRegex(RuntimeError, "Injected Git failure"):
+            self.run_blob()
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+        self.git.fail = None
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_blob(opener=lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()))
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_cleanup_after_parser_failure(self):
+        with patch.object(check, "html_report", side_effect=ValueError("parse failure")):
+            with self.assertRaisesRegex(ValueError, "parse failure"):
+                self.run_blob()
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_cleanup_failure_is_not_silenced(self):
+        self.git.fail = "delete"
+        with self.assertRaisesRegex(RuntimeError, "Could not delete refs/render-check/tmp"):
+            self.run_blob()
+
+    def test_rendered_failure_still_deletes_ref(self):
+        self.html += '<pre lang="math">z=1</pre><p>$raw$</p><strong>&#92;alpha</strong>'
+        self.run_blob()
+        for message in ("unrendered display math", "unrendered math", "GitHub emphasis contains"):
+            self.assertIn(message, self.out.getvalue())
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_blob_anchors_use_actual_ids_and_percent_decoded_links(self):
+        self.paths[0].write_text('# Title\n\n[other](../../../docs/direction/v015_extension/page.md#%E4%B8%AD%E6%96%87)\n')
+        self.paths[1].write_text('# 中文\n\n<a id="legacy"></a>\n')
+        self.html += '<h2 id="user-content-中文">中文</h2><a id="user-content-legacy"></a>'
+        self.run_blob()
+        self.assertEqual(self.report.errors, 0)
+        self.html = '<h1 id="user-content-title">Title</h1><a href="#中文">not an ID</a>'
+        for path in self.cache.glob("*.html"):
+            path.unlink()
+        self.run_blob()
+        self.assertIn("missing GitHub HTML anchor: 中文", self.out.getvalue())
+        self.assertIn("missing GitHub HTML anchor: legacy", self.out.getvalue())
+        self.assertIn("missing GitHub HTML link anchor", self.out.getvalue())
+
+    def test_cache_reuse_avoids_http_but_still_cleans_ref(self):
+        self.run_blob()
+        self.requests.clear()
+        self.run_blob()
+        self.assertEqual(self.requests, [])
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_rate_limit_retry_uses_shared_policy(self):
+        attempts = []
+        def limited(request, timeout):
+            attempts.append(request)
+            if len(attempts) == 1:
+                raise HTTPError(request.full_url, 429, "rate limit", {"Retry-After": "2"}, io.BytesIO())
+            return self.opener(request, timeout)
+        self.run_blob(opener=limited)
+        self.assertEqual(self.sleeps, [2.0])
+        self.assertEqual(len(attempts), 3)
+
+    def test_rate_limit_exhaustion_cleans_ref(self):
+        def limited(request, timeout):
+            raise HTTPError(request.full_url, 403, "rate limit", {"Retry-After": "1"}, io.BytesIO())
+        with self.assertRaisesRegex(RuntimeError, "rate-limit retries exhausted"):
+            self.run_blob(opener=limited)
+        self.assertEqual(len(self.sleeps), 8)
+        self.assertEqual(self.git.calls[-1][0], ["push", "origin", "--delete", check.BLOB_REF])
+
+    def test_cache_must_be_outside_repository(self):
+        self.cache = self.root / "cache"
+        with self.assertRaisesRegex(RuntimeError, "outside the repository"):
+            self.run_blob()
+        self.assertEqual(self.git.calls, [])
+
+    def test_remote_url_parsing(self):
+        for url in ("git@github.com:example/theory.git", "https://github.com/example/theory.git",
+                    "ssh://git@github.com/example/theory.git", "https://github.com/example/theory/"):
+            with self.subTest(url=url):
+                self.assertEqual(check.github_repository(url), "example/theory")
+        for url in ("https://fake-token@example.net/example/theory.git", "/tmp/theory", "https://github.com/one"):
+            with self.subTest(url=url):
+                with self.assertRaises(RuntimeError) as error:
+                    check.github_repository(url)
+                self.assertNotIn(url, str(error.exception))
+
+    def test_blob_cli_dispatch(self):
+        with patch.object(check, "scope", return_value=([], set())), \
+                patch.object(check, "blob") as run, contextlib.redirect_stdout(self.out):
+            self.assertEqual(check.main(["--blob", "--cache", str(self.cache)]), 0)
+        run.assert_called_once()
+        self.assertIn("GitHub file view", self.out.getvalue())
 
 
 if __name__ == "__main__":

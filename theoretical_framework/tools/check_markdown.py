@@ -16,7 +16,7 @@ import tempfile
 import time
 import unicodedata
 from urllib.error import HTTPError, URLError
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,9 +43,12 @@ def scope(root: Path = ROOT) -> tuple[list[Path], set[Path]]:
     s1 += sorted((framework / "experiments").glob("*.md"))
     s1 += [framework / "figures/README.md",
            root / "docs/direction/2026-10-11_v015_progress_ZH.md"]
-    s2 = [root / "docs/direction/v015_extension" / name for name in (
-        "Warm_Adam_Response_EN.md", "Optimizer_Transformed_Linear_Response_EN.md")]
-    return s1 + s2, set(s1)
+    files = sorted(framework.rglob("*.md"))
+    files += [root / "docs/direction/2026-10-11_v015_progress_ZH.md"]
+    files += sorted((root / "docs/direction/v015_extension").glob("*.md"))
+    # New pages (notably figure specs and tool docs) get rendering/link checks,
+    # without extending the source-label and check-ID policy to them.
+    return files, set(s1)
 
 
 def inline_text(text: str) -> str:
@@ -60,27 +63,82 @@ def inline_text(text: str) -> str:
 
 def github_slug(text: str) -> str:
     text = inline_text(text).lower()
-    return "".join(c for c in text if unicodedata.category(c)[0] in "LMN"
-                   or unicodedata.category(c) == "Pc" or c in " -").replace(" ", "-")
+    # Match html-pipeline's Ruby Word categories, plus literal space and hyphen.
+    return "".join(c for c in text if unicodedata.category(c)[0] in "LM"
+                   or unicodedata.category(c) in {"Nd", "Pc"} or c in " -").replace(" ", "-")
+
+
+LIST_ITEM = re.compile(r"^( *)([-+*]|\d{1,9}[.)])(?: +|$)")
+QUOTE = re.compile(r"^ {0,3}> ?")
+
+
+def block_lines(text: str):
+    """Yield line, fence and container context, without parsing fenced contents.
+
+    List continuations use the item's content column, including numbered and
+    nested markers. Blank lines retain that context; a dedented block ends it.
+    Blockquotes have their own context and may contain top-level math fences.
+    """
+    marker = None
+    language = ""
+    lists: list[int] = []
+    quote_depth = 0
+    blank = True
+    for n, source in enumerate(text.splitlines(), 1):
+        line = source.expandtabs(4)
+        source_indent = len(line) - len(line.lstrip())
+        depth = 0
+        while q := QUOTE.match(line):
+            line = line[q.end():]
+            depth += 1
+        if depth != quote_depth:
+            lists.clear()
+            quote_depth = depth
+        m = FENCE.match(line)
+        if marker:
+            yield n, line, language or "code", False, bool(lists), max(source_indent, len(line) - len(line.lstrip()))
+            if m and m[1][0] == marker[0] and len(m[1]) >= len(marker) and not m[2].strip():
+                marker = None
+                language = ""
+            continue
+        indent = len(line) - len(line.lstrip())
+        item = LIST_ITEM.match(line)
+        if line.strip():
+            # Lazy prose can continue a list paragraph without indentation,
+            # but a fence (or a block following a blank) cannot do so.
+            if item or m or blank or re.match(r"^ {0,3}(?:#{1,6} |>|---+$)", line):
+                while lists and indent < lists[-1]:
+                    lists.pop()
+            if item:
+                rest = line
+                offset = 0
+                while True:
+                    item = LIST_ITEM.match(rest)
+                    q = QUOTE.match(rest)
+                    if not item and not q:
+                        break
+                    container = item or q
+                    offset += container.end()
+                    if item:
+                        lists.append(offset)
+                    rest = rest[container.end():]
+                # A fence may begin on the list marker's own line.
+                if FENCE.match(rest):
+                    line = rest
+                    m = FENCE.match(line)
+        blank = not line.strip()
+        if m:
+            marker = m[1]
+            language = m[2].strip()
+            yield n, line, language or "code", True, bool(lists), max(source_indent, indent)
+        else:
+            yield n, line, None, False, bool(lists), indent
 
 
 def lines_outside_fences(text: str):
     """Yield (line number, line, enclosing fence language); fences are included."""
-    marker = None
-    language = ""
-    for n, line in enumerate(text.splitlines(), 1):
-        m = FENCE.match(line)
-        if marker:
-            yield n, line, language or "code"
-            if m and m[1][0] == marker[0] and len(m[1]) >= len(marker) and not m[2].strip():
-                marker = None
-                language = ""
-        elif m:
-            marker = m[1]
-            language = m[2].strip()
-            yield n, line, language or "code"
-        else:
-            yield n, line, None
+    for n, line, language, _, _, _ in block_lines(text):
+        yield n, line, language
 
 
 def headings(text: str) -> dict[str, int]:
@@ -254,7 +312,11 @@ def offline(files: list[Path], s1: set[Path], report: Report):
             report.hit(path, 1, "missing scoped file")
             continue
         text = path.read_text(encoding="utf-8")
-        lines = text.splitlines()
+        lines = [line for _, line, _ in lines_outside_fences(text)]
+        for n, line, language, opening, in_list, indent in block_lines(text):
+            if language == "math" and FENCE.match(line) and (in_list or indent):
+                if opening or indent:
+                    report.hit(path, n, "math-fence-in-list: math fences must start at column 0 outside lists")
         visible_numbers = set(re.findall(r"\\qquad\(([^)]+)\)", "\n".join(
             l for _, l, f in lines_outside_fences(text) if f == "math")))
         local = local_results(text)
@@ -342,7 +404,7 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                 if k in visible_numbers or (k.isdigit() and int(k) >= 1900):
                     continue
                 # Numbered steps/equivalent conditions refer to local enumerated clauses.
-                if k in {"1", "2", "3"} and re.search(r"^" + k + r"\. ", text, re.M):
+                if k in {"1", "2", "3"} and re.search(r"^(?:" + k + r"\. |\*\*" + k + r"\.\*\* )", text, re.M):
                     continue
                 if re.search(r"(?:Optimizers|优化器)\s*$", prose[:m.start()]):
                     continue
@@ -374,11 +436,18 @@ class RenderedHTML(HTMLParser):
         self.em_stack: list[tuple[int, list[str]]] = []
         self.math_stack: list[tuple[int, set[str]]] = []
         self.math_markup: list[set[str]] = []
+        self.raw_math_blocks = 0
+        self.anchors: set[str] = set()
 
     def handle_starttag(self, tag, attrs):
         attr = dict(attrs)
+        if tag == "pre" and attr.get("lang", "").lower() == "math":
+            self.raw_math_blocks += 1
+        anchor = attr.get("id", "")
+        if anchor.startswith("user-content-"):
+            self.anchors.add(anchor.removeprefix("user-content-"))
         parent_hidden = self.stack[-1][1] if self.stack else False
-        hidden = parent_hidden or tag in {"math-renderer", "pre", "code"} or "mermaid" in attr.get("class", "").split()
+        hidden = parent_hidden or tag in {"math-renderer", "pre", "code", "svg"} or "mermaid" in attr.get("class", "").split()
         if tag not in {"br", "hr", "img", "input", "meta", "link", "wbr", "source", "area", "base", "embed", "param", "track"}:
             self.stack.append((tag, hidden))
         if tag in {"em", "strong", "a", "code"}:
@@ -448,19 +517,16 @@ def retry_delay(headers) -> float:
         return 60.0
 
 
-def fetch_html(path: Path, token: str, cache: Path) -> str:
-    body = json.dumps({"text": path.read_text(encoding="utf-8"), "mode": "gfm"}).encode()
-    key = hashlib.sha256(body).hexdigest()
+def cached_html(request: Request, key: str, cache: Path, *, opener=None, sleep=None) -> str:
+    """Shared rate-limit handling; injected transports keep tests offline."""
+    opener = opener or urlopen
+    sleep = sleep or time.sleep
     stored = cache / f"{key}.html"
     if stored.is_file():
         return stored.read_text(encoding="utf-8")
-    request = Request("https://api.github.com/markdown", data=body, method="POST", headers={
-        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json", "User-Agent": "theory-markdown-validator",
-        "X-GitHub-Api-Version": "2022-11-28"})
     for attempt in range(8):
         try:
-            with urlopen(request, timeout=60) as response:
+            with opener(request, timeout=60) as response:
                 rendered = response.read().decode("utf-8")
             stored.write_text(rendered, encoding="utf-8")
             return rendered
@@ -470,7 +536,7 @@ def fetch_html(path: Path, token: str, cache: Path) -> str:
             error.close()
             if status in (403, 429):
                 # GitHub distinguishes primary and secondary rate limits via these headers.
-                time.sleep(retry_delay(headers) if headers.get("Retry-After") or headers.get("X-RateLimit-Reset") else 60 * (attempt + 1))
+                sleep(retry_delay(headers) if headers.get("Retry-After") or headers.get("X-RateLimit-Reset") else 60 * (attempt + 1))
                 continue
             raise RuntimeError(f"GitHub Markdown request failed (HTTP {status})") from None
         except (URLError, TimeoutError, OSError, UnicodeError):
@@ -478,46 +544,197 @@ def fetch_html(path: Path, token: str, cache: Path) -> str:
     raise RuntimeError("GitHub rate-limit retries exhausted")
 
 
-def online(files, cache, report):
+def fetch_html(path: Path, token: str, cache: Path) -> str:
+    body = json.dumps({"text": path.read_text(encoding="utf-8"), "mode": "gfm"}).encode()
+    key = hashlib.sha256(body).hexdigest()
+    request = Request("https://api.github.com/markdown", data=body, method="POST", headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json", "User-Agent": "theory-markdown-validator",
+        "X-GitHub-Api-Version": "2022-11-28"})
+    return cached_html(request, key, cache)
+
+
+def html_report(path: Path, rendered: str, report: Report) -> RenderedHTML:
+    parser = RenderedHTML()
+    parser.feed(rendered)
+    parser.close()
+    for _ in range(parser.raw_math_blocks):
+        report.hit(path, 1, 'unrendered display math in GitHub HTML: <pre lang="math">')
+    for m in re.finditer(r"\$|\\[A-Za-z]+", "".join(parser.text)):
+        report.hit(path, 1, f"unrendered math in GitHub HTML: {m[0]}")
+    for emphasis in parser.emphasis:
+        if "\\" in emphasis or "$" in emphasis:
+            report.hit(path, 1, "GitHub emphasis contains a backslash or dollar sign outside math")
+    for tags in parser.math_markup:
+        report.hit(path, 1, f"markup inside GitHub math-renderer: {', '.join(sorted(tags))}")
+    return parser
+
+
+def prepare_cache(cache: Path, root: Path = ROOT) -> Path:
     cache = cache.resolve()
-    if cache == ROOT or ROOT in cache.parents:
+    root = root.resolve()
+    if cache == root or root in cache.parents:
         raise RuntimeError("The HTML cache must be outside the repository")
     cache.mkdir(parents=True, exist_ok=True)
+    return cache
+
+
+def online(files, cache, report):
+    cache = prepare_cache(cache)
     token = credential()
     # /markdown omits heading IDs; heading anchors are checked offline only.
     for path in files:
-        parser = RenderedHTML()
-        parser.feed(fetch_html(path, token, cache))
-        for m in re.finditer(r"\$|\\[A-Za-z]+", "".join(parser.text)):
-            report.hit(path, 1, f"unrendered math in GitHub HTML: {m[0]}")
-        for emphasis in parser.emphasis:
-            if "\\" in emphasis or "$" in emphasis:
-                report.hit(path, 1, "GitHub emphasis contains a backslash or dollar sign outside math")
-        for tags in parser.math_markup:
-            report.hit(path, 1, f"markup inside GitHub math-renderer: {', '.join(sorted(tags))}")
+        html_report(path, fetch_html(path, token, cache), report)
+
+
+BLOB_REF = "refs/render-check/tmp"
+
+
+def git_command(args: list[str], data: bytes | None = None, *, root: Path = ROOT) -> str:
+    """Never expose Git's output on failure (remote URLs may hold credentials)."""
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    try:
+        result = subprocess.run(["git", *args], input=data, cwd=root, env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                check=False, timeout=120)
+        if result.returncode:
+            raise RuntimeError("Git render-check operation failed")
+        return result.stdout.decode("utf-8").strip()
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        raise RuntimeError("Git render-check operation failed") from None
+
+
+def github_repository(remote: str) -> str:
+    """Parse HTTPS, SSH and scp-style GitHub origins without exposing the URL."""
+    if remote.startswith("git@github.com:"):
+        path = remote[len("git@github.com:"):]
+    else:
+        try:
+            parsed = urlsplit(remote)
+        except ValueError:
+            raise RuntimeError("Origin must be a GitHub repository URL") from None
+        if parsed.scheme not in {"https", "ssh", "git"} or parsed.hostname != "github.com":
+            raise RuntimeError("Origin must be a GitHub repository URL")
+        path = parsed.path.lstrip("/")
+    path = path.rstrip("/").removesuffix(".git")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+", path):
+        raise RuntimeError("Origin must be a GitHub repository URL")
+    return path
+
+
+def object_id(value: str) -> str:
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value):
+        raise RuntimeError("Git returned an invalid render-check object ID")
+    return value
+
+
+def build_blob_commit(files: list[Path], root: Path, git) -> str:
+    """Snapshot working files, never the index or HEAD; create a parentless commit."""
+    tree: dict = {}
+    for path in sorted(files):
+        parts = path.absolute().relative_to(root.absolute()).parts
+        node = tree
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        oid = object_id(git(["hash-object", "-w", "--stdin"], path.read_bytes()))
+        mode = "100755" if path.stat().st_mode & 0o111 else "100644"
+        node[parts[-1]] = (mode, "blob", oid)
+
+    def write_tree(node):
+        entries = []
+        for name, value in sorted(node.items()):
+            mode, kind, oid = ("040000", "tree", write_tree(value)) if isinstance(value, dict) else value
+            entries.append(f"{mode} {kind} {oid}\t{name}\0".encode("utf-8"))
+        return object_id(git(["mktree", "-z"], b"".join(entries)))
+
+    tree_id = write_tree(tree)
+    return object_id(git(["-c", "user.name=Theory render check",
+                          "-c", "user.email=render-check@localhost",
+                          "commit-tree", tree_id], b"Temporary Markdown rendering check\n"))
+
+
+def fetch_blob_html(path: Path, root: Path, repository: str, sha: str,
+                    token: str, cache: Path, *, opener=None, sleep=None) -> str:
+    relative = quote(path.relative_to(root).as_posix(), safe="/")
+    url = f"https://api.github.com/repos/{repository}/contents/{relative}?ref={sha}"
+    request = Request(url, method="GET", headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github.html",
+        "User-Agent": "theory-markdown-validator", "X-GitHub-Api-Version": "2022-11-28"})
+    key = hashlib.sha256(("blob:" + url).encode()).hexdigest()
+    return cached_html(request, key, cache, opener=opener, sleep=sleep)
+
+
+def blob_anchors(files: list[Path], rendered: dict[Path, RenderedHTML], report: Report):
+    for path in files:
+        # Verify expected headings/explicit anchors and local links against the
+        # file-view IDs, including percent-encoded cross-file fragments.
+        for anchor, n in headings(path.read_text(encoding="utf-8")).items():
+            if anchor not in rendered[path.resolve()].anchors:
+                report.hit(path, n, f"missing GitHub HTML anchor: {anchor}")
+        for n, line, fence in lines_outside_fences(path.read_text(encoding="utf-8")):
+            if fence:
+                continue
+            for _, dest, _, _ in markdown_links(line):
+                u = urlsplit(html.unescape(dest))
+                if u.scheme or u.netloc or dest.startswith("/") or not u.fragment:
+                    continue
+                target = (path.parent / unquote(u.path)).resolve() if u.path else path.resolve()
+                if target in rendered and unquote(u.fragment) not in rendered[target].anchors:
+                    report.hit(path, n, f"missing GitHub HTML link anchor: {dest}")
+
+
+def blob(files, cache, report, *, root=ROOT, git=None, get_credential=None,
+         opener=None, sleep=None):
+    cache = prepare_cache(cache, root)
+    git = git or (lambda args, data=None: git_command(args, data, root=root))
+    token = (get_credential or credential)()
+    repository = github_repository(git(["remote", "get-url", "origin"]))
+    sha = build_blob_commit(files, root, git)
+    # Include the push in try: a timeout can happen after the server accepted it.
+    try:
+        git(["push", "-f", "origin", f"{sha}:{BLOB_REF}"])
+        rendered = {}
+        for path in files:
+            output = fetch_blob_html(path, root, repository, sha, token, cache,
+                                     opener=opener, sleep=sleep)
+            rendered[path.resolve()] = html_report(path, output, report)
+        blob_anchors(files, rendered, report)
+    finally:
+        try:
+            git(["push", "origin", "--delete", BLOB_REF])
+        except RuntimeError:
+            raise RuntimeError("Could not delete refs/render-check/tmp; remove the hidden ref manually") from None
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--online", action="store_true", help="also POST Markdown to GitHub; credentials stay in memory")
+    parser.add_argument("--blob", action="store_true", help="authoritative file-view check; temporarily pushes a parentless commit to a hidden ref")
     parser.add_argument("--cache", type=Path, help="HTML cache directory outside the repository (default: temporary directory)")
     args = parser.parse_args(argv)
     files, s1 = scope()
     report = Report()
     offline(files, s1, report)
-    if args.online:
+    if args.online or args.blob:
         try:
+            def render(cache):
+                if args.online:
+                    online(files, cache, report)
+                if args.blob:
+                    blob(files, cache, report)
             if args.cache:
-                online(files, args.cache, report)
+                render(args.cache)
             else:
                 with tempfile.TemporaryDirectory(prefix="theory-markdown-") as directory:
-                    online(files, Path(directory), report)
+                    render(Path(directory))
         except RuntimeError as error:
             # RuntimeError messages above are fixed strings, never raw SDK/network errors.
             print(str(error), file=sys.stderr)
             return 1
     print(f"{'FAIL' if report.errors else 'PASS'}: {len(files)} files; {report.errors} errors"
-          + ("; offline + GitHub HTML" if args.online else "; offline"))
+          + ("; offline + GitHub file view" if args.blob else
+             "; offline + GitHub Markdown API" if args.online else "; offline"))
     return int(bool(report.errors))
 
 

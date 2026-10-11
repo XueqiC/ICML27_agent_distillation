@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **15:30 CDT 10-11: README BFS restructure + file-view rendering fix pushed.** User screenshot: N02(b) display math shown as
+  raw code. Cause (measured with pushed probe refs): GitHub's file view leaves a ```math fence inside a list as code whenever
+  that list also has inline math; the /markdown API renders it, so --online had passed. 107 fences / 30 pages moved out of
+  lists (d005eef); figure specs converted. Validator: new `math-fence-in-list` rule and `--blob` mode (pushes the working
+  tree to hidden ref refs/render-check/tmp, fetches contents API HTML, deletes the ref in finally) = authoritative pre-push
+  check; slug rule fixed to GitHub's \p{Word}. README (EN+ZH) now Level 0 (one paragraph) → Level 1 (six blocks, LR
+  graph) → Level 2 (20 nodes plain-language, LR graph) → §3 notation → Level 3 statements (block I also has derivation
+  outlines + experiment results + figures; II–VI pending the user's OK on the sample). Plain-language layers already
+  tightened per the user's review (W3 plateau, warm-Adam approximation, N20 norm/b, "tested static proxies").
+- **NEXT (user 15:22): theory revision v0.16** from the pasted review: verify/repair W3 (fixed β2 → κ→(1−β2)/β2 plateau),
+  state OTLR's new content vs weak-approximation/LESS/GRACE, a central theorem with independent content (information
+  bounds/separation tying K, queries and learner response), measurable bridge from oracle response to auditable
+  quantities, discriminating real-model experiment design. Do not add nodes for their own sake.
 - **12:3x CDT 10-11: doc rendering/reference fix DONE** (Codex⑦–⑩ + my edits). All display math → ```math, inline math →
   $`…`$ (GitHub renders `$…$` only after a space and fails on `_` next to punctuation), macro denylist, node part labels
   (a)(b)…, ~1,150 linked node references, check-ID legend + links, source concordance table at README end, proof-page

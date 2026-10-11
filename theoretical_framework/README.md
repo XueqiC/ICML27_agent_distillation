@@ -4,20 +4,291 @@
 
 **Question.** Relative to declared deployment tasks, permitted experiments and an actual learning procedure, which distinctions between feedback laws can change the final task performance of the distilled student?
 
-This page is the shortest complete path through the theory. Each node states one result precisely and says why the next node is needed. Every node links to two pages:
-
-- **Proof** gives the full derivation.
-- **Experiments** gives the finite or controlled checks that test the node. It records why each check is run, how it is set up, what it found, and why that supports the node.
-
 **Central result.** Nodes N18–N20 give the framework's central theorem for real learners. To first order, the information that a feedback law must carry is the mean of the *optimizer's complete-state increment*, not the mean gradient. This statistic is sufficient to first order and necessary wherever first-order effects dominate. It is computed for SGD, momentum, Adam/AdamW (cold and warm), clipping, sign/Lion and LoRA. It can be measured at the actual training states.
 
 **Sources.** The [source concordance](#source-concordance) links each node to the exact source sections and original labels.
+
+**How to read this page.** The page goes from the whole to the parts, breadth first:
+
+| Level | Content | After reading it you can answer |
+|---|---|---|
+| [Level 0](#0-level-0-one-paragraph) | One paragraph on the whole framework | What question the framework answers, and in which steps |
+| [Level 1](#1-level-1-six-blocks) | The six blocks and how they connect | What each block asks, what it concludes, what it hands to the next |
+| [Level 2](#2-level-2-twenty-nodes) | A plain-language account of the 20 nodes | What each result says, the intuition, and its role in the chain |
+| [Level 3](#4-level-3-block-by-block-detail) | Exact statements, with derivation outlines and experimental results | The precise assumptions and formulas, and how they were checked |
+
+The notation used in Level 3 is collected in [Section 3](#3-setting-and-notation). Every node also has two pages of its own: the **proof** page gives the full derivation, and the **experiments** page gives the finite or controlled checks that test the node, recording why each check is run, how it is set up, what it found, and why that supports the node.
 
 **Scope.** Every statement on this page is proved under the assumptions it states and has passed independent finite or controlled checks. Proofs are finite-dimensional or carry explicit regularity assumptions. The experiments are exact finite computations or controlled small networks; they are not real-model or benchmark results.
 
 ---
 
-## 0. Setting and notation
+## 0. Level 0: one paragraph
+
+To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstrations per task family, a budget of further permitted experiments (teacher calls, environment branches, resets), and a fixed training recipe (optimizer, learning rate, number of steps). Many feedback sources can be fed to the student: the demonstrations themselves, replays, synthetic rewrites, new queries, different ways of packaging the units. The framework asks: **which differences between these feedback sources actually change the final task performance of the distilled student?** It answers in six steps:
+
+1. **Can the data determine what to do (I)?** The student's regret splits exactly into a representation term, an information term and an algorithm term. An information gap can only be closed by new experiments, never by replay or rewriting, and even an everywhere-optimal teacher can leave one.
+2. **What does feedback do to the learner (II)?** Teacher quality, policy value and the mean gradient do not determine what the student learns. The invariant is the *continuation response*: the expected final return after receiving one message, performing the actual update, and finishing training.
+3. **How much information must match (III)?** Two feedback sources are equivalent for learning if and only if they agree on the expectation of every response. The number of statistics needed is the dimension of the span of the response class. For simple averaging learners this is a moment order set by the deployment length; nonlinear updates multiply it.
+4. **The actual optimizer changes the answer (IV; central theorem N18–N19).** To first order, the feedback must carry the mean of the *optimizer's complete-state increment*, not the mean gradient. SGD, momentum, Adam (cold and warm), gradient clipping, Lion and LoRA each have an explicit statistic; for warm Adam it is an approximation with an explicit error term.
+5. **How to check it with finite data (V).** A finite audit is reliable only with a coverage (transport) term. Paired experiments at the states training actually reaches guarantee no loss against the reference, but are expensive. The mean of the first-order statistic needs only gradient evaluations, and it ranks candidates correctly whenever the first-order difference is large enough; but this criterion also needs the continuation-value gradient and the remainder constants, which can at present only be calibrated with full-tail experiments.
+6. **The method that follows (VI).** CED (Consequence-Calibrated Experience Distillation): acquire the missing information first, select feedback sources by their measured consequences, match the statistic the learner actually uses, and account for coverage and the cost of verification.
+
+---
+
+## 1. Level 1: six blocks
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 40}}}%%
+flowchart LR
+  I["<b>I · Feasibility and acquisition</b><br/>Can the data determine<br/>what to do?<br/>N01–N03"]:::b1
+  II["<b>II · Learning consequence</b><br/>What does feedback make<br/>the student learn?<br/>N04–N05"]:::b2
+  III["<b>III · Complexity of sufficiency</b><br/>How many statistics<br/>must match?<br/>N06–N10"]:::b3
+  IV["<b>IV · Optimizer state</b><br/>What must feedback carry<br/>for a real optimizer?<br/>N11 · N12 · N18 · N19"]:::b4
+  V["<b>V · Verification</b><br/>How can finite data<br/>prove sufficiency?<br/>N13 · N14 · N15 · N20"]:::b5
+  VI["<b>VI · Mechanism and method</b><br/>The derived method CED<br/>N16 · N17"]:::b6
+  I -->|missing facts must be acquired| II
+  II -->|the object of sufficiency| III
+  III -->|the learner sets the order| IV
+  II -->|continuation decomposition| V
+  III -->|width and coefficients| V
+  IV -->|the statistic to measure| V
+  I -->|demo and query budget| VI
+  IV -->|learner statistics| VI
+  V -->|certifiable selection| VI
+  classDef b1 fill:#e8f1fb,stroke:#2f6db5,color:#111
+  classDef b2 fill:#eaf6ec,stroke:#2e8540,color:#111
+  classDef b3 fill:#fdf3e1,stroke:#b8741a,color:#111
+  classDef b4 fill:#f6e9f4,stroke:#9c3d8f,color:#111
+  classDef b5 fill:#e9f5f6,stroke:#1f7f8c,color:#111
+  classDef b6 fill:#fbeaea,stroke:#b53b3b,color:#111
+```
+
+### I · Feasibility and acquisition (N01–N03)
+
+**Question.** Within the policies the student can execute, can the available data determine what to do? What does it cost to acquire what is missing?
+
+**Conclusion.** The student's regret against the best reference policy splits exactly into three terms: representation error (is the student's policy class good enough), information error (can the data tell the possible environments apart), and algorithm error (does the learner use the data well). All three are nonnegative and none substitutes for another. The information error is zero if and only if all environments consistent with the data share an optimal policy, and no environment-independent post-processing of the data (replay, rewriting, synthesis) can reduce it. Even a teacher that is optimal in every environment can leave an information gap: in two environments the teacher behaves identically, yet the student's optimal policies differ. Only active experiments, such as reset queries, close that gap, at a cost of about $`\log(1/\delta)/\Delta^2`$ queries, where $`\Delta`$ is the value gap between the environments; this order is both sufficient and necessary. The $`K`$ demonstrations and the queries draw on one information budget and can substitute for each other.
+
+**Hand-off.** Missing facts must be acquired. Information alone does not determine what a learner makes of it; that is the question of block II.
+
+### II · Learning consequence (N04–N05)
+
+**Question.** Given a feedback source, what will the student actually learn? What should be compared when two feedback sources are compared?
+
+**Conclusion.** The usual static measures are not enough. Two data sources can have equally good teachers and give every student the same policy value, yet distill different students; two label packages can have the same marginals and the same mean gradient, yet different learning values, and on another task the ordering reverses. The right object is the continuation response: the expected final task return after receiving message $`y`$, performing the actual update, and finishing training under the reference recipe. The gap over a whole training run is exactly a sum over rounds, each term being the effect of replacing that round's reference step by the alternative step, and each term is determined by the response. Hence two message laws are interchangeable if and only if they have the same expectation under every response. When the guarantee holds only on part of the state space, the probability of leaving that part is paid once, not once per round.
+
+**Hand-off.** The object of sufficiency is now the response class $`\mathcal G`$. The next three blocks ask how complex $`\mathcal G`$ is (III), how the actual optimizer changes it (IV), and how it can be checked with finite data (V).
+
+### III · Complexity of sufficiency (N06–N10)
+
+**Question.** How many statistics must two feedback sources agree on to be equivalent for learning?
+
+**Conclusion.** The general answer (N06): when equivalence is judged by the means of a set of features, exact sufficiency holds if and only if every response lies in the span of the features, so the number of statistics needed is the dimension of the span of the response class; approximately, the worst-case error is twice the best uniform approximation error of the responses by those features; an unrestricted learner needs the whole distribution. In a model that can be computed completely (N07–N08): for learners that average independent experience blocks, and deployments with at most $`N`$ decisions, exactly all moments up to order $`N`$ are needed, and every order is necessary; the gap decays with the number $`n`$ of independent blocks at a rate set by the first unmatched cumulant, independently of the number of training rounds, and neither replay nor deterministic synthesis makes it decay. Approximate complexity can be far lower than the exact order, about $`\sqrt N`$, with parity-type values as the exception (N09). Nonlinear updates multiply the required order: a threshold learner breaks first-moment sufficiency with a single decision; for smooth SGD the first-order statistic is the mean gradient, with a second-order correction from the gradient's second moment (N10).
+
+**Hand-off.** What must be matched is decided by the learner itself, so the actual optimizer must be modelled (IV); in approximations, the stability of the coefficients matters (N13 in block V).
+
+### IV · Optimizer state (N11, N12, N18, N19): the central block
+
+**Question.** What must feedback carry for the learners actually in use: Adam, gradient clipping, LoRA?
+
+**Conclusion.** Cold-start Adam's first step looks, to a good approximation, only at the sign of each gradient coordinate, so what must match is the joint sign distribution ($`\epsilon=0`$) or the whole gradient distribution ($`\epsilon>0`$), not moments; momentum then carries the first gradient's magnitude into later steps (N11). Once the second moment has accumulated (small warmth), an Adam step can be approximated by one step of momentum SGD with a fixed preconditioner, with an explicit error bound, and the first-order statistic to match is again the mean preconditioned gradient. Warmth falls roughly as $`1/(\beta_2s)`$ only early in training ($`s(1-\beta_2)\ll1`$); with $`\beta_2`$ fixed it levels off near $`(1-\beta_2)/\beta_2`$ even for stationary gradients, and does not go to zero (N12). The central theorem N18 unifies these. Any stateful first-order optimizer is a map from a gradient to an increment of the complete state (parameters, momentum, second moments, …). To first order, the difference in training outcome caused by two feedback laws equals the sum over rounds of the inner product between the gradient of the continuation value and the difference of mean state increments, with a remainder controlled by second-order quantities of the increment. So, to first order, what must match is the part of the mean state increment in the directions of the continuation-value gradients. It is sufficient, it is necessary where the first-order term dominates, and the number of statistics is the dimension of the linearized response class; higher orders correspond to higher moments of the increment. N19 computes this statistic for each common learner.
+
+**Hand-off.** We now know what to measure: the mean state increment. The next question is how to measure it with finite data and turn it into a certifiable selection (V).
+
+### V · Verification (N13, N14, N15, N20)
+
+**Question.** With finitely many measurements, how can we prove that a feedback source is good enough, or pick a good one from several candidates?
+
+**Conclusion.** An error in measuring a feature is amplified by that feature's coefficient in the response model; a fit with a small residual and huge coefficients is not a proof (N13). Selecting among candidates by discrepancies measured on a fixed set of audit cells requires an explicit coverage (transport) term: if training reaches states the audit does not cover, the audit can report zero discrepancy while the learning gap is 1 (N14). Running paired full-tail experiments for each candidate and the reference at the states training actually reaches, and selecting by a lower confidence bound, guarantees a result no worse than the reference by more than $`\delta`$, but needs on the order of a thousand paired replicas per candidate (N15). The mean of the first-order part is cheap: the mean state increment needs only $`n`$ gradient evaluations at the actual states; in the Euclidean norm, with increments bounded by $`b`$, the error bound is of order $`b/\sqrt n`$ with no explicit dimension, though $`b`$ itself can grow with the dimension. Whenever the first-order difference exceeds the second-order remainder, the first-order score ranks the candidates correctly; but the criterion uses the continuation-value gradient and the remainder constants, which can at present only be calibrated with full-tail experiments (N20).
+
+**Hand-off.** Three certifiable ways to select, with their costs: a frozen audit with a coverage term, a full-tail audit at the actual states, and a first-order audit.
+
+### VI · Mechanism and method (N16, N17)
+
+**Question.** What method follows from the first five blocks? Which mechanisms deserve a test of their own?
+
+**Conclusion.** N16 gives a mechanism test with a strict null: fixing the marginal law of each experience unit and changing only how the units are grouped into joint training packages leaves the outcome unchanged if and only if a package's return is a sum of per-unit contributions; under one SGD step, regrouping changes nothing. N17 turns the earlier results into six design rules for the method CED: acquire before compiling (I); select by measured consequence (II); match the learner's statistic rather than the raw gradient (IV); fit response models with stable coefficients (N13); account for coverage, and use the first-order audit where the first-order difference dominates (V); freeze the selector, then measure transfer. In controlled experiments, none of the static proxies tested reliably predicts the sign of the response; measured short-tail responses usually select correctly while full tails are accurate on every split; and where the first-order difference is large enough, the first-order score computed with the oracle continuation-value gradient makes no errors.
+
+---
+
+## 2. Level 2: twenty nodes
+
+Colors follow the six blocks above; ★ marks the central theorem.
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 18, "rankSpacing": 32}}}%%
+flowchart LR
+  N01["I · N01<br/>Regret decomposition<br/>and decision ambiguity"]:::b1
+  N02["I · N02<br/>Passive impossibility,<br/>active attainability"]:::b1
+  N03["I · N03<br/>Few-shot information floor"]:::b1
+  N04["II · N04<br/>Static value ≠<br/>learning value"]:::b2
+  N05["II · N05<br/>Continuation response"]:::b2
+  N06["III · N06<br/>Sufficiency duality<br/>and transfer"]:::b3
+  N07["III · N07<br/>Affine learners:<br/>moment order"]:::b3
+  N08["III · N08<br/>Rates in the<br/>affine theory"]:::b3
+  N09["III · N09<br/>Exact order ≠<br/>approximate complexity"]:::b3
+  N10["III · N10<br/>Update composition"]:::b3
+  N11["IV · N11<br/>Cold-start Adam"]:::b4
+  N12["IV · N12<br/>Optimizer warmth"]:::b4
+  N18["IV · N18 ★<br/>Optimizer-transformed<br/>linear response"]:::b4
+  N19["IV · N19<br/>Per-learner<br/>feedback statistics"]:::b4
+  N13["V · N13<br/>Stability–approximation<br/>tradeoff"]:::b5
+  N14["V · N14<br/>Frozen audit<br/>with transport"]:::b5
+  N15["V · N15<br/>Adaptive audit at<br/>actual states"]:::b5
+  N20["V · N20<br/>First-order audit"]:::b5
+  N16["VI · N16<br/>Coupling width"]:::b6
+  N17["VI · N17<br/>CED method"]:::b6
+  N01 --> N02 --> N03
+  N01 --> N04 --> N05
+  N05 --> N06
+  N06 --> N07 --> N08
+  N06 --> N09 --> N13
+  N07 --> N10 --> N11 --> N12
+  N06 --> N13 --> N14
+  N05 --> N14 --> N15
+  N05 --> N16
+  N03 --> N17
+  N12 --> N17
+  N15 --> N17
+  N16 --> N17
+  N05 --> N18
+  N06 --> N18
+  N10 --> N18
+  N18 --> N19
+  N11 --> N19
+  N12 --> N19
+  N18 --> N20
+  N14 --> N20
+  N15 --> N20
+  N19 --> N17
+  N20 --> N17
+  N03 ~~~ N06
+  classDef b1 fill:#e8f1fb,stroke:#2f6db5,color:#111
+  classDef b2 fill:#eaf6ec,stroke:#2e8540,color:#111
+  classDef b3 fill:#fdf3e1,stroke:#b8741a,color:#111
+  classDef b4 fill:#f6e9f4,stroke:#9c3d8f,color:#111
+  classDef b5 fill:#e9f5f6,stroke:#1f7f8c,color:#111
+  classDef b6 fill:#fbeaea,stroke:#b53b3b,color:#111
+```
+
+An arrow A → B means that the statement or proof of B uses A. For each node the three lines give what it says, the intuition, and its role in the chain. Exact statements are in [Level 3](#4-level-3-block-by-block-detail).
+
+### Block I nodes
+
+**[N01](#n01--regret-decomposition-and-decision-ambiguity) · Regret decomposition and decision ambiguity**
+- *What it says.* The student's expected regret = representation error + information error + algorithm error, all nonnegative. The information error is zero if and only if all environments consistent with the data share an optimal policy; its robust version has a minimax dual; randomized post-processing of the data cannot lower it.
+- *Intuition.* The information error is what is lost, even with perfect learning, because the data cannot tell the environments apart. Replay, rewriting and generation can only make existing information easier to learn (lowering the algorithm error); they cannot create a missing fact.
+- *Role.* It separates "not enough data" from "learned badly", and every later information-theoretic result starts from it.
+
+**[N02](#n02--passive-impossibility-active-attainability) · Passive impossibility, active attainability**
+- *What it says.* Two aliased worlds: the teacher is optimal and behaves identically in both, yet the student's optimal policies are opposite. A learner that sees only demonstrations loses at least $`\Delta`$; with reset queries, about $`\log(1/\delta)/(8\Delta^2)`$ queries suffice, and this order is also necessary. Compiling the acquired fact into the student takes another $`O(\log(1/\delta_L))`$ labels.
+- *Intuition.* A perfect demonstration shows what the teacher did, not what a student with different abilities should do; the student has to try.
+- *Role.* It explains why the method must contain an active acquisition step, and it separates the cost of acquisition from the cost of compilation.
+
+**[N03](#n03--few-shot-information-floor) · Few-shot information floor**
+- *What it says.* In the hidden-bit model, the information loss left after $`K`$ demonstrations is $`\tfrac12\sum_jw_j(1-q_j)^K`$; with a budget of $`n`$ queries, the optimal policy queries the heaviest unseen bits first; in the adaptive case, demonstrations and queries satisfy one linear information-budget inequality.
+- *Intuition.* Each demonstration reveals a fact with some probability, and what it does not reveal must be queried; demonstrations and queries substitute for each other within one budget, and replaying a demonstration contributes nothing.
+- *Role.* It puts $`K`$ into the theory and gives a quantitative basis for how many queries to spend and on what ([N17(a)](#n17--consequence-calibrated-experience-distillation-ced)).
+
+### Block II nodes
+
+**[N04](#n04--static-value-is-not-learning-value) · Static value is not learning value**
+- *What it says.* There are two data sources with equally good teachers that give every student the same policy value, yet the distilled students differ by $`1/40`$; there are two label packages with the same marginals and mean gradient whose learning values differ, with the sign of the difference reversing on another task.
+- *Intuition.* What is learned depends on how the data performs in deployment *after the update*, not on how good the data looks in deployment.
+- *Role.* It rules out teacher quality, policy value and the mean gradient as sufficiency criteria.
+
+**[N05](#n05--continuation-response-characterization) · Continuation-response characterization**
+- *What it says.* The difference in training outcome is the sum over rounds of the effect of replacing the reference step by the alternative step, each term determined by the continuation response; two message laws are interchangeable if and only if they agree on every response; when the guarantee holds only on part of the state space, leaving it is paid once.
+- *Intuition.* The response $`g(y)`$ answers "if this round feeds the student $`y`$, what will the final score be"; it builds in the update rule, the rest of training and the deployment task.
+- *Role.* It fixes the object of sufficiency $`\mathcal G`$; blocks III, IV and V are all about it.
+
+### Block III nodes
+
+**[N06](#n06--sufficiency-duality-and-transfer) · Sufficiency duality and transfer**
+- *What it says.* Judging equivalence by the means of a set of features: exact sufficiency holds if and only if every response lies in the span of the features; the approximate worst-case error is twice the best uniform approximation error; if a response is a linear part plus a small residual, the response difference is at most coefficient size × feature-mean difference + twice the residual; an unrestricted learner needs the whole distribution.
+- *Intuition.* Equal feature means only guarantee no difference in the directions the features span; the part of a response outside that span is the risk that cannot be seen.
+- *Role.* It turns "how much information is needed" into computable quantities (span dimension, approximation width), used throughout III, IV and V.
+
+**[N07](#n07--affine-learners-moment-order-is-necessary-and-sufficient) · Affine learners: moment order is necessary and sufficient**
+- *What it says.* For learners that average independent experience blocks and deployments with at most $`N`$ decisions, two feedback sources are equivalent for every task and every such learner if and only if all moments up to order $`N`$ agree; a counterexample shows that each order is necessary.
+- *Intuition.* The deployment value is a degree-$`N`$ polynomial in the student's parameters, and an averaging update turns it into a function of the data's moments up to order $`N`$.
+- *Role.* A fully computable instance of N06, showing that the information order is set by the deployment length.
+
+**[N08](#n08--rates-in-the-affine-theory) · Rates in the affine theory**
+- *What it says.* The gap bound does not depend on the number of training rounds; when $`n`$ independent blocks are averaged, the gap decays as $`n^{-(r-1)}`$, where $`r`$ is the order of the first unmatched cumulant.
+- *Intuition.* Only independent evidence shrinks the gap; replays of a block, or synthetic samples generated deterministically from it, are not new evidence.
+- *Role.* It separates the number of independent blocks from the number of epochs, which is the counting discipline of the method.
+
+**[N09](#n09--exact-order-is-not-approximate-complexity) · Exact order is not approximate complexity**
+- *What it says.* For values of the form $`p^N`$, matching moments up to order about $`\sqrt{N\log(1/\varepsilon)}`$ brings the error below $`\varepsilon`$, although exact equality needs order $`N`$; parity-type values are the exception, where polynomials of degree below $`N`$ cannot approximate better than $`1/2`$.
+- *Intuition.* Smooth responses have good low-order approximations; combinatorial ones do not.
+- *Role.* It shows that the approximation width is what matters, which leads to coefficient stability (N13).
+
+**[N10](#n10--update-composition-amplifies-the-information-requirement) · Update composition amplifies the information requirement**
+- *What it says.* Composing polynomial updates can make the response's degree in an early data block grow as the product of the per-round degrees; a threshold learner breaks first-moment sufficiency with one decision; for smooth SGD, a one-step difference = first-order term (mean-gradient difference) + second-order term (second-moment difference) + a third-order remainder, and the per-step errors accumulate linearly only under a stability condition.
+- *Intuition.* The same data fed to different learners needs different information orders.
+- *Role.* It shows that the actual optimizer must be modelled, which leads to block IV.
+
+### Block IV nodes
+
+**[N11](#n11--cold-start-adam-quotient-and-optimizer-memory) · Cold-start Adam quotient and optimizer memory**
+- *What it says.* Adam started from a zero state takes a first step that depends only on $`g_i/(\lvert g_i\rvert+\epsilon)`$: with $`\epsilon=0`$ the joint sign distribution must match (per-coordinate sign marginals are not enough), and with $`\epsilon>0`$ the whole gradient distribution must; momentum carries the first gradient's magnitude into the second step, so two histories with the same sign sequence can take second steps in opposite directions.
+- *Intuition.* Adam's first step is almost sign-SGD: the gradient magnitude is divided out of the step but kept in the optimizer state.
+- *Role.* It shows that moment sufficiency does not transfer to Adam; what must match depends on the optimizer state.
+
+**[N12](#n12--optimizer-warmth-switches-the-first-order-feedback-statistic) · Optimizer warmth switches the first-order feedback statistic**
+- *What it says.* A coordinate's warmth is the size of the new squared gradient relative to the accumulated second moment. At small warmth, an Adam step differs from a step of fixed-preconditioner momentum SGD by an explicit bound, and the first-order statistic is the mean preconditioned gradient; at cold steps, feedback with equal means separates already at first order; warmth falls roughly as $`1/(\beta_2s)`$ only early in training, and with $`\beta_2`$ fixed it levels off near $`(1-\beta_2)/\beta_2`$.
+- *Intuition.* Adam behaves like a sign optimizer for its first steps and like preconditioned SGD once warm.
+- *Role.* It says from which step of training the affine and first-order theory applies; the method therefore records the optimizer state and its warmth.
+
+**[N18](#n18--optimizer-transformed-linear-response-central-theorem) · Optimizer-transformed linear response (central theorem)**
+- *What it says.* Write any stateful first-order optimizer (clipping included) as a map from a gradient to an increment of the complete state. The difference in training outcome between two feedback laws is, to first order, the sum over rounds of the inner product between the continuation-value gradient and the difference of mean state increments, with a remainder controlled by the increment's second moments. Matching the projection of the mean state increment onto the span of continuation-value gradients is sufficient to first order, and necessary where the first-order term exceeds the remainder; the number of statistics is the dimension of the linearized response class; higher orders correspond to higher moments of the increment.
+- *Intuition.* Feedback affects the student only through the change of state it causes; to first order, only the mean of that change matters, and only in the directions the continuation value cares about.
+- *Role.* It unifies N07–N12 and is the framework's central result for real learners; N19 and N20 both follow from it.
+
+**[N19](#n19--what-each-learner-makes-the-feedback-carry) · What each learner makes the feedback carry**
+- *What it says.* The statistic of N18 for common learners: for SGD, the mean gradient; for momentum, also the mean gradient, acting through both the parameters and the momentum; for warm Adam, under the frozen-denominator approximation, the mean gradient plus the gradient's second moment (approximation error controlled by N12); for a cold Adam step, the sign distribution; for clipping, the clipped mean, and only the mean direction when clipping is always active; for Lion, flip probabilities; for LoRA initialized at $`B=0`$, $`A`$ does not move at step one and feedback enters only through a rank-$`r`$ sketch.
+- *Intuition.* Two feedback sources with the same mean gradient can still differ at first order under cold Adam, clipping or warm Adam.
+- *Role.* It tells the method what to match and measure under each training recipe.
+
+### Block V nodes
+
+**[N13](#n13--stabilityapproximation-tradeoff) · Stability–approximation tradeoff**
+- *What it says.* When each feature mean may be off by a tolerance, the response difference that can be guaranteed is the minimum over coefficients of twice the approximation residual plus the tolerance-weighted coefficient size.
+- *Intuition.* The price of measuring a feature imprecisely is its coefficient in the response model; a small residual with huge coefficients is not a proof.
+- *Role.* It decides which features an audit uses and what kind of response model to fit.
+
+**[N14](#n14--frozen-finite-interface-selection-with-transport) · Frozen finite-interface selection with transport**
+- *What it says.* Fix the audit cells in advance and select among finitely many candidates by measured discrepancy; the selected candidate's learning gap is at most the measured discrepancy plus statistical error plus an explicit transport term, plus the exit probability. The transport term cannot be removed.
+- *Intuition.* An audit sees only the states it covers; when training goes elsewhere, the audit can say 0 while the actual gap is 1.
+- *Role.* It gives the correct form of a finite audit and shows its blind spot.
+
+**[N15](#n15--actual-state-adaptive-auditing-fidelity-versus-improvement) · Actual-state adaptive auditing; fidelity versus improvement**
+- *What it says.* At the states training actually reaches, run paired full-tail experiments for a candidate and the reference and select by a lower confidence bound; the result is no worse than the reference by more than $`\delta`$ and keeps the measured improvement. Cost: with $`M=4`$, $`\delta=0.05`$ and accuracy $`0.1`$, 1016 paired replicas per candidate (a sufficient number).
+- *Intuition.* It measures directly whether replacing this step by the candidate helps, with no extrapolation to unseen states.
+- *Role.* Reliable but expensive; the method uses it to calibrate cheaper measurements.
+
+**[N20](#n20--measuring-the-first-order-statistic-at-the-actual-states) · Measuring the first-order statistic at the actual states**
+- *What it says.* In the Euclidean norm, the estimation error of the mean state increment falls as $`b/\sqrt n`$ with no explicit dimension ($`b`$ bounds the increment norm and can grow with the dimension), using $`n`$ gradient evaluations and no training tails; when the first-order difference exceeds the second-order remainder, the first-order score ranks two candidates correctly.
+- *Intuition.* The mean increment is cheap, but ranking also needs the continuation-value gradient and the remainder constants, which at present need full-tail audits for calibration; and the first-order score can be used on its own only where the first-order difference dominates.
+- *Role.* It turns N18 into a cheap, executable measurement, and grounds the method's "screen with the first-order score, then confirm with measured tails".
+
+### Block VI nodes
+
+**[N16](#n16--coupling-width) · Coupling width**
+- *What it says.* Fix each experience unit's marginal law and change only how units are combined into joint training packages; this leaves the outcome unchanged if and only if a package's return is a sum of per-unit contributions; under one SGD step, regrouping changes nothing.
+- *Intuition.* If the learner only "looks at" each unit by itself, the grouping is irrelevant; it matters only when units interact.
+- *Role.* A mechanism test with a strict null.
+
+**[N17](#n17--consequence-calibrated-experience-distillation-ced) · CED method**
+- *What it says.* Six design rules: acquire before compiling; select by measured consequence; match the learner's statistic; fit stable response models; account for coverage and use the first-order audit where the first-order difference dominates; freeze the selector, then measure transfer. Each rule is a corollary of earlier nodes.
+- *Intuition.* Choose feedback by what happens after this learner consumes it, not by how good the feedback looks by itself.
+- *Role.* Where the framework lands; controlled experiments have confirmed the range in which selection by measured consequence and the first-order audit work.
+
+---
+
+## 3. Setting and notation
 
 **Environment and student.** An environment $`E`$ comprises a task distribution, transitions, feedback semantics, scoring and a fixed execution harness. All returns lie in $`[0,1]`$. The student's deployment class is $`\Pi\subseteq\Pi_{\rm ref}`$, with
 
@@ -54,75 +325,9 @@ $`g`$ is the expected final real-task return after receiving message $`y`$, appl
 
 ---
 
-## 1. Dependency graph
+## 4. Level 3: block-by-block detail
 
-```mermaid
-flowchart TD
-  subgraph I["I · Feasibility and acquisition"]
-    N01["N01 Regret decomposition<br/>and decision ambiguity"]
-    N02["N02 Passive impossibility,<br/>active attainability"]
-    N03["N03 Few-shot information floor"]
-  end
-  subgraph II["II · Learning consequence"]
-    N04["N04 Static value ≠<br/>learning value"]
-    N05["N05 Continuation-response<br/>characterization"]
-  end
-  subgraph III["III · Complexity of sufficiency"]
-    N06["N06 Sufficiency duality<br/>and transfer"]
-    N07["N07 Affine learners:<br/>moment order"]
-    N08["N08 Affine rates"]
-    N09["N09 Exact order ≠<br/>approximate complexity"]
-    N10["N10 Update composition"]
-  end
-  subgraph IV["IV · Optimizer state"]
-    N11["N11 Cold-start Adam quotient<br/>and optimizer memory"]
-    N12["N12 Optimizer warmth"]
-    N18["N18 Optimizer-transformed<br/>linear response"]
-    N19["N19 What each learner makes<br/>the feedback carry"]
-  end
-  subgraph V["V · Verification"]
-    N13["N13 Stability–approximation<br/>tradeoff"]
-    N14["N14 Frozen audit<br/>with transport"]
-    N15["N15 Actual-state adaptive audit"]
-    N20["N20 First-order audit<br/>at actual states"]
-  end
-  subgraph VI["VI · Mechanism and method"]
-    N16["N16 Coupling width"]
-    N17["N17 CED method"]
-  end
-  N01 --> N02 --> N03
-  N01 --> N04 --> N05
-  N05 --> N06
-  N06 --> N07 --> N08
-  N06 --> N09 --> N13
-  N07 --> N10 --> N11 --> N12
-  N06 --> N13 --> N14
-  N05 --> N14 --> N15
-  N05 --> N16
-  N03 --> N17
-  N12 --> N17
-  N15 --> N17
-  N16 --> N17
-  N05 --> N18
-  N06 --> N18
-  N10 --> N18
-  N18 --> N19
-  N11 --> N19
-  N12 --> N19
-  N18 --> N20
-  N14 --> N20
-  N15 --> N20
-  N19 --> N17
-  N20 --> N17
-```
-
-The chain runs as follows. First, what the student can execute and what the data can identify (I). Then, what feedback does to the learner (II). Then, how much information sufficiency costs (III), and how the actual optimizer changes that cost (IV, with the central theorem N18–N19). Next, how sufficiency is checked with finite data (V, including the first-order audit N20). Last, the method that follows (VI).
-
----
-
-## 2. Nodes
-
-Each node ends with its proof link, its experiments link and the checks that support it.
+Each node gives its dependencies, the exact statement and a "Next" paragraph, and ends with its proof and experiments links and the checks that support it. The nodes of block I also give a derivation outline and experimental results, with figures.
 
 ### I · Feasibility and acquisition
 
@@ -140,6 +345,17 @@ with all three terms nonnegative. Moreover:
 - **(b)** $`\mathcal R_{\rm info}=0`$ if and only if, for a.e. $`D`$, the set $`\bigcap_{E:\Pr(E\mid D)>0}\arg\max_\pi J_E(\pi)`$ is nonempty.
 - **(c)** The robust ambiguity equals its minimax dual: $`r(C)=\min_{\rho\in\Delta(\Pi)}\max_{E\in C}\big[J_E^\Pi-\mathbb E_{\pi\sim\rho}J_E(\pi)\big]=\max_{\mu\in\Delta(C)}\big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_E(\pi)\big]`$.
 - **(d)** A randomized post-processing $`D'`$ of $`D`$ cannot decrease $`\mathcal R_{\rm info}`$.
+
+**Derivation outline.**
+
+- **(a)** Adding and subtracting $`\mathbb EJ_E^\Pi`$ and $`\mathbb E_DB(D)`$ in the total regret gives the identity; the only work is nonnegativity. The representation term is nonnegative because $`\Pi\subseteq\Pi_{\rm ref}`$. The information term is nonnegative because $`\mathbb E[J_E(\pi)\mid D]\le\mathbb E[J_E^\Pi\mid D]`$ for every policy, and taking the maximum gives $`B(D)\le\mathbb E[J_E^\Pi\mid D]`$. The algorithm term is nonnegative because, given $`D`$, the learner's output is a convex combination of policies and cannot beat the best of them.
+- **(b)** The information term equals $`\sum_D\Pr(D)\big(\mathbb E[J_E^\Pi\mid D]-B(D)\big)`$, a sum of nonnegative brackets; a bracket vanishes exactly when a posterior-optimal policy is optimal in every environment of positive posterior probability, that is, when the intersection is nonempty.
+- **(c)** The regret matrix $`M_{E,\pi}=J_E^\Pi-J_E(\pi)`$ defines a finite two-player zero-sum game in which the learner picks a mixture of policies and the adversary a distribution over environments. The von Neumann minimax theorem exchanges min and max, and the inner minimum is attained at a pure policy, which gives the dual.
+- **(d)** Because $`E\to D\to D'`$ is a Markov chain, $`\mathbb E[J_E(\pi)\mid D']=\mathbb E\big[\mathbb E[J_E(\pi)\mid D]\,\big|\,D'\big]`$. The maximum of a conditional expectation is at most the conditional expectation of the maximum, so the posterior-optimal value under $`D'`$ is at most that under $`D`$.
+
+**Experimental results.** The independent check [C1](experiments/N01_decomposition_and_ambiguity.md#c1--n01ad) tests (a)–(d) on 500 random finite decision problems in exact rational arithmetic: 5,810 assertions, no violation. The decomposition residual is exactly 0; the primal and dual LPs, solved separately on 220 instances, agree; an adversarial search over deterministic and randomized garblings finds a maximal increase of the posterior-optimal value of exactly 0. In the figure, the left panel decomposes one instance into the three terms: with the same data, changing the learner changes only the algorithm term (yellow). The middle panel shows the information regret rising monotonically as the transcript is garbled, from 0.1217 with the original data to 0.1833 with no data. The right panel shows primal and dual both equal to $`0.1`$ in the two-world instance.
+
+![N01: exact regret decomposition, garbling the transcript, minimax duality](figures/N01_decomposition.png)
 
 **Next.** Representation, information and learning errors are separate. Generating data cannot create absent facts, so the next question is when demonstrations leave $`\mathcal R_{\rm info}>0`$.
 
@@ -162,6 +378,17 @@ with all three terms nonnegative. Moreover:
 
 **(d)** Compiling the acquired fact into a frequency learner needs $`m\ge\lceil32\log(2/\delta_L)\rceil`$ compiled labels.
 
+**Derivation outline.**
+
+- **(a)** In both worlds a demonstration is, with probability one half each, "choose $`A`$ at $`s=0`$ and succeed" or "choose $`B`$ at $`s=1`$ and succeed", so the law of the demonstrations, and of the learner's output, does not depend on the world. The value is affine in $`p`$; the regrets in the two worlds are $`2\Delta(1-m)`$ and $`2\Delta m`$, with $`m`$ the mean output, and their maximum is at least their average $`\Delta`$.
+- **(b)** First reduce "$`\Delta/2`$-optimal in both worlds" to a binary test: the event $`\lbrace\widehat p>1/2\rbrace`$ has probability at least $`1-\delta`$ in world $`+1`$ and at most $`\delta`$ in world $`-1`$. With a stopping time, Wald's identity makes the KL of the whole transcript equal to the expected number of queries times the KL of one query; the data-processing inequality makes it at least $`\mathrm{kl}(1-\delta,\delta)`$. Together these give the lower bound; the constant 64 comes from $`\mathrm{kl}(\tfrac12+u,\tfrac12-u)\le16u^2`$.
+- **(c)** Average independent query outcomes and apply the one-sided Hoeffding inequality.
+- **(d)** The empirical frequency of the compiled labels is again controlled by Hoeffding; the number of labels does not depend on $`\Delta`$.
+
+**Experimental results.** The independent check [C2](experiments/N02_passive_vs_active_acquisition.md#c2--n02ad-and-the-compilation-paragraph) tests (a)–(d) on 25 values of $`(\Delta,\delta)`$ with exact binomial sums and exact random-walk recursions: 540 assertions, no violation. No exactly computed strategy falls below the lower bound. The SPRT lies exactly on the bound at $`(\Delta,\delta)=(\tfrac18,0.1)`$ and $`(\tfrac18,0.25)`$ (ratio 1.000) and within 5% of it at $`\Delta=\tfrac1{64}`$, so neither the order nor the constant of the bound can be improved. Fixed-sample tests need 1.6–2.4 times the bound. The number of compilation labels depends only on $`\delta_L`$ (119 at $`\delta_L=0.05`$), with exact errors two to four orders of magnitude below $`\delta_L`$. In the figure, the left panel shows the number of queries growing linearly in $`1/\Delta^2`$, the middle panel the ratio of each strategy to the bound, and the right panel the passive learner's regrets trading off between the two worlds with a worst case of at least $`\Delta`$.
+
+![N02: queries against inverse squared gap, ratios to the lower bound, passive impossibility](figures/N02_queries.png)
+
 **Next.** Perfect demonstrations can be information-insufficient, and acquisition cost is distinct from compilation cost. Node N03 makes $`K`$ explicit.
 
 [Proof](proofs/N02_passive_vs_active_acquisition.md) · [Experiments](experiments/N02_passive_vs_active_acquisition.md) · **proved**; [C2](experiments/N02_passive_vs_active_acquisition.md#c2--n02ad-and-the-compilation-paragraph) PASS
@@ -180,6 +407,23 @@ R_{\rm info}(K)=\tfrac12\textstyle\sum_j w_j(1-q_j)^K.
 **(b)** With a hard budget of $`n`$ queries, $`R_{\rm info}(K,n)=\tfrac12\,\mathbb E\big[\sum_{r>n}w_{(r)}\big]`$, and querying the heaviest unseen bits is optimal. In general $`\mathbb E[(M_K-n)_+]\ne(\mathbb E M_K-n)_+`$.
 
 **(c)** In a two-world adaptive model, $`K\kappa_D+\kappa_X\,\mathbb E N\ge\mathrm{kl}(1-\delta,\delta)`$.
+
+**Derivation outline.**
+
+- **Key lemma.** Given the complete transcript, the unrevealed bits remain independent, fair and independent of the transcript. The only factor of the joint law that depends on them is the constant $`2^{-d}`$: demonstrations leak nothing about unrevealed bits.
+- **(a)** Any action guesses an unrevealed bit correctly with probability one half; revealed bits can simply be copied. So the conditional regret is half the total weight of the unseen bits. Bit $`j`$ stays unrevealed in all $`K`$ independent trajectories with probability $`(1-q_j)^K`$, and taking expectations gives the formula.
+- **(b)** Induct on the remaining budget. After querying an unseen bit, the key lemma makes the remaining problem independent of the value found, so branching on values gains nothing, and querying the heaviest unseen bit at each step is optimal. Since $`x\mapsto(x-n)_+`$ is convex, Jensen's inequality gives $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$; at $`d=K=3`$, $`n=1`$ the inequality is strict ($`1/54`$ against $`0`$).
+- **(c)** The query choices, the stopping rule and the private randomness are the same in both worlds and cancel in the likelihood ratio, leaving the demonstration terms and the query-outcome terms. In expectation the former are at most $`K\kappa_D`$ and the latter at most $`\kappa_X\,\mathbb EN`$; the data-processing inequality requires their sum to be at least $`\mathrm{kl}(1-\delta,\delta)`$.
+
+**Experimental results.**
+
+- **[V5](experiments/N03_few_shot_information_floor.md#v5--n03a-n03b-hidden-bit-coverage-hard-query-budget-adaptivity).** 348 instances, 26,214 assertions, largest residual 0. In all 100 exhaustive cases ($`d\le5`$, $`K\le4`$, $`n\le3`$), the Bayes-optimal risk equals the formula of (a) and the optimal adaptive query tree equals weight-greedy querying; in 80 of the cases one trajectory reveals several bits at once. Moving the positive part outside the expectation is wrong in more than a third of the cases.
+- **[V6](experiments/N03_few_shot_information_floor.md#v6--n03c-demonstration-information-credits-the-adaptive-query-budget).** 297 instances; (c) holds for every adaptive query-and-stopping procedure, and the ratio attains exactly 1, so the constant cannot be improved.
+- **[E5](experiments/N03_few_shot_information_floor.md#e5--hidden-bit-demonstration-count-curves-replay-and-an-actual-learner).** Replay gains exactly 0 at all 944 exact grid points. With 8 uniform contexts and $`K=4`$, the information risk is 0.2931 without queries; the same budget spent on 4 extra passive demonstrations brings it to 0.1718, and spent on 4 targeted queries to 0.0431. Tabular learners trained with Adam or SGD never go below the information floor; the excess is the algorithm error of N01.
+
+In the figure, the left panel shows the information risk against $`K`$: targeted queries reduce it far faster than extra demonstrations, and the replay curve coincides with "$`K`$ demonstrations only". The middle panel shows every actual learner above the information floor. The right panel shows the KL budget of demonstrations plus queries.
+
+![N03: independent evidence and query access, learners respect the information floor, demonstration plus query KL](figures/N03_floor.png)
 
 **Next.** $`K`$ and queries trade off within one information budget, and replay adds zero. Information alone does not determine what the learner extracts, which is the subject of Section II.
 
@@ -501,7 +745,7 @@ W_{\mathbf{\epsilon}}(g)=\inf_{b,c}\Big[2\big\lVert g-c-\textstyle\sum_jb_j\phi_
 
 ---
 
-## 3. What is established
+## 5. What is established
 
 | Statement | Established by |
 |---|---|
@@ -511,7 +755,7 @@ W_{\mathbf{\epsilon}}(g)=\inf_{b,c}\Big[2\big\lVert g-c-\textstyle\sum_jb_j\phi_
 | N18–N20, the optimizer-transformed linear response, catalog and first-order audit | Complete proofs; [V8](experiments/N18_optimizer_transformed_response.md#v8--exact-finite-checks-of-n18a-and-n18c), [V9](experiments/N20_first_order_audit.md#v9--dimension-free-concentration-of-the-mean-increment) and [E11](experiments/N19_learner_statistics.md) PASS. [E10](experiments/N18_optimizer_transformed_response.md#e10--the-run-level-representation-in-a-controlled-network-across-optimizers): every smooth optimizer's exact cells are within the bound, and the cold-Adam [C23](experiments/N11_adam_cold_start.md#c23-adam-settings--the-regime-where-the-affine-description-fails) gap is predicted to 1.6%. [E12](experiments/N20_first_order_audit.md#e12--the-first-order-margin-on-the-frozen-e6-panels): zero wrong signs above the margin |
 | Selection by measured response (N17, rules 2–3) | [E6](experiments/N17_ced_method.md#e6--held-out-provider-selection-with-frozen-proxies), [E9](experiments/N17_ced_method.md#e9--proxy-transfer-under-lr--0-moment-warm-up) and [E12](experiments/N20_first_order_audit.md#e12--the-first-order-margin-on-the-frozen-e6-panels) in the controlled learner |
 
-## 4. Reproducing the checks
+## 6. Reproducing the checks
 
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --output theory/independent_checks/results_independent_v014.json
