@@ -168,7 +168,7 @@ def test_quick_cli_schema_and_visible_failures(tmp_path):
     assert run.returncode in (0,1),run.stdout+run.stderr
     result=json.loads(output.read_text())
     checks.validate_results(result)
-    assert len(result["checks"])==14
+    assert len(result["checks"])==16
     assert result["config"]["quick"] is True
     assert result["config"]["CUDA_VISIBLE_DEVICES"]==""
     assert (run.returncode==1)==(result["status"]=="FAIL")
@@ -201,6 +201,38 @@ def test_quick_cli_schema_and_visible_failures(tmp_path):
             assert row['all_pairs']['wrong_certified']==0
         assert [r['h'] for r in row['all_h']]==[.001,.003,.01]
     raw_c6=raw['checks']['C6']
+    c5b=next(c for c in result['checks'] if c['claim_id']=='C5b')
+    c6b=next(c for c in result['checks'] if c['claim_id']=='C6b')
+    assert c5b['status']==c6b['status']=='PASS'
+    rankers=c5b['data'][0]
+    assert len(rankers['primary_rankers'])==5
+    for rank, stats in c5['data'][0]['overall'].items():
+        assert rankers['overall'][rank]==stats  # Existing rankers are unchanged.
+    assert rankers['overall']['paired_replacement']['rows']==1728
+    assert c6b['data'][0]['B_a_priori']==2.
+    assert c6b['data'][0]['frozen_sha256_before']==c6b['data'][0]['frozen_sha256_after']
+    assert len(c6b['data'][0]['calibration_cells'])==8
+    assert len(c6b['data'])==9
+    for idx,row in enumerate(c6b['data'][1:],1):
+        assert row['all_pairs']['eligible']==1728
+        assert row['c6_comparable_pairs']['eligible']==1584
+        assert row['e12_comparable_reference_rows']['eligible']==396
+        if row['range_variant']=='a_priori':
+            pairs_b=raw['checks']['C6b'][idx]['raw_replicates']['pairs']
+            pair=pairs_b[0]
+            assert len(pair['Z'])==len(pair['Z_independent'])==row['r']
+            assert np.mean(pair['Z'])==pytest.approx(pair['score'])
+            assert np.var(pair['Z'],ddof=1)==pytest.approx(pair['crn_variance'])
+            if row['surrogate']=='aligned':
+                assert row['all_pairs']['wrong_certified']==0
+    b_cells=raw['checks']['C6b'][0]['raw_replicates']['cells']
+    for cell in b_cells.values():
+        assert np.asarray(cell['omega_indices']).shape==(256,7)
+        assert np.asarray(cell['independent_omega_indices']).shape==(9,256,7)
+    finite_rows=raw['checks']['C5b'][0]['raw_replicates']['rows']
+    for row in finite_rows:
+        values=np.asarray(b_cells[row['cell']]['measurements']['aligned']['provider_values'])
+        assert row['scores']['paired_replacement']==pytest.approx(np.mean(values[:,row['j']]-values[:,row['k']]))
     cells=raw_c6[0]['raw_replicates']['cells']
     for cell in cells.values():
         for name in ('aligned','short'):

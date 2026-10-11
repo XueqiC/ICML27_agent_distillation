@@ -1,6 +1,6 @@
 # v0.16 independent numerical verification — specification
 
-Target: `docs/direction/2026-10-11_v016_revision_ZH.md`, §§2–5 and §7.1 C1–C6.
+Target: `docs/direction/2026-10-11_v016_revision_ZH.md`, §§2–5 and §7.1 C1–C6b.
 C1–C4 retain their independent implementations and numerical logic unchanged.
 C5/C6 import the explicitly requested frozen controlled-network helpers from
 `theory/v015_checks` read-only; the new implementation lives in `c5c6.py`.
@@ -10,6 +10,7 @@ hashed before and after. No v0.15 check function or output writer is invoked.
 ## Ground rules and deliverables
 
 - Deliverables: `SPEC.md`, `check_v016.py`, `test_check_v016.py`, `c5c6.py`, `test_c5c6.py`,
+  `c5c6b.py`, `test_c5c6b.py`,
   `results_v016.json`, and `results_v016_raw.json.gz`. No other file changes,
   commits, model checkpoints,
   network, teacher calls, torch, or new dependencies. NumPy 2.3.5 and SciPy
@@ -41,7 +42,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The optional `--only C1,C2,C3,C4,C5,C6` or `--only C4.costate,C4.amplitude` selects groups.
+The optional `--only C1,C2,C3,C4,C5,C6,C5b,C6b` or `--only C4.costate,C4.amplitude` selects groups.
 `--output` selects a result path and its sibling `<stem>_raw.json.gz`.
 The default full output is `results_v016.json`;
 the default quick output is `/tmp/v016_quick_results.json`, so a test cannot
@@ -51,7 +52,7 @@ replace the full scientific results.
 
 Top level: `schema_version`, `status`, `checks`, `runtime_seconds`,
 `group_runtime_seconds`, `config`, `versions`, `source_sha256`, `timestamp_utc`,
-`scope`, `raw_artifact`. Hashes cover the draft and the three source/specification files.
+`scope`, `raw_artifact`. Hashes cover the draft and all source/specification/test files.
 The configuration records the master seed, mode, selection, device, and lack
 of network/model use; it never serializes the process environment.
 
@@ -484,7 +485,7 @@ CIs. All C4 error maps can be reconstructed from the main file alone.
 
 ## C5/C6 — frozen controlled-network provider panel
 
-Targets: Proposition 4.3, Theorem 5.3, Remark 5.5 and §7.1 C5/C6. This extension
+Targets: Proposition 4.3, Corollary 5.4, Remark 5.7 and §7.1 C5/C6. This extension
 imports `provider_menu`, `snapshot`, `state_vector`, `increment_panel`,
 `continuation`, `terminal`, `curvature_search`, `full_gradient`, and `richardson`
 from the frozen v0.15 modules. `full_gradient` and `richardson` are used **only
@@ -597,7 +598,7 @@ certificate and fails the calibration assertion. Per the explicit request,
 the target is actual gold, not an unbiased first-order oracle response:
 calibration residuals also include Taylor error and finite-group noise.
 Transfer of this observed envelope to held-out states/recipes is an assumption,
-not an established consequence of Theorem 5.3.
+not an established consequence of Corollary 5.4 (the former first-order Theorem 5.3).
 
 For h in {.001,.003,.01}, evaluate the theorem's
 `Z_g = [F(T_omega(x+h*mu_j))-F(T_omega(x+h*mu_k))]/h` and its mean S-hat.
@@ -607,7 +608,7 @@ histogram of selected h. Selection is per pair and surrogate: minimize the
 **task-unit radius** `alpha*(e_stat+e_fd+epsilon_sur)+e_2`, breaking ties by
 smaller h, never consulting gold or whether a choice certifies.
 
-- `e_stat`: exactly Theorem 5.3 with unbiased sample variance (ddof=1), G=8,
+- `e_stat`: the Bernstein term inherited by Corollary 5.4, with unbiased sample variance (ddof=1), G=8,
   M=8 nonreference candidates and delta=.05; `log(4*M*M/delta)` is 8.540909718.
   B is the observed `max(Z)-min(Z)` for that pair and h across the eight
   groups. **This observed range is not a proven bound on population support.**
@@ -677,6 +678,142 @@ Tests cover known-quadratic CRN curvature, nonuniform finite-law integration,
 Bernstein constants, calibration units and invalid alpha, radius composition,
 h selection independent of score, ties/unavailable rates, accounting,
 state separation and the read-only guard. A measurement-path test disables
-both gradient-oracle helpers. The CLI regression runs all six groups, checks
+both gradient-oracle helpers. The CLI regression runs all checks, checks
 all denominators and raw arrays, validates selection, preserves scientific
 FAILs, and enforces strict JSON, deterministic gzip and the 1 MB limit.
+
+## C6b — Theorem 5.3: finite CRN paired replacements
+
+The revised Theorem 5.3 is the finite-replacement certificate; C6 is now
+Corollary 5.4. Its numerical implementation, tolerances and selection logic
+remain unchanged (only its theorem label is corrected). New code is isolated
+in `c5c6b.py`; it imports the read-only panel adapter and numerical helpers
+from `c5c6.py`. C1–C6 retain their computations and RNG streams.
+
+**Panel and gold.** Use exactly the same 40 unique held-out cells, nine
+providers (M=8), 48 split/cell occurrences, 1,728 unordered pairs and 432
+candidate-versus-reference rows, including self rows and split duplicates.
+Recompute the exact 128-history, seven-update gold after measurements and
+assert agreement with frozen E6 to 1e-14. Reuse C6's eight separate warm3/warm7
+calibration cells, recipes 0/4 and tasks moment/parity; assert disjoint keys
+and state vectors. Freeze calibration before held-out measurements. No
+held-out outcome, oracle gradient, curvature, mean-increment derivative,
+or C5 v-share bin enters measurement, calibration, seeds or radius choices.
+
+**Actual replacements and randomness.** Execute the actual one-round
+optimizer increment separately for each of the ten support atoms. For each
+replica l, draw one fresh seven-update reference tail omega_l from the frozen
+reference law. Continue each updated atom state under that same tail, then
+weight the terminal outcomes by each provider's exact law. Thus
+
+```text
+Y_lj = sum_a P_j(a) F(T_omega_l(x + Delta_a))
+Z_ljk = Y_lj - Y_lk; S_hat_jk = mean_l Z_ljk
+```
+
+This is **not** `F(T(x + sum_a P_j(a) Delta_a))`. Integrating before the
+nonlinear tail would change the estimand. The .25/.75 laws retain their
+weights. Only omega is random. Evaluate r=256; r=64 is its first 64 IID
+replicas. Reuse omega across all candidates, both surrogate lengths and
+tasks with identical state/recipe. Streams are
+`SeedSequence([160160,66,warmup_step,recipe_id,0])`. Quick mode also retains
+both requested r values and the entire panel.
+
+**Surrogates and calibration.** Aligned is the original bounded task utility
+after seven reference updates, with alpha=1 and epsilon-sur=0. Short is the
+same utility after one reference update. For each r separately, fit positive
+zero-intercept alpha on all 288 calibration finite pair contrasts, regressing
+exact full-tail gold differences on measured short finite differences.
+Set epsilon-sur to max absolute residual / alpha. Invalid alpha fails the
+check and makes the short certificate ineligible. Raw calibration scores,
+gold targets, alpha and residuals are retained. This implements Remark 5.6;
+short calibration includes truncation and finite-r error. Its transfer to
+held-out states/recipes is an assumption, not a proven uniform envelope.
+
+**Range and certificate.** Moment utility is a power of a probability,
+parity utility is a probability of even parity, and threshold utility is an
+indicator; all lie in [0,1]. Exact convex support averages also lie in [0,1].
+Consequently every difference lies in [-1,1], giving the fixed **a-priori
+B=2** independently of all draws, states and gold. For each pair use
+
+```text
+V_hat = var(Z, ddof=1)
+e_stat = sqrt(2 V_hat log(4 M^2/.05)/r) + 7 B log(4 M^2/.05)/(3(r-1))
+radius = e_stat + epsilon_sur
+certified = abs(S_hat) > radius; task_radius = alpha * radius
+```
+
+There are no h, finite-difference or second-order remainder terms. Also
+report the same formula with B=max(Z)-min(Z), explicitly marked an
+**observed-range diagnostic** without a population-range guarantee. A zero
+observed variance does not erase the a-priori range term. Delta=.05 is
+simultaneous over candidate pairs at one fixed state, r and surrogate;
+there is no claimed joint 95% guarantee over all states or both r values.
+
+All bounded finite rows, including discontinuous threshold objectives, are
+eligible: this theorem requires no smoothness. Report both the primary
+1,728-pair denominator and the matched C6 smooth subset of 1,584. Report
+all 432 reference rows and the matched E12 396 smooth rows for comparison
+with its 56/396 oracle margin. Keep self rows in that historical denominator.
+Report coverage, wrong-sign certified pairs (gold tolerance 1e-10), certified
+gold ties separately, and missed eligible pairs with abs(gold)>=.01. Assert
+zero aligned a-priori wrong signs at both r values on unordered and reference
+rows. Do not assert positive coverage, observed-range validity, or short
+surrogate correctness; zero coverage makes zero wrong signs vacuous.
+
+**Independent-tail variance comparator.** Execute additional tails from
+`SeedSequence([160160,66,warmup_step,recipe_id,1,candidate_id])`, separately
+for all nine candidates. Atoms of each candidate share its own omega before
+integration. Form differences between these separately executed candidate
+outcomes. Save both Z arrays and unbiased sample variances for every pair,
+and report Var(Z_CRN)/Var(Z_independent) as pair quantiles and the ratio of
+summed variances (using the same split multiplicities). Zero independent
+variance yields an unavailable ratio with an explicit count, never an
+infinite/NaN number or an omitted pair. These extra executions are diagnostics,
+not part of producing a CRN certificate.
+
+**Costs.** Count each executed trajectory and each tail update. Shared CRN
+integration uses 10*r actual atom trajectories per unique cell/surrogate,
+producing 9*r candidate values. Without support sharing it would use 14*r.
+The independent comparator executes 14*r per cell/surrogate. Short calibration
+uses 8*10*r trajectories plus 8*10*128 full-tail gold trajectories; these
+costs are included in its standalone measurement total. Aligned needs no
+calibration. Held-out gold (40*10*128), independent-tail variance diagnostics,
+and C5 oracle costs are disclosed separately. State calibration warmups
+execute ten prefix updates. Tables give standalone costs for each r, while
+physical totals charge nested r=64/256 runs only once at r=256. Compare with
+C6's existing full-tail audit count 40*9*1016=365,760 and seven updates per
+tail; retain its M=4 versus panel M=8 caveat and the latter's 1154 rate.
+The audit has a different prescribed accuracy criterion: cost ratios alone
+do not establish a superiority claim.
+
+**Artifacts and tests.** One protocol/cost row and eight rows crossing r,
+surrogate and range variant. Raw arrays include initial states/increments,
+all CRN and independent omega indices, support-atom outcomes, candidate
+outcomes, calibration inputs and pair/reference statistics. Observed-range
+rows reuse the corresponding a-priori row's raw pairs, which contain both
+radii. Tests distinguish nonlinear support integration from a mean update,
+check independent streams, exact gold, Bernstein constants, alpha units,
+finite-difference calibration, threshold eligibility, degenerate variance,
+trajectory/update accounting and forbidden derivative/curvature calls.
+
+## C5b — fifth ranker: finite replacement point estimate
+
+Append aligned r=256 `paired_replacement` S-hat to C5's four primary rankers
+(LESS cosine, parameter-only, full-state and measured aligned first-order),
+also retaining C5's measured-short and utility-oriented cosine diagnostics.
+Reuse the original C5 rows and oracle contrast v-share bins **for reporting
+only**; assert gold agreement. Do not modify C5 or replace any score with
+gold. All signs, ties, unavailable counts and denominators follow C5.
+
+Report overall, all eight optimizer/eta/epsilon configurations, all splits,
+the four frozen v-share bins, and unavailable v-share rows. For v-share>=.5,
+report whether the new wrong-sign rate improves each first-order baseline
+and whether it eliminates errors entirely. These are descriptive outcomes,
+not asserted superiority. Ranking accuracy does not imply certification.
+The runner reuses its completed C5 result; `--only C5b` computes that same
+baseline internally. C5b reuses C6b measurements at no additional tail cost.
+The raw companion retains every extended C5 row; the main JSON keeps tables
+and raw references below 1,000,000 bytes. The full CLI regression checks all
+16 check statuses, old score-table equality, denominators, raw array shapes
+and point-score reconstruction, with scientific failures preserved.

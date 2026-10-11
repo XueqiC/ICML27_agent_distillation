@@ -374,7 +374,7 @@ def measured_panel(quick=False):
 def c6(quick=False):
     from check_v016 import Check
     p = measured_panel(quick)
-    check = Check('C6', 'Theorem 5.3: no wrong aligned empirical certificates on the frozen panel; no oracle gradient used')
+    check = Check('C6', 'Corollary 5.4: no wrong aligned empirical first-order certificates on the frozen panel; no oracle gradient used')
     check.assert_le('frozen_imports_and_artifacts_unchanged', p['before'] != p['after'], 0, 0)
     check.assert_le('calibration_heldout_overlap', len(set(p['calibration_keys']) & set(p['cells'])), 0, 0)
     for key, cell in p['calibration_cells'].items():
