@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **18:53 CDT 10-10: pilot-cold 45476440 RUNNING** (backfilled; GPU 97%, 88 GB; 77 updates by 19:02). Early --log-warmth:
+  update 1 all v=0; update 2 45% of coordinates still v=0 (LoRA A frozen at step 1 — C4(g)); fraction κ>1: 100%, 77%,
+  18–41% (u3–6), 2.8% (u10), 0.8% (u30), 0.01% (u77); median κ 0.022 (u10) → 0.0005 (u77). Cold window ≈ first 10 of 469 updates.
+  Theory work done and pushed 8ca77e5 (N18–N20 + 20 figures); completion message sent 18:5x.
 - **18:4x CDT 10-10: central theorem added (user: "按照你的想法补上非平凡的中心定理…").** Optimizer-transformed linear
   response (docs/direction/v015_extension/Optimizer_Transformed_Linear_Response_EN.md, a1566ce → corrected 5568846/db10cab):
   C1 expansion in optimizer increments, C2 run-level representation + certificate, C3 sufficiency/necessity/minimality,
