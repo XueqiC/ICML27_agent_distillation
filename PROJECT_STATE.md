@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-- **15:30 CDT 10-11: README BFS restructure + file-view rendering fix pushed.** User screenshot: N02(b) display math shown as
+- **15:25 CDT 10-11: README BFS restructure + file-view rendering fix pushed.** User screenshot: N02(b) display math shown as
   raw code. Cause (measured with pushed probe refs): GitHub's file view leaves a ```math fence inside a list as code whenever
   that list also has inline math; the /markdown API renders it, so --online had passed. 107 fences / 30 pages moved out of
   lists (d005eef); figure specs converted. Validator: new `math-fence-in-list` rule and `--blob` mode (pushes the working
@@ -26,7 +26,7 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   graph) → Level 2 (20 nodes plain-language, LR graph) → §3 notation → Level 3 statements (block I also has derivation
   outlines + experiment results + figures; II–VI pending the user's OK on the sample). Plain-language layers already
   tightened per the user's review (W3 plateau, warm-Adam approximation, N20 norm/b, "tested static proxies").
-- **16:5x CDT 10-11: v0.16 revision draft written** (docs/direction/2026-10-11_v016_revision_ZH.md; file-view render PASS,
+- **15:57 CDT 10-11: v0.16 revision draft written** (docs/direction/2026-10-11_v016_revision_ZH.md; file-view render PASS,
   26/26 display blocks). Answers the user's pasted review. Standard math language, no Node organization (user directive).
   New results: Theorem A = learner-relative information bound (Thm 3.3 Le Cam lower bound for ANY distiller incl.
   replay/synthesis; Lemma 3.4 Elfving/Sion design minimax; Thm 3.5 c-optimal achievability, scalar tight within [1/4,1];
