@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **02:40 CDT 10-11: pilot-probe 45476443 COMPLETED** (01:46–02:35 CDT, 49:17, exit 0; 9 states × 4 pairs, 0 teacher calls;
+  $B/reports/runs/pilot-warm-1010/probe/cold.json). Restore of saved update states 1/4/8 bitwise equal (adapter, m, v, step, RNGs).
+  float64 reference vs native deltas: max |diff| 9.3e-10 (float32 rounding of parameter subtraction; ν agrees to 4 decimals).
+  Median ν_centered (non-additivity of the A/B/AB update response; SGD-unclipped = gradient floor 0.020–0.041):
+  AdamW unclipped: cold 0.578 · W8 0.598 · W32 0.426 · u1 0.506 · u4 0.553 · u8 0.518 · 31k 0.398 · 104k 0.273 · 416k 0.151.
+  AdamW clipped (the real recipe): 0.45–0.63 at every state, no decline; SGD clipped 0.31–0.62 — clip 1.0 is active on
+  every probe batch (pre-clip norms ≥4), so clipping, not Adam coldness, dominates the response after the first ~20 updates:
+  the realised learner is C4 "always-active clipping" (first-order statistic = mean unit direction). Moment warm-up states
+  stay non-additive (W32 0.426) because LoRA A keeps v=0 (45.33%). Momentum share 0.73–0.97 after step 0 (current batch
+  ≈ (1−β1) of a step). cos_centered(A,B) cold Adam 0.28–0.33 vs ≈0 at checkpoints (sign-like coupling only when cold).
+  eval 45476444 PENDING (Priority), SLURM estimated start 10-13 13:35 CDT (slipped from 10-12 04:54).
 - **23:40 CDT 10-10: pilot-lw32 45476442 COMPLETED** (22:56–23:37 CDT, 41:36, exit 0; 469 updates, 6 checkpoints). All three
   training arms done. Loss u118–469: cold 0.071 / mw32 0.076 / lw32 0.071; last-50 0.018 / 0.025 / 0.013 (training loss, 1 seed).
   probe 45476443 + eval 45476444 PENDING (Priority), SLURM estimated start 10-12 04:54 CDT.
