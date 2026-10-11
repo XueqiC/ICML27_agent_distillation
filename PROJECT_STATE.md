@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **11:2x CDT 10-11: progress document written** (user: "把v0.15以来所有的理论框架和实验证明上的进展都整理成一个文档给我"):
+  docs/direction/2026-10-11_v015_progress_ZH.md — framework N01–N20 summary, N12/N18–N20 statements, V1–V9 + E0–E12 table,
+  Gemma pilot (warmth, B-only warm-up, clipping-dominated response), gaps and next steps. Final versions only.
 - **02:40 CDT 10-11: pilot-probe 45476443 COMPLETED** (01:46–02:35 CDT, 49:17, exit 0; 9 states × 4 pairs, 0 teacher calls;
   $B/reports/runs/pilot-warm-1010/probe/cold.json). Restore of saved update states 1/4/8 bitwise equal (adapter, m, v, step, RNGs).
   float64 reference vs native deltas: max |diff| 9.3e-10 (float32 rounding of parameter subtraction; ν agrees to 4 decimals).
@@ -38,9 +41,9 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   live at update 2 and is exactly as cold as in the cold arm (v=0 fraction 0.4533 at u1–u2, 0.0001 from u3 in both arms).
   So mw32 is "B-warm, A-cold", not fully warm. Training loss u11–50: cold 0.494, mw32 0.476, lw32 0.703 (LR ramp);
   u51–117: 0.271 / 0.258 / 0.289 (single seed, training loss only). κ q99<1: u18 / u18 / u20.
-- **21:02 CDT 10-10: pilot-cold 45476440 COMPLETED** (19:53–20:36 CDT, 42:50, exit 0; 469 updates, 6 checkpoints, states 1–9).
+- **21:02 CDT 10-10: pilot-cold 45476440 COMPLETED** (18:53–19:36 CDT, 42:50, exit 0; 469 updates, 6 checkpoints, states 1–9).
   Warmth over the full run: κ q50<1 from u3, q90<1 from u8, q99<1 from u18; fraction κ>1 <10% u8, <1% u18, <0.1% u25.
-  ~0.01% of coordinates keep v=0 through u469 (never receive gradient). Clip (1.0) active on 439/469 updates (median
+  0.0073% of coordinates (~4,800) keep v=0 through u469 (never receive gradient). Clip (1.0) active on 439/469 updates (median
   pre-clip norm 4.1). Loss first-10 mean 0.886 → last-50 mean 0.018. Tunnel was down 19:40–21:02 (VPN leg; one notice sent).
   Still PENDING (Priority): mw32 45476441, lw32 45476442, probe 45476443; eval 45476444 (Dependency).
 - **18:53 CDT 10-10: pilot-cold 45476440 RUNNING** (backfilled; GPU 97%, 88 GB; 77 updates by 19:02). Early --log-warmth:
