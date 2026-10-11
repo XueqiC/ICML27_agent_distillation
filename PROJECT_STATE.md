@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **23:40 CDT 10-10: pilot-lw32 45476442 COMPLETED** (22:56–23:37 CDT, 41:36, exit 0; 469 updates, 6 checkpoints). All three
+  training arms done. Loss u118–469: cold 0.071 / mw32 0.076 / lw32 0.071; last-50 0.018 / 0.025 / 0.013 (training loss, 1 seed).
+  probe 45476443 + eval 45476444 PENDING (Priority), SLURM estimated start 10-12 04:54 CDT.
 - **23:28 CDT 10-10: pilot-mw32 45476441 COMPLETED** (21:21–22:05 CDT, 44:25, exit 0; 469 updates). pilot-lw32 45476442
   RUNNING since 22:56 CDT (GPU 100%, 88 GB; 373/469 at 23:29). probe 45476443 PENDING (Priority), eval 45476444 (Dependency).
   **Finding (C4(g) on the real model): lr=0 moment warm-up at LoRA B=0 warms only B.** A has zero gradient while B=0, so
