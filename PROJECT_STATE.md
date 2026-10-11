@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **11:40 CDT 10-11: pilot-eval 45476444 COMPLETED** (09:10–10:00 CDT, 50:06, exit 0; backfilled; BI dev140, one server, all 6
+  adapter checks passed, 0 errors/parser/overflow). Success: p10 cold 66 · mw32 77 · lw32 74; p40 cold 112 · mw32 99 · lw32 104
+  (/140). Paired: p10 mw32 vs cold 19/8 (McNemar p=.052), lw32 vs cold 19/11 (p=.20); p40 mw32 vs cold 6/19 (p=.015),
+  lw32 vs cold 9/17 (p=.17). Noise reference: cold adapters are byte-identical to the main-table k20s0 p10/p40 adapters;
+  the two BI servers give 70→66 (8 flips) and 115→112 (7 flips). Warm-up arms ahead at p10, behind at p40; one training
+  run per arm, so arm differences cannot be attributed to warm-up vs trajectory divergence. All pilot jobs done.
+- **11:33 CDT 10-11: doc rendering/reference fix** (user screenshots: `\operatorname` rejected, mid-paragraph `$$` broken by
+  emphasis, Prop/Thm/(A9) labels not visible). Verified with GitHub /markdown API: only standalone `$$` or ```math render.
+  Codex⑦ (logs/codex_20261011_123346.log; rai log names are EDT) converting all display math to ```math, macro denylist, node part labels
+  (a)(b)…, linked node references, source concordance, check-ID legend, validator theoretical_framework/tools/check_markdown.py.
+  Then: my review + online render check of all pages, push, report.
 - **11:24 CDT 10-11: progress document written** (5362f31) (user: "把v0.15以来所有的理论框架和实验证明上的进展都整理成一个文档给我"):
   docs/direction/2026-10-11_v015_progress_ZH.md — framework N01–N20 summary, N12/N18–N20 statements, V1–V9 + E0–E12 table,
   Gemma pilot (warmth, B-only warm-up, clipping-dominated response), gaps and next steps. Final versions only.
