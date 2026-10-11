@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **23:28 CDT 10-10: pilot-mw32 45476441 COMPLETED** (21:21–22:05 CDT, 44:25, exit 0; 469 updates). pilot-lw32 45476442
+  RUNNING since 22:56 CDT (GPU 100%, 88 GB; 373/469 at 23:29). probe 45476443 PENDING (Priority), eval 45476444 (Dependency).
+  **Finding (C4(g) on the real model): lr=0 moment warm-up at LoRA B=0 warms only B.** A has zero gradient while B=0, so
+  45.33% of coordinates (the A blocks) keep v=0 through all 32 warm-up steps; the first real update moves B, A becomes
+  live at update 2 and is exactly as cold as in the cold arm (v=0 fraction 0.4533 at u1–u2, 0.0001 from u3 in both arms).
+  So mw32 is "B-warm, A-cold", not fully warm. Training loss u11–50: cold 0.494, mw32 0.476, lw32 0.703 (LR ramp);
+  u51–117: 0.271 / 0.258 / 0.289 (single seed, training loss only). κ q99<1: u18 / u18 / u20.
 - **21:02 CDT 10-10: pilot-cold 45476440 COMPLETED** (19:53–20:36 CDT, 42:50, exit 0; 469 updates, 6 checkpoints, states 1–9).
   Warmth over the full run: κ q50<1 from u3, q90<1 from u8, q99<1 from u18; fraction κ>1 <10% u8, <1% u18, <0.1% u25.
   ~0.01% of coordinates keep v=0 through u469 (never receive gradient). Clip (1.0) active on 439/469 updates (median
