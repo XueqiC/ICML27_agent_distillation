@@ -264,6 +264,160 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual("".join(parser.text).strip(), "$raw$")
 
 
+class PathSelectionTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.root = self.base / "repository"
+        for name in (
+            "theoretical_framework/README.md",
+            "theoretical_framework/README_ZH.md",
+            "theoretical_framework/proofs/N01.md",
+            "theoretical_framework/experiments/N01.md",
+            "theoretical_framework/figures/README.md",
+            "theoretical_framework/figures/specs/N01.md",
+            "theoretical_framework/tools/README.md",
+            "docs/direction/2026-10-11_v015_progress_ZH.md",
+            "docs/direction/v015_extension/page.md",
+        ):
+            self.write(name)
+        self.extra = self.write("docs/direction/v015_revision/中文 page.md")
+        root_patch = patch.object(check, "ROOT", self.root)
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
+        for obj, name in ((check, "urlopen"), (check, "credential"), (check.subprocess, "run")):
+            guard = patch.object(obj, name, side_effect=AssertionError("live I/O attempted"))
+            guard.start()
+            self.addCleanup(guard.stop)
+
+    def write(self, name, text="# Title\n"):
+        path = self.root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def run_main(self, args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = check.main(args)
+        return status, out.getvalue()
+
+    def test_explicit_selection_is_shared_by_all_modes(self):
+        # An unselected default file has bad rendering but remains a valid link target.
+        self.write("theoretical_framework/README.md", "# Title\n\n$bad$\n")
+        self.extra.write_text("[target](../../../theoretical_framework/README.md#title)\n",
+                              encoding="utf-8")
+        second = self.write("notes/second.md")
+        for flags in ([], ["--online"], ["--blob"], ["--online", "--blob"]):
+            with self.subTest(flags=flags), contextlib.chdir(self.base), \
+                    patch.object(check, "offline", wraps=check.offline) as offline, \
+                    patch.object(check, "online") as online, patch.object(check, "blob") as blob:
+                status, output = self.run_main([
+                    *flags, str(self.extra.relative_to(self.root)), str(second)])
+                self.assertEqual((status, output.splitlines()[-1].split(";")[0]),
+                                 (0, "PASS: 2 files"))
+                self.assertEqual(offline.call_args.args[0], [self.extra, second])
+                for flag, run in (("--online", online), ("--blob", blob)):
+                    if flag in flags:
+                        run.assert_called_once()
+                        self.assertEqual(run.call_args.args[0], [self.extra, second])
+                    else:
+                        run.assert_not_called()
+
+    def test_no_paths_keeps_default_scope_in_all_modes(self):
+        files, s1 = check.scope(self.root)
+        self.extra.write_text("$bad$\n", encoding="utf-8")
+        for flags in ([], ["--online"], ["--blob"], ["--online", "--blob"]):
+            with self.subTest(flags=flags), \
+                    patch.object(check, "offline", wraps=check.offline) as offline, \
+                    patch.object(check, "online") as online, patch.object(check, "blob") as blob:
+                status, output = self.run_main(flags)
+                self.assertEqual(status, 0, output)
+                self.assertIn(f"PASS: {len(files)} files; 0 errors", output)
+                self.assertEqual(offline.call_args.args[:2], (files, s1))
+                for flag, run in (("--online", online), ("--blob", blob)):
+                    if flag in flags:
+                        self.assertEqual(run.call_args.args[0], files)
+                    else:
+                        run.assert_not_called()
+
+    def test_selected_s1_files_keep_label_and_check_id_rules(self):
+        _, s1 = check.scope(self.root)
+        for path in sorted(s1):
+            with self.subTest(path=path):
+                path.write_text("Thm. 7, (32), C23.\n", encoding="utf-8")
+                normalized = path.parent / ".." / path.parent.name / path.name
+                status, output = self.run_main([str(normalized)])
+                self.assertEqual(status, 1)
+                self.assertIn("original/nonlocal result label", output)
+                self.assertIn("nonlocal equation/number label", output)
+                if path.parent.name == "theoretical_framework" or "v015_progress" in path.name:
+                    self.assertIn("unlinked check ID", output)
+
+    def test_other_selected_files_get_rendering_and_link_checks_only(self):
+        for path in (self.extra, self.root / "theoretical_framework/figures/specs/N01.md",
+                     self.root / "theoretical_framework/tools/README.md"):
+            with self.subTest(path=path):
+                path.write_text("Thm. 7, (32), C23.\n", encoding="utf-8")
+                self.assertEqual(self.run_main([str(path)])[0], 0)
+                path.write_text("Thm. 7, (32), C23. $bad$ [link](missing.md)\n",
+                                encoding="utf-8")
+                status, output = self.run_main([str(path)])
+                self.assertEqual(status, 1)
+                self.assertIn("inline math must use", output)
+                self.assertIn("missing link target", output)
+                self.assertNotIn("nonlocal", output)
+                self.assertNotIn("unlinked", output)
+
+    def test_duplicate_and_equivalent_paths_are_checked_once(self):
+        status, output = self.run_main([
+            str(self.extra), str(self.extra.relative_to(self.root)),
+            str(self.extra.parent / ".." / self.extra.parent.name / self.extra.name)])
+        self.assertEqual(status, 0, output)
+        self.assertIn("PASS: 1 files; 0 errors", output)
+
+    def test_symlink_to_s1_file_keeps_s1_rules(self):
+        target = self.write("theoretical_framework/README.md", "Thm. 7, C23.\n")
+        alias = self.root / "alias.md"
+        alias.symlink_to(target)
+        status, output = self.run_main([str(alias)])
+        self.assertEqual(status, 1)
+        self.assertIn("original/nonlocal result label", output)
+        self.assertIn("unlinked check ID", output)
+
+    def test_invalid_paths_fail_before_checks_in_all_modes(self):
+        outside = self.base / "outside.md"
+        outside.write_text("# Outside\n", encoding="utf-8")
+        self.write("notes/plain.txt")
+        (self.root / "directory.md").mkdir()
+        (self.root / "escape.md").symlink_to(outside)
+        (self.root / "escape-dir").symlink_to(self.base, target_is_directory=True)
+        (self.root / "dangling.md").symlink_to(self.root / "missing.md")
+        cases = [
+            (str(outside), "outside the repository"),
+            ("../outside.md", "outside the repository"),
+            ("escape.md", "outside the repository"),
+            ("escape-dir/outside.md", "outside the repository"),
+            ("missing.md", "not an existing file"),
+            ("dangling.md", "not an existing file"),
+            ("directory.md", "not an existing file"),
+            ("notes/plain.txt", "not a .md file"),
+        ]
+        for flags in ([], ["--online"], ["--blob"], ["--online", "--blob"]):
+            for path, message in cases:
+                with self.subTest(flags=flags, path=path), \
+                        patch.object(check, "offline") as offline, \
+                        patch.object(check, "online") as online, patch.object(check, "blob") as blob:
+                    err = io.StringIO()
+                    with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as error:
+                        self.run_main([*flags, str(self.extra), path])
+                    self.assertEqual(error.exception.code, 2)
+                    self.assertIn(message, err.getvalue())
+                    for run in (offline, online, blob):
+                        run.assert_not_called()
+
+
 class OnlineHTMLTests(unittest.TestCase):
     def validate(self, rendered, source=""):
         with tempfile.TemporaryDirectory() as directory:

@@ -15,6 +15,29 @@ excluded. Source-label and check-ID rules retain their previous scope; figure
 specs, tool documentation and other newly included pages receive rendering and
 link checks only.
 
+Pass optional positional `PATH...` arguments to check exactly those files instead
+of the default scope. Paths are relative to the repository root (regardless of
+the current directory), or absolute paths inside the repository:
+
+```sh
+CUDA_VISIBLE_DEVICES='' python theoretical_framework/tools/check_markdown.py theoretical_framework/README.md theoretical_framework/tools/README.md
+```
+
+The same selection applies to the offline check, `--online` and `--blob`, including
+when both flags are combined. Selected files in the default S1 set keep its
+source-label and check-ID rules: the framework's `README.md` and `README_ZH.md`,
+Markdown files directly under `proofs/` and `experiments/`, `figures/README.md`, and
+`docs/direction/2026-10-11_v015_progress_ZH.md`. Every other selected file receives
+rendering and link checks only, including files outside the default scope.
+Link targets are still checked even when they are not selected; this does not
+add those targets to the validation or rendering scope.
+
+Paths are resolved through symlinks and repeated resolved paths are checked once.
+Paths outside the repository (including symlink escapes), missing files,
+directories and files without the `.md` extension are command-line errors,
+detected before validation or network operations. With no paths, the default
+scope and rules are unchanged.
+
 Display math uses `math` fences at column 0, with a blank line before and after.
 The `math-fence-in-list` error rejects fenced math inside any bullet or numbered
 list, including nested lists and indented continuations. It also rejects indented

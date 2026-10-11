@@ -51,6 +51,26 @@ def scope(root: Path = ROOT) -> tuple[list[Path], set[Path]]:
     return files, set(s1)
 
 
+def select_files(paths: list[Path], root: Path = ROOT) -> list[Path]:
+    """Resolve explicit repository paths before validation or rendering."""
+    root = root.resolve()
+    files = []
+    for path in paths:
+        try:
+            resolved = (root / path).resolve()
+        except (OSError, RuntimeError, ValueError):
+            raise ValueError(f"cannot resolve Markdown path: {path}") from None
+        if not resolved.is_relative_to(root):
+            raise ValueError(f"path is outside the repository: {path}")
+        if not resolved.is_file():
+            raise ValueError(f"path is not an existing file: {path}")
+        if path.suffix != ".md" or resolved.suffix != ".md":
+            raise ValueError(f"path is not a .md file: {path}")
+        if resolved not in files:
+            files.append(resolved)
+    return files
+
+
 def inline_text(text: str) -> str:
     """Text that contributes to a heading slug, with inline markup removed."""
     text = re.sub(r"!?\[((?:[^\[\]]|\[[^\]]*\])*)\]\([^\n]*?\)", r"\1", text)
@@ -712,8 +732,16 @@ def main(argv=None) -> int:
     parser.add_argument("--online", action="store_true", help="also POST Markdown to GitHub; credentials stay in memory")
     parser.add_argument("--blob", action="store_true", help="authoritative file-view check; temporarily pushes a parentless commit to a hidden ref")
     parser.add_argument("--cache", type=Path, help="HTML cache directory outside the repository (default: temporary directory)")
+    parser.add_argument("paths", metavar="PATH", nargs="*", type=Path,
+                        help="check only these .md files (repository-relative or absolute inside it)")
     args = parser.parse_args(argv)
-    files, s1 = scope()
+    files, s1 = scope(ROOT)
+    if args.paths:
+        try:
+            files = select_files(args.paths, ROOT)
+        except ValueError as error:
+            parser.error(str(error))
+        s1 = {path.resolve() for path in s1}
     report = Report()
     offline(files, s1, report)
     if args.online or args.blob:

@@ -26,10 +26,20 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   graph) → Level 2 (20 nodes plain-language, LR graph) → §3 notation → Level 3 statements (block I also has derivation
   outlines + experiment results + figures; II–VI pending the user's OK on the sample). Plain-language layers already
   tightened per the user's review (W3 plateau, warm-Adam approximation, N20 norm/b, "tested static proxies").
-- **NEXT (user 15:22): theory revision v0.16** from the pasted review: verify/repair W3 (fixed β2 → κ→(1−β2)/β2 plateau),
-  state OTLR's new content vs weak-approximation/LESS/GRACE, a central theorem with independent content (information
-  bounds/separation tying K, queries and learner response), measurable bridge from oracle response to auditable
-  quantities, discriminating real-model experiment design. Do not add nodes for their own sake.
+- **16:5x CDT 10-11: v0.16 revision draft written** (docs/direction/2026-10-11_v016_revision_ZH.md; file-view render PASS,
+  26/26 display blocks). Answers the user's pasted review. Standard math language, no Node organization (user directive).
+  New results: Theorem A = learner-relative information bound (Thm 3.3 Le Cam lower bound for ANY distiller incl.
+  replay/synthesis; Lemma 3.4 Elfving/Sion design minimax; Thm 3.5 c-optimal achievability, scalar tight within [1/4,1];
+  Cor 3.7 aliasing; Cor 3.8 demo↔query exchange rate; Prop 3.10 coverage model + water-filling; Prop 3.11 SGD weight ∝ d²
+  vs warm-Adam ∝ d (frequent) / d² sign-only (isolated); Cor 3.12 learner separation). Theorem B = Adam state-channel
+  decomposition (Thm 4.1 exact adjoint) + Cor 4.2 magnitude law Val ∝ (1−β1^{T+1})λ − ½ρω_Tλ², λ*=(1−β1^{T+1})/(ρω_T),
+  harmful beyond 2λ* (scratch sim within 2–3%) + Prop 4.3 LESS/param-only inconsistency. Theorem C = CRN group-means
+  certificate (Thm 5.3) replacing oracle ∇V. Fixes: W3 (Prop 2.5 exact κ̄(s)=(1−β2)/(β2(1−β2^s)), plateau), warm-Adam
+  statistic (Prop 2.4), partial clipping (Prop 2.6), N20 norm (Remark 2.7). Closest prior found: ISO (Liu & Li 2026,
+  arXiv 2608.19762, short-horizon m/v channels, no magnitude law); Adam In-Run Shapley (fixed-state). Experiments §7:
+  controlled C1–C6 (Codex, CPU), real R0–R3 (~40 B200 GPU-h + teacher labels for R2). Awaiting user review before
+  rewriting theoretical_framework/ and before any GPU/teacher spend.
+
 - **12:3x CDT 10-11: doc rendering/reference fix DONE** (Codex⑦–⑩ + my edits). All display math → ```math, inline math →
   $`…`$ (GitHub renders `$…$` only after a space and fails on `_` next to punctuation), macro denylist, node part labels
   (a)(b)…, ~1,150 linked node references, check-ID legend + links, source concordance table at README end, proof-page
