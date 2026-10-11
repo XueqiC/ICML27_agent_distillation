@@ -26,6 +26,13 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   graph) → Level 2 (20 nodes plain-language, LR graph) → §3 notation → Level 3 statements (block I also has derivation
   outlines + experiment results + figures; II–VI pending the user's OK on the sample). Plain-language layers already
   tightened per the user's review (W3 plateau, warm-Adam approximation, N20 norm/b, "tested static proxies").
+- **17:11 CDT 10-11: v0.16 controlled checks C1–C6b done** (theory/v016_checks, CPU ~2 min, 35 tests): 15/16 PASS.
+  FAIL = C4.amplitude, one boundary setting (mean-field crossing 68.6 vs 77.0±4.0). Negative results recorded in the
+  draft: first-order rankers fail where the v-channel dominates (Remark 4.5); first-order certificate certified 0/1,584
+  (Remark 5.7) → §5 rebuilt on finite CRN paired replacement (Thm 5.3): point estimate 2.8% wrong-sign, 7% of audit
+  cost, but rigorous certificate with a-priori B=2 certifies ~nothing; observed-range diagnostic 45–57% (aligned, 0
+  wrong) / 23–28% (short-tail, 22–28 wrong) → open gaps: provable tighter range B, testable calibration transfer
+  (Remark 5.8). Still awaiting the user's two decisions (accept direction → rewrite framework; approve R0–R3).
 - **15:57 CDT 10-11: v0.16 revision draft written** (docs/direction/2026-10-11_v016_revision_ZH.md; file-view render PASS,
   26/26 display blocks). Answers the user's pasted review. Standard math language, no Node organization (user directive).
   New results: Theorem A = learner-relative information bound (Thm 3.3 Le Cam lower bound for ANY distiller incl.
