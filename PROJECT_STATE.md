@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-- **11:2x CDT 10-11: progress document written** (user: "把v0.15以来所有的理论框架和实验证明上的进展都整理成一个文档给我"):
+- **11:24 CDT 10-11: progress document written** (5362f31) (user: "把v0.15以来所有的理论框架和实验证明上的进展都整理成一个文档给我"):
   docs/direction/2026-10-11_v015_progress_ZH.md — framework N01–N20 summary, N12/N18–N20 statements, V1–V9 + E0–E12 table,
   Gemma pilot (warmth, B-only warm-up, clipping-dominated response), gaps and next steps. Final versions only.
 - **02:40 CDT 10-11: pilot-probe 45476443 COMPLETED** (01:46–02:35 CDT, 49:17, exit 0; 9 states × 4 pairs, 0 teacher calls;
