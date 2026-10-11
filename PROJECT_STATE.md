@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **21:02 CDT 10-10: pilot-cold 45476440 COMPLETED** (19:53–20:36 CDT, 42:50, exit 0; 469 updates, 6 checkpoints, states 1–9).
+  Warmth over the full run: κ q50<1 from u3, q90<1 from u8, q99<1 from u18; fraction κ>1 <10% u8, <1% u18, <0.1% u25.
+  ~0.01% of coordinates keep v=0 through u469 (never receive gradient). Clip (1.0) active on 439/469 updates (median
+  pre-clip norm 4.1). Loss first-10 mean 0.886 → last-50 mean 0.018. Tunnel was down 19:40–21:02 (VPN leg; one notice sent).
+  Still PENDING (Priority): mw32 45476441, lw32 45476442, probe 45476443; eval 45476444 (Dependency).
 - **18:53 CDT 10-10: pilot-cold 45476440 RUNNING** (backfilled; GPU 97%, 88 GB; 77 updates by 19:02). Early --log-warmth:
   update 1 all v=0; update 2 45% of coordinates still v=0 (LoRA A frozen at step 1 — C4(g)); fraction κ>1: 100%, 77%,
   18–41% (u3–6), 2.8% (u10), 0.8% (u30), 0.01% (u77); median κ 0.022 (u10) → 0.0005 (u77). Cold window ≈ first 10 of 469 updates.
