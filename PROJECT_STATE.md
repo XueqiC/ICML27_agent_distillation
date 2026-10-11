@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **12:3x CDT 10-11: doc rendering/reference fix DONE** (Codex⑦–⑩ + my edits). All display math → ```math, inline math →
+  $`…`$ (GitHub renders `$…$` only after a space and fails on `_` next to punctuation), macro denylist, node part labels
+  (a)(b)…, ~1,150 linked node references, check-ID legend + links, source concordance table at README end, proof-page
+  self-links removed, "proof of (x)" headers. Validator theoretical_framework/tools/check_markdown.py: offline + --online
+  (GitHub /markdown API) both PASS on 86 files. Progress report rewritten with readable references + pilot eval (§4.6).
+  Package docs (v015_revision, hash-pinned) untouched, so their own rendering stays as shipped.
 - **11:40 CDT 10-11: pilot-eval 45476444 COMPLETED** (09:10–10:00 CDT, 50:06, exit 0; backfilled; BI dev140, one server, all 6
   adapter checks passed, 0 errors/parser/overflow). Success: p10 cold 66 · mw32 77 · lw32 74; p40 cold 112 · mw32 99 · lw32 104
   (/140). Paired: p10 mw32 vs cold 19/8 (McNemar p=.052), lw32 vs cold 19/11 (p=.20); p40 mw32 vs cold 6/19 (p=.015),

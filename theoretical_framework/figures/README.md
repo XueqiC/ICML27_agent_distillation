@@ -20,19 +20,19 @@ Data-source abbreviations:
 | Basename | Node | Data sources / key paths | What it shows |
 | --- | --- | --- | --- |
 | `N01_decomposition` | N01 | exact Fraction instance in N01; P:robust_ambiguity_minimax | Regret decomposition, garbling, and minimax duality. |
-| `N02_queries` | N02 | I:claims[id=C2].details.configurations; specified passive formula | Query counts, bound ratios, and passive impossibility. |
+| `N02_queries` | N02 | I:claims[id=[N18(b)](../proofs/N18_optimizer_transformed_response.md)].details.configurations; specified passive formula | Query counts, bound ratios, and passive impossibility. |
 | `N03_floor` | N03 | V:groups[id=E5].data.{curves,actual_learners}; T:checks.T11_adaptive_query_KL_enumeration.rows | Hidden-bit information floors, learners, and additive KL budgets. |
 | `N04_static_vs_learning` | N04 | specified analytic formulas; I:controlled_neural.details.configurations | Static equivalence versus different trained students. |
-| `N05_response` | N05 | exact Fraction instances in N05; I:claims[id=C4].details.cancellation_absolute_drift | Telescoping, response equivalence, and cancellation. |
-| `N06_duality` | N06 | exact Fraction instance in N06; I:claims[id=C19].details.families; I:claims[id=C5] | Worst matched-pair discrepancy equals twice approximation error. |
+| `N05_response` | N05 | exact Fraction instances in N05; I:claims[id=[N19](../proofs/N19_learner_statistics.md)].details.cancellation_absolute_drift | Telescoping, response equivalence, and cancellation. |
+| `N06_duality` | N06 | exact Fraction instance in N06; I:claims[id=C19].details.families; I:claims[id=[N20(a)](../proofs/N20_first_order_audit.md)] | Worst matched-pair discrepancy equals twice approximation error. |
 | `N07_moment_order` | N07 | I:claims[id=C8].details.scalar; I:claims[id=C9].details.{grid_ranks,binary_barriers}; P:constant_gap_parity | Necessary moment orders, exact ranks, and the binary barrier. |
 | `N08_rates` | N08 | I:claims[id=C18].details.curves; I:claims[id=C11].details.cumulant_cases; I:claims[id=C10] | Independent-evidence rates, cumulant coefficients, and a bound uniform in rounds. |
 | `N09_approximation` | N09 | specified exact Chebyshev coefficients; P:scalar_approximation; I:claims[id=C12]; I:claims[id=C19].details.families | Approximation complexity versus exact polynomial degree. |
 | `N10_regime` | N10 | I:controlled_neural.details.configurations; I:claims[id=C13]; V:groups[id=V7].data.linear_failure | Local SGD regime, remainder bounds, and geometric error accumulation. |
 | `N11_cold_adam` | N11 | V:groups[id=E2].data.comparisons; V:groups[id=E1].data.ablations; V:groups[id=V4].data | Cold Adam, ablations, and magnitude-bearing optimizer memory. |
-| `N12_warmth` | N12 | V:groups[id=E8].data.{gaps,W3.per_step,W3.fits,W1.panels} | Warm-up gaps, inverse-count warmth, and W1 residuals. |
+| `N12_warmth` | N12 | V:groups[id=E8].data.{gaps,[N12(W3)](../proofs/N12_optimizer_warmth.md).per_step,[N12(W3)](../proofs/N12_optimizer_warmth.md).fits,[N12(W1)](../proofs/N12_optimizer_warmth.md).panels} | Warm-up gaps, inverse-count warmth, and [N12(W1)](../proofs/N12_optimizer_warmth.md) residuals. |
 | `N13_stability` | N13 | I:claims[id=C22].details.configurations; P:noisy_feature_duality.explicit_example; I:claims[id=C14] | Tolerant duality and the cost of small feature scale. |
-| `N14_transport` | N14 | theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed C23 dependency); V:groups[id=V1].data; V:groups[id=E4].data | Reproduced transport certificates, reached-state diagnostics, and uncovered states. |
+| `N14_transport` | N14 | theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed [C23](../experiments/N11_adam_cold_start.md) (the v0.14 controlled-network experiment in which Adam departed from the affine comparator) dependency); V:groups[id=V1].data; V:groups[id=E4].data | Reproduced transport certificates, reached-state diagnostics, and uncovered states. |
 | `N15_adaptive_audit` | N15 | I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition} | Adaptive audit gains, replica cost, and variance sources. |
 | `N16_coupling` | N16 | I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17] | Sequential regrouping effects and additive coupling width. |
 | `N17_selection` | N17 | V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results} | Held-out proxy selection, threshold failures, and warm-up transfer. |
@@ -50,9 +50,9 @@ Data-source abbreviations:
 - N11 wording: the plotted SGD gaps are small, not identically zero (max |actual SGD| = 0.003390528294); shifted-support residuals are R=1: -2.435468494e-12, R=4: -1.148025361e-05. Signed values are retained; caption says “small”/“nearly”.
 - N18 A: the requested slope-2 guide is anchored to signSGD R=1, whose stored fitted slope is 2.999398618 (approximately cubic). The requested reference guide and actual fitted slope are both retained.
 - N18 C: 5 exact cells have nonnumeric ratios and are omitted, never zero-filled. E10 explicitly says smoothness S1 is not certified and curvature estimates are empirical. The caption reports observed ratios, not a verified uniform smoothness certificate.
-- N19 C: measured gap 8.753159888e-06 exceeds W1 bound 7.126654275e-06; the source caveat says this bound covers only the linear v contribution (2.50425886e-06), not the full nonlinear gap.
+- N19 C: measured gap 8.753159888e-06 exceeds [N12(W1)](../proofs/N12_optimizer_warmth.md) bound 7.126654275e-06; the source caveat says this bound covers only the linear v contribution (2.50425886e-06), not the full nonlinear gap.
 - N20 C: requested bin-row-weighted outside oracle rate = 0.3451124567; combining with the inside rate gives 0.296308675 versus stored eligible rate 0.2869318182 (absolute difference 0.009376856803; tolerance 0.02: PASS). Bin n counts include zero-gold rows excluded from wrong-sign denominators, so row weighting is approximate. Stored proxy rates retain their original denominators.
-- N20 caption: zero oracle error from ratio 0.25 is an empirical bin observation; the C6 separator remains at ratio 1. The outside-margin short-tail-4 error is nonzero; the caption does not claim perfect reliability.
+- N20 caption: zero oracle error from ratio 0.25 is an empirical bin observation; the [N20(b)](../proofs/N20_first_order_audit.md) separator remains at ratio 1. The outside-margin short-tail-4 error is nonzero; the caption does not claim perfect reliability.
 
 ## Rendering choices and scope
 
@@ -64,7 +64,7 @@ Data-source abbreviations:
 - N17 preserves static/measured/control colors across panels; hatching distinguishes held-out splits. The two C dot plots share their row axis. Only the specified cheap_proxy_results cohort supplies the all-three-metrics count.
 - All prescribed panels and data series are included over their committed support (N03’s missing K values are documented above). No data are downsampled. Coincident curves use distinct markers or line styles. N03 direction 1 and N07 optional package rank markers are omitted, as allowed by their specs.
 - Panel titles preserve spec wording, with line breaks for fit. N01–N05 use their panel descriptions where no literal title is specified.
-- Exact analytic instances use fractions until plotting; N14 reproduces the seeded evaluator and refuses to draw on any mismatch. The W1 source describes an empirical consistency check, not a uniform certificate.
+- Exact analytic instances use fractions until plotting; N14 reproduces the seeded evaluator and refuses to draw on any mismatch. The [N12(W1)](../proofs/N12_optimizer_warmth.md) source describes an empirical consistency check, not a uniform certificate.
 
 ## Determinism
 
@@ -141,3 +141,22 @@ Fixed `svg.hashsalt`, fixed jitter seed, explicit plotting order, fixed metadata
 | `N19_learner_statistics.png` | 694,419 |
 | `N20_first_order_audit.pdf` | 26,599 |
 | `N20_first_order_audit.png` | 348,465 |
+
+## Markdown validation
+
+From the repository root, run the offline, standard-library-only validator with Python 3.11:
+
+```bash
+CUDA_VISIBLE_DEVICES='' python3 theoretical_framework/tools/check_markdown.py
+```
+
+It checks the framework READMEs, proof and experiment pages, this README, the progress report, and the two extension sources. Figure specs and pinned source packages are outside the edit scope; linked source headings are read for anchor validation.
+
+To check GitHub's rendered HTML, run:
+
+```bash
+python3 theoretical_framework/tools/check_markdown.py --online
+python3 theoretical_framework/tools/check_markdown.py --online --cache /tmp/theory-markdown-html
+```
+
+Online mode reads the GitHub token at runtime through `git credential fill`, never prints or stores it, and caches only rendered HTML outside the repository. The default cache is a temporary directory. Offline mode performs no network or credential access.

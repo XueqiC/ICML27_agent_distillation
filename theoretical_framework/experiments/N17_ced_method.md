@@ -4,12 +4,11 @@
 
 **Verdict.** The controlled-learner experiments establish the facts behind CED's design rules 2–4.
 
-- **Static statistics fail (E6).** Static update statistics do not predict the sign of the full-tail response on held-out learner states. The input-moment error, mean gradient, sign pattern, $\Delta\theta$ and $\Delta\theta$ with $(m,v)$ give wrong signs at 36–55% of providers; random scores give 55%. Their Spearman correlation with the gold contrast is at most 0.10. Selection must therefore use measured responses (rule 2).
-- **Measured short tails work, with one limit (E6).** The 4-update tail has 1.6–3.1% wrong signs and zero selection regret on every state, $\epsilon$, learning-rate and warmth shift. On the held-out threshold task, both short tails select worse than random: regret 0.044 (1 update) and 0.032 (4 updates), against 0.019. The full tail is the only measurement with zero regret and zero wrong signs on every split. Tail length is therefore part of the estimand.
-- **Warm-up changes which statistic matters, not whether static statistics suffice (E9).** An lr = 0 moment warm-up compresses the differences between providers: random-selection regret falls in 4 of 5 held-out splits, on average by 0.0079 at W = 5 and 0.0100 at W = 20. It does not make static statistics predictive. None of the 8 static-proxy/W combinations improves regret, wrong-sign rate and Spearman together, and their wrong-sign rate rises by 1–8 points. This matches rule 3.
+- **(b)** **Static statistics fail (E6).** Static update statistics do not predict the sign of the full-tail response on held-out learner states. The input-moment error, mean gradient, sign pattern, $`\Delta\theta`$ and $`\Delta\theta`$ with $`(m,v)`$ give wrong signs at 36–55% of providers; random scores give 55%. Their Spearman correlation with the gold contrast is at most 0.10. Selection must therefore use measured responses (rule 2).
+- **(b)** **Measured short tails work, with one limit (E6).** The 4-update tail has 1.6–3.1% wrong signs and zero selection regret on every state, $`\epsilon`$, learning-rate and warmth shift. On the held-out threshold task, both short tails select worse than random: regret 0.044 (1 update) and 0.032 (4 updates), against 0.019. The full tail is the only measurement with zero regret and zero wrong signs on every split. Tail length is therefore part of the estimand.
+- **(c)** **Warm-up changes which statistic matters, not whether static statistics suffice (E9).** An lr = 0 moment warm-up compresses the differences between providers: random-selection regret falls in 4 of 5 held-out splits, on average by 0.0079 at W = 5 and 0.0100 at W = 20. It does not make static statistics predictive. None of the 8 static-proxy/W combinations improves regret, wrong-sign rate and Spearman together, and their wrong-sign rate rises by 1–8 points. This matches rule 3.
 
 All results are exact finite-history computations in a controlled small network, with frozen pilot fits and pre-registered splits. They are not real-model or benchmark results.
-
 ![Which measurements select feedback correctly](../figures/N17_selection.png)
 
 [PDF](../figures/N17_selection.pdf)
@@ -20,20 +19,20 @@ All results are exact finite-history computations in a controlled small network,
 
 **Setup** (`theory/v015_checks/proxy_split_freeze.json`, SHA-256 `ac8f4aee…`, written before any held-out measurement):
 
-- **Learner.** The C23 network (one-hot context, 4 tanh units, sigmoid, mean cross-entropy, float64).
+- **Learner.** The [C23](N11_adam_cold_start.md) (the v0.14 controlled-network experiment in which Adam departed from the affine comparator) network (one-hot context, 4 tanh units, sigmoid, mean cross-entropy, float64).
   - States: `fresh`, `warm2`, `warm5`, `warm9` (complete states including Adam moments).
-  - Recipes: 8, namely Adam with $\eta\in\lbrace 0.01,0.1\rbrace $ and SGD with $\eta\in\lbrace 0.1,1\rbrace $, each with $\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace $.
+  - Recipes: 8, namely Adam with $`\eta\in\lbrace 0.01,0.1\rbrace`$ and SGD with $`\eta\in\lbrace 0.1,1\rbrace`$, each with $`\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace`$.
 - **Providers.** 9 label laws on 10 two-label packets: `reference_even`, moment-matched `moment3_P`/`moment3_Q`, sign-matched `low_sign_A`/`B` and `high_sign_A`/`B`, `odd_parity` and `middle_mixture`.
 - **Gold.** One candidate boundary followed by 7 IID reference updates (8 updates in total), enumerated exactly over all finite histories. Its value is the contrast with the reference provider.
 - **Proxies**, fitted by ridge regression on the pilot only and frozen in `proxy_models_frozen.json`:
-  - static: input-moment error, mean gradient, sign-only, first-step $\Delta\theta$, and $\Delta\theta$ with $(m,v)$;
+  - static: input-moment error, mean gradient, sign-only, first-step $`\Delta\theta`$, and $`\Delta\theta`$ with $`(m,v)`$;
   - measured short-tail responses after 1 and after 4 updates;
   - controls: random score, task identity, training step.
 - **Pilot.** States `fresh` and `warm2`, tasks `moment` and `parity`, recipes 0 and 4; 72 rows.
 - **Held-out splits.**
   - states `warm5`/`warm9`;
   - task `threshold`;
-  - $\epsilon$ only (recipes 1, 5);
+  - $`\epsilon`$ only (recipes 1, 5);
   - learning rate only (2, 6);
   - both (3, 7);
   - fresh-only fit evaluated on warm states, and the reverse.
@@ -90,9 +89,9 @@ All results are exact finite-history computations in a controlled small network,
    - Spearman is at most 0.10.
 
    This is the controlled-learner form of N04 and N11–N12: the same update statistic maps to different learning consequences at different complete states.
-2. *Measured responses are.* The 4-update short tail keeps wrong signs at or below 3.1% and regret at 0 on every state, $\epsilon$, learning-rate and warmth shift. The 1-update tail degrades under learning-rate shifts (wrong sign 0.39) but still selects nearly optimally (regret 0.0007).
+2. *Measured responses are.* The 4-update short tail keeps wrong signs at or below 3.1% and regret at 0 on every state, $`\epsilon`$, learning-rate and warmth shift. The 1-update tail degrades under learning-rate shifts (wrong sign 0.39) but still selects nearly optimally (regret 0.0007).
 3. *Tail length is part of the estimand.* On the held-out `threshold` task, the short tails select worse than random: regret 0.044 and 0.032, against 0.019. Their ordering differs from that of the 8-update full tail, which is the only measurement with zero regret and zero wrong signs on every split. Static proxies happen to reach zero regret on this split, but with 8–25% wrong signs and chance-level behaviour on held-out states, so they do not transfer across splits.
-4. *Scale.* The regrets are of order $10^{-3}$–$10^{-2}$ in return units, and the panel has 8 cells per split. Cell bootstraps (`regret_bootstrap95`) describe variation across this finite panel. They are not population confidence intervals.
+4. *Scale.* The regrets are of order $`10^{-3}`$–$`10^{-2}`$ in return units, and the panel has 8 cells per split. Cell bootstraps (`regret_bootstrap95`) describe variation across this finite panel. They are not population confidence intervals.
 
 ## E9 · Proxy transfer under lr = 0 moment warm-up
 
@@ -100,12 +99,12 @@ All results are exact finite-history computations in a controlled small network,
 
 **Setup** (`theory/v015_checks/proxy_split_freeze_E9.json`, SHA-256 `f895853d…`; models `proxy_models_frozen_E9.json`, SHA-256 `c96065f0…`; both written before any new held-out panel):
 
-- **Arms.** `fresh`, `fresh_W5` and `fresh_W20`. The warm arms run $W\in\lbrace 5,20\rbrace $ Adam steps at learning rate exactly 0 ($\beta=(0.9,0.999)$) on one declared IID prefix from `reference_even`. The parameters are unchanged; only $m$, $v$ and $t$ advance.
+- **Arms.** `fresh`, `fresh_W5` and `fresh_W20`. The warm arms run $`W\in\lbrace 5,20\rbrace`$ Adam steps at learning rate exactly 0 ($`\beta=(0.9,0.999)`$) on one declared IID prefix from `reference_even`. The parameters are unchanged; only $`m`$, $`v`$ and $`t`$ advance.
 - **Fits.** The E6 provider menu, features, gold, ridge fits and metrics are unchanged. Only the original frozen E6 pilot is used for fitting, and the coefficients are verified identical. The state-only comparison uses the original warm2-only fit.
-- **Splits.** Five paired cold/warm splits: held-out states, task (`threshold`), $\epsilon$, learning rate, and both; 918 held-out rows in total. Random controls are paired across arms.
+- **Splits.** Five paired cold/warm splits: held-out states, task (`threshold`), $`\epsilon`$, learning rate, and both; 918 held-out rows in total. Random controls are paired across arms.
 - **Seed.** `SeedSequence([150150, 109])`.
 
-**Procedure.** For each split, proxy and $W$, compute the warm-minus-cold difference of each metric. Average with equal weight per split. An improvement means lower regret, lower wrong-sign rate and higher Spearman.
+**Procedure.** For each split, proxy and $`W`$, compute the warm-minus-cold difference of each metric. Average with equal weight per split. An improvement means lower regret, lower wrong-sign rate and higher Spearman.
 
 **Result** (`groups[id=E9].data.summary` and `cheap_proxy_results`; the mean warm − cold difference over 5 splits is shown, with the number of splits improved in parentheses):
 
@@ -134,14 +133,14 @@ Random-selection regret by split, cold → W=5 / W=20 (`comparisons[proxy=random
 |---|---:|---:|---:|
 | held-out states | 0.0067 | 0.0042 | 0.0034 |
 | held-out task (`threshold`) | 0.0430 | 0.0098 | 0.0039 |
-| held-out $\epsilon$ | 0.0076 | 0.0042 | 0.0035 |
+| held-out $`\epsilon`$ | 0.0076 | 0.0042 | 0.0035 |
 | held-out lr | 0.0089 | 0.0086 | 0.0054 |
-| held-out $\epsilon$ + lr | 0.0048 | 0.0049 | 0.0049 |
+| held-out $`\epsilon`$ + lr | 0.0048 | 0.0049 | 0.0049 |
 
 **What this shows.**
 
-1. *Warm-up compresses differences between providers.* The regret of a uniformly random choice measures the spread of gold contrasts across the menu, and it falls in 4 of 5 splits. The largest fall is on the threshold task, from 0.043 to 0.004. After warm-up there is less to choose between. This is consistent with W1–W3: at a warm state the response depends on the mean preconditioned gradient, so providers that differ mainly in their sign structure move closer together.
-2. *Warm-up does not make static statistics predictive.* For the four static proxies, regret does not improve in any split, the wrong-sign rate rises by 1–8 points, and Spearman falls by 0.15–0.21 at $W=20$. The count is 0/8 for proxy/W pairs improving all three metrics. The sign-only feature gains a little regret but loses 6–13 points of sign accuracy.
+1. *Warm-up compresses differences between providers.* The regret of a uniformly random choice measures the spread of gold contrasts across the menu, and it falls in 4 of 5 splits. The largest fall is on the threshold task, from 0.043 to 0.004. After warm-up there is less to choose between. This is consistent with [N12(W1)](../proofs/N12_optimizer_warmth.md)–[N12(W3)](../proofs/N12_optimizer_warmth.md): at a warm state the response depends on the mean preconditioned gradient, so providers that differ mainly in their sign structure move closer together.
+2. *Warm-up does not make static statistics predictive.* For the four static proxies, regret does not improve in any split, the wrong-sign rate rises by 1–8 points, and Spearman falls by 0.15–0.21 at $`W=20`$. The count is 0/8 for proxy/W pairs improving all three metrics. The sign-only feature gains a little regret but loses 6–13 points of sign accuracy.
 3. *Consequence for the method.* Under rule 3, warmth determines *which* statistic carries the information. The static proxies used here are not that statistic at either state. Responses must still be measured, at states whose warmth is recorded.
 
 ## Reproduce
