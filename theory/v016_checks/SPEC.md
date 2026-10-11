@@ -1,17 +1,22 @@
 # v0.16 independent numerical verification — specification
 
-Target: `docs/direction/2026-10-11_v016_revision_ZH.md`, §§2–4 and §7.1 C1–C4.
-The explicit request also includes Proposition 4.3(b), otherwise listed under C5.
-House style: `theory/v015_checks/SPEC.md`. No existing implementation or result
-is imported. All computations below are independently derived from the draft.
+Target: `docs/direction/2026-10-11_v016_revision_ZH.md`, §§2–5 and §7.1 C1–C6.
+C1–C4 retain their independent implementations and numerical logic unchanged.
+C5/C6 import the explicitly requested frozen controlled-network helpers from
+`theory/v015_checks` read-only; the new implementation lives in `c5c6.py`.
+The v0.15 implementation, manifest, E6/E12 records and validation receipt are
+hashed before and after. No v0.15 check function or output writer is invoked.
 
 ## Ground rules and deliverables
 
-- Deliverables: `SPEC.md`, `check_v016.py`, `test_check_v016.py`,
+- Deliverables: `SPEC.md`, `check_v016.py`, `test_check_v016.py`, `c5c6.py`, `test_c5c6.py`,
   `results_v016.json`, and `results_v016_raw.json.gz`. No other file changes,
   commits, model checkpoints,
   network, teacher calls, torch, or new dependencies. NumPy 2.3.5 and SciPy
   1.17.0 in `theory/.venv` perform all computation; tests use installed pytest.
+  Frozen imports also load the already installed SymPy/Matplotlib dependencies.
+  Matplotlib is initialized with a temporary config directory before importing
+  v0.15; a Python audit hook rejects all writes under the pinned v0.15 tree.
 - Float64, CPU, single BLAS thread. All invocations set
   `CUDA_VISIBLE_DEVICES=''`; the script also enforces it before numerical imports.
   Use `PYTHONDONTWRITEBYTECODE=1` and disable pytest's cache provider to avoid
@@ -33,10 +38,10 @@ Commands from the repository root:
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py
-CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks/test_check_v016.py
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The optional `--only C1,C2,C3,C4` or `--only C4.costate,C4.amplitude` selects groups.
+The optional `--only C1,C2,C3,C4,C5,C6` or `--only C4.costate,C4.amplitude` selects groups.
 `--output` selects a result path and its sibling `<stem>_raw.json.gz`.
 The default full output is `results_v016.json`;
 the default quick output is `/tmp/v016_quick_results.json`, so a test cannot
@@ -82,9 +87,10 @@ finite-difference attempts. No assertion, tolerance, RNG stream, numerical
 precision, CI, or slope is changed by serialization. The other checks'
 computations and assertions are unchanged.
 
-Main-file costate rows keep derivative projections, errors, selected step
-sizes, and counts of attempted/rejected branches; their full ladders remain
-in raw rows. Main-file C1 rows keep grid ranges/counts and numerical error or
+Main-file costate rows keep the maximum direction error, direction blocks,
+and counts of attempted/rejected branches. Per-direction projections, errors,
+step sizes and full ladders are in raw rows to leave room for C5/C6 under 1 MB.
+This is a serialization change only. Main-file C1 rows keep grid ranges/counts and numerical error or
 bound summaries. Each main row's `raw_ref` (for example,
 `/checks/C4.amplitude/0`) resolves from the companion's root.
 
@@ -475,3 +481,202 @@ records and root SE; `large_lambda_limit` (including exact/approximate rho
 thresholds and stochastic limit CI); and warmed-state summaries. Ranking
 rows retain both lambdas, lambda-star, derivative signs, scores and paired
 CIs. All C4 error maps can be reconstructed from the main file alone.
+
+## C5/C6 — frozen controlled-network provider panel
+
+Targets: Proposition 4.3, Theorem 5.3, Remark 5.5 and §7.1 C5/C6. This extension
+imports `provider_menu`, `snapshot`, `state_vector`, `increment_panel`,
+`continuation`, `terminal`, `curvature_search`, `full_gradient`, and `richardson`
+from the frozen v0.15 modules. `full_gradient` and `richardson` are used **only
+by C5**, after the C6 measurement/calibration results have been fixed. The
+old `check_E12` is read to reproduce its protocol; it is never executed,
+because it writes artifacts in the pinned tree. Attribution of the neural
+primitives remains `v015/common.py` → `independent_checks/check_v014_independent.py`.
+No existing network implementation is copied or changed.
+
+**Panel and denominators.** The manifest, nine provider laws and all E6 splits
+are unchanged. There are 432 provider-versus-reference rows, including 48
+reference self-comparisons, on 48 split/cell combinations and 40 unique cells.
+The 36 threshold rows are nonsmooth; E12's denominator is the remaining **396**
+rows, with **56** oracle-margin rows. Report that exact denominator, including
+self-comparisons, so comparison with E12 is direct. Separately evaluate all
+36 unordered distinct provider pairs at every split/cell: **1728** pairs,
+**1584** on smooth objectives. Repeated cells across transfer splits remain
+in reported rates, but each unique cell is executed only once. All rates are
+finite-panel descriptive rates, not estimates from independent task samples.
+
+A gold pair j,k is the difference of their exact eight-update outcomes: one
+candidate boundary followed by all 128 seven-update reference histories.
+Recompute and compare every provider/reference gold with the frozen records
+at absolute tolerance 1e-14. Pair order is j minus k. Nonzero gold means
+`abs(gold)>1e-10`; wrong sign means `score*gold<0`. Exactly zero predictions are
+reported as ties, not counted as wrong (E12's convention). Unavailable scores
+are separately counted. Threshold finite-difference scores are formal
+nonsmooth diagnostics; those cells can never receive a C6 certificate.
+
+**Calibration states.** Every original frozen snapshot occurs in an E12
+holdout somewhere, including the fresh pilot snapshots in `warm_to_fresh`.
+Consequently, reusing the original pilot would not give state-disjoint
+calibration. Execute two separate, fixed calibration snapshots with the
+unchanged `snapshot(2,3)` and `snapshot(2,7)` helper. It performs 3 or 7 Adam
+updates at eta=.03 on deterministic label .25 in both contexts. This adds
+10 executed calibration-prefix updates; their labels and complete states
+are recorded in the raw artifact. Cross these states with only the original
+pilot recipes 0/4 and smooth tasks moment/parity, giving eight calibration
+cells and 288 unordered pairs per h. Verify that no calibration complete
+state equals any held-out complete state. These local calibration additions
+never modify the frozen manifest or evaluation rows. All three h values,
+calibration snapshots, bins and the large-gold threshold are fixed in code;
+no coverage result changes them.
+
+### C5: ranker comparisons and oracle-only diagnostics
+
+For each provider, enumerate the exact mean optimizer increment from the
+actual update map. Compute the following scores, then subtract provider
+scores for each pair:
+
+1. `less_cosine`: cosine between the provider mean parameter step and the
+   current task-objective parameter gradient. For Adam the direction is
+   actual delta-theta (including bias correction and epsilon), not a frozen
+   denominator approximation. The request literally specifies the loss
+   gradient for SGD, so the primary SGD direction is **positive** mean loss
+   gradient. Since the task utility is higher-is-better, this has the opposite
+   orientation to the SGD update. `less_utility_orientation` additionally
+   reports its negative for SGD, leaving Adam unchanged; both are shown to
+   avoid interpreting this convention as an optimizer mechanism. Zero-norm
+   cosine is defined as zero and tie counts remain visible. The task gradient
+   is a coordinate finite difference of the terminal objective at the state,
+   without continuation. This is a LESS-style proxy, not the official LESS
+   algorithm or a reproduction of its implementation.
+2. `parameter_only`: oracle continuation gradient restricted to theta,
+   contracted with mean delta-theta.
+3. `full_state`: the sum of the theta, m and v contractions. Use E12's exact
+   reference continuation, relative coordinate perturbations, Richardson
+   gradient and an independent directional Richardson check (tolerance 2e-6).
+4. `measured_aligned`: the chosen-h C6 group score, with no gradient oracle.
+   Also report `measured_short` using the separately calibrated short surrogate.
+   These are ranking scores on every row, regardless of certificate abstention.
+
+For each pair define v-share as the absolute v **contrast** contraction divided
+by the sum of the absolute theta/m/v contrast contractions. The fixed bins are
+[0,.25), [.25,.5), [.5,.75), [.75,1]. If the denominator is at most 1e-20 or
+the objective is threshold, report v-share unavailable. Report tables overall,
+for each of the eight optimizer/eta/epsilon configurations, for each original
+split and in each bin. Compare wrong-sign rates at v-share <.5 and >=.5 for
+cosine and parameter-only, without asserting enrichment or superiority.
+
+Reproduce E12's reference-row eligibility, scores and margin membership.
+For full mode, assert exactly 56/396 and assert no wrong sign on both frozen
+and recomputed margin rows. Quick mode uses the shorter curvature search,
+so only frozen membership and zero errors are required; no fixed quick
+recomputed coverage is imposed. Never change C1–C4 assertions or tolerances.
+
+### C6: measurement path, radius construction and selection
+
+**Groups and randomness.** Requested n=64, G=8. Each frozen provider has only
+one or two support atoms, so use the explicitly allowed exact-enumeration
+branch. Each group's mean is the probability-weighted mean over the entire
+law, repeated across eight groups. In particular, .25/.75 laws are not
+incorrectly treated as .5/.5. G groups do not pretend to be eight independent
+increment samples; increment uncertainty is eliminated by finite integration.
+Each group draws one fresh seven-update reference tail. The same omega is
+used for every candidate, for all h values, for both surrogate variants
+(the short one uses its first update), and for curvature differences. Streams
+are `SeedSequence([160160,6,warmup_step,recipe_id])`; task cells sharing state
+and recipe share tails. Independent group draws remain independent, even
+if some of the finite-law histories coincide by chance.
+
+**Surrogates and calibration.** Aligned means the task objective after the
+full seven-update reference continuation, alpha=1, epsilon-sur=0. Short means
+the same objective after one reference update. At each h, fit one pooled
+positive zero-intercept least-squares alpha from the 288 calibration short
+scores to full-tail gold pair contrasts. Set epsilon-sur to the maximum
+absolute calibration residual divided by alpha, and freeze both before any
+held-out measurements. Nonpositive/nonfinite alpha invalidates the short
+certificate and fails the calibration assertion. Per the explicit request,
+the target is actual gold, not an unbiased first-order oracle response:
+calibration residuals also include Taylor error and finite-group noise.
+Transfer of this observed envelope to held-out states/recipes is an assumption,
+not an established consequence of Theorem 5.3.
+
+For h in {.001,.003,.01}, evaluate the theorem's
+`Z_g = [F(T_omega(x+h*mu_j))-F(T_omega(x+h*mu_k))]/h` and its mean S-hat.
+Store all group scores, all radius components and all h options in the raw
+companion. The main file reports all-h coverage, selected-h coverage and the
+histogram of selected h. Selection is per pair and surrogate: minimize the
+**task-unit radius** `alpha*(e_stat+e_fd+epsilon_sur)+e_2`, breaking ties by
+smaller h, never consulting gold or whether a choice certifies.
+
+- `e_stat`: exactly Theorem 5.3 with unbiased sample variance (ddof=1), G=8,
+  M=8 nonreference candidates and delta=.05; `log(4*M*M/delta)` is 8.540909718.
+  B is the observed `max(Z)-min(Z)` for that pair and h across the eight
+  groups. **This observed range is not a proven bound on population support.**
+  Delta is nominal for a single state/h, not a guarantee simultaneous over
+  held-out states or the adaptive three-h selection. No stronger confidence
+  statement is claimed.
+- `e_fd`: measured ray curvature of the actual CRN continuation. Use five
+  values on each mean-increment ray, at fractions 0,1/4,1/2,3/4,1 of h.
+  Calculate three central second differences (spacing h/4) and the center's
+  Richardson extrapolation from spacings h/2 and h/4. The largest absolute
+  normalized value across rays/groups supplies M-tilde; also retain the
+  coarse/fine discrepancy. Reuse the endpoint values for the scores. These
+  positive-ray probes avoid negative-v perturbations at cold Adam states.
+  Then `e_fd=.5*h*Mtilde*max_g(norm(mu_j)^2+norm(mu_k)^2)`.
+- `e_2`: E12's same measured `curvature_search` on all ten actual support
+  increment rays and the exact 128-history full reference continuation. It
+  samples five segment locations, followed by four hill-climb iterations
+  (one in quick mode), without using a gradient oracle. Keep all measurement
+  error/invalid-probe metadata. Use `.5*M2*(m2_j+m2_k)`, with exact law-weighted
+  second moments. Nonfinite or invalid curvature makes the cell ineligible.
+- Both curvature terms consistently use E12's scaled norm
+  `norm((delta_theta, eta*delta_m, eta*delta_v))`. Scores themselves retain the
+  invariant full-state contraction. The FD and remainder curvature estimates
+  are empirical, unpadded estimates on their respective rays; neither is a
+  proof of a supremum. They are fixed before measuring the held-out gold.
+
+Certification requires a smooth eligible cell and strict
+`abs(S-hat)>e_stat+e_fd+epsilon_sur+e_2/alpha`. Assert zero certified wrong
+signs for the aligned surrogate **at every h**, which includes the selected
+one. Report short-surrogate mistakes without making zero errors an assertion.
+When no aligned pair certifies, state that the zero-error check is vacuous;
+PASS means the implementation/regression checks passed, not useful coverage.
+
+Missed opportunities use the fixed threshold `abs(gold)>=.01` (one percentage
+point of the bounded task utility). Report how many eligible large-gold pairs
+are uncertified, both among all unordered pairs and on the E12 reference rows.
+Threshold rows are ineligible, not silently discarded or certified.
+
+**Cost accounting.** Count individual tail trajectory executions, not Python
+calls or vectorized batches; also count executed tail updates, so a short
+one-update trajectory is distinguishable from a seven-update full tail.
+One h needs 9*8=72 score endpoints per unique cell/surrogate. All three h use
+216 endpoints; the five-point FD stencil uses 1080 trajectories including
+these endpoints. Reference-tail curvature uses 13*5*10*128=83,200 trajectories
+per smooth cell in full mode (7*5*10*128=44,800 quick). Threshold cells skip
+curvature. Recomputing gold uses 10*128=1280 full tails per cell. Calibration
+uses only short scores/FD and gold, no oracle or unnecessary curvature.
+State-prefix updates are separately disclosed. Shared curvature is counted
+once in combined totals and charged explicitly to each stand-alone surrogate
+cost; held-out gold audits and C5 gradient-oracle costs are separate.
+
+Compare with the requested N15/T13 1016 replicas per candidate at M=4,
+delta=.05,e=.1. Scaling that reference rate to all executed panel candidates
+(including the shared reference) gives 40*9*1016=365,760 trajectories. This
+uses the requested M=4 reference rate although the actual panel has M=8;
+also report the M=8 Hoeffding rate, ceil(2*log(16/.05)/.1^2)=1154. Report both
+endpoint-only and complete measurement costs, including curvature/calibration;
+do not claim a speed advantage by dropping measured-radius overhead.
+
+**Artifacts/tests.** C5 has one summary row with all requested tables; raw
+pair scores, contrast components and oracle diagnostics are in its raw row.
+C6 has a protocol/cost row and one row per surrogate. The raw protocol row
+contains all executed states, increments, omega indices, finite-difference
+stencils, measured curvature diagnostics and calibration states. Each
+surrogate's raw row contains all pair/reference certificates at every h.
+Tests cover known-quadratic CRN curvature, nonuniform finite-law integration,
+Bernstein constants, calibration units and invalid alpha, radius composition,
+h selection independent of score, ties/unavailable rates, accounting,
+state separation and the read-only guard. A measurement-path test disables
+both gradient-oracle helpers. The CLI regression runs all six groups, checks
+all denominators and raw arrays, validates selection, preserves scientific
+FAILs, and enforces strict JSON, deterministic gzip and the 1 MB limit.

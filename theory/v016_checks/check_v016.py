@@ -1037,8 +1037,11 @@ def summarize_results(result):
                 short['max_bound_residual']=float(np.max(np.asarray(row['lhs'])-row['rhs']))
                 short['final_lhs']=row['lhs'][-1];short['final_rhs']=row['rhs'][-1]
             if claim=='C4.costate':
-                short['directions']=[{k:v for k,v in d.items() if k not in ('direction','central_difference_ladder')}
-                                     for d in row['directions']]
+                # Presentation only: preserve every direction in the raw companion.
+                # Leave room for the frozen-panel C5/C6 tables below 1 MB.
+                short.pop('directions',None)
+                short['max_direction_relative_error']=max(d['relative_error'] for d in row['directions'])
+                short['direction_blocks']=[d['block'] for d in row['directions']]
                 short['finite_difference_attempts']=[len(d['central_difference_ladder']) for d in row['directions']]
                 short['rejected_branch_attempts']=[sum(not a['same_clipping_branch'] for a in d['central_difference_ladder'])
                                                    for d in row['directions']]
@@ -1075,8 +1078,10 @@ def write_results(result,output):
 
 
 def run_suite(quick=False,only=None):
+    from c5c6 import c5, c6
     start=time.perf_counter(); checks=[]; runtimes={}
-    groups={"C1":c1,"C2":c2,"C3":c3,"C4.costate":lambda q:[c4_costate(q)],"C4.amplitude":c4_amplitude}
+    groups={"C1":c1,"C2":c2,"C3":c3,"C4.costate":lambda q:[c4_costate(q)],"C4.amplitude":c4_amplitude,
+            "C5":c5,"C6":c6}
     for group,fn in groups.items():
         if only and not any(group==x or group.startswith(x+".") for x in only): continue
         t=time.perf_counter()
@@ -1093,7 +1098,7 @@ def run_suite(quick=False,only=None):
         for check in found:
             r=check.result(); checks.append(r)
             print(f"  {r['claim_id']}: {r['status']}; assertions={r['n_assertions']}; worst={r['worst_residual']:.6g}",flush=True)
-    paths=[HERE/"SPEC.md",HERE/"check_v016.py",HERE/"test_check_v016.py",
+    paths=[HERE/"SPEC.md",HERE/"check_v016.py",HERE/"test_check_v016.py",HERE/"c5c6.py",HERE/"test_c5c6.py",
            ROOT/"docs/direction/2026-10-11_v016_revision_ZH.md"]
     result=dict(schema_version="v016-checks-1",status="FAIL" if any(x["status"]=="FAIL" for x in checks) else "PASS",
                 checks=checks,runtime_seconds=time.perf_counter()-start,group_runtime_seconds=runtimes,
@@ -1110,7 +1115,7 @@ def run_suite(quick=False,only=None):
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick",action="store_true")
-    parser.add_argument("--only",help="Comma-separated C1,C2,C3,C4,C4.costate,C4.amplitude")
+    parser.add_argument("--only",help="Comma-separated C1,C2,C3,C4,C4.costate,C4.amplitude,C5,C6")
     parser.add_argument("--output",type=Path,default=None)
     args=parser.parse_args(argv)
     result=run_suite(args.quick,args.only.split(",") if args.only else None)

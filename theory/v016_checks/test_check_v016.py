@@ -164,11 +164,11 @@ def test_exogenous_branch_identity_against_executed_rollout():
 def test_quick_cli_schema_and_visible_failures(tmp_path):
     output=tmp_path/"quick.json"
     run=subprocess.run([sys.executable,str(HERE/"check_v016.py"),"--quick","--output",str(output)],
-                       capture_output=True,text=True,timeout=180)
+                       capture_output=True,text=True,timeout=240)
     assert run.returncode in (0,1),run.stdout+run.stderr
     result=json.loads(output.read_text())
     checks.validate_results(result)
-    assert len(result["checks"])==12
+    assert len(result["checks"])==14
     assert result["config"]["quick"] is True
     assert result["config"]["CUDA_VISIBLE_DEVICES"]==""
     assert (run.returncode==1)==(result["status"]=="FAIL")
@@ -183,6 +183,34 @@ def test_quick_cli_schema_and_visible_failures(tmp_path):
     assert hashlib.sha256(zipped).hexdigest()==result['raw_artifact']['sha256']
     raw=json.loads(gzip.decompress(zipped))
     assert raw['schema_version']=='v016-checks-raw-1'
+    c5=next(c for c in result['checks'] if c['claim_id']=='C5')
+    c6=next(c for c in result['checks'] if c['claim_id']=='C6')
+    assert c5['status']==c6['status']=='PASS'
+    assert c5['data'][0]['E12']['frozen_margin']==56
+    assert c5['data'][0]['E12']['eligible']==396
+    assert c5['data'][0]['overall']['full_state']['rows']==1728
+    protocol=c6['data'][0]
+    assert len(protocol['calibration_cells'])==8
+    assert protocol['frozen_sha256_before']==protocol['frozen_sha256_after']
+    for row in c6['data'][1:]:
+        assert row['all_pairs']['rows']==1728
+        assert row['all_pairs']['eligible']==1584
+        assert row['reference_rows']['rows']==432
+        assert row['reference_rows']['eligible']==396
+        if row['surrogate']=='aligned':
+            assert row['all_pairs']['wrong_certified']==0
+        assert [r['h'] for r in row['all_h']]==[.001,.003,.01]
+    raw_c6=raw['checks']['C6']
+    cells=raw_c6[0]['raw_replicates']['cells']
+    for cell in cells.values():
+        for name in ('aligned','short'):
+            for fd in cell['measurements'][name]:
+                assert np.asarray(fd['values']).shape==(5,8,9)
+    pairs=raw_c6[1]['raw_replicates']['pairs']
+    for row in pairs:
+        options=[m for m in row['certificate']['all_h'] if m['eligible']]
+        if options:
+            assert row['certificate']['selected']['task_radius']==min(m['task_radius'] for m in options)
     amplitude=next(c for c in result['checks'] if c['claim_id']=='C4.amplitude')
     rows=amplitude['data']
     assert len(rows)==13  # Four core, six criterion, three boundary settings.
