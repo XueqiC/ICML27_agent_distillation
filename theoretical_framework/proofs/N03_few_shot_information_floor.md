@@ -101,17 +101,20 @@ V(U,b)=\tfrac12\Big(\sum_{j\in U}w_j-\mathrm{top}_b(U)\Big),
 
 where $`\mathrm{top}_b(U)`$ is the sum of the $`\min(b,\lvert U\rvert)`$ largest weights in $`U`$.
 
-- *Base case.* For $`b=0`$ the claim is (a) conditionally.
-- *Inductive step.* With $`b\ge1`$ the learner may stop, query a known bit, or query some $`j\in U`$.
-  - Stopping gives $`V(U,0)`$, and querying a known bit gives $`V(U,b-1)`$. Both are at least the right-hand side by the induction hypothesis, since $`\mathrm{top}`$ is monotone in $`b`$.
-  - Querying $`j\in U`$ reveals $`\Theta_j`$. By Lemma 3.0 the remaining unseen bits are still IID fair and independent of the revealed value. The continuation problem is therefore $`V(U\setminus\lbrace j\rbrace ,b-1)`$ whatever value is observed, so value-adaptive branching gains nothing.
-- *Minimization.* Hence
+*Base case.* For $`b=0`$ the claim is (a) conditionally.
 
-  ```math
-  V(U,b)=\min_{j\in U}\tfrac12\Big(\sum_{U\setminus\lbrace j\rbrace }w-\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\Big)=\tfrac12\Big(\sum_Uw-\max_{j\in U}\big[w_j+\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\big]\Big).
-  ```
+*Inductive step.* With $`b\ge1`$ the learner may stop, query a known bit, or query some $`j\in U`$.
 
-  The maximum equals $`\mathrm{top}_b(U)`$, attained by taking $`j`$ of largest weight. This completes the induction and shows that the greedy rule is optimal.
+- Stopping gives $`V(U,0)`$, and querying a known bit gives $`V(U,b-1)`$. Both are at least the right-hand side by the induction hypothesis, since $`\mathrm{top}`$ is monotone in $`b`$.
+- Querying $`j\in U`$ reveals $`\Theta_j`$. By Lemma 3.0 the remaining unseen bits are still IID fair and independent of the revealed value. The continuation problem is therefore $`V(U\setminus\lbrace j\rbrace ,b-1)`$ whatever value is observed, so value-adaptive branching gains nothing.
+
+*Minimization.* Hence
+
+```math
+V(U,b)=\min_{j\in U}\tfrac12\Big(\sum_{U\setminus\lbrace j\rbrace }w-\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\Big)=\tfrac12\Big(\sum_Uw-\max_{j\in U}\big[w_j+\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\big]\Big).
+```
+
+The maximum equals $`\mathrm{top}_b(U)`$, attained by taking $`j`$ of largest weight. This completes the induction and shows that the greedy rule is optimal.
 
 Averaging $`V(U_K,n)`$ over the demonstrations gives (A13).
 

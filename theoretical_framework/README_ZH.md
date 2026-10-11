@@ -150,15 +150,17 @@ flowchart TD
 
 **定理.** 考虑已知间隔 $`0<\Delta\le 1/8`$ 的两世界混叠族，teacher 在两个世界中都最优。
 
-- **(a)** 只看被动示范的学习器都满足 $`\max_v\mathbb E[J_v^\Pi-J_v(\widehat p)]\ge\Delta`$。
-- **(b)** 允许 reset 查询时，若要在每个世界中以概率 $`1-\delta`$ 得到 $`\Delta/2`$-最优的学生，必须有
+**(a)** 只看被动示范的学习器都满足 $`\max_v\mathbb E[J_v^\Pi-J_v(\widehat p)]\ge\Delta`$。
 
-  ```math
-  \mathbb E_v n_{\rm query}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{\mathrm{kl}(\tfrac12+2\Delta,\tfrac12-2\Delta)}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{64\Delta^2}.
-  ```
+**(b)** 允许 reset 查询时，若要在每个世界中以概率 $`1-\delta`$ 得到 $`\Delta/2`$-最优的学生，必须有
 
-- **(c)** $`\lceil\log(1/\delta)/(8\Delta^2)\rceil`$ 次查询就足够。
-- **(d)** 把获得的事实编译进频率学习器，需要 $`m\ge\lceil32\log(2/\delta_L)\rceil`$ 个编译标签。
+```math
+\mathbb E_v n_{\rm query}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{\mathrm{kl}(\tfrac12+2\Delta,\tfrac12-2\Delta)}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{64\Delta^2}.
+```
+
+**(c)** $`\lceil\log(1/\delta)/(8\Delta^2)\rceil`$ 次查询就足够。
+
+**(d)** 把获得的事实编译进频率学习器，需要 $`m\ge\lceil32\log(2/\delta_L)\rceil`$ 个编译标签。
 
 **下一步.** 完美示范在信息上也可能不充分，而且信息获取的代价和编译的代价是两回事。N03 把 $`K`$ 显式写进来。
 
@@ -169,14 +171,15 @@ flowchart TD
 
 **命题.** 在隐藏比特模型中，比特 $`\Theta_1,\dots,\Theta_d`$ 相互独立且均匀。上下文 $`j`$ 的权重为 $`w_j`$。每条轨迹以概率 $`q_j`$ 揭示比特 $`j`$，对未揭示的比特不泄露任何信息。
 
-- **(a)** 看过 $`K`$ 条轨迹后，
+**(a)** 看过 $`K`$ 条轨迹后，
 
-  ```math
-  R_{\rm info}(K)=\tfrac12\textstyle\sum_j w_j(1-q_j)^K.
-  ```
+```math
+R_{\rm info}(K)=\tfrac12\textstyle\sum_j w_j(1-q_j)^K.
+```
 
-- **(b)** 若有 $`n`$ 次查询的硬预算，则 $`R_{\rm info}(K,n)=\tfrac12\,\mathbb E\big[\sum_{r>n}w_{(r)}\big]`$，且优先查询权重最大的未见比特是最优策略。一般地，$`\mathbb E[(M_K-n)_+]\ne(\mathbb E M_K-n)_+`$。
-- **(c)** 在两世界自适应模型中，$`K\kappa_D+\kappa_X\,\mathbb E N\ge\mathrm{kl}(1-\delta,\delta)`$。
+**(b)** 若有 $`n`$ 次查询的硬预算，则 $`R_{\rm info}(K,n)=\tfrac12\,\mathbb E\big[\sum_{r>n}w_{(r)}\big]`$，且优先查询权重最大的未见比特是最优策略。一般地，$`\mathbb E[(M_K-n)_+]\ne(\mathbb E M_K-n)_+`$。
+
+**(c)** 在两世界自适应模型中，$`K\kappa_D+\kappa_X\,\mathbb E N\ge\mathrm{kl}(1-\delta,\delta)`$。
 
 **下一步.** $`K`$ 和查询在同一份信息预算里互相替代，重放的贡献为零。但信息本身并不决定学习器能从中学到什么，这是第 II 部分的内容。
 
@@ -201,15 +204,17 @@ flowchart TD
 
 **定理.** 令 $`d_t^S`$ 为备选过程实际的状态占据分布。则：
 
-- **(a)**
+**(a)**
 
-  ```math
-  L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\big],
-  ```
+```math
+L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\big],
+```
 
-  因此 $`\lvert L_E(0)-L_E(S)\rvert\le\sum_t\mathbb E_{d_t^S}\varepsilon_t(Z_t)`$。
-- **(b)** 两个消息分布对"任意单边界替换，后接声明的尾段"都可互换，当且仅当对所有 $`g\in\mathcal G`$ 有 $`\mathbb E_Pg=\mathbb E_Qg`$。
-- **(c)** 若保证只在一个 certified 状态集上成立，首次离开该集合的概率为 $`\rho`$，则 $`\lvert L_E(0)-L_E(S)\rvert\le\mathbb E_S\sum_{t<\tau_{\rm exit}}\varepsilon_t+\rho`$。代价是 $`\rho`$，而不是 $`R\rho`$。
+因此 $`\lvert L_E(0)-L_E(S)\rvert\le\sum_t\mathbb E_{d_t^S}\varepsilon_t(Z_t)`$。
+
+**(b)** 两个消息分布对"任意单边界替换，后接声明的尾段"都可互换，当且仅当对所有 $`g\in\mathcal G`$ 有 $`\mathbb E_Pg=\mathbb E_Qg`$。
+
+**(c)** 若保证只在一个 certified 状态集上成立，首次离开该集合的概率为 $`\rho`$，则 $`\lvert L_E(0)-L_E(S)\rvert\le\mathbb E_S\sum_{t<\tau_{\rm exit}}\varepsilon_t+\rho`$。代价是 $`\rho`$，而不是 $`R\rho`$。
 
 其中 $`\mathcal G`$ 由 $`F_E`$ 沿实际更新和参考 kernel 反向拉回得到。
 
@@ -224,15 +229,17 @@ flowchart TD
 
 **定理.** 取有限消息字母表，$`\lvert\mathcal Y\rvert=m`$，特征为 $`\phi_1,\dots,\phi_d`$，并令 $`H_\phi=\mathrm{span}\lbrace 1,\phi_1,\dots,\phi_d\rbrace`$。
 
-- **(a)** **精确充分.** 对所有分布，特征均值相等能推出 response 均值相等，当且仅当 $`\mathrm{span}\mathcal G\subseteq H_\phi`$。所需统计量的最小个数为 $`d_0=\dim\mathrm{span}(\lbrace 1\rbrace \cup\mathcal G)-1`$。
-- **(b)** **近似充分.** 最坏分布对上未分辨的差异满足
+**(a)** **精确充分.** 对所有分布，特征均值相等能推出 response 均值相等，当且仅当 $`\mathrm{span}\mathcal G\subseteq H_\phi`$。所需统计量的最小个数为 $`d_0=\dim\mathrm{span}(\lbrace 1\rbrace \cup\mathcal G)-1`$。
 
-  ```math
-  \mathfrak D_\phi(\mathcal G)=2\sup_{g\in\mathcal G}\inf_{h\in H_\phi}\lVert g-h\rVert_\infty.
-  ```
+**(b)** **近似充分.** 最坏分布对上未分辨的差异满足
 
-- **(c)** **迁移.** 若 $`g=c+b^\top\phi+r`$，且 $`\lVert b\rVert_1\le B`$、$`\lVert r\rVert_\infty\le\tau`$，则 $`\lvert(P-Q)g\rvert\le B\lVert\mathbb E_P\phi-\mathbb E_Q\phi\rVert_\infty+2\tau`$。
-- **(d)** **无限制学习器.** 对不受限制的学习器，$`d_0=m-1`$，差异为 $`\gamma\,\mathrm{TV}(P,Q)`$。
+```math
+\mathfrak D_\phi(\mathcal G)=2\sup_{g\in\mathcal G}\inf_{h\in H_\phi}\lVert g-h\rVert_\infty.
+```
+
+**(c)** **迁移.** 若 $`g=c+b^\top\phi+r`$，且 $`\lVert b\rVert_1\le B`$、$`\lVert r\rVert_\infty\le\tau`$，则 $`\lvert(P-Q)g\rvert\le B\lVert\mathbb E_P\phi-\mathbb E_Q\phi\rVert_\infty+2\tau`$。
+
+**(d)** **无限制学习器.** 对不受限制的学习器，$`d_0=m-1`$，差异为 $`\gamma\,\mathrm{TV}(P,Q)`$。
 
 **下一步.** "充分信息"由此变成 $`\mathcal G`$ 的张成维数或近似宽度。N07–N10 对具体的学习器把这些量算出来。
 
@@ -257,14 +264,15 @@ flowchart TD
 
 **定理.**
 
-- **(a)** 对每个仿射学习器，$`\lvert\text{gap}\rvert\le C_J\delta_N(P,Q)\le N3^N\delta_N(P,Q)`$，与 $`R`$ 无关。
-- **(b)** 对 $`n`$ 个独立块取平均时，若均值相同、低于 $`r`$ 阶的联合 cumulant 也都相同，则
+**(a)** 对每个仿射学习器，$`\lvert\text{gap}\rvert\le C_J\delta_N(P,Q)\le N3^N\delta_N(P,Q)`$，与 $`R`$ 无关。
 
-  ```math
-  \mathbb E_{P^n}J(\bar p_n)-\mathbb E_{Q^n}J(\bar p_n)=\frac{\langle D^rJ(\mu),\kappa_r(P)-\kappa_r(Q)\rangle}{r!\,n^{r-1}}+O(n^{-r}).
-  ```
+**(b)** 对 $`n`$ 个独立块取平均时，若均值相同、低于 $`r`$ 阶的联合 cumulant 也都相同，则
 
-- **(c)** 对标量见证分布，这个展开是精确的：$`\Delta_N/n^{N-1}`$。
+```math
+\mathbb E_{P^n}J(\bar p_n)-\mathbb E_{Q^n}J(\bar p_n)=\frac{\langle D^rJ(\mu),\kappa_r(P)-\kappa_r(Q)\rangle}{r!\,n^{r-1}}+O(n^{-r}).
+```
+
+**(c)** 对标量见证分布，这个展开是精确的：$`\Delta_N/n^{N-1}`$。
 
 **下一步.** 差异衰减的快慢由独立块数 $`n`$ 决定，而不是 epoch 数。重放同一个块，或由它确定性生成的合成衍生数据，都不会让差异衰减。
 
@@ -287,15 +295,17 @@ flowchart TD
 
 **定理.**
 
-- **(a)** 若多项式更新对旧参数的次数为 $`a_i`$、对新块的次数为 $`b_i`$，则最终 response 对第 $`i`$ 块的次数至多为 $`D_i=Nb_i\prod_{t>i}a_t`$。这个界可以取到，例如 $`Z_1^{2^{R-1}}`$。
-- **(b)** 阈值学习器在 $`N=1`$ 时就已经破坏一阶矩充分性。
-- **(c)** 对光滑 SGD，
+**(a)** 若多项式更新对旧参数的次数为 $`a_i`$、对新块的次数为 $`b_i`$，则最终 response 对第 $`i`$ 块的次数至多为 $`D_i=Nb_i\prod_{t>i}a_t`$。这个界可以取到，例如 $`Z_1^{2^{R-1}}`$。
 
-  ```math
-  (K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M_P-M_Q\rangle+\mathcal E,\qquad \lvert\mathcal E\rvert\le\tfrac{M_3\eta^3}{6}\big(\mathbb E_P\lVert G\rVert^3+\mathbb E_Q\lVert G\rVert^3\big).
-  ```
+**(b)** 阈值学习器在 $`N=1`$ 时就已经破坏一阶矩充分性。
 
-- **(d)** 逐步误差的累积满足 $`e_R\le C\eta^2\sum_s(1+\eta L)^s`$；要得到关于 $`R`$ 线性的界，需要稳定性条件。
+**(c)** 对光滑 SGD，
+
+```math
+(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M_P-M_Q\rangle+\mathcal E,\qquad \lvert\mathcal E\rvert\le\tfrac{M_3\eta^3}{6}\big(\mathbb E_P\lVert G\rVert^3+\mathbb E_Q\lVert G\rVert^3\big).
+```
+
+**(d)** 逐步误差的累积满足 $`e_R\le C\eta^2\sum_s(1+\eta L)^s`$；要得到关于 $`R`$ 线性的界，需要稳定性条件。
 
 **下一步.** 决定所需信息阶数的是学习器，而不只是数据。因此必须对实际优化器建模，这是第 IV 部分。
 
@@ -325,16 +335,19 @@ flowchart TD
 
 **定理.**
 
-- **(W0)** $`\lvert\theta^+_i-\tilde\theta^+_i\rvert\le\eta\,u_i\min\lbrace \kappa_i/2,1\rbrace`$。
-- **(W1)** 假设状态是 warm 的，即对所有 $`i`$ 有 $`v_i>0`$（W）；延续值 Lipschitz（L）；对二阶矩的敏感度有界（S）；且 $`F(g)=V(\tilde z^+(g))`$ 的曲率为 $`H_G`$（H）。则
+**(W0)** $`\lvert\theta^+_i-\tilde\theta^+_i\rvert\le\eta\,u_i\min\lbrace \kappa_i/2,1\rbrace`$。
 
-  ```math
-  \big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac{\kappa_i}{2},1\rbrace +L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace +\tfrac12H_G\lVert G\rVert_\infty^2=:r(y).
-  ```
+**(W1)** 假设状态是 warm 的，即对所有 $`i`$ 有 $`v_i>0`$（W）；延续值 Lipschitz（L）；对二阶矩的敏感度有界（S）；且 $`F(g)=V(\tilde z^+(g))`$ 的曲率为 $`H_G`$（H）。则
 
-  因此，平均 consumed gradient 相同的两个分布，其 response 之差不超过 $`\mathbb E_{P_0}r+\mathbb E_{P_1}r`$。
-- **(W2)** 在冷状态下，均值相同的分布在一阶上就会分开，差为 $`\lvert w\rvert\eta/2`$。即使两个分布在任意固定阶 $`N`$ 以下的矩都相同，仍然相差 $`\lvert w\rvert\eta\,2^{2-N}`$。
-- **(W3)** (a) 若 $`v`$ 吸收了 $`s`$ 次二阶矩平稳的梯度，平均场 warmth 满足 $`1/(\beta_2s)\le\bar\kappa(s)\le1/(\beta_2^{\,s}s)`$。(b) 若在 warm 的更新上 $`\max_i\kappa_i\le c/(W+s)`$，则 telescoping 后的非仿射贡献不超过冷更新的个数，加上 $`\bar A\sum_s\min\lbrace 1,c/(W+s)\rbrace \le\bar A\,c\log(1+R/W)`$（$`W\ge1`$），再加曲率项。$`W=0`$ 时第一步是冷更新，至多记 1。
+```math
+\big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac{\kappa_i}{2},1\rbrace +L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace +\tfrac12H_G\lVert G\rVert_\infty^2=:r(y).
+```
+
+因此，平均 consumed gradient 相同的两个分布，其 response 之差不超过 $`\mathbb E_{P_0}r+\mathbb E_{P_1}r`$。
+
+**(W2)** 在冷状态下，均值相同的分布在一阶上就会分开，差为 $`\lvert w\rvert\eta/2`$。即使两个分布在任意固定阶 $`N`$ 以下的矩都相同，仍然相差 $`\lvert w\rvert\eta\,2^{2-N}`$。
+
+**(W3)** (a) 若 $`v`$ 吸收了 $`s`$ 次二阶矩平稳的梯度，平均场 warmth 满足 $`1/(\beta_2s)\le\bar\kappa(s)\le1/(\beta_2^{\,s}s)`$。(b) 若在 warm 的更新上 $`\max_i\kappa_i\le c/(W+s)`$，则 telescoping 后的非仿射贡献不超过冷更新的个数，加上 $`\bar A\sum_s\min\lbrace 1,c/(W+s)\rbrace \le\bar A\,c\log(1+R/W)`$（$`W\ge1`$），再加曲率项。$`W=0`$ 时第一步是冷更新，至多记 1。
 
 **下一步.** 反馈源需要匹配的统计量随优化器状态切换：冷 Adam 要匹配联合符号分布，warm Adam 要匹配平均预条件梯度。由此可以判断仿射理论（N07–N10）在 few-shot LoRA 上从哪里开始适用。
 
@@ -347,21 +360,23 @@ flowchart TD
 
 **定理.** 设延续值在可达线段上 $`C^{k+1}`$（$`S_k`$）。
 
-- **(a)** 单边界：
+**(a)** 单边界：
 
-  ```math
-  (K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).
-  ```
+```math
+(K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).
+```
 
-- **(b)** 整次训练：
+**(b)** 整次训练：
 
-  ```math
-  L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).
-  ```
+```math
+L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).
+```
 
-  由此得到以 $`\lVert\mu^P_t-\mu^Q_t\rVert`$ 表示的 certificate，以及带 $`+\rho`$ 的停时版本。
-- **(c)** 令 $`U=\mathrm{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace`$。在一阶意义下，匹配 $`\Pi_U\mu`$ 就足够。若不匹配，只要某个 $`V\in\mathcal V`$ 的一阶项超过余项界，它就会检测到差异。一阶统计量的最小个数为 $`d_0^{(1)}=\dim\mathrm{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace`$，即把 [N06(a)–(c)](proofs/N06_sufficiency_duality_ZH.md) 用于线性化后的 response 类。
-- **(d)** 若两个分布在 $`j\le k`$ 时 $`\mathbb E\Delta^{\otimes j}`$ 都相等，则每轮差距至多为 $`\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})`$；对 SGD 来说就是 $`O(\eta^{k+1})`$。信息阶数由经优化器变换后的增量分布决定，而不是由原始数据决定。
+由此得到以 $`\lVert\mu^P_t-\mu^Q_t\rVert`$ 表示的 certificate，以及带 $`+\rho`$ 的停时版本。
+
+**(c)** 令 $`U=\mathrm{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace`$。在一阶意义下，匹配 $`\Pi_U\mu`$ 就足够。若不匹配，只要某个 $`V\in\mathcal V`$ 的一阶项超过余项界，它就会检测到差异。一阶统计量的最小个数为 $`d_0^{(1)}=\dim\mathrm{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace`$，即把 [N06(a)–(c)](proofs/N06_sufficiency_duality_ZH.md) 用于线性化后的 response 类。
+
+**(d)** 若两个分布在 $`j\le k`$ 时 $`\mathbb E\Delta^{\otimes j}`$ 都相等，则每轮差距至多为 $`\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})`$；对 SGD 来说就是 $`O(\eta^{k+1})`$。信息阶数由经优化器变换后的增量分布决定，而不是由原始数据决定。
 
 **下一步.** 反馈分布必须携带什么，完全由优化器映射 $`\Delta`$ 决定。N19 对实际常用的学习器把它算出来。
 
@@ -406,15 +421,17 @@ W_{\mathbf{\epsilon}}(g)=\inf_{b,c}\Big[2\big\lVert g-c-\textstyle\sum_jb_j\phi_
 
 **定理.**
 
-- **(a)** 令 $`e_0=\sqrt{\log(4Ld/\delta)/(2n_0)}`$，$`e_S=\sqrt{\log(4MLd/\delta)/(2n_S)}`$。以概率 $`1-\delta`$，对所有 $`j`$ 同时有 $`\lvert D_j-\widehat D_j\rvert\le e_0+e_S`$，并且 $`D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}`$。
-- **(b)** 设在 certified 状态上，状态到 cell 的 transport 误差为 $`a_{t,j}(z)`$，response 分解参数为 $`(B_t,\tau_t)`$。则
+**(a)** 令 $`e_0=\sqrt{\log(4Ld/\delta)/(2n_0)}`$，$`e_S=\sqrt{\log(4MLd/\delta)/(2n_S)}`$。以概率 $`1-\delta`$，对所有 $`j`$ 同时有 $`\lvert D_j-\widehat D_j\rvert\le e_0+e_S`$，并且 $`D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}`$。
 
-  ```math
-  \lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\Big[1\lbrace t<\sigma\rbrace \big\lbrace B_t(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t))+2\tau_t\big\rbrace \Big]+\rho.
-  ```
+**(b)** 设在 certified 状态上，状态到 cell 的 transport 误差为 $`a_{t,j}(z)`$，response 分解参数为 $`(B_t,\tau_t)`$。则
 
-- **(c)** transport 精确成立（$`a\equiv0`$）时，$`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$。在 [N08](proofs/N08_affine_rates_ZH.md) 的 IID 块与凸仿射更新设定下，若被 audit 的特征就是矩 $`Z^\alpha`$（$`1\le\lvert\alpha\rvert\le N`$），则 $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$。
-- **(d)** transport 项不能去掉：若某个训练中到达的状态没有被任何 audit cell 覆盖，audit 测得的差异可以是 0，而学习 gap 却是 1。定理对这样的状态要么记 $`a=1`$，要么记离开概率 $`\rho=1`$。
+```math
+\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\Big[1\lbrace t<\sigma\rbrace \big\lbrace B_t(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t))+2\tau_t\big\rbrace \Big]+\rho.
+```
+
+**(c)** transport 精确成立（$`a\equiv0`$）时，$`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$。在 [N08](proofs/N08_affine_rates_ZH.md) 的 IID 块与凸仿射更新设定下，若被 audit 的特征就是矩 $`Z^\alpha`$（$`1\le\lvert\alpha\rvert\le N`$），则 $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$。
+
+**(d)** transport 项不能去掉：若某个训练中到达的状态没有被任何 audit cell 覆盖，audit 测得的差异可以是 0，而学习 gap 却是 1。定理对这样的状态要么记 $`a=1`$，要么记离开概率 $`\rho=1`$。
 
 **下一步.** 有限 audit 只有通过一个显式测量的覆盖/transport 项，才能证明学习价值。N15 改为在实际到达的状态上做 audit，从而去掉这一步外推。
 

@@ -64,15 +64,17 @@ that is, $`\mathcal R_{\rm info}(D')\ge\mathcal R_{\rm info}(D)`$. If $`Z\perp E
 
 **Proof of (a).** The identity (1) follows by adding and subtracting $`\mathbb E J_E^\Pi`$ and $`\mathbb E_DB(D)`$. It remains to show that each term is nonnegative.
 
-- $`\mathcal R_{\rm rep}\ge0`$. Since $`\Pi\subseteq\Pi_{\rm ref}`$, we have $`J_E^\Pi\le J_E^{\rm ref}`$ for every $`E`$.
-- $`\mathcal R_{\rm info}\ge0`$. Fix $`D`$ with $`\Pr(D)>0`$. For every $`\pi\in\Pi`$, $`\mathbb E[J_E(\pi)\mid D]\le\mathbb E[J_E^\Pi\mid D]`$, because $`J_E(\pi)\le J_E^\Pi`$ pointwise. Maximizing over $`\pi`$ gives $`B(D)\le\mathbb E[J_E^\Pi\mid D]`$. Taking expectations over $`D`$ and applying the tower property gives $`\mathbb E_DB(D)\le\mathbb EJ_E^\Pi`$.
-- $`\mathcal R_{\rm alg}\ge0`$. Conditional independence of $`\widehat\pi`$ and $`E`$ given $`D`$ gives
+$`\mathcal R_{\rm rep}\ge0`$. Since $`\Pi\subseteq\Pi_{\rm ref}`$, we have $`J_E^\Pi\le J_E^{\rm ref}`$ for every $`E`$.
 
-  ```math
-  \mathbb E[J_E(\widehat\pi)\mid D]=\sum_{\pi\in\Pi}\lambda(\pi\mid D)\,\mathbb E[J_E(\pi)\mid D]\le\max_\pi\mathbb E[J_E(\pi)\mid D]=B(D).
-  ```
+$`\mathcal R_{\rm info}\ge0`$. Fix $`D`$ with $`\Pr(D)>0`$. For every $`\pi\in\Pi`$, $`\mathbb E[J_E(\pi)\mid D]\le\mathbb E[J_E^\Pi\mid D]`$, because $`J_E(\pi)\le J_E^\Pi`$ pointwise. Maximizing over $`\pi`$ gives $`B(D)\le\mathbb E[J_E^\Pi\mid D]`$. Taking expectations over $`D`$ and applying the tower property gives $`\mathbb E_DB(D)\le\mathbb EJ_E^\Pi`$.
 
-  The inequality holds because a convex combination cannot exceed its largest term. $`\square`$
+$`\mathcal R_{\rm alg}\ge0`$. Conditional independence of $`\widehat\pi`$ and $`E`$ given $`D`$ gives
+
+```math
+\mathbb E[J_E(\widehat\pi)\mid D]=\sum_{\pi\in\Pi}\lambda(\pi\mid D)\,\mathbb E[J_E(\pi)\mid D]\le\max_\pi\mathbb E[J_E(\pi)\mid D]=B(D).
+```
+
+The inequality holds because a convex combination cannot exceed its largest term. $`\square`$
 
 **Proof of (b).** By the tower property,
 

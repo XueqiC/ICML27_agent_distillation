@@ -6,17 +6,21 @@
 
 ## 设定与假设
 
-- **少样本 agent 蒸馏.** 学生从预训练信息 $`I_{\rm pre}`$ 出发，每个任务族有 $`K`$ 条可信的 teacher 示范。
-- **获取预算.** 其余允许的实验（teacher 调用、环境分支、重置）构成一笔单独核算的预算。
-- **Provider.** provider $`j`$ 是一条可执行规则，它在完整学习者状态 $`z`$ 处发出反馈消息 $`Y\sim P^j_{t,z}`$（训练单元、packet、目标）。
-- **配方.** 训练使用声明好的配方：更新 $`U_t`$、优化器（例如 AdamW）、时域 $`R`$ 和参照 suffix。最终学生单独部署，价值为 $`F_E(z)=J_E(\pi_z)`$。
-- **response 与 provider 价值.** 同 N05，
+**少样本 agent 蒸馏.** 学生从预训练信息 $`I_{\rm pre}`$ 出发，每个任务族有 $`K`$ 条可信的 teacher 示范。
 
-  ```math
-  g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi)),\qquad G(z,j)=\mathbb E_{Y\sim P^j_{t,z}}g_{t,z}(Y),
-  ```
+**获取预算.** 其余允许的实验（teacher 调用、环境分支、重置）构成一笔单独核算的预算。
 
-  带号的局部优势为 $`A_t(z,j)=G(z,j)-G(z,0)`$。
+**Provider.** provider $`j`$ 是一条可执行规则，它在完整学习者状态 $`z`$ 处发出反馈消息 $`Y\sim P^j_{t,z}`$（训练单元、packet、目标）。
+
+**配方.** 训练使用声明好的配方：更新 $`U_t`$、优化器（例如 AdamW）、时域 $`R`$ 和参照 suffix。最终学生单独部署，价值为 $`F_E(z)=J_E(\pi_z)`$。
+
+**response 与 provider 价值.** 同 N05，
+
+```math
+g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi)),\qquad G(z,j)=\mathbb E_{Y\sim P^j_{t,z}}g_{t,z}(Y),
+```
+
+带号的局部优势为 $`A_t(z,j)=G(z,j)-G(z,0)`$。
 
 ## 陈述
 

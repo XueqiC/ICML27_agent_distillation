@@ -64,15 +64,17 @@ r(C)=\max_{\mu\in\Delta(C)}\Big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_
 
 **(a) 的证明。** 加减 $`\mathbb E J_E^\Pi`$ 与 $`\mathbb E_DB(D)`$ 即得恒等式 (1)。下面逐项证明非负性。
 
-- $`\mathcal R_{\rm rep}\ge0`$。 由 $`\Pi\subseteq\Pi_{\rm ref}`$，对每个 $`E`$ 有 $`J_E^\Pi\le J_E^{\rm ref}`$。
-- $`\mathcal R_{\rm info}\ge0`$。 固定满足 $`\Pr(D)>0`$ 的 $`D`$。由于逐点有 $`J_E(\pi)\le J_E^\Pi`$，对每个 $`\pi\in\Pi`$ 有 $`\mathbb E[J_E(\pi)\mid D]\le\mathbb E[J_E^\Pi\mid D]`$。对 $`\pi`$ 取最大得 $`B(D)\le\mathbb E[J_E^\Pi\mid D]`$。对 $`D`$ 取期望并用 tower property，得 $`\mathbb E_DB(D)\le\mathbb EJ_E^\Pi`$。
-- $`\mathcal R_{\rm alg}\ge0`$。 给定 $`D`$ 时 $`\widehat\pi`$ 与 $`E`$ 条件独立，故
+$`\mathcal R_{\rm rep}\ge0`$。 由 $`\Pi\subseteq\Pi_{\rm ref}`$，对每个 $`E`$ 有 $`J_E^\Pi\le J_E^{\rm ref}`$。
 
-  ```math
-  \mathbb E[J_E(\widehat\pi)\mid D]=\sum_{\pi\in\Pi}\lambda(\pi\mid D)\,\mathbb E[J_E(\pi)\mid D]\le\max_\pi\mathbb E[J_E(\pi)\mid D]=B(D).
-  ```
+$`\mathcal R_{\rm info}\ge0`$。 固定满足 $`\Pr(D)>0`$ 的 $`D`$。由于逐点有 $`J_E(\pi)\le J_E^\Pi`$，对每个 $`\pi\in\Pi`$ 有 $`\mathbb E[J_E(\pi)\mid D]\le\mathbb E[J_E^\Pi\mid D]`$。对 $`\pi`$ 取最大得 $`B(D)\le\mathbb E[J_E^\Pi\mid D]`$。对 $`D`$ 取期望并用 tower property，得 $`\mathbb E_DB(D)\le\mathbb EJ_E^\Pi`$。
 
-  不等号成立，是因为凸组合不会超过其中最大的一项。$`\square`$
+$`\mathcal R_{\rm alg}\ge0`$。 给定 $`D`$ 时 $`\widehat\pi`$ 与 $`E`$ 条件独立，故
+
+```math
+\mathbb E[J_E(\widehat\pi)\mid D]=\sum_{\pi\in\Pi}\lambda(\pi\mid D)\,\mathbb E[J_E(\pi)\mid D]\le\max_\pi\mathbb E[J_E(\pi)\mid D]=B(D).
+```
+
+不等号成立，是因为凸组合不会超过其中最大的一项。$`\square`$
 
 **(b) 的证明。** 由 tower property，
 

@@ -21,41 +21,47 @@
 
 **Construction 4.2 ((b): two label packets).**
 
-- A packet is a pair of binary labels $`(Y_1,Y_2)`$.
-- Under the *independent* source, $`Y_1,Y_2`$ are IID Bernoulli $`(\tfrac12)`$. Under the *paired* source, $`(Y_1,Y_2)`$ is uniform on $`\lbrace (0,1),(1,0)\rbrace`$.
-- The learner takes one gradient step of size $`0<\eta\le1`$ from $`p_0=\tfrac12`$ on the squared loss $`\tfrac14\sum_{i=1}^2(p-Y_i)^2`$:
+A packet is a pair of binary labels $`(Y_1,Y_2)`$.
 
-  ```math
-  p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2.
-  ```
+Under the *independent* source, $`Y_1,Y_2`$ are IID Bernoulli $`(\tfrac12)`$. Under the *paired* source, $`(Y_1,Y_2)`$ is uniform on $`\lbrace (0,1),(1,0)\rbrace`$.
 
-- Deployment is two independent decisions that both must choose action 1, so $`J(p)=p^2`$. The alternative task is $`J'(p)=1-p^2`$.
+The learner takes one gradient step of size $`0<\eta\le1`$ from $`p_0=\tfrac12`$ on the squared loss $`\tfrac14\sum_{i=1}^2(p-Y_i)^2`$:
+
+```math
+p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2.
+```
+
+Deployment is two independent decisions that both must choose action 1, so $`J(p)=p^2`$. The alternative task is $`J'(p)=1-p^2`$.
 
 ## Statement
 
 **(a)** **Proposition (identical static values, different students).** In Construction 4.1:
 
-- both sources give every aliased student the same value $`J(\pi_p)=\tfrac12+p/20`$;
-- both give the teacher value $`\tfrac35`$;
-- the teacher's $`A`$-frequencies are $`\tfrac34`$ and $`\tfrac14`$;
-- frequency distillation on $`m\ge1`$ demonstrations yields expected returns
+both sources give every aliased student the same value $`J(\pi_p)=\tfrac12+p/20`$;
 
-  ```math
-  \mathbb E\,J(\pi_{\widehat p})=\tfrac{43}{80}\quad\text{(reference)},\qquad\tfrac{41}{80}\quad\text{(alternative)},
-  ```
+both give the teacher value $`\tfrac35`$;
 
-  a gap of $`\tfrac1{40}`$ for every $`m`$.
+the teacher's $`A`$-frequencies are $`\tfrac34`$ and $`\tfrac14`$;
+
+frequency distillation on $`m\ge1`$ demonstrations yields expected returns
+
+```math
+\mathbb E\,J(\pi_{\widehat p})=\tfrac{43}{80}\quad\text{(reference)},\qquad\tfrac{41}{80}\quad\text{(alternative)},
+```
+
+a gap of $`\tfrac1{40}`$ for every $`m`$.
 
 **(b)** **Proposition (identical mean updates, different learning values).** In Construction 4.2:
 
-- the two sources have the same label marginals, the same mean gradient, and the same mean update $`\mathbb Ep^+=\tfrac12`$;
-- yet
+the two sources have the same label marginals, the same mean gradient, and the same mean update $`\mathbb Ep^+=\tfrac12`$;
 
-  ```math
-  \mathbb E_{\rm indep}J(p^+)-\mathbb E_{\rm paired}J(p^+)=\frac{\eta^2}8, \qquad(11)
-  ```
+yet
 
-- and for $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
+```math
+\mathbb E_{\rm indep}J(p^+)-\mathbb E_{\rm paired}J(p^+)=\frac{\eta^2}8, \qquad(11)
+```
+
+and for $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
 
 ## Proof
 

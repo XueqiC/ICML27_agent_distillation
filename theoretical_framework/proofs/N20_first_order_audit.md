@@ -52,14 +52,15 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 **(b)** **Theorem (selection correctness by first-order margin).**
 
-- *One boundary.* At a state $`x`$, take candidate laws $`P_j,P_k`$ and one continuation $`V`$ satisfying $`S_1`$ with constant $`M_2`$. If
+*One boundary.* At a state $`x`$, take candidate laws $`P_j,P_k`$ and one continuation $`V`$ satisfying $`S_1`$ with constant $`M_2`$. If
 
-  ```math
-  \big\lvert\langle\nabla V(x),\mu^{j}-\mu^{k}\rangle\big\rvert>\tfrac{M_2}2\big(m_2^{j}+m_2^{k}\big),
-  ```
+```math
+\big\lvert\langle\nabla V(x),\mu^{j}-\mu^{k}\rangle\big\rvert>\tfrac{M_2}2\big(m_2^{j}+m_2^{k}\big),
+```
 
-  then $`\mathrm{sign}\big((K^{P_j}-K^{P_k})V(x)\big)=\mathrm{sign}\langle\nabla V(x),\mu^j-\mu^k\rangle`$.
-- *Run level.* Let $`T_{jk}=\sum_t\mathbb E_{d_t^{k}}\langle\nabla V^{j}_{t+1}(X_t),\mu^j_t-\mu^k_t\rangle`$ and $`B_{jk}=\sum_t\mathbb E_{d_t^{k}}\tfrac{M_{2,t}}2(m^j_{2,t}+m^k_{2,t})`$, the first-order term and remainder bound of [N18(b)](N18_optimizer_transformed_response.md) with $`P_j`$ in the role of $`P`$. If $`\lvert T_{jk}\rvert>B_{jk}`$, then $`\mathrm{sign}\big(L(P_j)-L(P_k)\big)=\mathrm{sign}(T_{jk})`$.
+then $`\mathrm{sign}\big((K^{P_j}-K^{P_k})V(x)\big)=\mathrm{sign}\langle\nabla V(x),\mu^j-\mu^k\rangle`$.
+
+*Run level.* Let $`T_{jk}=\sum_t\mathbb E_{d_t^{k}}\langle\nabla V^{j}_{t+1}(X_t),\mu^j_t-\mu^k_t\rangle`$ and $`B_{jk}=\sum_t\mathbb E_{d_t^{k}}\tfrac{M_{2,t}}2(m^j_{2,t}+m^k_{2,t})`$, the first-order term and remainder bound of [N18(b)](N18_optimizer_transformed_response.md) with $`P_j`$ in the role of $`P`$. If $`\lvert T_{jk}\rvert>B_{jk}`$, then $`\mathrm{sign}\big(L(P_j)-L(P_k)\big)=\mathrm{sign}(T_{jk})`$.
 
 **(b′)** **Corollary (when a cheap score must rank correctly).** Let a score $`s(P)`$ be used to rank feedback laws at state $`x`$ for continuation $`V`$. Suppose:
 

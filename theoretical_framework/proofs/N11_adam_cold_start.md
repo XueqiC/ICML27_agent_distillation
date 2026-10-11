@@ -26,16 +26,19 @@ Division and square root act coordinatewise. The parameters satisfy $`\beta_1,\b
 
 **(a)–(c)** **(cold quotient).**
 
-1. **(a)** From a cold state, $`\theta_1=c-\eta\,h_\epsilon(G)`$.
-2. **(b)** ($`\epsilon=0`$.) Two laws give equal expected values for all immediate-parameter utilities if and only if their joint sign-vector laws coincide. On a finite alphabet with $`s`$ attainable sign patterns, the minimum number of linear expectation statistics that suffices for all such utilities, over unrestricted laws on $`\mathcal A`$, is $`s-1`$. Here $`s\le3^p`$, or $`s\le2^p`$ without zero coordinates.
-3. **(c)** ($`\epsilon>0`$.) $`h_\epsilon`$ is a coordinatewise bijection $`\mathbb R\to(-1,1)`$ with
+**1.** **(a)** From a cold state, $`\theta_1=c-\eta\,h_\epsilon(G)`$.
 
-   ```math
-   h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h_\epsilon^{-1}(u)=\frac{\epsilon}{(1-\lvert u\rvert)^2}. \qquad(A8)
-   ```
+**2.** **(b)** ($`\epsilon=0`$.) Two laws give equal expected values for all immediate-parameter utilities if and only if their joint sign-vector laws coincide. On a finite alphabet with $`s`$ attainable sign patterns, the minimum number of linear expectation statistics that suffices for all such utilities, over unrestricted laws on $`\mathcal A`$, is $`s-1`$. Here $`s\le3^p`$, or $`s\le2^p`$ without zero coordinates.
 
-   Equality for all immediate-parameter utilities is therefore equivalent to equality of the full consumed-gradient laws. On $`\mathcal A`$ the minimum number of statistics is $`m-1`$.
-4. (Joint versus marginal.) Coordinatewise sign marginals do not determine the joint sign law. Take $`p=2`$, $`P`$ uniform on $`\lbrace (1,1),(-1,-1)\rbrace`$ and $`Q`$ uniform on $`\lbrace (1,-1),(-1,1)\rbrace`$. Every coordinate has the same sign marginal and the mean update is $`0`$ under both laws. The utility $`F(\theta)=1\lbrace (\theta_1-c_1)(\theta_2-c_2)>0\rbrace`$ has expectation $`1`$ under $`P`$ and $`0`$ under $`Q`$.
+**3.** **(c)** ($`\epsilon>0`$.) $`h_\epsilon`$ is a coordinatewise bijection $`\mathbb R\to(-1,1)`$ with
+
+```math
+h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h_\epsilon^{-1}(u)=\frac{\epsilon}{(1-\lvert u\rvert)^2}. \qquad(A8)
+```
+
+Equality for all immediate-parameter utilities is therefore equivalent to equality of the full consumed-gradient laws. On $`\mathcal A`$ the minimum number of statistics is $`m-1`$.
+
+**4.** (Joint versus marginal.) Coordinatewise sign marginals do not determine the joint sign law. Take $`p=2`$, $`P`$ uniform on $`\lbrace (1,1),(-1,-1)\rbrace`$ and $`Q`$ uniform on $`\lbrace (1,-1),(-1,1)\rbrace`$. Every coordinate has the same sign marginal and the mean update is $`0`$ under both laws. The utility $`F(\theta)=1\lbrace (\theta_1-c_1)(\theta_2-c_2)>0\rbrace`$ has expectation $`1`$ under $`P`$ and $`0`$ under $`Q`$.
 
 **(d)** **Proposition (margin-sensitive approximation).** Let $`F:\mathbb R^p\to[0,1]`$ satisfy $`\lvert F(u)-F(w)\rvert\le\sum_iL_i\lvert u_i-w_i\rvert`$ for all pairs $`u=c-\eta h_\epsilon(g)`$, $`w=c-\eta h_0(g)`$ with $`g`$ in the supports. For $`a>0`$ put $`\beta_{P,i}(a)=P(0<\lvert G_i\rvert<a)`$, and let $`\Delta_{\rm sign}(F)=\lvert\mathbb E_PF(c-\eta h_0(G))-\mathbb E_QF(c-\eta h_0(G))\rvert`$. Then
 
@@ -49,15 +52,17 @@ and $`\Delta_{\rm sign}(F)\le\mathrm{TV}(P_{\rm sign},Q_{\rm sign})`$.
 
 *Counterexample.* Take one coordinate, $`\beta_1=\beta_2=\tfrac12`$, $`\lambda=0`$, $`\epsilon=0`$, $`\eta>0`$ and a cold start. Compare the gradient histories $`(G_1,G_2)=(1,-\tfrac34)`$ and $`(G_1',G_2')=(2,-\tfrac34)`$.
 
-- Both give $`\theta_1=\theta_1'=\theta_0-\eta`$, and both have the same sign history $`(+,-)`$.
-- At step 2, the bias-corrected moments are $`\widehat m_2=-\tfrac16`$ and $`\widehat m_2'=+\tfrac16`$, and $`\widehat v_2=\tfrac{17}{24}`$ and $`\widehat v_2'=\tfrac{41}{24}`$. Hence
+Both give $`\theta_1=\theta_1'=\theta_0-\eta`$, and both have the same sign history $`(+,-)`$.
 
-  ```math
-  \theta_2=\theta_1+\frac{\eta}{6\sqrt{17/24}},\qquad\theta_2'=\theta_1-\frac{\eta}{6\sqrt{41/24}}. \qquad(A10)
-  ```
+At step 2, the bias-corrected moments are $`\widehat m_2=-\tfrac16`$ and $`\widehat m_2'=+\tfrac16`$, and $`\widehat v_2=\tfrac{17}{24}`$ and $`\widehat v_2'=\tfrac{41}{24}`$. Hence
 
-- The two second steps move in opposite directions. The bounded test $`F(\theta)=1\lbrace \theta>\theta_1\rbrace`$ separates the histories by $`1`$.
-- The histories are realizable by squared losses $`\tfrac12(\theta-a)^2`$ at $`\theta_0=0`$: first targets $`a=-1`$ and $`a=-2`$, then the common second target $`a=\theta_1+\tfrac34`$.
+```math
+\theta_2=\theta_1+\frac{\eta}{6\sqrt{17/24}},\qquad\theta_2'=\theta_1-\frac{\eta}{6\sqrt{41/24}}. \qquad(A10)
+```
+
+The two second steps move in opposite directions. The bounded test $`F(\theta)=1\lbrace \theta>\theta_1\rbrace`$ separates the histories by $`1`$.
+
+The histories are realizable by squared losses $`\tfrac12(\theta-a)^2`$ at $`\theta_0=0`$: first targets $`a=-1`$ and $`a=-2`$, then the common second target $`a=\theta_1+\tfrac34`$.
 
 **(e′)** **Corollary (momentum carries the memory).** If $`\beta_1=0`$, any two histories with the same sign of $`G_2`$ have second steps in the same direction, so no witness of the (e) type exists. For every $`\beta_1\in(0,1)`$, the (e) mechanism is available.
 

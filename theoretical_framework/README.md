@@ -150,15 +150,17 @@ with all three terms nonnegative. Moreover:
 
 **Theorem.** Consider the two-world aliased family with known gap $`0<\Delta\le 1/8`$, in which the teacher is optimal in both worlds.
 
-- **(a)** Every learner that sees only passive demonstrations has $`\max_v\mathbb E[J_v^\Pi-J_v(\widehat p)]\ge\Delta`$.
-- **(b)** With reset queries, a $`\Delta/2`$-optimal student in each world with probability $`1-\delta`$ requires
+**(a)** Every learner that sees only passive demonstrations has $`\max_v\mathbb E[J_v^\Pi-J_v(\widehat p)]\ge\Delta`$.
 
-  ```math
-  \mathbb E_v n_{\rm query}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{\mathrm{kl}(\tfrac12+2\Delta,\tfrac12-2\Delta)}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{64\Delta^2}.
-  ```
+**(b)** With reset queries, a $`\Delta/2`$-optimal student in each world with probability $`1-\delta`$ requires
 
-- **(c)** $`\lceil\log(1/\delta)/(8\Delta^2)\rceil`$ queries suffice.
-- **(d)** Compiling the acquired fact into a frequency learner needs $`m\ge\lceil32\log(2/\delta_L)\rceil`$ compiled labels.
+```math
+\mathbb E_v n_{\rm query}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{\mathrm{kl}(\tfrac12+2\Delta,\tfrac12-2\Delta)}\ge\frac{\mathrm{kl}(1-\delta,\delta)}{64\Delta^2}.
+```
+
+**(c)** $`\lceil\log(1/\delta)/(8\Delta^2)\rceil`$ queries suffice.
+
+**(d)** Compiling the acquired fact into a frequency learner needs $`m\ge\lceil32\log(2/\delta_L)\rceil`$ compiled labels.
 
 **Next.** Perfect demonstrations can be information-insufficient, and acquisition cost is distinct from compilation cost. Node N03 makes $`K`$ explicit.
 
@@ -169,14 +171,15 @@ with all three terms nonnegative. Moreover:
 
 **Proposition.** In the hidden-bit model, bits $`\Theta_1,\dots,\Theta_d`$ are independent and fair. A context $`j`$ has weight $`w_j`$. Each trajectory reveals bit $`j`$ with probability $`q_j`$, and reveals nothing about unrevealed bits.
 
-- **(a)** After $`K`$ trajectories,
+**(a)** After $`K`$ trajectories,
 
-  ```math
-  R_{\rm info}(K)=\tfrac12\textstyle\sum_j w_j(1-q_j)^K.
-  ```
+```math
+R_{\rm info}(K)=\tfrac12\textstyle\sum_j w_j(1-q_j)^K.
+```
 
-- **(b)** With a hard budget of $`n`$ queries, $`R_{\rm info}(K,n)=\tfrac12\,\mathbb E\big[\sum_{r>n}w_{(r)}\big]`$, and querying the heaviest unseen bits is optimal. In general $`\mathbb E[(M_K-n)_+]\ne(\mathbb E M_K-n)_+`$.
-- **(c)** In a two-world adaptive model, $`K\kappa_D+\kappa_X\,\mathbb E N\ge\mathrm{kl}(1-\delta,\delta)`$.
+**(b)** With a hard budget of $`n`$ queries, $`R_{\rm info}(K,n)=\tfrac12\,\mathbb E\big[\sum_{r>n}w_{(r)}\big]`$, and querying the heaviest unseen bits is optimal. In general $`\mathbb E[(M_K-n)_+]\ne(\mathbb E M_K-n)_+`$.
+
+**(c)** In a two-world adaptive model, $`K\kappa_D+\kappa_X\,\mathbb E N\ge\mathrm{kl}(1-\delta,\delta)`$.
 
 **Next.** $`K`$ and queries trade off within one information budget, and replay adds zero. Information alone does not determine what the learner extracts, which is the subject of Section II.
 
@@ -201,15 +204,17 @@ with all three terms nonnegative. Moreover:
 
 **Theorem.** Let $`d_t^S`$ be the actual state occupancy of the alternative process. Then:
 
-- **(a)**
+**(a)**
 
-  ```math
-  L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\big],
-  ```
+```math
+L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\big],
+```
 
-  so $`\lvert L_E(0)-L_E(S)\rvert\le\sum_t\mathbb E_{d_t^S}\varepsilon_t(Z_t)`$.
-- **(b)** Two message laws are interchangeable for every one-boundary replacement followed by a declared suffix if and only if $`\mathbb E_Pg=\mathbb E_Qg`$ for all $`g\in\mathcal G`$.
-- **(c)** If guarantees hold only on a certified set with first-exit probability $`\rho`$, then $`\lvert L_E(0)-L_E(S)\rvert\le\mathbb E_S\sum_{t<\tau_{\rm exit}}\varepsilon_t+\rho`$; the penalty is $`\rho`$, not $`R\rho`$.
+so $`\lvert L_E(0)-L_E(S)\rvert\le\sum_t\mathbb E_{d_t^S}\varepsilon_t(Z_t)`$.
+
+**(b)** Two message laws are interchangeable for every one-boundary replacement followed by a declared suffix if and only if $`\mathbb E_Pg=\mathbb E_Qg`$ for all $`g\in\mathcal G`$.
+
+**(c)** If guarantees hold only on a certified set with first-exit probability $`\rho`$, then $`\lvert L_E(0)-L_E(S)\rvert\le\mathbb E_S\sum_{t<\tau_{\rm exit}}\varepsilon_t+\rho`$; the penalty is $`\rho`$, not $`R\rho`$.
 
 Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual updates and the reference kernels.
 
@@ -224,15 +229,17 @@ Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual up
 
 **Theorem.** Take a finite message alphabet with $`\lvert\mathcal Y\rvert=m`$, features $`\phi_1,\dots,\phi_d`$, and $`H_\phi=\mathrm{span}\lbrace 1,\phi_1,\dots,\phi_d\rbrace`$.
 
-- **(a)** **Exact.** Equal feature means imply equal response means for all laws if and only if $`\mathrm{span}\mathcal G\subseteq H_\phi`$. The minimal number of statistics is $`d_0=\dim\mathrm{span}(\lbrace 1\rbrace \cup\mathcal G)-1`$.
-- **(b)** **Approximate.** The worst-pair unresolved discrepancy satisfies
+**(a)** **Exact.** Equal feature means imply equal response means for all laws if and only if $`\mathrm{span}\mathcal G\subseteq H_\phi`$. The minimal number of statistics is $`d_0=\dim\mathrm{span}(\lbrace 1\rbrace \cup\mathcal G)-1`$.
 
-  ```math
-  \mathfrak D_\phi(\mathcal G)=2\sup_{g\in\mathcal G}\inf_{h\in H_\phi}\lVert g-h\rVert_\infty.
-  ```
+**(b)** **Approximate.** The worst-pair unresolved discrepancy satisfies
 
-- **(c)** **Transfer.** If $`g=c+b^\top\phi+r`$ with $`\lVert b\rVert_1\le B`$ and $`\lVert r\rVert_\infty\le\tau`$, then $`\lvert(P-Q)g\rvert\le B\lVert\mathbb E_P\phi-\mathbb E_Q\phi\rVert_\infty+2\tau`$.
-- **(d)** **Unrestricted learners.** For unrestricted learners, $`d_0=m-1`$ and the discrepancy is $`\gamma\,\mathrm{TV}(P,Q)`$.
+```math
+\mathfrak D_\phi(\mathcal G)=2\sup_{g\in\mathcal G}\inf_{h\in H_\phi}\lVert g-h\rVert_\infty.
+```
+
+**(c)** **Transfer.** If $`g=c+b^\top\phi+r`$ with $`\lVert b\rVert_1\le B`$ and $`\lVert r\rVert_\infty\le\tau`$, then $`\lvert(P-Q)g\rvert\le B\lVert\mathbb E_P\phi-\mathbb E_Q\phi\rVert_\infty+2\tau`$.
+
+**(d)** **Unrestricted learners.** For unrestricted learners, $`d_0=m-1`$ and the discrepancy is $`\gamma\,\mathrm{TV}(P,Q)`$.
 
 **Next.** "Sufficient information" becomes the span dimension or approximation width of $`\mathcal G`$. N07–N10 compute these for explicit learners.
 
@@ -257,14 +264,15 @@ Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual up
 
 **Theorem.**
 
-- **(a)** For every affine learner, $`\lvert\text{gap}\rvert\le C_J\delta_N(P,Q)\le N3^N\delta_N(P,Q)`$, independent of $`R`$.
-- **(b)** For averaging $`n`$ independent blocks with equal means and joint cumulants matched below order $`r`$:
+**(a)** For every affine learner, $`\lvert\text{gap}\rvert\le C_J\delta_N(P,Q)\le N3^N\delta_N(P,Q)`$, independent of $`R`$.
 
-  ```math
-  \mathbb E_{P^n}J(\bar p_n)-\mathbb E_{Q^n}J(\bar p_n)=\frac{\langle D^rJ(\mu),\kappa_r(P)-\kappa_r(Q)\rangle}{r!\,n^{r-1}}+O(n^{-r}).
-  ```
+**(b)** For averaging $`n`$ independent blocks with equal means and joint cumulants matched below order $`r`$:
 
-- **(c)** For the scalar witnesses the expansion is exact: $`\Delta_N/n^{N-1}`$.
+```math
+\mathbb E_{P^n}J(\bar p_n)-\mathbb E_{Q^n}J(\bar p_n)=\frac{\langle D^rJ(\mu),\kappa_r(P)-\kappa_r(Q)\rangle}{r!\,n^{r-1}}+O(n^{-r}).
+```
+
+**(c)** For the scalar witnesses the expansion is exact: $`\Delta_N/n^{N-1}`$.
 
 **Next.** The independent block count $`n`$, not the number of epochs, controls how fast a discrepancy decays. Replaying one block, or deterministic synthetic descendants of it, does not decay.
 
@@ -287,15 +295,17 @@ Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual up
 
 **Theorem.**
 
-- **(a)** For polynomial updates of degree $`a_i`$ in the old parameter and $`b_i`$ in the new block, the final response has block-$`i`$ degree at most $`D_i=Nb_i\prod_{t>i}a_t`$. The bound is attained: $`Z_1^{2^{R-1}}`$.
-- **(b)** A threshold learner breaks first-moment sufficiency already at $`N=1`$.
-- **(c)** For smooth SGD,
+**(a)** For polynomial updates of degree $`a_i`$ in the old parameter and $`b_i`$ in the new block, the final response has block-$`i`$ degree at most $`D_i=Nb_i\prod_{t>i}a_t`$. The bound is attained: $`Z_1^{2^{R-1}}`$.
 
-  ```math
-  (K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M_P-M_Q\rangle+\mathcal E,\qquad \lvert\mathcal E\rvert\le\tfrac{M_3\eta^3}{6}\big(\mathbb E_P\lVert G\rVert^3+\mathbb E_Q\lVert G\rVert^3\big).
-  ```
+**(b)** A threshold learner breaks first-moment sufficiency already at $`N=1`$.
 
-- **(d)** Per-step errors accumulate as $`e_R\le C\eta^2\sum_s(1+\eta L)^s`$. A linear-in-$`R`$ bound needs a stability condition.
+**(c)** For smooth SGD,
+
+```math
+(K^P-K^Q)V=-\eta\nabla V^\top(\mu_P-\mu_Q)+\tfrac{\eta^2}{2}\langle\nabla^2V,M_P-M_Q\rangle+\mathcal E,\qquad \lvert\mathcal E\rvert\le\tfrac{M_3\eta^3}{6}\big(\mathbb E_P\lVert G\rVert^3+\mathbb E_Q\lVert G\rVert^3\big).
+```
+
+**(d)** Per-step errors accumulate as $`e_R\le C\eta^2\sum_s(1+\eta L)^s`$. A linear-in-$`R`$ bound needs a stability condition.
 
 **Next.** The learner, not the data alone, sets the order of information required. The actual optimizer must therefore be modeled, which is Section IV.
 
@@ -325,16 +335,19 @@ Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual up
 
 **Theorem.**
 
-- **(W0)** $`\lvert\theta^+_i-\tilde\theta^+_i\rvert\le\eta\,u_i\min\lbrace \kappa_i/2,1\rbrace`$.
-- **(W1)** Assume a warm state, $`v_i>0`$ for all $`i`$ (W); Lipschitz continuation (L); second-moment sensitivity (S); and curvature $`H_G`$ of $`F(g)=V(\tilde z^+(g))`$ (H). Then
+**(W0)** $`\lvert\theta^+_i-\tilde\theta^+_i\rvert\le\eta\,u_i\min\lbrace \kappa_i/2,1\rbrace`$.
 
-  ```math
-  \big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac{\kappa_i}{2},1\rbrace +L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace +\tfrac12H_G\lVert G\rVert_\infty^2=:r(y).
-  ```
+**(W1)** Assume a warm state, $`v_i>0`$ for all $`i`$ (W); Lipschitz continuation (L); second-moment sensitivity (S); and curvature $`H_G`$ of $`F(g)=V(\tilde z^+(g))`$ (H). Then
 
-  Laws with equal mean consumed gradient therefore differ in response by at most $`\mathbb E_{P_0}r+\mathbb E_{P_1}r`$.
-- **(W2)** At a cold state, laws with equal means separate at first order: the gap is $`\lvert w\rvert\eta/2`$. Laws that agree on all moments below any fixed order $`N`$ still separate, by $`\lvert w\rvert\eta\,2^{2-N}`$.
-- **(W3)** (a) If $`v`$ has absorbed $`s`$ evaluations of stationary second moment, the mean-field warmth satisfies $`1/(\beta_2s)\le\bar\kappa(s)\le1/(\beta_2^{\,s}s)`$. (b) If $`\max_i\kappa_i\le c/(W+s)`$ at the warm updates, the telescoped non-affine contribution is at most the number of cold updates plus $`\bar A\sum_s\min\lbrace 1,c/(W+s)\rbrace \le\bar A\,c\log(1+R/W)`$ for $`W\ge1`$, plus the curvature terms. With $`W=0`$ the first update is cold and is charged at most 1.
+```math
+\big\lvert\psi(y)-c-b^\top G(y)\big\rvert\le\eta\sum_iL_iu_i\min\lbrace \tfrac{\kappa_i}{2},1\rbrace +L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace +\tfrac12H_G\lVert G\rVert_\infty^2=:r(y).
+```
+
+Laws with equal mean consumed gradient therefore differ in response by at most $`\mathbb E_{P_0}r+\mathbb E_{P_1}r`$.
+
+**(W2)** At a cold state, laws with equal means separate at first order: the gap is $`\lvert w\rvert\eta/2`$. Laws that agree on all moments below any fixed order $`N`$ still separate, by $`\lvert w\rvert\eta\,2^{2-N}`$.
+
+**(W3)** (a) If $`v`$ has absorbed $`s`$ evaluations of stationary second moment, the mean-field warmth satisfies $`1/(\beta_2s)\le\bar\kappa(s)\le1/(\beta_2^{\,s}s)`$. (b) If $`\max_i\kappa_i\le c/(W+s)`$ at the warm updates, the telescoped non-affine contribution is at most the number of cold updates plus $`\bar A\sum_s\min\lbrace 1,c/(W+s)\rbrace \le\bar A\,c\log(1+R/W)`$ for $`W\ge1`$, plus the curvature terms. With $`W=0`$ the first update is cold and is charged at most 1.
 
 **Next.** The statistic that a feedback source must match switches with optimizer state. Cold Adam requires the joint sign law; warm Adam requires the mean preconditioned gradient. This predicts where the affine theory (N07–N10) applies to few-shot LoRA.
 
@@ -347,21 +360,23 @@ Here $`\mathcal G`$ is derived by pulling $`F_E`$ backward through the actual up
 
 **Theorem.** Assume the continuation is $`C^{k+1}`$ on the reachable segment ($`S_k`$).
 
-- **(a)** One boundary:
+**(a)** One boundary:
 
-  ```math
-  (K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).
-  ```
+```math
+(K^P-K^Q)V(x)=\sum_{j=1}^{k}\tfrac1{j!}\big\langle\nabla^jV(x),\mathbb E_P\Delta^{\otimes j}-\mathbb E_Q\Delta^{\otimes j}\big\rangle+r_k,\qquad\lvert r_k\rvert\le\tfrac{M_{k+1}}{(k+1)!}\big(m^P_{k+1}+m^Q_{k+1}\big).
+```
 
-- **(b)** Whole run:
+**(b)** Whole run:
 
-  ```math
-  L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).
-  ```
+```math
+L(P)-L(Q)=\sum_t\mathbb E_{d_t^Q}\big\langle\nabla V^P_{t+1},\mu^P_t-\mu^Q_t\big\rangle+\mathcal E,\qquad\lvert\mathcal E\rvert\le\sum_t\mathbb E_{d_t^Q}\tfrac{M_{2,t}}2\big(m^P_{2,t}+m^Q_{2,t}\big).
+```
 
-  This gives a certificate in terms of $`\lVert\mu^P_t-\mu^Q_t\rVert`$, and a stopped version with $`+\rho`$.
-- **(c)** Let $`U=\mathrm{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace`$. Matching $`\Pi_U\mu`$ is sufficient to first order. A mismatch is detected by some $`V\in\mathcal V`$ whenever its first-order term exceeds the remainder bound. The minimal number of first-order statistics is $`d_0^{(1)}=\dim\mathrm{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace`$; this is [N06(a)–(c)](proofs/N06_sufficiency_duality.md) applied to the linearized response class.
-- **(d)** If two laws agree on $`\mathbb E\Delta^{\otimes j}`$ for $`j\le k`$, the per-round gap is at most $`\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})`$; for SGD this is $`O(\eta^{k+1})`$. The information order lives in the optimizer-transformed increment law, not in the raw data.
+This gives a certificate in terms of $`\lVert\mu^P_t-\mu^Q_t\rVert`$, and a stopped version with $`+\rho`$.
+
+**(c)** Let $`U=\mathrm{span}\lbrace\nabla V(x):V\in\mathcal V\rbrace`$. Matching $`\Pi_U\mu`$ is sufficient to first order. A mismatch is detected by some $`V\in\mathcal V`$ whenever its first-order term exceeds the remainder bound. The minimal number of first-order statistics is $`d_0^{(1)}=\dim\mathrm{span}(\lbrace1\rbrace\cup\mathcal G^{(1)})-1\le\min\lbrace\dim U,m-1\rbrace`$; this is [N06(a)–(c)](proofs/N06_sufficiency_duality.md) applied to the linearized response class.
+
+**(d)** If two laws agree on $`\mathbb E\Delta^{\otimes j}`$ for $`j\le k`$, the per-round gap is at most $`\tfrac{M_{k+1}}{(k+1)!}(m^P_{k+1}+m^Q_{k+1})`$; for SGD this is $`O(\eta^{k+1})`$. The information order lives in the optimizer-transformed increment law, not in the raw data.
 
 **Next.** What a feedback law must carry is decided by the optimizer map $`\Delta`$. N19 computes it for the learners used in practice.
 
@@ -406,15 +421,17 @@ W_{\mathbf{\epsilon}}(g)=\inf_{b,c}\Big[2\big\lVert g-c-\textstyle\sum_jb_j\phi_
 
 **Theorem.**
 
-- **(a)** With $`e_0=\sqrt{\log(4Ld/\delta)/(2n_0)}`$ and $`e_S=\sqrt{\log(4MLd/\delta)/(2n_S)}`$, with probability $`1-\delta`$ we have $`\lvert D_j-\widehat D_j\rvert\le e_0+e_S`$ simultaneously for all $`j`$, and $`D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}`$.
-- **(b)** Assume state-to-cell transport error $`a_{t,j}(z)`$ and response decomposition $`(B_t,\tau_t)`$ at certified states. Then
+**(a)** With $`e_0=\sqrt{\log(4Ld/\delta)/(2n_0)}`$ and $`e_S=\sqrt{\log(4MLd/\delta)/(2n_S)}`$, with probability $`1-\delta`$ we have $`\lvert D_j-\widehat D_j\rvert\le e_0+e_S`$ simultaneously for all $`j`$, and $`D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}`$.
 
-  ```math
-  \lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\Big[1\lbrace t<\sigma\rbrace \big\lbrace B_t(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t))+2\tau_t\big\rbrace \Big]+\rho.
-  ```
+**(b)** Assume state-to-cell transport error $`a_{t,j}(z)`$ and response decomposition $`(B_t,\tau_t)`$ at certified states. Then
 
-- **(c)** With exact transport ($`a\equiv0`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$. In the IID-block, convex-affine setting of [N08](proofs/N08_affine_rates.md), when the audited features are the moments $`Z^\alpha`$ ($`1\le\lvert\alpha\rvert\le N`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$.
-- **(d)** The transport term is necessary: if a trained state is not covered by an audited cell, the audited discrepancy can be zero while the learning gap is 1. The theorem charges such a state either $`a=1`$ or exit probability $`\rho=1`$.
+```math
+\lvert L_E(0)-L_E(S_{\widehat j})\rvert\le\sum_t\mathbb E_{d_t^{\widehat j}}\Big[1\lbrace t<\sigma\rbrace \big\lbrace B_t(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t))+2\tau_t\big\rbrace \Big]+\rho.
+```
+
+**(c)** With exact transport ($`a\equiv0`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$. In the IID-block, convex-affine setting of [N08](proofs/N08_affine_rates.md), when the audited features are the moments $`Z^\alpha`$ ($`1\le\lvert\alpha\rvert\le N`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$.
+
+**(d)** The transport term is necessary: if a trained state is not covered by an audited cell, the audited discrepancy can be zero while the learning gap is 1. The theorem charges such a state either $`a=1`$ or exit probability $`\rho=1`$.
 
 **Next.** A finite audit certifies learning value only through an explicitly measured coverage/transport term. N15 removes that extrapolation by auditing at the actual states.
 

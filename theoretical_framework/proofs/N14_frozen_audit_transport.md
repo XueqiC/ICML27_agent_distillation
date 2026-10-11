@@ -6,52 +6,61 @@
 
 **Learning process (as in N05).**
 
-- Rounds are $`t=0,\dots,R-1`$ and $`z`$ is a complete learner state: parameters, optimizer moments and step counter, buffers, sampler state and history.
-- At state $`z`$ in round $`t`$, the reference provider emits $`Y\sim P^0_{t,z}`$ and candidate $`j\in\lbrace 1,\dots,M\rbrace`$ emits $`Y\sim P^j_{t,z}`$.
-- The actual update is $`U_t(z,Y,\xi)`$, and the reference continuation is $`V^0_{t+1}`$, with $`V^0_R=F_E\in[0,1]`$.
-- The response is $`g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi))\in[0,1]`$.
-- Integrating the message gives the kernel identity
+Rounds are $`t=0,\dots,R-1`$ and $`z`$ is a complete learner state: parameters, optimizer moments and step counter, buffers, sampler state and history.
 
-  ```math
-  (K^j_tV^0_{t+1})(z)=\mathbb E_{Y\sim P^j_{t,z}}\,g_{t,z}(Y),\qquad j\in\lbrace 0,1,\dots,M\rbrace . \qquad(K)
-  ```
+At state $`z`$ in round $`t`$, the reference provider emits $`Y\sim P^0_{t,z}`$ and candidate $`j\in\lbrace 1,\dots,M\rbrace`$ emits $`Y\sim P^j_{t,z}`$.
 
-- $`L_E(j)=\mathbb E F_E(Z_R^j)`$ for the process driven by provider $`j`$. All processes start from the same initial law of $`Z_0`$.
+The actual update is $`U_t(z,Y,\xi)`$, and the reference continuation is $`V^0_{t+1}`$, with $`V^0_R=F_E\in[0,1]`$.
+
+The response is $`g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi))\in[0,1]`$.
+
+Integrating the message gives the kernel identity
+
+```math
+(K^j_tV^0_{t+1})(z)=\mathbb E_{Y\sim P^j_{t,z}}\,g_{t,z}(Y),\qquad j\in\lbrace 0,1,\dots,M\rbrace . \qquad(K)
+```
+
+$`L_E(j)=\mathbb E F_E(Z_R^j)`$ for the process driven by provider $`j`$. All processes start from the same initial law of $`Z_0`$.
 
 **Frozen audit.**
 
-- Using only independent pilot data, freeze the following before the audit:
-  - $`M`$ executable candidate providers;
-  - $`L`$ query cells $`x`$, each specifying a full learner state, task, query, update and reference suffix;
-  - $`d`$ features $`\phi_{x,\ell}:\mathcal Y\to[0,1]`$ per cell.
-- $`P^0_x`$ and $`P^j_x`$ are the message laws of the reference and of candidate $`j`$ in cell $`x`$.
-- The audit draws $`n_0`$ independent reference messages per cell and $`n_S`$ independent messages per candidate and cell.
-- Let $`\mu_{j,x,\ell}=\mathbb E_{P^j_x}\phi_{x,\ell}`$, with empirical means $`\widehat\mu_{j,x,\ell}`$. Define
+Using only independent pilot data, freeze the following before the audit:
 
-  ```math
-  D_j=\max_{x,\ell}\lvert\mu_{0,x,\ell}-\mu_{j,x,\ell}\rvert,\qquad\widehat D_j=\max_{x,\ell}\lvert\widehat\mu_{0,x,\ell}-\widehat\mu_{j,x,\ell}\rvert,
-  ```
+- $`M`$ executable candidate providers;
+- $`L`$ query cells $`x`$, each specifying a full learner state, task, query, update and reference suffix;
+- $`d`$ features $`\phi_{x,\ell}:\mathcal Y\to[0,1]`$ per cell.
 
-  ```math
-  e_0=\sqrt{\frac{\log(4Ld/\delta)}{2n_0}},\qquad e_S=\sqrt{\frac{\log(4MLd/\delta)}{2n_S}}.
-  ```
+$`P^0_x`$ and $`P^j_x`$ are the message laws of the reference and of candidate $`j`$ in cell $`x`$.
 
-- The selected candidate $`\widehat j`$ minimizes $`\widehat D_j`$ up to a known optimization error $`\eta_{\rm opt}`$.
+The audit draws $`n_0`$ independent reference messages per cell and $`n_S`$ independent messages per candidate and cell.
+
+Let $`\mu_{j,x,\ell}=\mathbb E_{P^j_x}\phi_{x,\ell}`$, with empirical means $`\widehat\mu_{j,x,\ell}`$. Define
+
+```math
+D_j=\max_{x,\ell}\lvert\mu_{0,x,\ell}-\mu_{j,x,\ell}\rvert,\qquad\widehat D_j=\max_{x,\ell}\lvert\widehat\mu_{0,x,\ell}-\widehat\mu_{j,x,\ell}\rvert,
+```
+
+```math
+e_0=\sqrt{\frac{\log(4Ld/\delta)}{2n_0}},\qquad e_S=\sqrt{\frac{\log(4MLd/\delta)}{2n_S}}.
+```
+
+The selected candidate $`\widehat j`$ minimizes $`\widehat D_j`$ up to a known optimization error $`\eta_{\rm opt}`$.
 
 **Certified states.** For each round $`t`$ there is a certified set $`\mathcal C_t`$ of complete states. Each $`z\in\mathcal C_t`$ carries:
 
-1. an audited cell $`x=x(t,z)`$ whose features are expressed in the message coordinates at $`z`$;
-2. a **transport bound**: for every candidate selectable on the audit event,
+**1.** an audited cell $`x=x(t,z)`$ whose features are expressed in the message coordinates at $`z`$;
 
-   ```math
-   \Big\lVert(P^0_{t,z}-P^j_{t,z})\phi_x-(P^0_x-P^j_x)\phi_x\Big\rVert_\infty\le a_{t,j}(z); \qquad(A2)
-   ```
+**2.** a **transport bound**: for every candidate selectable on the audit event,
 
-3. a **response decomposition**
+```math
+\Big\lVert(P^0_{t,z}-P^j_{t,z})\phi_x-(P^0_x-P^j_x)\phi_x\Big\rVert_\infty\le a_{t,j}(z); \qquad(A2)
+```
 
-   ```math
-   g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_x+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\quad\lVert r_{t,z}\rVert_\infty\le\tau_t. \qquad(A3)
-   ```
+**3.** a **response decomposition**
+
+```math
+g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_x+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\quad\lVert r_{t,z}\rVert_\infty\le\tau_t. \qquad(A3)
+```
 
 Let $`\sigma=\inf\lbrace t<R:Z_t\notin\mathcal C_t\rbrace`$, with $`\sigma=\infty`$ if no such $`t`$ exists. $`\sigma`$ is a stopping time of the training process.
 
@@ -61,41 +70,44 @@ Let $`\sigma=\inf\lbrace t<R:Z_t\notin\mathcal C_t\rbrace`$, with $`\sigma=\inft
 
 **Theorem (N14).**
 
-1. **(a)** **Audit concentration.** With probability at least $`1-\delta`$, simultaneously for all $`j`$,
+**1.** **(a)** **Audit concentration.** With probability at least $`1-\delta`$, simultaneously for all $`j`$,
 
-   ```math
-   \lvert D_j-\widehat D_j\rvert\le e_0+e_S, \qquad(37)
-   ```
+```math
+\lvert D_j-\widehat D_j\rvert\le e_0+e_S, \qquad(37)
+```
 
-   and consequently
+and consequently
 
-   ```math
-   D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}. \qquad(38)
-   ```
+```math
+D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}. \qquad(38)
+```
 
-2. **(b)** **Local transport bound.** For $`z\in\mathcal C_t`$ and $`x=x(t,z)`$,
+**2.** **(b)** **Local transport bound.** For $`z\in\mathcal C_t`$ and $`x=x(t,z)`$,
 
-   ```math
-   \big\lvert(K^0_t-K^j_t)V^0_{t+1}(z)\big\rvert\le\min\Big\lbrace 1,\ B_t\big(D_j+a_{t,j}(z)\big)+2\tau_t\Big\rbrace . \qquad(V)
-   ```
+```math
+\big\lvert(K^0_t-K^j_t)V^0_{t+1}(z)\big\rvert\le\min\Big\lbrace 1,\ B_t\big(D_j+a_{t,j}(z)\big)+2\tau_t\Big\rbrace . \qquad(V)
+```
 
-3. **(b)** **Learning-value bound.** On the event of (37),
+**3.** **(b)** **Learning-value bound.** On the event of (37),
 
-   ```math
-   \lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_{t=0}^{R-1}\mathbb E_{\widehat j}\Big[1\lbrace t<\sigma\rbrace \Big\lbrace B_t\big(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t)\big)+2\tau_t\Big\rbrace \Big]+\rho. \qquad(39a)
-   ```
+```math
+\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_{t=0}^{R-1}\mathbb E_{\widehat j}\Big[1\lbrace t<\sigma\rbrace \Big\lbrace B_t\big(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t)\big)+2\tau_t\Big\rbrace \Big]+\rho. \qquad(39a)
+```
 
-4. **(c)** **Specializations.**
-   - With exact transport ($`a\equiv0`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$ (c).
-   - Under the state-independent IID block-source and convex-affine-update assumptions of [N08(a)](N08_affine_rates.md) (N08), with the audited features equal to the moments $`Z^\alpha`$, $`1\le\lvert\alpha\rvert\le N`$, $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$ (c).
-5. **(b′)** **Feature drift.** If state-dependent features $`\phi_z`$ satisfy $`\sup_y\lVert\phi_z(y)-\phi_x(y)\rVert_\infty\le\alpha_{zx}`$, then
+**4.** **(c)** **Specializations.**
 
-   ```math
-   \lVert(P^0_{t,z}-P^j_{t,z})\phi_z\rVert_\infty\le D_j+a_{t,j}(z)+2\alpha_{zx},
-   ```
+- With exact transport ($`a\equiv0`$), $`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$ (c).
+- Under the state-independent IID block-source and convex-affine-update assumptions of [N08(a)](N08_affine_rates.md) (N08), with the audited features equal to the moments $`Z^\alpha`$, $`1\le\lvert\alpha\rvert\le N`$, $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$ (c).
 
-   and (V) and (39a) hold with $`\phi_z`$ in (A3) and $`a`$ replaced by $`a+2\alpha_{zx}`$.
-6. **(d)** **Necessity of transport.** For every audit size there is an instance in which $`D_j=0`$, the response decomposition is exact ($`B=1`$, $`\tau=0`$), and the learning gap is $`1`$. In that instance the transport-free expression $`B(\widehat D+e_0+e_S)`$ is strictly below the gap. (39a) remains valid there and is tight.
+**5.** **(b′)** **Feature drift.** If state-dependent features $`\phi_z`$ satisfy $`\sup_y\lVert\phi_z(y)-\phi_x(y)\rVert_\infty\le\alpha_{zx}`$, then
+
+```math
+\lVert(P^0_{t,z}-P^j_{t,z})\phi_z\rVert_\infty\le D_j+a_{t,j}(z)+2\alpha_{zx},
+```
+
+and (V) and (39a) hold with $`\phi_z`$ in (A3) and $`a`$ replaced by $`a+2\alpha_{zx}`$.
+
+**6.** **(d)** **Necessity of transport.** For every audit size there is an instance in which $`D_j=0`$, the response decomposition is exact ($`B=1`$, $`\tau=0`$), and the learning gap is $`1`$. In that instance the transport-free expression $`B(\widehat D+e_0+e_S)`$ is strictly below the gap. (39a) remains valid there and is tight.
 
 All bounds may be capped at $`1`$.
 

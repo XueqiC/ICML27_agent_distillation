@@ -108,19 +108,21 @@ Fix a boundary $`(t,x)`$ and a declared family $`\mathcal V`$ of continuations, 
 
 **Theorem C3 (first-order sufficiency, necessity and minimality).** Let $`\Pi_U`$ be the orthogonal projection onto $`U`$; Euclidean pairing is used here.
 
-1. *Sufficiency.* If $`\Pi_U(\mu^P-\mu^Q)=0`$, then $`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$ for every $`V\in\mathcal V`$.
-2. *Necessity.* If $`\Pi_U(\mu^P-\mu^Q)\ne0`$, some $`V\in\mathcal V`$ has $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$, and
+**1.** *Sufficiency.* If $`\Pi_U(\mu^P-\mu^Q)=0`$, then $`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$ for every $`V\in\mathcal V`$.
 
-   ```math
-   \lvert(K^P-K^Q)V(x)\rvert\ge\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
-   ```
+**2.** *Necessity.* If $`\Pi_U(\mu^P-\mu^Q)\ne0`$, some $`V\in\mathcal V`$ has $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$, and
 
-   The mismatch is detected by that task whenever the first-order term exceeds the remainder bound. For SGD and momentum the first term is $`\Theta(\eta)`$ and the second is $`O(\eta^2)`$, so detection holds for all sufficiently small $`\eta`$. For multi-round Adam, use the margin condition C6.
-3. *Minimality.* On a finite message alphabet of size $`m`$, the minimal number of linear expectation statistics that determine every first-order term $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$, $`V\in\mathcal V`$, for all law pairs is
+```math
+\lvert(K^P-K^Q)V(x)\rvert\ge\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
+```
 
-   ```math
-   d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
-   ```
+The mismatch is detected by that task whenever the first-order term exceeds the remainder bound. For SGD and momentum the first term is $`\Theta(\eta)`$ and the second is $`O(\eta^2)`$, so detection holds for all sufficiently small $`\eta`$. For multi-round Adam, use the margin condition C6.
+
+**3.** *Minimality.* On a finite message alphabet of size $`m`$, the minimal number of linear expectation statistics that determine every first-order term $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$, $`V\in\mathcal V`$, for all law pairs is
+
+```math
+d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
+```
 
 *Proof.* (1) follows from C1, since $`\langle\nabla V(x),\mu^P-\mu^Q\rangle=\langle\nabla V(x),\Pi_U(\mu^P-\mu^Q)\rangle=0`$ for $`\nabla V(x)\in U`$.
 
@@ -140,15 +142,17 @@ All statements below concern $`D_t(x,y)`$. We write $`G`$ for the consumed gradi
 
 **C4(c) Adam and AdamW at a warm state** ($`v_i>0`$ for all $`i`$; notation of the warm-Adam note).
 
-- The increments are $`\Delta^m=(1-\beta_1)(G-m)`$, $`\Delta^v=(1-\beta_2)(G\odot G-v)`$ and $`\Delta^\theta=-\eta\lambda\theta-\eta\,n(G)/(d(G)+\epsilon)`$.
-- By Lemma W0, $`\Delta^\theta=\text{const}-\eta c_1PG+e(G)`$, with $`c_1=(1-\beta_1)/(1-\beta_1^t)`$, $`P=\mathrm{diag}(1/(a+\epsilon))`$ and $`\lvert e_i\rvert\le\eta u_i\min\lbrace \kappa_i/2,1\rbrace`$. Therefore
+The increments are $`\Delta^m=(1-\beta_1)(G-m)`$, $`\Delta^v=(1-\beta_2)(G\odot G-v)`$ and $`\Delta^\theta=-\eta\lambda\theta-\eta\,n(G)/(d(G)+\epsilon)`$.
 
-  ```math
-  \mu^P-\mu^Q=\Big(-\eta c_1P\,\delta_1+(\mathbb E_Pe-\mathbb E_Qe),\ \ (1-\beta_1)\delta_1,\ \ (1-\beta_2)\delta_2\Big),\qquad \delta_1=\mathbb E_PG-\mathbb E_QG,\quad \delta_2=\mathbb E_PG^{\odot2}-\mathbb E_QG^{\odot2}.
-  ```
+By Lemma W0, $`\Delta^\theta=\text{const}-\eta c_1PG+e(G)`$, with $`c_1=(1-\beta_1)/(1-\beta_1^t)`$, $`P=\mathrm{diag}(1/(a+\epsilon))`$ and $`\lvert e_i\rvert\le\eta u_i\min\lbrace \kappa_i/2,1\rbrace`$. Therefore
 
-- First-order statistic: the pair $`(\mathbb E\,G,\ \mathbb E\,G^{\odot2})`$, up to a warmth error $`\eta\,\mathbb E[u\min\lbrace \kappa/2,1\rbrace ]`$. The mean gradient enters through $`\theta`$ (preconditioned by $`P`$) and through $`m`$. The *coordinatewise second moment* enters at first order through $`v`$, weighted by $`(1-\beta_2)\nabla_vV`$.
-- This is sharper than Proposition W1: the $`L_v\kappa`$ residual of W1 is replaced by an explicit linear term in $`\mathbb E\,G^{\odot2}`$. Equal-mean laws with unequal gradient second moments are therefore *not* first-order equivalent for warm Adam unless $`\nabla_vV\perp\delta_2`$.
+```math
+\mu^P-\mu^Q=\Big(-\eta c_1P\,\delta_1+(\mathbb E_Pe-\mathbb E_Qe),\ \ (1-\beta_1)\delta_1,\ \ (1-\beta_2)\delta_2\Big),\qquad \delta_1=\mathbb E_PG-\mathbb E_QG,\quad \delta_2=\mathbb E_PG^{\odot2}-\mathbb E_QG^{\odot2}.
+```
+
+First-order statistic: the pair $`(\mathbb E\,G,\ \mathbb E\,G^{\odot2})`$, up to a warmth error $`\eta\,\mathbb E[u\min\lbrace \kappa/2,1\rbrace ]`$. The mean gradient enters through $`\theta`$ (preconditioned by $`P`$) and through $`m`$. The *coordinatewise second moment* enters at first order through $`v`$, weighted by $`(1-\beta_2)\nabla_vV`$.
+
+This is sharper than Proposition W1: the $`L_v\kappa`$ residual of W1 is replaced by an explicit linear term in $`\mathbb E\,G^{\odot2}`$. Equal-mean laws with unequal gradient second moments are therefore *not* first-order equivalent for warm Adam unless $`\nabla_vV\perp\delta_2`$.
 
 **C4(d) Adam at a cold state** ($`m=v=0`$, first step).
 

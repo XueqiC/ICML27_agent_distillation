@@ -4,38 +4,45 @@
 
 ## 设定与假设
 
-- $`\mathcal Y_1=\lbrace 1,\dots,m\rbrace`$ 和 $`\mathcal Y_2=\lbrace 1,\dots,n\rbrace`$ 是有效反馈单元的有限集合，例如填入一个训练 packet 两个槽位的单元。
-- $`\mu\in\Delta(\mathcal Y_1)`$ 和 $`\nu\in\Delta(\mathcal Y_2)`$ 是两个槽位的边际，假设严格为正。（若有零项，下面所有结论在正支撑的乘积上成立。）
-- 每一对 $`(i,j)`$ 都是有效的 packet。
-- **coupling 多面体**为
+$`\mathcal Y_1=\lbrace 1,\dots,m\rbrace`$ 和 $`\mathcal Y_2=\lbrace 1,\dots,n\rbrace`$ 是有效反馈单元的有限集合，例如填入一个训练 packet 两个槽位的单元。
 
-  ```math
-  \mathcal C(\mu,\nu)=\lbrace \Gamma\in\mathbb R^{m\times n}_{\ge0}:\ \Gamma\mathbf 1=\mu,\ \Gamma^\top\mathbf 1=\nu\rbrace .
-  ```
+$`\mu\in\Delta(\mathcal Y_1)`$ 和 $`\nu\in\Delta(\mathcal Y_2)`$ 是两个槽位的边际，假设严格为正。（若有零项，下面所有结论在正支撑的乘积上成立。）
 
-- 在学习者状态 $`z`$ 处，$`H_z(i,j)`$ 是对联合 packet $`(i,j)`$ 做**实际更新**、再接参照 suffix 之后的期望真实终端回报。它是 N05 意义下的联合 packet response。
-- **coupling width** 为
+每一对 $`(i,j)`$ 都是有效的 packet。
 
-  ```math
-  w(H_z)=\max_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle-\min_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle.
-  ```
+**coupling 多面体**为
 
-  它是在保持两个槽位边际不变、因而每个单元的内容也不变的前提下，仅仅重新安排哪些单元打包在一起，所能造成的期望学习价值的最大变化。
+```math
+\mathcal C(\mu,\nu)=\lbrace \Gamma\in\mathbb R^{m\times n}_{\ge0}:\ \Gamma\mathbf 1=\mu,\ \Gamma^\top\mathbf 1=\nu\rbrace .
+```
+
+在学习者状态 $`z`$ 处，$`H_z(i,j)`$ 是对联合 packet $`(i,j)`$ 做**实际更新**、再接参照 suffix 之后的期望真实终端回报。它是 N05 意义下的联合 packet response。
+
+**coupling width** 为
+
+```math
+w(H_z)=\max_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle-\min_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle.
+```
+
+它是在保持两个槽位边际不变、因而每个单元的内容也不变的前提下，仅仅重新安排哪些单元打包在一起，所能造成的期望学习价值的最大变化。
 
 ## 陈述
 
 **命题.**
 
-1. **(a)** $`w(H_z)=0`$ 当且仅当存在 $`a\in\mathbb R^m`$、$`b\in\mathbb R^n`$ 使 $`H_z(i,j)=a_i+b_j`$。
-2. **(b)** 对所有 $`\Gamma,\Gamma'\in\mathcal C(\mu,\nu)`$，
+**1.** **(a)** $`w(H_z)=0`$ 当且仅当存在 $`a\in\mathbb R^m`$、$`b\in\mathbb R^n`$ 使 $`H_z(i,j)=a_i+b_j`$。
 
-   ```math
-   \lvert\langle\Gamma-\Gamma',H_z\rangle\rvert\le2\inf_{a,b}\big\lVert H_z-a\mathbf 1^\top-\mathbf 1b^\top\big\rVert_\infty. \qquad(46)
-   ```
+**2.** **(b)** 对所有 $`\Gamma,\Gamma'\in\mathcal C(\mu,\nu)`$，
 
-   这个不等式可以是严格的。
-3. **(b′)** **受限配对.** 如果禁止某些配对，可行 coupling 就构成 $`\mathcal C`$ 的一个真面，此时 width 为零并不能推出可加性。
-4. **(c)** **严格的可加零效应.** 在公共参数上、以相同的逐样本权重对所有 packet 的并集做一步 SGD，结果与样本如何分组成 packet 无关。两步或更多步的顺序更新一般不具有这种不变性。对二次损失，差异是 $`\eta^2`$ 阶的，下面给出显式形式。
+```math
+\lvert\langle\Gamma-\Gamma',H_z\rangle\rvert\le2\inf_{a,b}\big\lVert H_z-a\mathbf 1^\top-\mathbf 1b^\top\big\rVert_\infty. \qquad(46)
+```
+
+这个不等式可以是严格的。
+
+**3.** **(b′)** **受限配对.** 如果禁止某些配对，可行 coupling 就构成 $`\mathcal C`$ 的一个真面，此时 width 为零并不能推出可加性。
+
+**4.** **(c)** **严格的可加零效应.** 在公共参数上、以相同的逐样本权重对所有 packet 的并集做一步 SGD，结果与样本如何分组成 packet 无关。两步或更多步的顺序更新一般不具有这种不变性。对二次损失，差异是 $`\eta^2`$ 阶的，下面给出显式形式。
 
 ## 证明
 
@@ -49,15 +56,17 @@
 
 **第 1 部分，"仅当".**
 
-- $`\Gamma_0=\mu\nu^\top`$ 属于 $`\mathcal C(\mu,\nu)`$，并且严格为正。
-- 固定行 $`i\ne i'`$ 和列 $`j\ne j'`$，令 $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$。$`E`$ 的行和与列和都为零，所以当 $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$ 时 $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$。
-- width 为零意味着 $`\langle\Gamma,H\rangle`$ 在 $`\mathcal C`$ 上是常数。所以 $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$，即 $`\langle E,H\rangle=0`$：
+$`\Gamma_0=\mu\nu^\top`$ 属于 $`\mathcal C(\mu,\nu)`$，并且严格为正。
 
-  ```math
-  H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{for all rectangles}.
-  ```
+固定行 $`i\ne i'`$ 和列 $`j\ne j'`$，令 $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$。$`E`$ 的行和与列和都为零，所以当 $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$ 时 $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$。
 
-- 令 $`a_i=H_{i1}`$，$`b_j=H_{1j}-H_{11}`$。矩形 $`(i,1,j,1)`$ 给出 $`H_{ij}=H_{i1}+H_{1j}-H_{11}=a_i+b_j`$（当 $`i=1`$ 或 $`j=1`$ 时显然成立）。
+width 为零意味着 $`\langle\Gamma,H\rangle`$ 在 $`\mathcal C`$ 上是常数。所以 $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$，即 $`\langle E,H\rangle=0`$：
+
+```math
+H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{for all rectangles}.
+```
+
+令 $`a_i=H_{i1}`$，$`b_j=H_{1j}-H_{11}`$。矩形 $`(i,1,j,1)`$ 给出 $`H_{ij}=H_{i1}+H_{1j}-H_{11}=a_i+b_j`$（当 $`i=1`$ 或 $`j=1`$ 时显然成立）。
 
 **第 2 部分.** $`\Delta=\Gamma-\Gamma'`$ 的行和与列和都为零，所以对所有 $`a,b`$ 有 $`\langle\Delta,a\mathbf 1^\top+\mathbf 1b^\top\rangle=0`$。又 $`\lVert\Delta\rVert_1\le\lVert\Gamma\rVert_1+\lVert\Gamma'\rVert_1=2`$。于是对每个 $`a,b`$，
 

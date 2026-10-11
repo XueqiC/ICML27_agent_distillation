@@ -101,17 +101,20 @@ V(U,b)=\tfrac12\Big(\sum_{j\in U}w_j-\mathrm{top}_b(U)\Big),
 
 其中 $`\mathrm{top}_b(U)`$ 是 $`U`$ 中最大的 $`\min(b,\lvert U\rvert)`$ 个权重之和。
 
-- *基础情形。* $`b=0`$ 时就是条件形式的(a)。
-- *归纳步。* $`b\ge1`$ 时，学习器可以停止、查询一个已知比特，或查询某个 $`j\in U`$。
-  - 停止得到 $`V(U,0)`$，查询已知比特得到 $`V(U,b-1)`$。由归纳假设，以及 $`\mathrm{top}`$ 关于 $`b`$ 单调，二者都不小于右端。
-  - 查询 $`j\in U`$ 揭示 $`\Theta_j`$。由引理 3.0，剩余未见比特仍独立同分布且公平，并与揭示出的值独立。因此无论观察到什么值，后续问题都是 $`V(U\setminus\lbrace j\rbrace ,b-1)`$，按值分支没有收益。
-- *取最小。* 于是
+*基础情形。* $`b=0`$ 时就是条件形式的(a)。
 
-  ```math
-  V(U,b)=\min_{j\in U}\tfrac12\Big(\sum_{U\setminus\lbrace j\rbrace }w-\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\Big)=\tfrac12\Big(\sum_Uw-\max_{j\in U}\big[w_j+\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\big]\Big).
-  ```
+*归纳步。* $`b\ge1`$ 时，学习器可以停止、查询一个已知比特，或查询某个 $`j\in U`$。
 
-  其中的最大值等于 $`\mathrm{top}_b(U)`$，取权重最大的 $`j`$ 即达到。归纳完成，同时说明贪心规则最优。
+- 停止得到 $`V(U,0)`$，查询已知比特得到 $`V(U,b-1)`$。由归纳假设，以及 $`\mathrm{top}`$ 关于 $`b`$ 单调，二者都不小于右端。
+- 查询 $`j\in U`$ 揭示 $`\Theta_j`$。由引理 3.0，剩余未见比特仍独立同分布且公平，并与揭示出的值独立。因此无论观察到什么值，后续问题都是 $`V(U\setminus\lbrace j\rbrace ,b-1)`$，按值分支没有收益。
+
+*取最小。* 于是
+
+```math
+V(U,b)=\min_{j\in U}\tfrac12\Big(\sum_{U\setminus\lbrace j\rbrace }w-\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\Big)=\tfrac12\Big(\sum_Uw-\max_{j\in U}\big[w_j+\mathrm{top}_{b-1}(U\setminus\lbrace j\rbrace )\big]\Big).
+```
+
+其中的最大值等于 $`\mathrm{top}_b(U)`$，取权重最大的 $`j`$ 即达到。归纳完成，同时说明贪心规则最优。
 
 对示范取平均 $`V(U_K,n)`$ 即得 (A13)。
 

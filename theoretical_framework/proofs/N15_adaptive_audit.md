@@ -21,49 +21,57 @@ A **provider policy** $`S`$ chooses at each round a kernel index $`J_t`$, as a f
 
 **Adaptive audit.**
 
-- Let $`\mathcal H_t`$ be the history just before the audit of round $`t`$. Conditional on $`\mathcal H_t`$, freeze the actual state $`Z_t`$, a finite set of $`M_t`$ non-reference candidate kernels, a replica count $`n_t`$, and a confidence allocation $`\delta_t`$, with $`\sum_t\delta_t\le\delta`$ almost surely.
-- For each candidate, run $`n_t`$ independent paired experiments from $`Z_t`$. Each experiment applies the candidate update or the reference update, then the **full** reference-learning suffix and real deployment. Each arm must have its correct marginal law, and the paired contrast lies in $`[-1,1]`$.
-- Write $`\widehat A_t(j)`$ for the mean contrast, and set
+Let $`\mathcal H_t`$ be the history just before the audit of round $`t`$. Conditional on $`\mathcal H_t`$, freeze the actual state $`Z_t`$, a finite set of $`M_t`$ non-reference candidate kernels, a replica count $`n_t`$, and a confidence allocation $`\delta_t`$, with $`\sum_t\delta_t\le\delta`$ almost surely.
 
-  ```math
-  e_t=\sqrt{\frac{2\log(2M_t/\delta_t)}{n_t}},\qquad\ell_t(j)=\widehat A_t(j)-e_t,\qquad\ell_t(0)=0.
-  ```
+For each candidate, run $`n_t`$ independent paired experiments from $`Z_t`$. Each experiment applies the candidate update or the reference update, then the **full** reference-learning suffix and real deployment. Each arm must have its correct marginal law, and the paired contrast lies in $`[-1,1]`$.
 
-- Select $`J_t\in\arg\max_j\ell_t(j)`$ and set $`B_t=\ell_t(J_t)\in[0,1]`$. Then apply a **fresh** update from $`K^{J_t}_t`$, discarding the audit-trained replicas.
-- Unaudited rounds use the reference and set $`B_t=0`$.
-- Audits leave the actual learner and environment state unchanged, and the reference ignores audit records.
-- $`\mathcal F_t\supseteq\mathcal H_t`$ is the history after the audit and the selection but before the fresh update.
+Write $`\widehat A_t(j)`$ for the mean contrast, and set
+
+```math
+e_t=\sqrt{\frac{2\log(2M_t/\delta_t)}{n_t}},\qquad\ell_t(j)=\widehat A_t(j)-e_t,\qquad\ell_t(0)=0.
+```
+
+Select $`J_t\in\arg\max_j\ell_t(j)`$ and set $`B_t=\ell_t(J_t)\in[0,1]`$. Then apply a **fresh** update from $`K^{J_t}_t`$, discarding the audit-trained replicas.
+
+Unaudited rounds use the reference and set $`B_t=0`$.
+
+Audits leave the actual learner and environment state unchanged, and the reference ignores audit records.
+
+$`\mathcal F_t\supseteq\mathcal H_t`$ is the history after the audit and the selection but before the fresh update.
 
 ## Statement
 
 **Theorem (N15).**
 
-1. **(a)** **Fidelity.** If $`L_E(0)-J_E(\pi_0)\ge\gamma`$ and $`L_E(0)-L_E(S)\le\varepsilon`$, then
+**1.** **(a)** **Fidelity.** If $`L_E(0)-J_E(\pi_0)\ge\gamma`$ and $`L_E(0)-L_E(S)\le\varepsilon`$, then
 
-   ```math
-   L_E(S)-J_E(\pi_0)\ge\gamma-\varepsilon. \qquad(41)
-   ```
+```math
+L_E(S)-J_E(\pi_0)\ge\gamma-\varepsilon. \qquad(41)
+```
 
-   With $`\varepsilon=\varepsilon_K`$ the certificate [N14(b)](N14_frozen_audit_transport.md) of N14 and $`\gamma=\gamma_K`$ the measured gain of reference training from $`K`$ demonstrations, this is (a).
-2. **(b)** **Signed identity.** For every history-dependent provider policy $`S`$ with the common initial law,
+With $`\varepsilon=\varepsilon_K`$ the certificate [N14(b)](N14_frozen_audit_transport.md) of N14 and $`\gamma=\gamma_K`$ the measured gain of reference training from $`K`$ demonstrations, this is (a).
 
-   ```math
-   L_E(S)-L_E(0)=\sum_{t=0}^{R-1}\mathbb E_{d^S_t}\,A_t(Z_t,J_t).
-   ```
+**2.** **(b)** **Signed identity.** For every history-dependent provider policy $`S`$ with the common initial law,
 
-3. **(c)** **Adaptive audit.**
-   - (a) With probability at least $`1-\delta`$, $`\sum_tA_t(Z_t,J_t)\ge\sum_tB_t`$.
-   - (b) Unconditionally over audits and training,
+```math
+L_E(S)-L_E(0)=\sum_{t=0}^{R-1}\mathbb E_{d^S_t}\,A_t(Z_t,J_t).
+```
 
-     ```math
-     L_E(\mathrm{adaptive})-L_E(0)\ge-\delta, \qquad(44)
-     ```
+**3.** **(c)** **Adaptive audit.**
 
-     ```math
-     L_E(\mathrm{adaptive})-L_E(0)\ge\mathbb E\sum_tB_t-2\delta. \qquad(45)
-     ```
+**(a)** With probability at least $`1-\delta`$, $`\sum_tA_t(Z_t,J_t)\ge\sum_tB_t`$.
 
-4. **(d)** **Cost.** To reach radius $`e_t\le e`$ the audit needs $`n_t\ge\lceil2\log(2M_t/\delta_t)/e^2\rceil`$. With $`M=4`$, $`\delta=0.05`$ and $`e=0.1`$ this is $`\lceil 2\log160/0.01\rceil=1016`$ paired replicas per candidate. This count is sufficient, not necessary.
+**(b)** Unconditionally over audits and training,
+
+```math
+L_E(\mathrm{adaptive})-L_E(0)\ge-\delta, \qquad(44)
+```
+
+```math
+L_E(\mathrm{adaptive})-L_E(0)\ge\mathbb E\sum_tB_t-2\delta. \qquad(45)
+```
+
+**4.** **(d)** **Cost.** To reach radius $`e_t\le e`$ the audit needs $`n_t\ge\lceil2\log(2M_t/\delta_t)/e^2\rceil`$. With $`M=4`$, $`\delta=0.05`$ and $`e=0.1`$ this is $`\lceil 2\log160/0.01\rceil=1016`$ paired replicas per candidate. This count is sufficient, not necessary.
 
 ## Proof
 

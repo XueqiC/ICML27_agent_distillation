@@ -16,15 +16,17 @@
 
 **Experience and learner .**
 
-- Each experience block is $`Z\in[0,1]^k`$. Its coordinates may be arbitrarily dependent within the block.
-- Blocks $`Z_1,\dots,Z_R`$ are IID from $`P`$ (or from $`Q`$).
-- The learner is the convex affine average
+Each experience block is $`Z\in[0,1]^k`$. Its coordinates may be arbitrarily dependent within the block.
 
-  ```math
-  p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1,
-  ```
+Blocks $`Z_1,\dots,Z_R`$ are IID from $`P`$ (or from $`Q`$).
 
-  where $`p_0\in[0,1]^k`$ is common and fixed, and the weights are fixed independently of the data. Then $`p_R\in[0,1]^k`$.
+The learner is the convex affine average
+
+```math
+p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1,
+```
+
+where $`p_0\in[0,1]^k`$ is common and fixed, and the weights are fixed independently of the data. Then $`p_R\in[0,1]^k`$.
 
 **Notation.**
 
@@ -87,15 +89,17 @@ For a node $`u`$ of the deployment tree, let $`V_u(p)`$ be the expected terminal
 \deg V_u\le n(u),\qquad\lVert V_u\rVert_{\rm coef}\le3^{n(u)}.
 ```
 
-- *Leaf.* $`V_u=r\in[0,1]`$ is constant, with norm $`\le1=3^0`$.
-- *Chance node.* $`V_u=\sum_e\pi_eV_{u_e}`$ with $`p`$-independent probabilities. Every child has $`n(u_e)\le n(u)`$, so the degree is at most $`n(u)`$ and, by Lemma A, the norm is at most $`\max_e3^{n(u_e)}\le3^{n(u)}`$.
-- *Decision node with context $`j`$.* The children are $`u_1`$ (action 1) and $`u_0`$ (action 0), and
+*Leaf.* $`V_u=r\in[0,1]`$ is constant, with norm $`\le1=3^0`$.
 
-  ```math
-  V_u=p_jV_{u_1}+(1-p_j)V_{u_0}=V_{u_0}+p_jV_{u_1}-p_jV_{u_0}.
-  ```
+*Chance node.* $`V_u=\sum_e\pi_eV_{u_e}`$ with $`p`$-independent probabilities. Every child has $`n(u_e)\le n(u)`$, so the degree is at most $`n(u)`$ and, by Lemma A, the norm is at most $`\max_e3^{n(u_e)}\le3^{n(u)}`$.
 
-  The degree is at most $`1+\max(\deg V_{u_1},\deg V_{u_0})\le1+(n(u)-1)=n(u)`$. By Lemma A the norm is at most $`3\cdot3^{n(u)-1}=3^{n(u)}`$.
+*Decision node with context $`j`$.* The children are $`u_1`$ (action 1) and $`u_0`$ (action 0), and
+
+```math
+V_u=p_jV_{u_1}+(1-p_j)V_{u_0}=V_{u_0}+p_jV_{u_1}-p_jV_{u_0}.
+```
+
+The degree is at most $`1+\max(\deg V_{u_1},\deg V_{u_0})\le1+(n(u)-1)=n(u)`$. By Lemma A the norm is at most $`3\cdot3^{n(u)-1}=3^{n(u)}`$.
 
 At the root, $`n\le N`$. Since $`V_u`$ is a probability-weighted average of rewards in $`[0,1]`$, $`J_E\in[0,1]`$.
 
@@ -111,13 +115,15 @@ p_R^\alpha=\sum_{s:\lbrace 1,\dots,a\rbrace \to\lbrace 0,\dots,R\rbrace }\ \Big(
 
 where $`\beta_i(s)=\sum_{l:s(l)=i}e_{j(l)}`$. The coefficients are nonnegative and sum to $`\prod_l\sum_iw_i=1`$. Moreover:
 
-- $`\sum_i\lvert\beta_i(s)\rvert\le a`$;
-- at most $`a`$ blocks have $`\beta_i(s)\ne0`$;
-- under IID blocks,
+$`\sum_i\lvert\beta_i(s)\rvert\le a`$;
 
-  ```math
-  \mathbb E\,p_R^\alpha=\sum_s\Big(\prod_lw_{s(l)}\Big)\prod_{l:s(l)=0}p_{0,j(l)}\prod_{i=1}^Rm(\beta_i(s)). \qquad(B2)
-  ```
+at most $`a`$ blocks have $`\beta_i(s)\ne0`$;
+
+under IID blocks,
+
+```math
+\mathbb E\,p_R^\alpha=\sum_s\Big(\prod_lw_{s(l)}\Big)\prod_{l:s(l)=0}p_{0,j(l)}\prod_{i=1}^Rm(\beta_i(s)). \qquad(B2)
+```
 
 *Proof.* Expand the product of the $`a`$ linear forms $`w_0p_{0,j(l)}+\sum_{i\ge1}w_iZ_{i,j(l)}`$ by distributivity, choosing one source $`s(l)`$ for each factor. Independence across blocks factors the expectation of each product of block monomials. $`\square`$
 
@@ -139,15 +145,17 @@ If $`f`$ is a polynomial of degree $`d\ge1`$ with leading coefficient $`c`$, the
 
 **(i) Scalar witness.**
 
-- *Mass.* For $`N\ge1`$, $`\sum_{i\text{ even}}\binom Ni=\sum_{i\text{ odd}}\binom Ni=2^{N-1}`$, since their difference is $`(1-1)^N=0`$ and their sum is $`2^N`$. So $`P_N`$ and $`Q_N`$ are probability laws.
-- *Moments.* For $`\ell\ge0`$,
+*Mass.* For $`N\ge1`$, $`\sum_{i\text{ even}}\binom Ni=\sum_{i\text{ odd}}\binom Ni=2^{N-1}`$, since their difference is $`(1-1)^N=0`$ and their sum is $`2^N`$. So $`P_N`$ and $`Q_N`$ are probability laws.
 
-  ```math
-  m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,i^\ell=\frac{(-1)^N}{2^{N-1}N^\ell}\,\big(\Delta^Nx^\ell\big)(0).
-  ```
+*Moments.* For $`\ell\ge0`$,
 
-  This vanishes for $`\ell<N`$, and equals $`(-1)^NN!/(2^{N-1}N^N)`$ for $`\ell=N`$.
-- *Realization.* The deployment that visits one context $`N`$ times and pays 1 only if all actions are 1 has $`J(p)=p^N`$. With $`p=Z`$ its learning gap is $`\Delta_N`$.
+```math
+m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,i^\ell=\frac{(-1)^N}{2^{N-1}N^\ell}\,\big(\Delta^Nx^\ell\big)(0).
+```
+
+This vanishes for $`\ell<N`$, and equals $`(-1)^NN!/(2^{N-1}N^N)`$ for $`\ell=N`$.
+
+*Realization.* The deployment that visits one context $`N`$ times and pays 1 only if all actions are 1 has $`J(p)=p^N`$. With $`p=Z`$ its learning gap is $`\Delta_N`$.
 
 **(ii) Parity witness.**
 

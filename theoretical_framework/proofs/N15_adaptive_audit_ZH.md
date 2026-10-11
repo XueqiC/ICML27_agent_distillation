@@ -21,49 +21,57 @@ A_t(z,j)=(K^j_t-K^0_t)V^0_{t+1}(z)\in[-1,1].
 
 **自适应 audit.**
 
-- 记 $`\mathcal H_t`$ 为第 $`t`$ 轮 audit 之前的历史。在 $`\mathcal H_t`$ 条件下，冻结实际状态 $`Z_t`$、由 $`M_t`$ 个非参照候选 kernel 组成的有限集合、副本数 $`n_t`$ 和置信分配 $`\delta_t`$，并几乎处处满足 $`\sum_t\delta_t\le\delta`$。
-- 对每个候选，从 $`Z_t`$ 出发做 $`n_t`$ 次独立的配对实验。每次实验执行候选更新或参照更新，然后执行**完整的**参照学习 suffix 和真实部署。每一臂都必须有正确的边际律，配对对比落在 $`[-1,1]`$ 中。
-- 记 $`\widehat A_t(j)`$ 为平均对比，令
+记 $`\mathcal H_t`$ 为第 $`t`$ 轮 audit 之前的历史。在 $`\mathcal H_t`$ 条件下，冻结实际状态 $`Z_t`$、由 $`M_t`$ 个非参照候选 kernel 组成的有限集合、副本数 $`n_t`$ 和置信分配 $`\delta_t`$，并几乎处处满足 $`\sum_t\delta_t\le\delta`$。
 
-  ```math
-  e_t=\sqrt{\frac{2\log(2M_t/\delta_t)}{n_t}},\qquad\ell_t(j)=\widehat A_t(j)-e_t,\qquad\ell_t(0)=0.
-  ```
+对每个候选，从 $`Z_t`$ 出发做 $`n_t`$ 次独立的配对实验。每次实验执行候选更新或参照更新，然后执行**完整的**参照学习 suffix 和真实部署。每一臂都必须有正确的边际律，配对对比落在 $`[-1,1]`$ 中。
 
-- 选择 $`J_t\in\arg\max_j\ell_t(j)`$，令 $`B_t=\ell_t(J_t)\in[0,1]`$。然后从 $`K^{J_t}_t`$ 做一次**新鲜**更新，丢弃 audit 中训练出的副本。
-- 未做 audit 的轮次使用参照，并令 $`B_t=0`$。
-- audit 不改变实际的学习者状态和环境状态，参照也不读取 audit 记录。
-- $`\mathcal F_t\supseteq\mathcal H_t`$ 是 audit 与选择之后、新鲜更新之前的历史。
+记 $`\widehat A_t(j)`$ 为平均对比，令
+
+```math
+e_t=\sqrt{\frac{2\log(2M_t/\delta_t)}{n_t}},\qquad\ell_t(j)=\widehat A_t(j)-e_t,\qquad\ell_t(0)=0.
+```
+
+选择 $`J_t\in\arg\max_j\ell_t(j)`$，令 $`B_t=\ell_t(J_t)\in[0,1]`$。然后从 $`K^{J_t}_t`$ 做一次**新鲜**更新，丢弃 audit 中训练出的副本。
+
+未做 audit 的轮次使用参照，并令 $`B_t=0`$。
+
+audit 不改变实际的学习者状态和环境状态，参照也不读取 audit 记录。
+
+$`\mathcal F_t\supseteq\mathcal H_t`$ 是 audit 与选择之后、新鲜更新之前的历史。
 
 ## 陈述
 
 **定理（N15）.**
 
-1. **(a)** **保真.** 若 $`L_E(0)-J_E(\pi_0)\ge\gamma`$ 且 $`L_E(0)-L_E(S)\le\varepsilon`$，则
+**1.** **(a)** **保真.** 若 $`L_E(0)-J_E(\pi_0)\ge\gamma`$ 且 $`L_E(0)-L_E(S)\le\varepsilon`$，则
 
-   ```math
-   L_E(S)-J_E(\pi_0)\ge\gamma-\varepsilon. \qquad(41)
-   ```
+```math
+L_E(S)-J_E(\pi_0)\ge\gamma-\varepsilon. \qquad(41)
+```
 
-   取 $`\varepsilon=\varepsilon_K`$ 为 N14 的 certificate [N14(b)](N14_frozen_audit_transport_ZH.md)，$`\gamma=\gamma_K`$ 为基于 $`K`$ 条示范的参照训练的实测增益，即得 (a)。
-2. **(b)** **带号恒等式.** 对每个具有公共初始律、依赖历史的 provider 策略 $`S`$，
+取 $`\varepsilon=\varepsilon_K`$ 为 N14 的 certificate [N14(b)](N14_frozen_audit_transport_ZH.md)，$`\gamma=\gamma_K`$ 为基于 $`K`$ 条示范的参照训练的实测增益，即得 (a)。
 
-   ```math
-   L_E(S)-L_E(0)=\sum_{t=0}^{R-1}\mathbb E_{d^S_t}\,A_t(Z_t,J_t).
-   ```
+**2.** **(b)** **带号恒等式.** 对每个具有公共初始律、依赖历史的 provider 策略 $`S`$，
 
-3. **(c)** **自适应 audit.**
-   - (a) 以至少 $`1-\delta`$ 的概率，$`\sum_tA_t(Z_t,J_t)\ge\sum_tB_t`$。
-   - (b) 对 audit 与训练无条件地取期望，
+```math
+L_E(S)-L_E(0)=\sum_{t=0}^{R-1}\mathbb E_{d^S_t}\,A_t(Z_t,J_t).
+```
 
-     ```math
-     L_E(\mathrm{adaptive})-L_E(0)\ge-\delta, \qquad(44)
-     ```
+**3.** **(c)** **自适应 audit.**
 
-     ```math
-     L_E(\mathrm{adaptive})-L_E(0)\ge\mathbb E\sum_tB_t-2\delta. \qquad(45)
-     ```
+**(a)** 以至少 $`1-\delta`$ 的概率，$`\sum_tA_t(Z_t,J_t)\ge\sum_tB_t`$。
 
-4. **(d)** **代价.** 要使半径 $`e_t\le e`$，audit 需要 $`n_t\ge\lceil2\log(2M_t/\delta_t)/e^2\rceil`$。$`M=4`$、$`\delta=0.05`$、$`e=0.1`$ 时，每个候选需要 $`\lceil 2\log160/0.01\rceil=1016`$ 个配对副本。这个数量是充分的，但不是必要的。
+**(b)** 对 audit 与训练无条件地取期望，
+
+```math
+L_E(\mathrm{adaptive})-L_E(0)\ge-\delta, \qquad(44)
+```
+
+```math
+L_E(\mathrm{adaptive})-L_E(0)\ge\mathbb E\sum_tB_t-2\delta. \qquad(45)
+```
+
+**4.** **(d)** **代价.** 要使半径 $`e_t\le e`$，audit 需要 $`n_t\ge\lceil2\log(2M_t/\delta_t)/e^2\rceil`$。$`M=4`$、$`\delta=0.05`$、$`e=0.1`$ 时，每个候选需要 $`\lceil 2\log160/0.01\rceil=1016`$ 个配对副本。这个数量是充分的，但不是必要的。
 
 ## 证明
 

@@ -6,17 +6,21 @@ This page derives the six CED design rules from the framework. Each rule is a pr
 
 ## Setting and assumptions
 
-- **Few-shot agent distillation.** A student starts from pretrained information $`I_{\rm pre}`$ with $`K`$ trusted teacher demonstrations per task family.
-- **Acquisition budget.** Further permitted experiments (teacher calls, environment branches, resets) form a separately accounted budget.
-- **Providers.** A provider $`j`$ is an executable rule that, at a complete learner state $`z`$, emits feedback messages $`Y\sim P^j_{t,z}`$ (training units, packets, targets).
-- **Recipe.** Training uses a declared recipe: update $`U_t`$, optimizer (for example AdamW), horizon $`R`$, and reference suffix. The final student is deployed alone, with value $`F_E(z)=J_E(\pi_z)`$.
-- **Response and provider value.** As in N05,
+**Few-shot agent distillation.** A student starts from pretrained information $`I_{\rm pre}`$ with $`K`$ trusted teacher demonstrations per task family.
 
-  ```math
-  g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi)),\qquad G(z,j)=\mathbb E_{Y\sim P^j_{t,z}}g_{t,z}(Y),
-  ```
+**Acquisition budget.** Further permitted experiments (teacher calls, environment branches, resets) form a separately accounted budget.
 
-  and the signed local advantage is $`A_t(z,j)=G(z,j)-G(z,0)`$.
+**Providers.** A provider $`j`$ is an executable rule that, at a complete learner state $`z`$, emits feedback messages $`Y\sim P^j_{t,z}`$ (training units, packets, targets).
+
+**Recipe.** Training uses a declared recipe: update $`U_t`$, optimizer (for example AdamW), horizon $`R`$, and reference suffix. The final student is deployed alone, with value $`F_E(z)=J_E(\pi_z)`$.
+
+**Response and provider value.** As in N05,
+
+```math
+g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi)),\qquad G(z,j)=\mathbb E_{Y\sim P^j_{t,z}}g_{t,z}(Y),
+```
+
+and the signed local advantage is $`A_t(z,j)=G(z,j)-G(z,0)`$.
 
 ## Statement
 

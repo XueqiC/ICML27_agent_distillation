@@ -84,22 +84,24 @@ In both cases the separation is first order in $`\eta`$. At a warm state with th
 
 **(W3)** **Corollary (cold window).**
 
-- (a) *Mean-field warmth.* Suppose $`v`$ starts at $`0`$ and has absorbed $`s\ge1`$ gradient evaluations whose coordinate second moments are all $`\sigma_i^2>0`$. Then $`\mathbb E v_i=(1-\beta_2^s)\sigma_i^2`$. The mean-field warmth $`\bar\kappa_i(s):=(1-\beta_2)\sigma_i^2/(\beta_2\,\mathbb E v_i)`$ satisfies
+(a) *Mean-field warmth.* Suppose $`v`$ starts at $`0`$ and has absorbed $`s\ge1`$ gradient evaluations whose coordinate second moments are all $`\sigma_i^2>0`$. Then $`\mathbb E v_i=(1-\beta_2^s)\sigma_i^2`$. The mean-field warmth $`\bar\kappa_i(s):=(1-\beta_2)\sigma_i^2/(\beta_2\,\mathbb E v_i)`$ satisfies
 
-  ```math
-  \frac1{\beta_2\,s}\le\bar\kappa_i(s)\le\frac1{\beta_2^{\,s}\,s}.
-  ```
+```math
+\frac1{\beta_2\,s}\le\bar\kappa_i(s)\le\frac1{\beta_2^{\,s}\,s}.
+```
 
-  In particular $`\bar\kappa_i(s)\le e^{1/\beta_2}/s`$ for $`s\le(1-\beta_2)^{-1}`$. After $`W`$ warm-up evaluations, real update $`s`$ has $`W+s-1`$ prior evaluations.
-- (b) *Accumulation.* Compare the reference and an alternative provider over $`R`$ real updates through the telescoping identity of [N05(a)–(c)](N05_continuation_response.md) (node [N05](N05_continuation_response.md)). Let $`\mathcal S_{\rm warm}\subseteq\lbrace 1,\dots,R\rbrace`$ be the updates at which, at every visited state, (W), (L), (S), (H) hold with constants indexed by $`s`$, the two laws have equal mean consumed gradient, and $`\max_i\kappa_i\le c/(W+s)`$ almost surely for some constant $`c>0`$, which is unrelated to $`c=F(0)`$ in W1. Then
+In particular $`\bar\kappa_i(s)\le e^{1/\beta_2}/s`$ for $`s\le(1-\beta_2)^{-1}`$. After $`W`$ warm-up evaluations, real update $`s`$ has $`W+s-1`$ prior evaluations.
 
-  ```math
-  \lvert L(0)-L(S)\rvert\le\lvert\lbrace s\notin\mathcal S_{\rm warm}\rbrace\rvert+\bar A\sum_{s\in\mathcal S_{\rm warm}}\min\Big\lbrace 1,\frac{c}{W+s}\Big\rbrace +\sum_{s\in\mathcal S_{\rm warm}}\bar B_s,
-  ```
+(b) *Accumulation.* Compare the reference and an alternative provider over $`R`$ real updates through the telescoping identity of [N05(a)–(c)](N05_continuation_response.md) (node [N05](N05_continuation_response.md)). Let $`\mathcal S_{\rm warm}\subseteq\lbrace 1,\dots,R\rbrace`$ be the updates at which, at every visited state, (W), (L), (S), (H) hold with constants indexed by $`s`$, the two laws have equal mean consumed gradient, and $`\max_i\kappa_i\le c/(W+s)`$ almost surely for some constant $`c>0`$, which is unrelated to $`c=F(0)`$ in W1. Then
 
-  where $`\bar A=\sup_s2\big(\eta\sum_iL_{i,s}\bar u_{i,s}+L_{v,s}\max\lbrace 1,\bar k\rbrace \big)`$, $`\bar B_s=\sup H_{G,s}\lVert G\rVert_\infty^2`$, and $`\bar u_{i,s}`$ bounds $`u_i`$.
-  - With $`W\ge1`$ warm-up evaluations, typically $`\mathcal S_{\rm warm}=\lbrace 1,\dots,R\rbrace`$, and the warmth-controlled sum is at most $`c\log(1+R/W)`$.
-  - With $`W=0`$, the first real update starts from $`v=0`$ and violates (W). It is the cold step of node [N11](N11_adam_cold_start.md), and it contributes at most $`1`$; by W2 its contribution can be of first order in $`\eta`$. If $`\mathcal S_{\rm warm}=\lbrace 2,\dots,R\rbrace`$, the warmth-controlled sum is at most $`c\log R`$.
+```math
+\lvert L(0)-L(S)\rvert\le\lvert\lbrace s\notin\mathcal S_{\rm warm}\rbrace\rvert+\bar A\sum_{s\in\mathcal S_{\rm warm}}\min\Big\lbrace 1,\frac{c}{W+s}\Big\rbrace +\sum_{s\in\mathcal S_{\rm warm}}\bar B_s,
+```
+
+where $`\bar A=\sup_s2\big(\eta\sum_iL_{i,s}\bar u_{i,s}+L_{v,s}\max\lbrace 1,\bar k\rbrace \big)`$, $`\bar B_s=\sup H_{G,s}\lVert G\rVert_\infty^2`$, and $`\bar u_{i,s}`$ bounds $`u_i`$.
+
+- With $`W\ge1`$ warm-up evaluations, typically $`\mathcal S_{\rm warm}=\lbrace 1,\dots,R\rbrace`$, and the warmth-controlled sum is at most $`c\log(1+R/W)`$.
+- With $`W=0`$, the first real update starts from $`v=0`$ and violates (W). It is the cold step of node [N11](N11_adam_cold_start.md), and it contributes at most $`1`$; by W2 its contribution can be of first order in $`\eta`$. If $`\mathcal S_{\rm warm}=\lbrace 2,\dots,R\rbrace`$, the warmth-controlled sum is at most $`c\log R`$.
 
 *What is exact and what is approximate.* Part (a) is exact for the *mean* of $`v`$. Part (b) is exact given its hypothesis $`\max_i\kappa_i\le c/(W+s)`$ on $`\mathcal S_{\rm warm}`$. The step from (a) to that hypothesis replaces the realized $`v_i`$ by its mean and $`G_i^2/\sigma_i^2`$ by a bounded constant. This step is an approximation: it needs concentration of the exponential moving average and stationary gradient scale. Check E8-W3 tests it on actual trajectories.
 
@@ -107,14 +109,15 @@ In both cases the separation is first order in $`\eta`$. At a warm state with th
 
 **(W0)**
 
-- *Case $`v_i>0`$.* Then $`\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\lvert n_i\rvert\,\lvert\tfrac1{a_i\sqrt{1+\kappa_i}+\epsilon}-\tfrac1{a_i+\epsilon}\rvert`$. Bringing the reciprocals to a common denominator,
+*Case $`v_i>0`$.* Then $`\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\lvert n_i\rvert\,\lvert\tfrac1{a_i\sqrt{1+\kappa_i}+\epsilon}-\tfrac1{a_i+\epsilon}\rvert`$. Bringing the reciprocals to a common denominator,
 
-  ```math
-  \lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\,u_i\cdot\frac{a_i(\sqrt{1+\kappa_i}-1)}{a_i\sqrt{1+\kappa_i}+\epsilon}.
-  ```
+```math
+\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\,u_i\cdot\frac{a_i(\sqrt{1+\kappa_i}-1)}{a_i\sqrt{1+\kappa_i}+\epsilon}.
+```
 
-  Since $`\epsilon\ge0`$, the last factor is at most $`(\sqrt{1+\kappa_i}-1)/\sqrt{1+\kappa_i}=1-(1+\kappa_i)^{-1/2}`$. This is below $`1`$, and below $`\kappa_i/2`$ because $`\sqrt{1+\kappa}-1\le\kappa/2`$ and $`\sqrt{1+\kappa}\ge1`$. Hence the factor is at most $`\min\lbrace \kappa_i/2,1\rbrace`$.
-- *Case $`v_i=0`$ with $`\epsilon>0`$.* Then $`a_i=0`$, $`\kappa_i=\infty`$ and $`u_i=\lvert n_i\rvert/\epsilon`$. Both reciprocals $`1/(d_i+\epsilon)`$ and $`1/\epsilon`$ lie in $`[0,1/\epsilon]`$, so their difference is at most $`1/\epsilon`$, and the left side is at most $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$. $`\square`$
+Since $`\epsilon\ge0`$, the last factor is at most $`(\sqrt{1+\kappa_i}-1)/\sqrt{1+\kappa_i}=1-(1+\kappa_i)^{-1/2}`$. This is below $`1`$, and below $`\kappa_i/2`$ because $`\sqrt{1+\kappa}-1\le\kappa/2`$ and $`\sqrt{1+\kappa}\ge1`$. Hence the factor is at most $`\min\lbrace \kappa_i/2,1\rbrace`$.
+
+*Case $`v_i=0`$ with $`\epsilon>0`$.* Then $`a_i=0`$, $`\kappa_i=\infty`$ and $`u_i=\lvert n_i\rvert/\epsilon`$. Both reciprocals $`1/(d_i+\epsilon)`$ and $`1/\epsilon`$ lie in $`[0,1/\epsilon]`$, so their difference is at most $`1/\epsilon`$, and the left side is at most $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$. $`\square`$
 
 **Proof of (W1).** Fix $`y`$ and drop it from notation. Split
 
@@ -124,15 +127,17 @@ In both cases the separation is first order in $`\eta`$. At a warm state with th
 
 The identity holds because $`V(\tilde\theta^+,m^+,\beta_2v)=V(\tilde z^+(G))=F(G)`$.
 
-- *(i)* By (L) and (W0), $`\lvert(i)\rvert\le\sum_iL_i\lvert\theta_i^+-\tilde\theta_i^+\rvert\le\eta\sum_iL_iu_i\min\lbrace \kappa_i/2,1\rbrace`$.
-- *(ii)* By (W), $`v^+=\beta_2v\odot(1+\kappa)`$ with finite $`\kappa\ge0`$. By (S) at $`(\tilde\theta^+,m^+)`$, $`\lvert(ii)\rvert\le L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace`$.
-- *(iii)* The segment $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ lies in $`\mathcal C`$. Taylor's theorem with integral remainder gives
+*(i)* By (L) and (W0), $`\lvert(i)\rvert\le\sum_iL_i\lvert\theta_i^+-\tilde\theta_i^+\rvert\le\eta\sum_iL_iu_i\min\lbrace \kappa_i/2,1\rbrace`$.
 
-  ```math
-  F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau.
-  ```
+*(ii)* By (W), $`v^+=\beta_2v\odot(1+\kappa)`$ with finite $`\kappa\ge0`$. By (S) at $`(\tilde\theta^+,m^+)`$, $`\lvert(ii)\rvert\le L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace`$.
 
-  By (H) the integrand is at most $`(1-\tau)H_G\lVert G\rVert_\infty^2`$ in absolute value. So $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$.
+*(iii)* The segment $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ lies in $`\mathcal C`$. Taylor's theorem with integral remainder gives
+
+```math
+F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau.
+```
+
+By (H) the integrand is at most $`(1-\tau)H_G\lVert G\rVert_\infty^2`$ in absolute value. So $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$.
 
 Adding the three bounds proves the pointwise statement.
 

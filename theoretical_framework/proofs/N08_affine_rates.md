@@ -8,15 +8,17 @@ The setting of N07 applies: the student $`p\in[0,1]^k`$, the deployment value $`
 
 **Definitions.**
 
-- The moment discrepancy and the degree-weighted coefficient mass of $`J`$ are
+The moment discrepancy and the degree-weighted coefficient mass of $`J`$ are
 
-  ```math
-  \delta_N(P,Q)=\max_{1\le\lvert\alpha\rvert\le N}\lvert m_P(\alpha)-m_Q(\alpha)\rvert,\qquad C_J=\sum_\alpha\lvert c_\alpha\rvert\,\lvert\alpha\rvert .
-  ```
+```math
+\delta_N(P,Q)=\max_{1\le\lvert\alpha\rvert\le N}\lvert m_P(\alpha)-m_Q(\alpha)\rvert,\qquad C_J=\sum_\alpha\lvert c_\alpha\rvert\,\lvert\alpha\rvert .
+```
 
-- For the averaging learner $`\bar p_n=\frac1n\sum_{i=1}^nZ_i`$, write $`\mu=\mathbb E Z`$ and $`W_n=\bar p_n-\mu`$.
-- $`\kappa_s(P)`$ is the order-$`s`$ joint cumulant tensor of $`Z\sim P`$, with entries $`\kappa(Z_{j_1},\dots,Z_{j_s})`$.
-- $`D^sJ(\mu)`$ is the $`s`$-th derivative tensor, and $`\langle D^sJ(\mu),T\rangle=\sum_{j_1,\dots,j_s}\partial_{j_1\cdots j_s}J(\mu)\,T_{j_1\cdots j_s}`$.
+For the averaging learner $`\bar p_n=\frac1n\sum_{i=1}^nZ_i`$, write $`\mu=\mathbb E Z`$ and $`W_n=\bar p_n-\mu`$.
+
+$`\kappa_s(P)`$ is the order-$`s`$ joint cumulant tensor of $`Z\sim P`$, with entries $`\kappa(Z_{j_1},\dots,Z_{j_s})`$.
+
+$`D^sJ(\mu)`$ is the $`s`$-th derivative tensor, and $`\langle D^sJ(\mu),T\rangle=\sum_{j_1,\dots,j_s}\partial_{j_1\cdots j_s}J(\mu)\,T_{j_1\cdots j_s}`$.
 
 For (b), $`P,Q,k,N,J`$ are fixed while $`n\to\infty`$.
 

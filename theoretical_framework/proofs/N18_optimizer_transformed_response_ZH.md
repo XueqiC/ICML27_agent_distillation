@@ -80,19 +80,21 @@ L(P)-L(Q)=\sum_{t=0}^{R-1}\mathbb E_{d_t^Q}\Big\langle\nabla V^P_{t+1}(X_t),\;\m
 
 **(c)** **定理（一阶的充分性、必要性与极小性）.** 使用 Euclidean 内积，令 $`\Pi_U`$ 为到 $`U`$ 的正交投影。
 
-1. *充分性.* 若 $`\Pi_U(\mu^P-\mu^Q)=0`$，则对每个 $`V\in\mathcal V`$，$`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$。
-2. *必要性.* 若 $`\Pi_U(\mu^P-\mu^Q)\ne0`$，则存在 $`V\in\mathcal V`$ 使 $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$。对每个这样的 $`V`$，
+**1.** *充分性.* 若 $`\Pi_U(\mu^P-\mu^Q)=0`$，则对每个 $`V\in\mathcal V`$，$`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$。
 
-   ```math
-   \lvert(K^P-K^Q)V(x)\rvert\ge\big\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\big\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
-   ```
+**2.** *必要性.* 若 $`\Pi_U(\mu^P-\mu^Q)\ne0`$，则存在 $`V\in\mathcal V`$ 使 $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$。对每个这样的 $`V`$，
 
-   因此，只要一阶项超过余项界，该任务就能检测出这个不一致。
-3. *极小性.* 在大小为 $`m`$ 的有限消息字母表上，能对所有分布对决定每个一阶项 $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$（$`V\in\mathcal V`$）的线性期望统计量，其最小个数为
+```math
+\lvert(K^P-K^Q)V(x)\rvert\ge\big\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\big\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
+```
 
-   ```math
-   d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
-   ```
+因此，只要一阶项超过余项界，该任务就能检测出这个不一致。
+
+**3.** *极小性.* 在大小为 $`m`$ 的有限消息字母表上，能对所有分布对决定每个一阶项 $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$（$`V\in\mathcal V`$）的线性期望统计量，其最小个数为
+
+```math
+d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
+```
 
 **(d)** **推论（经优化器变换的矩层级）.** 在 $`S_k`$ 下，设两个分布在某状态处对 $`j=1,\dots,k`$ 都有相同的 $`\mathbb E\Delta^{\otimes j}`$。则它们在该处的单边界差异至多为 $`\tfrac{M_{k+1}}{(k+1)!}(m_{k+1}^P+m_{k+1}^Q)`$；像 (b) 那样对访问到的状态求和，就得到整次训练差距的界。
 

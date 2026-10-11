@@ -52,14 +52,15 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 **(b)** **定理（按一阶 margin 选择的正确性）.**
 
-- *单边界.* 在状态 $`x`$ 上取候选分布 $`P_j,P_k`$，以及一个满足 $`S_1`$、常数为 $`M_2`$ 的延续值 $`V`$。若
+*单边界.* 在状态 $`x`$ 上取候选分布 $`P_j,P_k`$，以及一个满足 $`S_1`$、常数为 $`M_2`$ 的延续值 $`V`$。若
 
-  ```math
-  \big\lvert\langle\nabla V(x),\mu^{j}-\mu^{k}\rangle\big\rvert>\tfrac{M_2}2\big(m_2^{j}+m_2^{k}\big),
-  ```
+```math
+\big\lvert\langle\nabla V(x),\mu^{j}-\mu^{k}\rangle\big\rvert>\tfrac{M_2}2\big(m_2^{j}+m_2^{k}\big),
+```
 
-  则 $`\mathrm{sign}\big((K^{P_j}-K^{P_k})V(x)\big)=\mathrm{sign}\langle\nabla V(x),\mu^j-\mu^k\rangle`$。
-- *整次训练.* 令 $`T_{jk}=\sum_t\mathbb E_{d_t^{k}}\langle\nabla V^{j}_{t+1}(X_t),\mu^j_t-\mu^k_t\rangle`$，$`B_{jk}=\sum_t\mathbb E_{d_t^{k}}\tfrac{M_{2,t}}2(m^j_{2,t}+m^k_{2,t})`$，即以 $`P_j`$ 充当 $`P`$ 时[N18(b)](N18_optimizer_transformed_response_ZH.md) 的一阶项和余项界。若 $`\lvert T_{jk}\rvert>B_{jk}`$，则 $`\mathrm{sign}\big(L(P_j)-L(P_k)\big)=\mathrm{sign}(T_{jk})`$。
+则 $`\mathrm{sign}\big((K^{P_j}-K^{P_k})V(x)\big)=\mathrm{sign}\langle\nabla V(x),\mu^j-\mu^k\rangle`$。
+
+*整次训练.* 令 $`T_{jk}=\sum_t\mathbb E_{d_t^{k}}\langle\nabla V^{j}_{t+1}(X_t),\mu^j_t-\mu^k_t\rangle`$，$`B_{jk}=\sum_t\mathbb E_{d_t^{k}}\tfrac{M_{2,t}}2(m^j_{2,t}+m^k_{2,t})`$，即以 $`P_j`$ 充当 $`P`$ 时[N18(b)](N18_optimizer_transformed_response_ZH.md) 的一阶项和余项界。若 $`\lvert T_{jk}\rvert>B_{jk}`$，则 $`\mathrm{sign}\big(L(P_j)-L(P_k)\big)=\mathrm{sign}(T_{jk})`$。
 
 **(b′)** **推论（便宜的分数何时一定排对）.** 设在状态 $`x`$ 上，对延续值 $`V`$ 用分数 $`s(P)`$ 给反馈分布排序。假设：
 

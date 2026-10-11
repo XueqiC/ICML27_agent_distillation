@@ -80,19 +80,21 @@ Consequently, with $`\Lambda_t(x)=\lVert\nabla V^P_{t+1}(x)\rVert_*`$,
 
 **(c)** **Theorem (first-order sufficiency, necessity and minimality).** Use the Euclidean pairing, and let $`\Pi_U`$ be the orthogonal projection onto $`U`$.
 
-1. *Sufficiency.* If $`\Pi_U(\mu^P-\mu^Q)=0`$, then $`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$ for every $`V\in\mathcal V`$.
-2. *Necessity.* If $`\Pi_U(\mu^P-\mu^Q)\ne0`$, then some $`V\in\mathcal V`$ has $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$. For every such $`V`$,
+**1.** *Sufficiency.* If $`\Pi_U(\mu^P-\mu^Q)=0`$, then $`\lvert(K^P-K^Q)V(x)\rvert\le\tfrac{M_2}2(m_2^P+m_2^Q)`$ for every $`V\in\mathcal V`$.
 
-   ```math
-   \lvert(K^P-K^Q)V(x)\rvert\ge\big\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\big\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
-   ```
+**2.** *Necessity.* If $`\Pi_U(\mu^P-\mu^Q)\ne0`$, then some $`V\in\mathcal V`$ has $`\langle\nabla V(x),\mu^P-\mu^Q\rangle\ne0`$. For every such $`V`$,
 
-   The mismatch is therefore detected by that task whenever the first-order term exceeds the remainder bound.
-3. *Minimality.* On a finite message alphabet of size $`m`$, the minimal number of linear expectation statistics that determine every first-order term $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$, $`V\in\mathcal V`$, for all law pairs is
+```math
+\lvert(K^P-K^Q)V(x)\rvert\ge\big\lvert\langle\nabla V(x),\mu^P-\mu^Q\rangle\big\rvert-\tfrac{M_2}2(m_2^P+m_2^Q).
+```
 
-   ```math
-   d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
-   ```
+The mismatch is therefore detected by that task whenever the first-order term exceeds the remainder bound.
+
+**3.** *Minimality.* On a finite message alphabet of size $`m`$, the minimal number of linear expectation statistics that determine every first-order term $`\langle\nabla V(x),\mu^P-\mu^Q\rangle`$, $`V\in\mathcal V`$, for all law pairs is
+
+```math
+d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,x}\big)-1\le\min\lbrace \dim U,\ m-1\rbrace .
+```
 
 **(d)** **Corollary (optimizer-transformed moment hierarchy).** Under $`S_k`$, suppose two laws agree on $`\mathbb E\Delta^{\otimes j}`$ for $`j=1,\dots,k`$ at a state. Then their one-boundary discrepancy there is at most $`\tfrac{M_{k+1}}{(k+1)!}(m_{k+1}^P+m_{k+1}^Q)`$. Summed over the visited states, as in (b), this bounds the run-level gap.
 

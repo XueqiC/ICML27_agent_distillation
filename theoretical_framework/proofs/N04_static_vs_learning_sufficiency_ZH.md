@@ -21,41 +21,47 @@
 
 **构造 4.2（(b)：两种标签 packet）。**
 
-- 一个 packet 是一对二元标签 $`(Y_1,Y_2)`$。
-- *独立*数据源下，$`Y_1,Y_2`$ 独立同分布于 Bernoulli $`(\tfrac12)`$；*配对*数据源下，$`(Y_1,Y_2)`$ 在 $`\lbrace (0,1),(1,0)\rbrace`$ 上均匀分布。
-- 学习器从 $`p_0=\tfrac12`$ 出发，对平方损失 $`\tfrac14\sum_{i=1}^2(p-Y_i)^2`$ 做一步步长为 $`0<\eta\le1`$ 的梯度下降：
+一个 packet 是一对二元标签 $`(Y_1,Y_2)`$。
 
-  ```math
-  p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2.
-  ```
+*独立*数据源下，$`Y_1,Y_2`$ 独立同分布于 Bernoulli $`(\tfrac12)`$；*配对*数据源下，$`(Y_1,Y_2)`$ 在 $`\lbrace (0,1),(1,0)\rbrace`$ 上均匀分布。
 
-- 部署包含两个独立决策，都必须选动作 1，即 $`J(p)=p^2`$；另一个任务为 $`J'(p)=1-p^2`$。
+学习器从 $`p_0=\tfrac12`$ 出发，对平方损失 $`\tfrac14\sum_{i=1}^2(p-Y_i)^2`$ 做一步步长为 $`0<\eta\le1`$ 的梯度下降：
+
+```math
+p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2.
+```
+
+部署包含两个独立决策，都必须选动作 1，即 $`J(p)=p^2`$；另一个任务为 $`J'(p)=1-p^2`$。
 
 ## 陈述
 
 **(a)** **命题（静态价值相同，学到的学生不同）。** 在构造 4.1 中：
 
-- 两个数据源对每个 aliased 学生给出相同的价值 $`J(\pi_p)=\tfrac12+p/20`$；
-- 两者给出的 teacher 价值都是 $`\tfrac35`$；
-- teacher 的 $`A`$ 频率分别为 $`\tfrac34`$ 和 $`\tfrac14`$；
-- 在 $`m\ge1`$ 条示范上做频率蒸馏，得到的期望回报为
+两个数据源对每个 aliased 学生给出相同的价值 $`J(\pi_p)=\tfrac12+p/20`$；
 
-  ```math
-  \mathbb E\,J(\pi_{\widehat p})=\tfrac{43}{80}\quad\text{（参照）},\qquad\tfrac{41}{80}\quad\text{（另一数据源）},
-  ```
+两者给出的 teacher 价值都是 $`\tfrac35`$；
 
-  对每个 $`m`$，差距都是 $`\tfrac1{40}`$。
+teacher 的 $`A`$ 频率分别为 $`\tfrac34`$ 和 $`\tfrac14`$；
+
+在 $`m\ge1`$ 条示范上做频率蒸馏，得到的期望回报为
+
+```math
+\mathbb E\,J(\pi_{\widehat p})=\tfrac{43}{80}\quad\text{（参照）},\qquad\tfrac{41}{80}\quad\text{（另一数据源）},
+```
+
+对每个 $`m`$，差距都是 $`\tfrac1{40}`$。
 
 **(b)** **命题（平均更新相同，学习价值不同）。** 在构造 4.2 中：
 
-- 两个数据源的标签边缘分布、平均梯度和平均更新 $`\mathbb Ep^+=\tfrac12`$ 都相同；
-- 然而
+两个数据源的标签边缘分布、平均梯度和平均更新 $`\mathbb Ep^+=\tfrac12`$ 都相同；
 
-  ```math
-  \mathbb E_{\rm indep}J(p^+)-\mathbb E_{\rm paired}J(p^+)=\frac{\eta^2}8, \qquad(11)
-  ```
+然而
 
-- 对 $`J'=1-p^2`$，差为 $`-\eta^2/8`$。
+```math
+\mathbb E_{\rm indep}J(p^+)-\mathbb E_{\rm paired}J(p^+)=\frac{\eta^2}8, \qquad(11)
+```
+
+对 $`J'=1-p^2`$，差为 $`-\eta^2/8`$。
 
 ## 证明
 

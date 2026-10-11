@@ -84,22 +84,24 @@ b=(1-\beta_1)\Big[-\frac{\eta}{1-\beta_1^t}P\,\nabla_\theta V+\nabla_mV\Big]\Big
 
 **(W3)** **Corollary（冷启动窗口）。**
 
-- (a) *平均场 warmth。* 设 $`v`$ 从 $`0`$ 开始，已吸收 $`s\ge1`$ 次梯度评估，且这些梯度各坐标的二阶矩都是 $`\sigma_i^2>0`$。则 $`\mathbb E v_i=(1-\beta_2^s)\sigma_i^2`$，平均场 warmth $`\bar\kappa_i(s):=(1-\beta_2)\sigma_i^2/(\beta_2\,\mathbb E v_i)`$ 满足
+(a) *平均场 warmth。* 设 $`v`$ 从 $`0`$ 开始，已吸收 $`s\ge1`$ 次梯度评估，且这些梯度各坐标的二阶矩都是 $`\sigma_i^2>0`$。则 $`\mathbb E v_i=(1-\beta_2^s)\sigma_i^2`$，平均场 warmth $`\bar\kappa_i(s):=(1-\beta_2)\sigma_i^2/(\beta_2\,\mathbb E v_i)`$ 满足
 
-  ```math
-  \frac1{\beta_2\,s}\le\bar\kappa_i(s)\le\frac1{\beta_2^{\,s}\,s}.
-  ```
+```math
+\frac1{\beta_2\,s}\le\bar\kappa_i(s)\le\frac1{\beta_2^{\,s}\,s}.
+```
 
-  特别地，当 $`s\le(1-\beta_2)^{-1}`$ 时 $`\bar\kappa_i(s)\le e^{1/\beta_2}/s`$。做了 $`W`$ 次 warm-up 评估后，第 $`s`$ 次真实更新之前共有 $`W+s-1`$ 次评估。
-- (b) *累积。* 通过 [N05(a)–(c)](N05_continuation_response_ZH.md) 的 telescoping 恒等式（节点 [N05](N05_continuation_response_ZH.md)），在 $`R`$ 次真实更新上比较参考数据源与备选数据源。设 $`\mathcal S_{\rm warm}\subseteq\lbrace 1,\dots,R\rbrace`$ 为满足以下条件的更新：在每个到达的状态上，(W)、(L)、(S)、(H) 成立（常数以 $`s`$ 为下标），两个分布的消耗梯度均值相同，并且对某个常数 $`c>0`$（与 W1 中的 $`c=F(0)`$ 无关）几乎必然有 $`\max_i\kappa_i\le c/(W+s)`$。则
+特别地，当 $`s\le(1-\beta_2)^{-1}`$ 时 $`\bar\kappa_i(s)\le e^{1/\beta_2}/s`$。做了 $`W`$ 次 warm-up 评估后，第 $`s`$ 次真实更新之前共有 $`W+s-1`$ 次评估。
 
-  ```math
-  \lvert L(0)-L(S)\rvert\le\lvert\lbrace s\notin\mathcal S_{\rm warm}\rbrace\rvert+\bar A\sum_{s\in\mathcal S_{\rm warm}}\min\Big\lbrace 1,\frac{c}{W+s}\Big\rbrace +\sum_{s\in\mathcal S_{\rm warm}}\bar B_s,
-  ```
+(b) *累积。* 通过 [N05(a)–(c)](N05_continuation_response_ZH.md) 的 telescoping 恒等式（节点 [N05](N05_continuation_response_ZH.md)），在 $`R`$ 次真实更新上比较参考数据源与备选数据源。设 $`\mathcal S_{\rm warm}\subseteq\lbrace 1,\dots,R\rbrace`$ 为满足以下条件的更新：在每个到达的状态上，(W)、(L)、(S)、(H) 成立（常数以 $`s`$ 为下标），两个分布的消耗梯度均值相同，并且对某个常数 $`c>0`$（与 W1 中的 $`c=F(0)`$ 无关）几乎必然有 $`\max_i\kappa_i\le c/(W+s)`$。则
 
-  其中 $`\bar A=\sup_s2\big(\eta\sum_iL_{i,s}\bar u_{i,s}+L_{v,s}\max\lbrace 1,\bar k\rbrace \big)`$，$`\bar B_s=\sup H_{G,s}\lVert G\rVert_\infty^2`$，$`\bar u_{i,s}`$ 是 $`u_i`$ 的上界。
-  - 有 $`W\ge1`$ 次 warm-up 评估时，通常 $`\mathcal S_{\rm warm}=\lbrace 1,\dots,R\rbrace`$，受 warmth 控制的和不超过 $`c\log(1+R/W)`$。
-  - $`W=0`$ 时，第一次真实更新从 $`v=0`$ 出发，违反 (W)。它就是节点 [N11](N11_adam_cold_start_ZH.md) 中的冷启动一步，贡献至多为 $`1`$；由 W2，这一贡献可以是 $`\eta`$ 的一阶量。若 $`\mathcal S_{\rm warm}=\lbrace 2,\dots,R\rbrace`$，受 warmth 控制的和不超过 $`c\log R`$。
+```math
+\lvert L(0)-L(S)\rvert\le\lvert\lbrace s\notin\mathcal S_{\rm warm}\rbrace\rvert+\bar A\sum_{s\in\mathcal S_{\rm warm}}\min\Big\lbrace 1,\frac{c}{W+s}\Big\rbrace +\sum_{s\in\mathcal S_{\rm warm}}\bar B_s,
+```
+
+其中 $`\bar A=\sup_s2\big(\eta\sum_iL_{i,s}\bar u_{i,s}+L_{v,s}\max\lbrace 1,\bar k\rbrace \big)`$，$`\bar B_s=\sup H_{G,s}\lVert G\rVert_\infty^2`$，$`\bar u_{i,s}`$ 是 $`u_i`$ 的上界。
+
+- 有 $`W\ge1`$ 次 warm-up 评估时，通常 $`\mathcal S_{\rm warm}=\lbrace 1,\dots,R\rbrace`$，受 warmth 控制的和不超过 $`c\log(1+R/W)`$。
+- $`W=0`$ 时，第一次真实更新从 $`v=0`$ 出发，违反 (W)。它就是节点 [N11](N11_adam_cold_start_ZH.md) 中的冷启动一步，贡献至多为 $`1`$；由 W2，这一贡献可以是 $`\eta`$ 的一阶量。若 $`\mathcal S_{\rm warm}=\lbrace 2,\dots,R\rbrace`$，受 warmth 控制的和不超过 $`c\log R`$。
 
 *哪些是精确的，哪些是近似的。* (a) 对 $`v`$ 的*均值*是精确的。(b) 在其假设（$`\mathcal S_{\rm warm}`$ 上 $`\max_i\kappa_i\le c/(W+s)`$）下是精确的。从 (a) 走到这个假设，需要把实际的 $`v_i`$ 换成它的均值，并把 $`G_i^2/\sigma_i^2`$ 当作有界常数。这一步是近似，依赖于指数滑动平均的集中性和梯度尺度的平稳性。检验 E8-W3 在实际训练轨迹上检验了这一步。
 
@@ -107,14 +109,15 @@ b=(1-\beta_1)\Big[-\frac{\eta}{1-\beta_1^t}P\,\nabla_\theta V+\nabla_mV\Big]\Big
 
 **(W0)**
 
-- *情形 $`v_i>0`$。* $`\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\lvert n_i\rvert\,\lvert\tfrac1{a_i\sqrt{1+\kappa_i}+\epsilon}-\tfrac1{a_i+\epsilon}\rvert`$。通分得
+*情形 $`v_i>0`$。* $`\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\lvert n_i\rvert\,\lvert\tfrac1{a_i\sqrt{1+\kappa_i}+\epsilon}-\tfrac1{a_i+\epsilon}\rvert`$。通分得
 
-  ```math
-  \lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\,u_i\cdot\frac{a_i(\sqrt{1+\kappa_i}-1)}{a_i\sqrt{1+\kappa_i}+\epsilon}.
-  ```
+```math
+\lvert\theta_i^+-\tilde\theta_i^+\rvert=\eta\,u_i\cdot\frac{a_i(\sqrt{1+\kappa_i}-1)}{a_i\sqrt{1+\kappa_i}+\epsilon}.
+```
 
-  由于 $`\epsilon\ge0`$，最后一个因子不超过 $`(\sqrt{1+\kappa_i}-1)/\sqrt{1+\kappa_i}=1-(1+\kappa_i)^{-1/2}`$。它小于 $`1`$；又因为 $`\sqrt{1+\kappa}-1\le\kappa/2`$ 且 $`\sqrt{1+\kappa}\ge1`$，它也小于 $`\kappa_i/2`$。所以该因子不超过 $`\min\lbrace \kappa_i/2,1\rbrace`$。
-- *情形 $`v_i=0`$ 且 $`\epsilon>0`$。* 此时 $`a_i=0`$、$`\kappa_i=\infty`$、$`u_i=\lvert n_i\rvert/\epsilon`$。两个倒数 $`1/(d_i+\epsilon)`$ 和 $`1/\epsilon`$ 都在 $`[0,1/\epsilon]`$ 内，差不超过 $`1/\epsilon`$，所以左边不超过 $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$。$`\square`$
+由于 $`\epsilon\ge0`$，最后一个因子不超过 $`(\sqrt{1+\kappa_i}-1)/\sqrt{1+\kappa_i}=1-(1+\kappa_i)^{-1/2}`$。它小于 $`1`$；又因为 $`\sqrt{1+\kappa}-1\le\kappa/2`$ 且 $`\sqrt{1+\kappa}\ge1`$，它也小于 $`\kappa_i/2`$。所以该因子不超过 $`\min\lbrace \kappa_i/2,1\rbrace`$。
+
+*情形 $`v_i=0`$ 且 $`\epsilon>0`$。* 此时 $`a_i=0`$、$`\kappa_i=\infty`$、$`u_i=\lvert n_i\rvert/\epsilon`$。两个倒数 $`1/(d_i+\epsilon)`$ 和 $`1/\epsilon`$ 都在 $`[0,1/\epsilon]`$ 内，差不超过 $`1/\epsilon`$，所以左边不超过 $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$。$`\square`$
 
 **(W1) 的证明。** 固定 $`y`$ 并在记号中略去。作分解
 
@@ -124,15 +127,17 @@ b=(1-\beta_1)\Big[-\frac{\eta}{1-\beta_1^t}P\,\nabla_\theta V+\nabla_mV\Big]\Big
 
 这个恒等式成立，是因为 $`V(\tilde\theta^+,m^+,\beta_2v)=V(\tilde z^+(G))=F(G)`$。
 
-- *(i)* 由 (L) 和 (W0)，$`\lvert(i)\rvert\le\sum_iL_i\lvert\theta_i^+-\tilde\theta_i^+\rvert\le\eta\sum_iL_iu_i\min\lbrace \kappa_i/2,1\rbrace`$。
-- *(ii)* 由 (W)，$`v^+=\beta_2v\odot(1+\kappa)`$，其中 $`\kappa\ge0`$ 有限。在 $`(\tilde\theta^+,m^+)`$ 处应用 (S)，得 $`\lvert(ii)\rvert\le L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace`$。
-- *(iii)* 线段 $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ 落在 $`\mathcal C`$ 内。带积分余项的 Taylor 定理给出
+*(i)* 由 (L) 和 (W0)，$`\lvert(i)\rvert\le\sum_iL_i\lvert\theta_i^+-\tilde\theta_i^+\rvert\le\eta\sum_iL_iu_i\min\lbrace \kappa_i/2,1\rbrace`$。
 
-  ```math
-  F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau.
-  ```
+*(ii)* 由 (W)，$`v^+=\beta_2v\odot(1+\kappa)`$，其中 $`\kappa\ge0`$ 有限。在 $`(\tilde\theta^+,m^+)`$ 处应用 (S)，得 $`\lvert(ii)\rvert\le L_v\max_i\min\lbrace \kappa_i,\bar k\rbrace`$。
 
-  由 (H)，被积函数的绝对值不超过 $`(1-\tau)H_G\lVert G\rVert_\infty^2`$，因此 $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$。
+*(iii)* 线段 $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ 落在 $`\mathcal C`$ 内。带积分余项的 Taylor 定理给出
+
+```math
+F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau.
+```
+
+由 (H)，被积函数的绝对值不超过 $`(1-\tau)H_G\lVert G\rVert_\infty^2`$，因此 $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$。
 
 三项相加即得逐点结论。
 

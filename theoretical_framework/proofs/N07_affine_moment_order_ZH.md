@@ -16,15 +16,17 @@
 
 **经验与 learner。**
 
-- 每个经验块为 $`Z\in[0,1]^k`$，块内各坐标可任意相关。
-- 块 $`Z_1,\dots,Z_R`$ 独立同分布于 $`P`$（或 $`Q`$）。
-- learner 是凸仿射平均
+每个经验块为 $`Z\in[0,1]^k`$，块内各坐标可任意相关。
 
-  ```math
-  p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1,
-  ```
+块 $`Z_1,\dots,Z_R`$ 独立同分布于 $`P`$（或 $`Q`$）。
 
-  其中 $`p_0\in[0,1]^k`$ 是公共且固定的，权重事先固定、与数据无关。于是 $`p_R\in[0,1]^k`$。
+learner 是凸仿射平均
+
+```math
+p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1,
+```
+
+其中 $`p_0\in[0,1]^k`$ 是公共且固定的，权重事先固定、与数据无关。于是 $`p_R\in[0,1]^k`$。
 
 **记号。**
 
@@ -88,15 +90,17 @@ J_{\rm even}(p)=\tfrac12\Big(1+\prod_{j=1}^N(1-2p_j)\Big),
 \deg V_u\le n(u),\qquad\lVert V_u\rVert_{\rm coef}\le3^{n(u)}.
 ```
 
-- *叶节点：* $`V_u=r\in[0,1]`$ 为常数，范数 $`\le1=3^0`$。
-- *机会节点：* $`V_u=\sum_e\pi_eV_{u_e}`$，概率与 $`p`$ 无关。每个子节点都有 $`n(u_e)\le n(u)`$，所以次数 $`\le n(u)`$；由引理 A，范数 $`\le\max_e3^{n(u_e)}\le3^{n(u)}`$。
-- *context 为 $`j`$ 的决策节点：* 子节点为 $`u_1`$（动作 1）与 $`u_0`$（动作 0），
+*叶节点：* $`V_u=r\in[0,1]`$ 为常数，范数 $`\le1=3^0`$。
 
-  ```math
-  V_u=p_jV_{u_1}+(1-p_j)V_{u_0}=V_{u_0}+p_jV_{u_1}-p_jV_{u_0}.
-  ```
+*机会节点：* $`V_u=\sum_e\pi_eV_{u_e}`$，概率与 $`p`$ 无关。每个子节点都有 $`n(u_e)\le n(u)`$，所以次数 $`\le n(u)`$；由引理 A，范数 $`\le\max_e3^{n(u_e)}\le3^{n(u)}`$。
 
-  次数 $`\le1+\max(\deg V_{u_1},\deg V_{u_0})\le1+(n(u)-1)=n(u)`$；由引理 A，范数 $`\le3\cdot3^{n(u)-1}=3^{n(u)}`$。
+*context 为 $`j`$ 的决策节点：* 子节点为 $`u_1`$（动作 1）与 $`u_0`$（动作 0），
+
+```math
+V_u=p_jV_{u_1}+(1-p_j)V_{u_0}=V_{u_0}+p_jV_{u_1}-p_jV_{u_0}.
+```
+
+次数 $`\le1+\max(\deg V_{u_1},\deg V_{u_0})\le1+(n(u)-1)=n(u)`$；由引理 A，范数 $`\le3\cdot3^{n(u)-1}=3^{n(u)}`$。
 
 根节点处 $`n\le N`$。$`V_u`$ 是 $`[0,1]`$ 中奖励的概率加权平均，所以 $`J_E\in[0,1]`$。
 
@@ -112,13 +116,15 @@ p_R^\alpha=\sum_{s:\lbrace 1,\dots,a\rbrace \to\lbrace 0,\dots,R\rbrace }\ \Big(
 
 其中 $`\beta_i(s)=\sum_{l:s(l)=i}e_{j(l)}`$。系数非负，总和为 $`\prod_l\sum_iw_i=1`$。此外：
 
-- $`\sum_i\lvert\beta_i(s)\rvert\le a`$；
-- 至多 $`a`$ 个块满足 $`\beta_i(s)\ne0`$；
-- 块独立同分布时，
+$`\sum_i\lvert\beta_i(s)\rvert\le a`$；
 
-  ```math
-  \mathbb E\,p_R^\alpha=\sum_s\Big(\prod_lw_{s(l)}\Big)\prod_{l:s(l)=0}p_{0,j(l)}\prod_{i=1}^Rm(\beta_i(s)). \qquad(B2)
-  ```
+至多 $`a`$ 个块满足 $`\beta_i(s)\ne0`$；
+
+块独立同分布时，
+
+```math
+\mathbb E\,p_R^\alpha=\sum_s\Big(\prod_lw_{s(l)}\Big)\prod_{l:s(l)=0}p_{0,j(l)}\prod_{i=1}^Rm(\beta_i(s)). \qquad(B2)
+```
 
 *证明。* 对 $`a`$ 个线性形式 $`w_0p_{0,j(l)}+\sum_{i\ge1}w_iZ_{i,j(l)}`$ 的乘积用分配律展开，每个因子选定一个来源 $`s(l)`$。块间独立，于是每个块单项式乘积的期望可以分解。$`\square`$
 
@@ -142,15 +148,17 @@ p_R^\alpha=\sum_{s:\lbrace 1,\dots,a\rbrace \to\lbrace 0,\dots,R\rbrace }\ \Big(
 
 **(i) 标量见证。**
 
-- *总质量：* $`N\ge1`$ 时，$`\sum_{i\text{ even}}\binom Ni=\sum_{i\text{ odd}}\binom Ni=2^{N-1}`$，因为两者之差为 $`(1-1)^N=0`$，之和为 $`2^N`$。所以 $`P_N,Q_N`$ 都是概率分布。
-- *矩：* 对 $`\ell\ge0`$，
+*总质量：* $`N\ge1`$ 时，$`\sum_{i\text{ even}}\binom Ni=\sum_{i\text{ odd}}\binom Ni=2^{N-1}`$，因为两者之差为 $`(1-1)^N=0`$，之和为 $`2^N`$。所以 $`P_N,Q_N`$ 都是概率分布。
 
-  ```math
-  m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,i^\ell=\frac{(-1)^N}{2^{N-1}N^\ell}\,\big(\Delta^Nx^\ell\big)(0).
-  ```
+*矩：* 对 $`\ell\ge0`$，
 
-  $`\ell<N`$ 时为零，$`\ell=N`$ 时等于 $`(-1)^NN!/(2^{N-1}N^N)`$。
-- *实现：* 访问同一 context $`N`$ 次、仅当全部动作为 1 时回报 1 的部署，其价值为 $`J(p)=p^N`$。配合 $`p=Z`$，学习差距就是 $`\Delta_N`$。
+```math
+m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,i^\ell=\frac{(-1)^N}{2^{N-1}N^\ell}\,\big(\Delta^Nx^\ell\big)(0).
+```
+
+$`\ell<N`$ 时为零，$`\ell=N`$ 时等于 $`(-1)^NN!/(2^{N-1}N^N)`$。
+
+*实现：* 访问同一 context $`N`$ 次、仅当全部动作为 1 时回报 1 的部署，其价值为 $`J(p)=p^N`$。配合 $`p=Z`$，学习差距就是 $`\Delta_N`$。
 
 **(ii) Parity 见证。**
 

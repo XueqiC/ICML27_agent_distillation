@@ -8,15 +8,17 @@
 
 **定义。**
 
-- 矩差异与 $`J`$ 的按次数加权的系数质量：
+矩差异与 $`J`$ 的按次数加权的系数质量：
 
-  ```math
-  \delta_N(P,Q)=\max_{1\le\lvert\alpha\rvert\le N}\lvert m_P(\alpha)-m_Q(\alpha)\rvert,\qquad C_J=\sum_\alpha\lvert c_\alpha\rvert\,\lvert\alpha\rvert .
-  ```
+```math
+\delta_N(P,Q)=\max_{1\le\lvert\alpha\rvert\le N}\lvert m_P(\alpha)-m_Q(\alpha)\rvert,\qquad C_J=\sum_\alpha\lvert c_\alpha\rvert\,\lvert\alpha\rvert .
+```
 
-- 对平均 learner $`\bar p_n=\frac1n\sum_{i=1}^nZ_i`$，记 $`\mu=\mathbb E Z`$、$`W_n=\bar p_n-\mu`$。
-- $`\kappa_s(P)`$ 是 $`Z\sim P`$ 的 $`s`$ 阶联合 cumulant 张量，分量为 $`\kappa(Z_{j_1},\dots,Z_{j_s})`$。
-- $`D^sJ(\mu)`$ 是 $`s`$ 阶导数张量，$`\langle D^sJ(\mu),T\rangle=\sum_{j_1,\dots,j_s}\partial_{j_1\cdots j_s}J(\mu)\,T_{j_1\cdots j_s}`$。
+对平均 learner $`\bar p_n=\frac1n\sum_{i=1}^nZ_i`$，记 $`\mu=\mathbb E Z`$、$`W_n=\bar p_n-\mu`$。
+
+$`\kappa_s(P)`$ 是 $`Z\sim P`$ 的 $`s`$ 阶联合 cumulant 张量，分量为 $`\kappa(Z_{j_1},\dots,Z_{j_s})`$。
+
+$`D^sJ(\mu)`$ 是 $`s`$ 阶导数张量，$`\langle D^sJ(\mu),T\rangle=\sum_{j_1,\dots,j_s}\partial_{j_1\cdots j_s}J(\mu)\,T_{j_1\cdots j_s}`$。
 
 在 (b) 中，$`P,Q,k,N,J`$ 固定，$`n\to\infty`$。
 

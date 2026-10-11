@@ -6,52 +6,61 @@
 
 **学习过程（同 N05）.**
 
-- 轮次为 $`t=0,\dots,R-1`$。$`z`$ 是完整的学习者状态，包括参数、优化器矩与步数计数、缓冲区、采样器状态和历史。
-- 在第 $`t`$ 轮状态 $`z`$ 处，参照 provider 发出 $`Y\sim P^0_{t,z}`$，候选 $`j\in\lbrace 1,\dots,M\rbrace`$ 发出 $`Y\sim P^j_{t,z}`$。
-- 实际更新为 $`U_t(z,Y,\xi)`$，参照 continuation 为 $`V^0_{t+1}`$，且 $`V^0_R=F_E\in[0,1]`$。
-- response 为 $`g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi))\in[0,1]`$。
-- 对消息积分，得到 kernel 恒等式
+轮次为 $`t=0,\dots,R-1`$。$`z`$ 是完整的学习者状态，包括参数、优化器矩与步数计数、缓冲区、采样器状态和历史。
 
-  ```math
-  (K^j_tV^0_{t+1})(z)=\mathbb E_{Y\sim P^j_{t,z}}\,g_{t,z}(Y),\qquad j\in\lbrace 0,1,\dots,M\rbrace . \qquad(K)
-  ```
+在第 $`t`$ 轮状态 $`z`$ 处，参照 provider 发出 $`Y\sim P^0_{t,z}`$，候选 $`j\in\lbrace 1,\dots,M\rbrace`$ 发出 $`Y\sim P^j_{t,z}`$。
 
-- 对由 provider $`j`$ 驱动的过程，记 $`L_E(j)=\mathbb E F_E(Z_R^j)`$。所有过程从相同的 $`Z_0`$ 初始律出发。
+实际更新为 $`U_t(z,Y,\xi)`$，参照 continuation 为 $`V^0_{t+1}`$，且 $`V^0_R=F_E\in[0,1]`$。
+
+response 为 $`g_{t,z}(y)=\mathbb E_\xi V^0_{t+1}(U_t(z,y,\xi))\in[0,1]`$。
+
+对消息积分，得到 kernel 恒等式
+
+```math
+(K^j_tV^0_{t+1})(z)=\mathbb E_{Y\sim P^j_{t,z}}\,g_{t,z}(Y),\qquad j\in\lbrace 0,1,\dots,M\rbrace . \qquad(K)
+```
+
+对由 provider $`j`$ 驱动的过程，记 $`L_E(j)=\mathbb E F_E(Z_R^j)`$。所有过程从相同的 $`Z_0`$ 初始律出发。
 
 **冻结的 audit.**
 
-- 只用独立的 pilot 数据，在 audit 之前冻结以下内容：
-  - $`M`$ 个可执行的候选 provider；
-  - $`L`$ 个查询 cell $`x`$，每个 cell 指定完整的学习者状态、任务、查询、更新和参照 suffix；
-  - 每个 cell 上的 $`d`$ 个特征 $`\phi_{x,\ell}:\mathcal Y\to[0,1]`$。
-- $`P^0_x`$ 和 $`P^j_x`$ 分别是 cell $`x`$ 中参照与候选 $`j`$ 的消息律。
-- audit 在每个 cell 抽取 $`n_0`$ 条独立的参照消息，在每个（候选，cell）上抽取 $`n_S`$ 条独立消息。
-- 记 $`\mu_{j,x,\ell}=\mathbb E_{P^j_x}\phi_{x,\ell}`$，其经验均值为 $`\widehat\mu_{j,x,\ell}`$。定义
+只用独立的 pilot 数据，在 audit 之前冻结以下内容：
 
-  ```math
-  D_j=\max_{x,\ell}\lvert\mu_{0,x,\ell}-\mu_{j,x,\ell}\rvert,\qquad\widehat D_j=\max_{x,\ell}\lvert\widehat\mu_{0,x,\ell}-\widehat\mu_{j,x,\ell}\rvert,
-  ```
+- $`M`$ 个可执行的候选 provider；
+- $`L`$ 个查询 cell $`x`$，每个 cell 指定完整的学习者状态、任务、查询、更新和参照 suffix；
+- 每个 cell 上的 $`d`$ 个特征 $`\phi_{x,\ell}:\mathcal Y\to[0,1]`$。
 
-  ```math
-  e_0=\sqrt{\frac{\log(4Ld/\delta)}{2n_0}},\qquad e_S=\sqrt{\frac{\log(4MLd/\delta)}{2n_S}}.
-  ```
+$`P^0_x`$ 和 $`P^j_x`$ 分别是 cell $`x`$ 中参照与候选 $`j`$ 的消息律。
 
-- 被选中的候选 $`\widehat j`$ 在已知优化误差 $`\eta_{\rm opt}`$ 之内最小化 $`\widehat D_j`$。
+audit 在每个 cell 抽取 $`n_0`$ 条独立的参照消息，在每个（候选，cell）上抽取 $`n_S`$ 条独立消息。
+
+记 $`\mu_{j,x,\ell}=\mathbb E_{P^j_x}\phi_{x,\ell}`$，其经验均值为 $`\widehat\mu_{j,x,\ell}`$。定义
+
+```math
+D_j=\max_{x,\ell}\lvert\mu_{0,x,\ell}-\mu_{j,x,\ell}\rvert,\qquad\widehat D_j=\max_{x,\ell}\lvert\widehat\mu_{0,x,\ell}-\widehat\mu_{j,x,\ell}\rvert,
+```
+
+```math
+e_0=\sqrt{\frac{\log(4Ld/\delta)}{2n_0}},\qquad e_S=\sqrt{\frac{\log(4MLd/\delta)}{2n_S}}.
+```
+
+被选中的候选 $`\widehat j`$ 在已知优化误差 $`\eta_{\rm opt}`$ 之内最小化 $`\widehat D_j`$。
 
 **被认证的状态.** 每一轮 $`t`$ 有一个由完整状态组成的认证集 $`\mathcal C_t`$。每个 $`z\in\mathcal C_t`$ 附带：
 
-1. 一个被 audit 的 cell $`x=x(t,z)`$，其特征用 $`z`$ 处的消息坐标表示；
-2. 一个 **transport 界**：对 audit 事件上每个可能被选中的候选，
+**1.** 一个被 audit 的 cell $`x=x(t,z)`$，其特征用 $`z`$ 处的消息坐标表示；
 
-   ```math
-   \Big\lVert(P^0_{t,z}-P^j_{t,z})\phi_x-(P^0_x-P^j_x)\phi_x\Big\rVert_\infty\le a_{t,j}(z); \qquad(A2)
-   ```
+**2.** 一个 **transport 界**：对 audit 事件上每个可能被选中的候选，
 
-3. 一个 **response 分解**
+```math
+\Big\lVert(P^0_{t,z}-P^j_{t,z})\phi_x-(P^0_x-P^j_x)\phi_x\Big\rVert_\infty\le a_{t,j}(z); \qquad(A2)
+```
 
-   ```math
-   g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_x+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\quad\lVert r_{t,z}\rVert_\infty\le\tau_t. \qquad(A3)
-   ```
+**3.** 一个 **response 分解**
+
+```math
+g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_x+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\quad\lVert r_{t,z}\rVert_\infty\le\tau_t. \qquad(A3)
+```
 
 令 $`\sigma=\inf\lbrace t<R:Z_t\notin\mathcal C_t\rbrace`$，若不存在这样的 $`t`$ 则 $`\sigma=\infty`$。$`\sigma`$ 是训练过程的停时。
 
@@ -61,41 +70,44 @@
 
 **定理（N14）.**
 
-1. **(a)** **Audit 集中性.** 以至少 $`1-\delta`$ 的概率，对所有 $`j`$ 同时有
+**1.** **(a)** **Audit 集中性.** 以至少 $`1-\delta`$ 的概率，对所有 $`j`$ 同时有
 
-   ```math
-   \lvert D_j-\widehat D_j\rvert\le e_0+e_S, \qquad(37)
-   ```
+```math
+\lvert D_j-\widehat D_j\rvert\le e_0+e_S, \qquad(37)
+```
 
-   由此
+由此
 
-   ```math
-   D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}. \qquad(38)
-   ```
+```math
+D_{\widehat j}\le\min_jD_j+2(e_0+e_S)+\eta_{\rm opt}. \qquad(38)
+```
 
-2. **(b)** **局部 transport 界.** 对 $`z\in\mathcal C_t`$ 与 $`x=x(t,z)`$，
+**2.** **(b)** **局部 transport 界.** 对 $`z\in\mathcal C_t`$ 与 $`x=x(t,z)`$，
 
-   ```math
-   \big\lvert(K^0_t-K^j_t)V^0_{t+1}(z)\big\rvert\le\min\Big\lbrace 1,\ B_t\big(D_j+a_{t,j}(z)\big)+2\tau_t\Big\rbrace . \qquad(V)
-   ```
+```math
+\big\lvert(K^0_t-K^j_t)V^0_{t+1}(z)\big\rvert\le\min\Big\lbrace 1,\ B_t\big(D_j+a_{t,j}(z)\big)+2\tau_t\Big\rbrace . \qquad(V)
+```
 
-3. **(b)** **学习价值界.** 在 (37) 的事件上，
+**3.** **(b)** **学习价值界.** 在 (37) 的事件上，
 
-   ```math
-   \lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_{t=0}^{R-1}\mathbb E_{\widehat j}\Big[1\lbrace t<\sigma\rbrace \Big\lbrace B_t\big(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t)\big)+2\tau_t\Big\rbrace \Big]+\rho. \qquad(39a)
-   ```
+```math
+\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_{t=0}^{R-1}\mathbb E_{\widehat j}\Big[1\lbrace t<\sigma\rbrace \Big\lbrace B_t\big(\widehat D_{\widehat j}+e_0+e_S+a_{t,\widehat j}(Z_t)\big)+2\tau_t\Big\rbrace \Big]+\rho. \qquad(39a)
+```
 
-4. **(c)** **特殊情形.**
-   - transport 精确（$`a\equiv0`$）时，$`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$。
-   - 在 [N08(a)](N08_affine_rates_ZH.md)（N08）的状态无关 IID 块来源和凸仿射更新假设下，若被 audit 的特征就是矩 $`Z^\alpha`$（$`1\le\lvert\alpha\rvert\le N`$），则 $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$。
-5. **(b′)** **特征漂移.** 若状态相关特征 $`\phi_z`$ 满足 $`\sup_y\lVert\phi_z(y)-\phi_x(y)\rVert_\infty\le\alpha_{zx}`$，则
+**4.** **(c)** **特殊情形.**
 
-   ```math
-   \lVert(P^0_{t,z}-P^j_{t,z})\phi_z\rVert_\infty\le D_j+a_{t,j}(z)+2\alpha_{zx},
-   ```
+- transport 精确（$`a\equiv0`$）时，$`\lvert L_E(0)-L_E(\widehat j)\rvert\le\sum_tB_t(\widehat D_{\widehat j}+e_0+e_S)+2\sum_t\tau_t+\rho`$。
+- 在 [N08(a)](N08_affine_rates_ZH.md)（N08）的状态无关 IID 块来源和凸仿射更新假设下，若被 audit 的特征就是矩 $`Z^\alpha`$（$`1\le\lvert\alpha\rvert\le N`$），则 $`\lvert L_E(0)-L_E(\widehat j)\rvert\le C_J(\widehat D_{\widehat j}+e_0+e_S)`$。
 
-   并且在 (A3) 中改用 $`\phi_z`$、把 $`a`$ 换成 $`a+2\alpha_{zx}`$ 后，(V) 与 (39a) 仍然成立。
-6. **(d)** **transport 的必要性.** 对任意 audit 规模，都存在一个实例：$`D_j=0`$，response 分解精确（$`B=1`$，$`\tau=0`$），而学习差距为 $`1`$。在该实例中，不含 transport 的表达式 $`B(\widehat D+e_0+e_S)`$ 严格小于差距；(39a) 在那里依然成立，而且是紧的。
+**5.** **(b′)** **特征漂移.** 若状态相关特征 $`\phi_z`$ 满足 $`\sup_y\lVert\phi_z(y)-\phi_x(y)\rVert_\infty\le\alpha_{zx}`$，则
+
+```math
+\lVert(P^0_{t,z}-P^j_{t,z})\phi_z\rVert_\infty\le D_j+a_{t,j}(z)+2\alpha_{zx},
+```
+
+并且在 (A3) 中改用 $`\phi_z`$、把 $`a`$ 换成 $`a+2\alpha_{zx}`$ 后，(V) 与 (39a) 仍然成立。
+
+**6.** **(d)** **transport 的必要性.** 对任意 audit 规模，都存在一个实例：$`D_j=0`$，response 分解精确（$`B=1`$，$`\tau=0`$），而学习差距为 $`1`$。在该实例中，不含 transport 的表达式 $`B(\widehat D+e_0+e_S)`$ 严格小于差距；(39a) 在那里依然成立，而且是紧的。
 
 所有界都可以截断在 $`1`$。
 

@@ -26,16 +26,19 @@ m_t=\beta_1m_{t-1}+(1-\beta_1)G_t,\qquad v_t=\beta_2v_{t-1}+(1-\beta_2)G_t^{\odo
 
 **(a)–(c)** **（冷启动商）。**
 
-1. **(a)** 从冷状态出发，$`\theta_1=c-\eta\,h_\epsilon(G)`$。
-2. **(b)** （$`\epsilon=0`$）两个分布对所有即时参数效用给出相同期望，当且仅当它们的联合符号向量分布相同。在可达符号模式数为 $`s`$ 的有限字母表上，对 $`\mathcal A`$ 上任意分布、足以确定所有这类效用的线性期望统计量的最少个数是 $`s-1`$。这里 $`s\le3^p`$；若没有零坐标则 $`s\le2^p`$。
-3. **(c)** （$`\epsilon>0`$）$`h_\epsilon`$ 是逐坐标的双射 $`\mathbb R\to(-1,1)`$，且
+**1.** **(a)** 从冷状态出发，$`\theta_1=c-\eta\,h_\epsilon(G)`$。
 
-   ```math
-   h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h_\epsilon^{-1}(u)=\frac{\epsilon}{(1-\lvert u\rvert)^2}. \qquad(A8)
-   ```
+**2.** **(b)** （$`\epsilon=0`$）两个分布对所有即时参数效用给出相同期望，当且仅当它们的联合符号向量分布相同。在可达符号模式数为 $`s`$ 的有限字母表上，对 $`\mathcal A`$ 上任意分布、足以确定所有这类效用的线性期望统计量的最少个数是 $`s-1`$。这里 $`s\le3^p`$；若没有零坐标则 $`s\le2^p`$。
 
-   因此，所有即时参数效用的期望相等，等价于完整的消耗梯度分布相等。在 $`\mathcal A`$ 上所需统计量的最少个数为 $`m-1`$。
-4. （联合与边缘）逐坐标的符号边缘分布不能确定联合符号分布。取 $`p=2`$，$`P`$ 在 $`\lbrace (1,1),(-1,-1)\rbrace`$ 上均匀，$`Q`$ 在 $`\lbrace (1,-1),(-1,1)\rbrace`$ 上均匀。两者每个坐标的符号边缘分布相同，平均更新都是 $`0`$；而效用 $`F(\theta)=1\lbrace (\theta_1-c_1)(\theta_2-c_2)>0\rbrace`$ 在 $`P`$ 下期望为 $`1`$，在 $`Q`$ 下为 $`0`$。
+**3.** **(c)** （$`\epsilon>0`$）$`h_\epsilon`$ 是逐坐标的双射 $`\mathbb R\to(-1,1)`$，且
+
+```math
+h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h_\epsilon^{-1}(u)=\frac{\epsilon}{(1-\lvert u\rvert)^2}. \qquad(A8)
+```
+
+因此，所有即时参数效用的期望相等，等价于完整的消耗梯度分布相等。在 $`\mathcal A`$ 上所需统计量的最少个数为 $`m-1`$。
+
+**4.** （联合与边缘）逐坐标的符号边缘分布不能确定联合符号分布。取 $`p=2`$，$`P`$ 在 $`\lbrace (1,1),(-1,-1)\rbrace`$ 上均匀，$`Q`$ 在 $`\lbrace (1,-1),(-1,1)\rbrace`$ 上均匀。两者每个坐标的符号边缘分布相同，平均更新都是 $`0`$；而效用 $`F(\theta)=1\lbrace (\theta_1-c_1)(\theta_2-c_2)>0\rbrace`$ 在 $`P`$ 下期望为 $`1`$，在 $`Q`$ 下为 $`0`$。
 
 **(d)** **Proposition（对 margin 敏感的逼近）。** 设 $`F:\mathbb R^p\to[0,1]`$ 对所有点对 $`u=c-\eta h_\epsilon(g)`$、$`w=c-\eta h_0(g)`$（$`g`$ 取自支撑）满足 $`\lvert F(u)-F(w)\rvert\le\sum_iL_i\lvert u_i-w_i\rvert`$。对 $`a>0`$ 令 $`\beta_{P,i}(a)=P(0<\lvert G_i\rvert<a)`$，再令 $`\Delta_{\rm sign}(F)=\lvert\mathbb E_PF(c-\eta h_0(G))-\mathbb E_QF(c-\eta h_0(G))\rvert`$。则
 
@@ -49,15 +52,17 @@ m_t=\beta_1m_{t-1}+(1-\beta_1)G_t,\qquad v_t=\beta_2v_{t-1}+(1-\beta_2)G_t^{\odo
 
 *反例：* 一维情形，$`\beta_1=\beta_2=\tfrac12`$、$`\lambda=0`$、$`\epsilon=0`$、$`\eta>0`$，冷启动。比较梯度历史 $`(G_1,G_2)=(1,-\tfrac34)`$ 与 $`(G_1',G_2')=(2,-\tfrac34)`$。
 
-- 两者都给出 $`\theta_1=\theta_1'=\theta_0-\eta`$，符号历史都是 $`(+,-)`$。
-- 第二步的 bias-corrected 矩分别为 $`\widehat m_2=-\tfrac16`$、$`\widehat m_2'=+\tfrac16`$，以及 $`\widehat v_2=\tfrac{17}{24}`$、$`\widehat v_2'=\tfrac{41}{24}`$。于是
+两者都给出 $`\theta_1=\theta_1'=\theta_0-\eta`$，符号历史都是 $`(+,-)`$。
 
-  ```math
-  \theta_2=\theta_1+\frac{\eta}{6\sqrt{17/24}},\qquad\theta_2'=\theta_1-\frac{\eta}{6\sqrt{41/24}}. \qquad(A10)
-  ```
+第二步的 bias-corrected 矩分别为 $`\widehat m_2=-\tfrac16`$、$`\widehat m_2'=+\tfrac16`$，以及 $`\widehat v_2=\tfrac{17}{24}`$、$`\widehat v_2'=\tfrac{41}{24}`$。于是
 
-- 两个第二步方向相反，有界检验 $`F(\theta)=1\lbrace \theta>\theta_1\rbrace`$ 把两者区分开，差值为 $`1`$。
-- 这两段历史可以由 $`\theta_0=0`$ 处的平方损失 $`\tfrac12(\theta-a)^2`$ 实现：第一步目标分别为 $`a=-1`$、$`a=-2`$，第二步共用目标 $`a=\theta_1+\tfrac34`$。
+```math
+\theta_2=\theta_1+\frac{\eta}{6\sqrt{17/24}},\qquad\theta_2'=\theta_1-\frac{\eta}{6\sqrt{41/24}}. \qquad(A10)
+```
+
+两个第二步方向相反，有界检验 $`F(\theta)=1\lbrace \theta>\theta_1\rbrace`$ 把两者区分开，差值为 $`1`$。
+
+这两段历史可以由 $`\theta_0=0`$ 处的平方损失 $`\tfrac12(\theta-a)^2`$ 实现：第一步目标分别为 $`a=-1`$、$`a=-2`$，第二步共用目标 $`a=\theta_1+\tfrac34`$。
 
 **(e′)** **Corollary（记忆由动量携带）。** 若 $`\beta_1=0`$，任意两段 $`G_2`$ 符号相同的历史，其第二步方向也相同，因此不存在 (e) 型的反例。对每个 $`\beta_1\in(0,1)`$，(e) 的机制都存在。
 

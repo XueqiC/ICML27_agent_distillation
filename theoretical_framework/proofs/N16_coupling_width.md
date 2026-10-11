@@ -4,38 +4,45 @@
 
 ## Setting and assumptions
 
-- $`\mathcal Y_1=\lbrace 1,\dots,m\rbrace`$ and $`\mathcal Y_2=\lbrace 1,\dots,n\rbrace`$ are finite sets of valid feedback units, for example the units filling two slots of a training packet.
-- $`\mu\in\Delta(\mathcal Y_1)`$ and $`\nu\in\Delta(\mathcal Y_2)`$ are the slot marginals, assumed strictly positive. (With zero entries, everything below holds on the positive-support product.)
-- Every pair $`(i,j)`$ is a valid packet.
-- The **coupling polytope** is
+$`\mathcal Y_1=\lbrace 1,\dots,m\rbrace`$ and $`\mathcal Y_2=\lbrace 1,\dots,n\rbrace`$ are finite sets of valid feedback units, for example the units filling two slots of a training packet.
 
-  ```math
-  \mathcal C(\mu,\nu)=\lbrace \Gamma\in\mathbb R^{m\times n}_{\ge0}:\ \Gamma\mathbf 1=\mu,\ \Gamma^\top\mathbf 1=\nu\rbrace .
-  ```
+$`\mu\in\Delta(\mathcal Y_1)`$ and $`\nu\in\Delta(\mathcal Y_2)`$ are the slot marginals, assumed strictly positive. (With zero entries, everything below holds on the positive-support product.)
 
-- At a learner state $`z`$, $`H_z(i,j)`$ is the expected real terminal return after the **actual update on the joint packet** $`(i,j)`$ followed by the reference suffix. It is a joint-packet response in the sense of N05.
-- The **coupling width** is
+Every pair $`(i,j)`$ is a valid packet.
 
-  ```math
-  w(H_z)=\max_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle-\min_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle.
-  ```
+The **coupling polytope** is
 
-  It is the largest change in expected learning value obtainable by reorganizing which units are packed together while keeping both slot marginals, and hence the per-unit content, fixed.
+```math
+\mathcal C(\mu,\nu)=\lbrace \Gamma\in\mathbb R^{m\times n}_{\ge0}:\ \Gamma\mathbf 1=\mu,\ \Gamma^\top\mathbf 1=\nu\rbrace .
+```
+
+At a learner state $`z`$, $`H_z(i,j)`$ is the expected real terminal return after the **actual update on the joint packet** $`(i,j)`$ followed by the reference suffix. It is a joint-packet response in the sense of N05.
+
+The **coupling width** is
+
+```math
+w(H_z)=\max_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle-\min_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle.
+```
+
+It is the largest change in expected learning value obtainable by reorganizing which units are packed together while keeping both slot marginals, and hence the per-unit content, fixed.
 
 ## Statement
 
 **Proposition (N16; (a)–(b) of the framework).**
 
-1. **(a)** $`w(H_z)=0`$ if and only if $`H_z(i,j)=a_i+b_j`$ for some $`a\in\mathbb R^m`$ and $`b\in\mathbb R^n`$.
-2. **(b)** For all $`\Gamma,\Gamma'\in\mathcal C(\mu,\nu)`$,
+**1.** **(a)** $`w(H_z)=0`$ if and only if $`H_z(i,j)=a_i+b_j`$ for some $`a\in\mathbb R^m`$ and $`b\in\mathbb R^n`$.
 
-   ```math
-   \lvert\langle\Gamma-\Gamma',H_z\rangle\rvert\le2\inf_{a,b}\big\lVert H_z-a\mathbf 1^\top-\mathbf 1b^\top\big\rVert_\infty. \qquad(46)
-   ```
+**2.** **(b)** For all $`\Gamma,\Gamma'\in\mathcal C(\mu,\nu)`$,
 
-   The inequality can be strict.
-3. **(b′)** **Restricted pairings.** If some pairs are forbidden, so that the feasible couplings form a proper face of $`\mathcal C`$, zero width does not imply additivity.
-4. **(c)** **Strict additive null.** One SGD step at a common parameter, on the union of all packets with identical per-example weights, is invariant to how the examples are grouped into packets. Two or more sequential steps are not invariant in general. For quadratic losses the difference is of order $`\eta^2`$, and it is given explicitly below.
+```math
+\lvert\langle\Gamma-\Gamma',H_z\rangle\rvert\le2\inf_{a,b}\big\lVert H_z-a\mathbf 1^\top-\mathbf 1b^\top\big\rVert_\infty. \qquad(46)
+```
+
+The inequality can be strict.
+
+**3.** **(b′)** **Restricted pairings.** If some pairs are forbidden, so that the feasible couplings form a proper face of $`\mathcal C`$, zero width does not imply additivity.
+
+**4.** **(c)** **Strict additive null.** One SGD step at a common parameter, on the union of all packets with identical per-example weights, is invariant to how the examples are grouped into packets. Two or more sequential steps are not invariant in general. For quadratic losses the difference is of order $`\eta^2`$, and it is given explicitly below.
 
 ## Proof
 
@@ -49,15 +56,17 @@ which is the same for every $`\Gamma\in\mathcal C(\mu,\nu)`$.
 
 **Part 1, "only if".**
 
-- $`\Gamma_0=\mu\nu^\top`$ lies in $`\mathcal C(\mu,\nu)`$ and is strictly positive.
-- Fix rows $`i\ne i'`$ and columns $`j\ne j'`$, and let $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$. $`E`$ has zero row sums and zero column sums, so $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$ for $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$.
-- Zero width means $`\langle\Gamma,H\rangle`$ is constant on $`\mathcal C`$. Hence $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$, that is $`\langle E,H\rangle=0`$:
+$`\Gamma_0=\mu\nu^\top`$ lies in $`\mathcal C(\mu,\nu)`$ and is strictly positive.
 
-  ```math
-  H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{for all rectangles}.
-  ```
+Fix rows $`i\ne i'`$ and columns $`j\ne j'`$, and let $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$. $`E`$ has zero row sums and zero column sums, so $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$ for $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$.
 
-- Put $`a_i=H_{i1}`$ and $`b_j=H_{1j}-H_{11}`$. The rectangle $`(i,1,j,1)`$ gives $`H_{ij}=H_{i1}+H_{1j}-H_{11}=a_i+b_j`$ (trivially when $`i=1`$ or $`j=1`$).
+Zero width means $`\langle\Gamma,H\rangle`$ is constant on $`\mathcal C`$. Hence $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$, that is $`\langle E,H\rangle=0`$:
+
+```math
+H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{for all rectangles}.
+```
+
+Put $`a_i=H_{i1}`$ and $`b_j=H_{1j}-H_{11}`$. The rectangle $`(i,1,j,1)`$ gives $`H_{ij}=H_{i1}+H_{1j}-H_{11}=a_i+b_j`$ (trivially when $`i=1`$ or $`j=1`$).
 
 **Part 2.** $`\Delta=\Gamma-\Gamma'`$ has zero row and column sums, so $`\langle\Delta,a\mathbf 1^\top+\mathbf 1b^\top\rangle=0`$ for all $`a,b`$. Moreover $`\lVert\Delta\rVert_1\le\lVert\Gamma\rVert_1+\lVert\Gamma'\rVert_1=2`$. Hence, for every $`a,b`$,
 
