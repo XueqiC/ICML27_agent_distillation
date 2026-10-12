@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **00:35 CDT 10-12: R0 + noise reference SUBMITTED** on tree a943c21 (ICML27_runs/a943c21; .venv and data/verified/r03_surrogate
+  symlinked to $B). Jobs (all 1×B200, PENDING Priority): noise-a 45604558, noise-b 45604559 (cold p40 on dev300, two servers),
+  r0a 45604560 (warmth_dump at state-update-1/4/8, ckpt 31221/104070/416280), r0b 45604561–64 (CRN unions A,B,A∪B,0 at
+  update 8 and p10, 4 probe pairs, r=4, T=10; 52 items/state, 2 shards/state). Out: $B/reports/runs/r03/{noise,r0a,r0b}.
+  rai smoke (A100, real 12B, tiny 5-update run): CRN repeat bitwise identical; one real update vs zero message = +0.002–0.006
+  nats/token; continue_from_state f=0 reproduces adapter + m,v,step bitwise. Item cost ~280 s on A100 with the 80-trajectory
+  surrogate (scoring ~230 s) → switched to r03_surrogate40 (deviation from prereg, recorded). R0a has 6 states, not 9: the
+  probe's cold/warm-up states are not saved (deviation). Watcher: hpg_check_once.sh now includes these 7 jobs.
 - **22:44 CDT 10-11: R0–R3 pre-registered** (docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md, 8cde4c1; sent to the user).
   Start z10 = pilot cold p10 checkpoint (update 115; = main-table k20s0); surrogate = K100 s0 \ K20 s0 (80 teacher successes);
   dev300 = dev140 + 160 group-disjoint train games; pool200 for rollouts/queries; CRN tails T=10 (~1.4 min each).
