@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **04:19 CDT 10-12: R0b DONE** (45604561–64). Response non-additivity ν_resp (median over 4 pairs, pair means over r=4):
+  update 8: 0.19 (prereg prediction [0.26,0.76] around update-map ν 0.511 → MISSED; criterion >0.2 → NOT met, borderline);
+  p10: 0.89 (prediction [0.38,0.88] around 0.631 → at the edge, per-token 0.86 inside; criterion >0.2 → met). Caveat: at p10
+  the mean δF(A∪B) ≈ −4e-4 is below the per-replica scatter (±1e-3), so ν is a ratio of noisy small numbers; r=4 too few.
+  Sign: one K20 batch raises held-out loglik at update 8 (+6–10e-3) but lowers it at p10 (−2–6e-4), as R3's prediction said.
+  rollout-p10 45605273 RUNNING since 04:15 CDT.
 - **03:32 CDT 10-12: R0a DONE** (45604560, 19 min). Pre-registered criterion E_fd ≤ 0.1·|Σ L̂_i Δθ_i| FAILS at all 6 states, but
   that denominator is mis-specified (L̂_i = |∂F̃/∂θ_i| times signed Δθ cancels; 7e-6 at p10). Against the true first-order term
   |Σ ∂F̃/∂θ_i Δθ_i| (post hoc, labelled so): ratio 29.7 (update 1), 2.1 (4), 0.98 (8), 0.100 (p03), 0.097 (p10), 0.084 (p40).
