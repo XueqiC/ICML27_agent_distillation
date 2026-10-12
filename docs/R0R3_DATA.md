@@ -2,8 +2,9 @@
 
 Implementation follows `docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md`.
 Later user-requested clarifications fix R2's gradient labels to temperature-1
-student samples and the strict certificate to the bounded `F_tilde_geo_prob`
-metric with a-priori B=2; see `R0R3_TOOLS.md`. The preregistration is unchanged.
+student samples, add an optional scale-free A3 weight, and fix the strict
+certificate to the bounded `F_tilde_geo_prob` metric with a-priori B=2; see
+`R0R3_TOOLS.md`. The preregistration is unchanged.
 No model/environment run or teacher request was made during implementation.
 
 ## Interface for the concurrent training/statistics implementation
@@ -55,9 +56,10 @@ labels, token-mean loss and clipped gradients do not have that interpretation.
 provenance fields (checkpoint hashes, parameter space, estimator and sample
 hashes) are allowed and should be supplied by `tools/grad_stats.py`. Missing
 values are errors, never silently imputed. Per-arm `allocation.json` entries
-contain the predicted Adam error and sampled state references. `null` error
+and standalone arm JSON files contain sampled state references and labelled
+Adam error predictions under both weight definitions (see below). `null` error
 plus `predicted_error_infinite=true` represents a positive-weight cluster with
-zero total coverage.
+zero total coverage under that definition.
 
 `tools/grad_stats.py` currently writes the real checkpoint path in `checkpoint`.
 That output is accepted directly when `CHECKPOINT/training_state.json` is
@@ -216,15 +218,36 @@ are not silently resumed into a different dataset.
 
 `d(s)` counts all p10 student policy-turn visits, normalized across the collected
 R2 games. `k_s` counts K20 policy turns in the same buckets. A1 uniformly samples
-unique visited states without replacement. A2 uses `W=d² sigma2`; A3 uses
-`W=d sigma2`. The continuous solver applies
+unique visited states without replacement. A2 always uses `W_SGD=d² sigma2`.
+`--adam-weight {raw_sigma,scale_free}` changes only A3's learner weight:
+
+- `raw_sigma` (default) preserves `W_Adam=d sigma2`.
+- `scale_free` uses `W_Adam=d`. Proposition 6.11(b)'s variance factor is the
+  variance of the gradient normalized by each coordinate's RMS, which is
+  scale-free. The available cluster-level raw second moments cannot estimate
+  that factor, so this option treats it as constant across clusters and sets
+  the common factor to 1. It does not estimate normalized variance from `sigma2`.
+
+Both modes still require `--sigma` for A2 and raw-sigma error reporting. The
+selected mode is recorded as `adam_weight` in `allocation.json`, `clusters.json`
+(including `--statistics-only`), and provenance's `config.r2_allocation`.
+Cluster `W_Adam` reports the selected A3 weight; `adam_weight_definitions` and
+`weight_normalization` describe the definitions and scaling. The continuous solver applies
 `n_s=max(sqrt(W_s/lambda)-k_s,0)` and largest-remainder integer rounding with a
 stable cluster-name tie break.
 
 Finite pools add an upper bound of available unique states per cluster. The
 output discloses saturated clusters; a total budget exceeding all available
-states is an error. Zero-weight ties use remaining-capacity proportions. The
-reported error always uses the **Adam** weights, including for A0/A1/A2.
+states is an error. Zero-weight ties use remaining-capacity proportions.
+
+Every arm, including A0/A1/A2, reports `sum_s W_s/(k_s+n_s)` under **both Adam
+definitions** in `predicted_errors.raw_sigma` and `predicted_errors.scale_free`.
+Each contains `predicted_error` and `predicted_error_infinite`. These are
+separate objectives with different scales; compare arms within a definition.
+For compatibility, the existing scalar `predicted_error`, its infinite flag,
+and `predicted_order_low_error_first` continue to use `raw_sigma` in either mode,
+explicitly labelled by `predicted_error_weight="raw_sigma"`. Predictions use
+each arm's actual rounded allocation, not a separately optimized allocation.
 
 All arms/budgets share uniform hash priorities. A1 takes a global prefix; every
 arm takes per-cluster prefixes of the same order. Thus any two arms share exactly
@@ -302,6 +325,7 @@ LORA_CHECK=/path/to/p10/check/report.json
 .venv/bin/python tools/r2_allocate.py \
   --rollouts data/raw/r03_p10/rollouts.jsonl --sigma reports/r03_sigma.json \
   --budgets 100 400 --seed 0 --output reports/r03_allocations
+# Optional A3 variant: add --adam-weight scale_free and use a new output directory.
 
 .venv/bin/python tools/collect_corrections.py \
   --source R2 --run-id r03-r2-union --cap 1500 \
@@ -453,7 +477,8 @@ for k in ('r1_query_count', 'union_query_count', 'r1_r2_overlap',
 PY
 ```
 
-The deterministic synthetic rollout has 120 games, 2880 states, 24 clusters,
+With the default `--adam-weight raw_sigma`, the deterministic synthetic rollout
+has 120 games, 2880 states, 24 clusters,
 and two budgets (100, 400). R1 selects 600 states and discloses 360 omissions;
 R2's six arms need **593** unique states. Their overlap with R1 is **132**,
 so R1+R2 requires **1061** distinct correction queries, with **461** additional

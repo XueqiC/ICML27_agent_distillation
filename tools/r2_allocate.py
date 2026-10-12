@@ -22,6 +22,7 @@ from tools.collect_corrections import select_r1_states, state_ref
 from tools.rollout_pool import read_rollouts
 
 BUCKETS = ("0-4", "5-9", "10-19", "20+")
+ADAM_WEIGHTS = ("raw_sigma", "scale_free")
 
 
 def cluster_id(task_type, step):
@@ -152,12 +153,21 @@ def read_sigma(value, clusters):
     return result
 
 
-def allocate(records, demonstrations, sigma, *, budgets=(100, 400), seed=0, r1_states=()):
+def allocate(records, demonstrations, sigma, *, budgets=(100, 400), seed=0, r1_states=(),
+             adam_weight="raw_sigma"):
+    if adam_weight not in ADAM_WEIGHTS:
+        raise ValueError("adam_weight must be raw_sigma or scale_free")
     stats, clusters = cluster_statistics(records, demonstrations)
     sigma2 = read_sigma(sigma, stats)
     coverage = {s: row["k"] for s, row in stats.items()}
     caps = {s: row["unique_states"] for s, row in stats.items()}
-    adam = {s: row["d"] * sigma2[s] for s, row in stats.items()}
+    # Proposition 6.11(b) uses variance after coordinate-wise RMS normalization.
+    # Cluster-level raw moments cannot estimate it; scale_free holds it constant.
+    adam_weights = {
+        "raw_sigma": {s: row["d"] * sigma2[s] for s, row in stats.items()},
+        "scale_free": {s: row["d"] for s, row in stats.items()},
+    }
+    adam = adam_weights[adam_weight]
     sgd = {s: row["d"] ** 2 * sigma2[s] for s, row in stats.items()}
     for s in stats:
         stats[s].update(sigma2=sigma2[s], W_Adam=adam[s], W_SGD=sgd[s])
@@ -169,10 +179,16 @@ def allocate(records, demonstrations, sigma, *, budgets=(100, 400), seed=0, r1_s
     state_cluster = {s["state_hash"]: cid for cid, rows in ranked.items() for s in rows}
     arms, union = {}, {}
     def arm(name, budget, allocation, selected, **extra):
-        error = predicted_error(adam, coverage, allocation)
+        errors = {}
+        for definition, weights in adam_weights.items():
+            error = predicted_error(weights, coverage, allocation)
+            errors[definition] = {"predicted_error": error,
+                                  "predicted_error_infinite": error is None}
+        # Preserve the original scalar and ordering under raw_sigma, regardless
+        # of A3's allocation choice; report both objectives with explicit labels.
         arms[name] = {"budget": budget, "allocation": allocation,
-            "states": [state_ref(s) for s in selected], "predicted_error": error,
-            "predicted_error_infinite": error is None, **extra}
+            "states": [state_ref(s) for s in selected], **errors["raw_sigma"],
+            "predicted_error_weight": "raw_sigma", "predicted_errors": errors, **extra}
         for s in selected:
             union[s["state_hash"]] = state_ref(s)
     arm("A0", 0, {s: 0 for s in stats}, [])
@@ -189,17 +205,24 @@ def allocate(records, demonstrations, sigma, *, budgets=(100, 400), seed=0, r1_s
     r1 = {s["state_hash"]: dict(s) for s in r1_states}
     combined = {**r1, **union}
     return {"schema_version": 1, "checkpoint": "p10", "seed": seed,
+        "adam_weight": adam_weight,
         "step_unit": "zero-based policy turn, including parser feedback turns",
         "clusters": stats, "arms": arms, "union_states": [union[s] for s in sorted(union)],
         "union_query_count": len(union), "r1_query_count": len(r1),
         "r1_r2_overlap": len(r1.keys() & union.keys()), "r1_r2_union_query_count": len(combined),
         "r2_additional_after_r1": len(union.keys() - r1.keys()),
         "r1_r2_union_states": [combined[s] for s in sorted(combined)],
+        "predicted_error_weight": "raw_sigma",
         "predicted_order_low_error_first": sorted(arms, key=lambda k: (
             arms[k]["predicted_error"] if arms[k]["predicted_error"] is not None else math.inf, k)),
         "sampling": "uniform hash priorities shared by every arm/budget; per-cluster prefixes",
         "finite_pool_adaptation": "clip continuous water-filling at unique available states, then largest remainder",
-        "weight_normalization": "d sums to one; W_Adam=d*sigma2; W_SGD=d*d*sigma2 (no additional scaling)"}
+        "weight_normalization": "d sums to one; W_Adam="
+            + ("d*sigma2" if adam_weight == "raw_sigma" else "d")
+            + "; W_SGD=d*d*sigma2 (no additional scaling)",
+        "adam_weight_definitions": {"raw_sigma": "W_Adam=d*sigma2",
+            "scale_free": "W_Adam=d; coordinate-RMS-normalized gradient variance treated as "
+                          "constant across clusters (set to 1)"}}
 
 
 def main(argv=None):
@@ -211,6 +234,8 @@ def main(argv=None):
     p.add_argument("--sigma", help="Omit only with --statistics-only")
     p.add_argument("--statistics-only", action="store_true")
     p.add_argument("--budgets", nargs="+", type=int, choices=(100, 400), default=[100, 400])
+    p.add_argument("--adam-weight", choices=ADAM_WEIGHTS, default="raw_sigma",
+                   help="A3 only: raw_sigma uses d*sigma2 (default); scale_free uses d")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--output", required=True, help="Directory containing allocation.json and R1 selection")
     args = p.parse_args(argv)
@@ -230,7 +255,8 @@ def main(argv=None):
              for r in collection["verified"]]
     r1 = select_r1_states(rows, pool["subsets"]["R1_P2"])
     config["r2_allocation"] = {"seed": args.seed, "budgets": args.budgets,
-                              "statistics_only": args.statistics_only}
+                              "statistics_only": args.statistics_only,
+                              "adam_weight": args.adam_weight}
     write_provenance(args.output, command="r03_r2_allocate", config=config,
         inputs=[args.config, args.pool, *args.rollouts, str(Path(args.k20) / "manifest.json"),
                 config["paths"]["manifest"], config["paths"]["split_freeze"],
@@ -238,6 +264,7 @@ def main(argv=None):
     write_json(Path(args.output) / "r1_selection.json", r1, exclusive=True)
     stats, clusters = cluster_statistics(rows, demos)
     statistics = {"schema_version": 1, "checkpoint": "p10", "clusters": stats,
+        "adam_weight": args.adam_weight,
         "gradient_sample_states": {s: [state_ref(t) for t in sorted(ts,
             key=lambda t: digest([args.seed, "gradient-probe", t["state_hash"]]))[:10]]
             for s, ts in clusters.items()}}
@@ -247,7 +274,8 @@ def main(argv=None):
             map(len, statistics["gradient_sample_states"].values()))}))
         return
     result = allocate(rows, demos, json.loads(Path(args.sigma).read_text()),
-                      budgets=tuple(args.budgets), seed=args.seed, r1_states=r1["states"])
+                      budgets=tuple(args.budgets), seed=args.seed, r1_states=r1["states"],
+                      adam_weight=args.adam_weight)
     result["rollout_game_count"] = len(rows)
     result["missing_r2_game_ids"] = [t for t in pool["subsets"]["R2"] if t not in {r["task_id"] for r in rows}]
     write_json(Path(args.output) / "allocation.json", result, exclusive=True)
