@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **04:54 CDT 10-12: rollout-p10 DONE** (45605273, 33 min): 90/200 pool games succeed; P3 = 39 successes in R1_P3 subset;
+  R2 statistics: 24 clusters (look_at_obj 5-9/10-19/20+ have k=0 teacher visits; long "20+" buckets have high d).
+  SUBMITTED: teacher-r1 45624540 (tree b09b49b, hpg-milan CPU, P2 corrections cap 600 [dry run 600], P4 rewrites cap 40
+  [dry run 20]; cache/ledger $B/data/raw/r03_teacher_*), gradstats 45624570 (tree 57131a6, σ² per cluster at z10).
 - **04:19 CDT 10-12: R0b DONE** (45604561–64). Response non-additivity ν_resp (median over 4 pairs, pair means over r=4):
   update 8: 0.19 (prereg prediction [0.26,0.76] around update-map ν 0.511 → MISSED; criterion >0.2 → NOT met, borderline);
   p10: 0.89 (prediction [0.38,0.88] around 0.631 → at the edge, per-token 0.86 inside; criterion >0.2 → met). Caveat: at p10
