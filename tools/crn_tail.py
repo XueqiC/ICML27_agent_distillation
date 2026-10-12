@@ -243,6 +243,14 @@ def tail_plan(examples, updates, seed, *, token_budget=512, packing="episode"):
     return plan[:updates]
 
 
+def synchronized_time(model):
+    """Read wall time only after this model's CUDA work has finished."""
+    import torch
+    for device in sorted({p.device for p in model.parameters() if p.device.type == "cuda"}, key=str):
+        torch.cuda.synchronize(device)
+    return time.monotonic()
+
+
 def run_item(model, optimizer, state, reference, surrogate, item, *, datasets=None,
              token_budget=512, packing="episode", learning_rate=1e-5):
     require_no_dropout(model)
@@ -250,11 +258,13 @@ def run_item(model, optimizer, state, reference, surrogate, item, *, datasets=No
     if (type(item["replica"]) is not int or type(item["tail_seed"]) is not int
             or item["replica"] < 0 or item["tail_seed"] < 0):
         raise ValueError("replica and tail_seed must be nonnegative integers")
-    start = time.monotonic()
+    start = synchronized_time(model)
     restore(model, optimizer, state)
+    restored = synchronized_time(model)
     try:
         stats = step_message(model, optimizer, item["message"], reference, datasets,
                              learning_rate=learning_rate, before=state["trainable"])
+        message_updated = synchronized_time(model)
         tail = tail_plan(reference, item["tail_updates"], item["tail_seed"],
                          token_budget=token_budget, packing=packing)
         import torch
@@ -264,16 +274,24 @@ def run_item(model, optimizer, state, reference, surrogate, item, *, datasets=No
             torch.nn.utils.clip_grad_norm_(list(trainables(model).values()), 1.0, error_if_nonfinite=True)
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
+        tail_updated = synchronized_time(model)
         score = surrogate_score(model, surrogate)
+        scored = synchronized_time(model)
         result = {"item_id": item["item_id"], "candidate_id": item.get("candidate_id", item["item_id"]),
                 "replica": item["replica"], "tail_seed": item["tail_seed"],
                 "tail_updates": item["tail_updates"], "item_sha256": digest(item),
                 "tail_batches": [b["indices"] for b in tail], "tail_sha256": digest(tail),
                 "tail_supervised_tokens": sum(b["supervised_tokens"] for b in tail),
-                "message": stats, **score, "wall_seconds": time.monotonic() - start}
+                "message": stats, **score}
     finally:
+        restore_start = synchronized_time(model)
         restore(model, optimizer, state)
-    result["wall_seconds"] = time.monotonic() - start
+        finished = synchronized_time(model)
+    result["timing_seconds"] = {"restore": restored - start + finished - restore_start,
+                              "message_update": message_updated - restored,
+                              "tail_updates": tail_updated - message_updated,
+                              "surrogate_scoring": scored - tail_updated}
+    result["wall_seconds"] = finished - start
     return result
 
 

@@ -59,6 +59,39 @@ def test_tiny_gemma_item_twice_is_bitwise_and_restores_all_state(checkpoint_run)
     assert_state_equal(state, before)  # Snapshot never aliased by a branch.
 
 
+def test_item_timing_breakdown_includes_both_restores(warm_toy, monkeypatch):
+    import tools.crn_tail as crn
+    model, optimizer, state, rows = warm_toy
+    baseline = run_item(model, optimizer, state, rows, rows, item(), token_budget=3)
+    clock = iter([0., 2., 5., 10., 17., 18., 21.])
+    monkeypatch.setattr(crn.time, "monotonic", lambda: next(clock))
+    def forbidden(*_):
+        raise AssertionError("CPU timing must not synchronize CUDA")
+    monkeypatch.setattr(torch.cuda, "synchronize", forbidden)
+    result = run_item(model, optimizer, state, rows, rows, item(), token_budget=3)
+    assert result["timing_seconds"] == {"restore": 5., "message_update": 3.,
+                                        "tail_updates": 5., "surrogate_scoring": 7.}
+    assert result["wall_seconds"] == 21.
+    for key in baseline.keys() - {"timing_seconds", "wall_seconds"}:
+        assert result[key] == baseline[key]
+    assert_state_equal(capture_state(model, optimizer), state)
+
+
+def test_cuda_timing_synchronizes_model_devices_before_clock(monkeypatch):
+    from types import SimpleNamespace
+    import tools.crn_tail as crn
+    events = []
+    devices = [torch.device(name) for name in ("cpu", "cuda:0", "cuda:0", "cuda:1")]
+    model = SimpleNamespace(parameters=lambda: iter(SimpleNamespace(device=d) for d in devices))
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda d: events.append(str(d)))
+    def clock():
+        events.append("clock")
+        return 42.
+    monkeypatch.setattr(crn.time, "monotonic", clock)
+    assert crn.synchronized_time(model) == 42.
+    assert events == ["cuda:0", "cuda:1", "clock"]
+
+
 def test_zero_message_tail_equals_independent_native_step(warm_toy):
     model, optimizer, state, examples = warm_toy
     trial = item("zero", message="zero")
@@ -257,6 +290,11 @@ def test_sharded_cli_build_run_merge(warm_toy, tmp_path, monkeypatch):
         crn.main(["run", "--snapshot", "unused", "--checkpoint", str(checkpoint), "--verified", "unused",
                   "--surrogate", "unused", "--items", str(items), "--shard", str(shard), "--num-shards", "2",
                   "--output", str(output)])
+        for row in map(json.loads, output.read_text().splitlines()):
+            timings = row["timing_seconds"]
+            assert set(timings) == {"restore", "message_update", "tail_updates", "surrogate_scoring"}
+            assert all(math.isfinite(t) and t >= 0 for t in timings.values())
+            assert sum(timings.values()) <= row["wall_seconds"] + 1e-9
     assert loads == [0, 1]  # One experiment/base load per process, never per item.
     crn.main(["merge", "--items", str(items), "--results", *outputs, "--output", str(merged)])
     result = json.loads(merged.read_text())

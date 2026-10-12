@@ -47,8 +47,11 @@ Data interfaces from the concurrent data job are supported without modification:
 - Original verified roots use `train.dataset.build_verified_dataset`.
 - P2/P3/P4/R2 `r03_episode_dataset_v1` roots use
   `data.manifest.build_r03_sets.load_r03_dataset(purpose="training")`.
-- `--surrogate` accepts the frozen `r03_surrogate.json` listing or its dataset
-  root, using the surrogate-only loader. Its rows remain training-ineligible.
+- `--surrogate` accepts the frozen `r03_surrogate.json` listing, its dataset
+  root, or `r03_surrogate40.json`, using the surrogate-only loader. The latter
+  selects exactly 40 of the same 80 trajectories with seed-0 proportional
+  task-type quotas (largest remainder). All four diagnostics accept it; rows
+  remain training-ineligible. The original listing and dataset stay unchanged.
 - Surrogate groups must be disjoint from the reference and every candidate
   root. Candidate inputs never serialize arbitrary audit rows into prompts;
   the existing allowlisted encoders construct all model inputs.
@@ -133,6 +136,11 @@ Launch one process per assigned GPU, setting its `CUDA_VISIBLE_DEVICES` and
 its `--shard` separately. Items are selected by file position modulo
 `--num-shards`. This tool does not launch SLURM jobs. `--metric F_tilde_geo_prob`
 and `--B 2` are the merge defaults and can both be omitted.
+
+Every `run` result row includes `timing_seconds` for `restore` (initial and
+final restores combined), `message_update`, `tail_updates` (including planning),
+and `surrogate_scoring`. CUDA devices used by the model are synchronized before
+each clock read. `wall_seconds` also includes result construction overhead.
 
 The strict certificate's default score is **`F_tilde_geo_prob`**:
 `mean_trajectories exp(trajectory_log_likelihood_sum / trajectory_supervised_tokens)`.

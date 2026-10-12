@@ -48,8 +48,8 @@ from harness.lora_adapters import parse_adapters, inspect_adapter
 config = load_config(sys.argv[1])
 manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
 listing, _ = frozen_tasks(sys.argv[3], manifest, freeze)
-if listing.get("name") not in {"dev40", "dev140"}:
-    raise ValueError("Launcher requires frozen dev40 or dev140")
+if listing.get("name") not in {"dev40", "dev140", "r03_dev300"}:
+    raise ValueError("Launcher requires frozen dev40, dev140 or r03_dev300")
 student = config["models"]["student"]
 if sys.argv[4]:
     from baselines.common.fsdp_train import validate_checkpoint

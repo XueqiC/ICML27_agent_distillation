@@ -7,6 +7,33 @@ import sys
 
 import pytest
 
+from test_r03_sets import bank
+
+
+@pytest.mark.parametrize("name", ["dev40", "dev140", "r03_dev300", "unrecognized"])
+def test_launcher_frozen_listing_preflight(bank, tmp_path, monkeypatch, name):
+    from data.manifest.build_r03_sets import build_sets
+    from sed.dev_subset import build_dev40
+    from sed.storage import write_json
+    manifest, freeze, _, _, dev140 = bank
+    listing = {"dev40": build_dev40(manifest, freeze), "dev140": dev140,
+               "r03_dev300": build_sets(*bank)["dev300"]}.get(name, dict(dev140, name=name))
+    tasks = tmp_path / "tasks.json"
+    write_json(tasks, listing)
+    monkeypatch.setattr("sed.config.load_config", lambda _: {
+        "paths": {"manifest": "unused", "split_freeze": "unused"},
+        "models": {"student": {"requested_repo": "google/gemma-4-12B-it"}}})
+    monkeypatch.setattr("sed.manifest.load_frozen", lambda *_: (manifest, freeze))
+    monkeypatch.setattr(sys, "argv", ["-", "unused", "unused", str(tasks), ""])
+    # Execute the real CPU preflight, without starting any serving processes.
+    script = Path("scripts/eval_adapters.sh").read_text()
+    preflight = script.split("<<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+    if name == "unrecognized":
+        with pytest.raises(ValueError, match="Launcher requires frozen"):
+            exec(compile(preflight, "eval_adapters preflight", "exec"), {})
+    else:
+        exec(compile(preflight, "eval_adapters preflight", "exec"), {})
+
 
 @pytest.mark.parametrize("platform,scenario,include_base", [
     (platform, scenario, include_base)

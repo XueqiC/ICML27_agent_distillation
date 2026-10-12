@@ -58,6 +58,24 @@ def stratified(candidates, count, excluded, tag):
             for k in kinds if i < len(by_kind[k])]
 
 
+def surrogate_subset(tasks, count=40):
+    """Proportional largest-remainder quotas with seed-0 hash tie breaks/sampling."""
+    if not 0 < count <= len(tasks):
+        raise ValueError("Surrogate subset size exceeds available trajectories")
+    counts = Counter(t["task_type"] for t in tasks)
+    quotas = {kind: count * n // len(tasks) for kind, n in counts.items()}
+    order = sorted(counts, key=lambda k: (-(count * counts[k] % len(tasks)),
+                                         digest([0, "surrogate40", "quota", k]), k))
+    for kind in order[:count - sum(quotas.values())]:
+        quotas[kind] += 1
+    chosen = []
+    for kind in sorted(counts):
+        rows = sorted((t for t in tasks if t["task_type"] == kind),
+                      key=lambda t: (digest([0, "surrogate40", t["task_id"]]), t["task_id"]))
+        chosen.extend(rows[:quotas[kind]])
+    return sorted(chosen, key=lambda t: t["task_id"])
+
+
 def build_sets(manifest, freeze, k100, k20, dev140, *, pool_count=200, extra_dev_count=160):
     if freeze["manifest_sha256"] != digest(manifest):
         raise ValueError("Manifest differs from freeze")
@@ -86,6 +104,11 @@ def build_sets(manifest, freeze, k100, k20, dev140, *, pool_count=200, extra_dev
         "surrogate": listing("r03_surrogate", surrogate, manifest, freeze, split="train",
             source_split="train", purpose="surrogate_only", training_eligible=False,
             trusted_trajectories=80, selection_rule="verified K100 s0 minus identical K20 s0 trajectories"),
+        "surrogate40": listing("r03_surrogate40", surrogate_subset(surrogate), manifest, freeze,
+            split="train", source_split="train", purpose="surrogate_only", training_eligible=False,
+            trusted_trajectories=40, parent_listing="r03_surrogate.json",
+            parent_list_sha256=digest([t["task_id"] for t in surrogate]),
+            selection_rule="proportional largest remainder; seed-0 sha256 quota ties and task sampling; task_id order"),
         "pool200": listing("r03_pool200", pool, manifest, freeze, split="train", source_split="train",
             selection_rule="seed-0 hash stratification; one game/group; round-robin type order",
             subsets={"R1_P2": [t["task_id"] for t in pool[:40]],
@@ -132,7 +155,7 @@ def publish_dataset(root, entries, manifest, freeze, *, source, purpose="trainin
 
 
 def load_r03_dataset(root, tokenizer, manifest, freeze, *, max_length=32768,
-                     packing="episode", purpose="training"):
+                     packing="episode", purpose="training", task_ids=None):
     """Rows feed train.sft.turn_loss_sum; never supervise arbitrary audit fields."""
     from train.dataset import episode_examples
     root = Path(root).resolve()
@@ -142,8 +165,16 @@ def load_r03_dataset(root, tokenizer, manifest, freeze, *, max_length=32768,
             or collection["manifest_sha256"] != digest(manifest)
             or collection["split_freeze_sha256"] != digest(freeze)):
         raise ValueError("Dataset purpose or frozen inputs differ")
+    entries = collection["episodes"]
+    if task_ids is not None:
+        if purpose != "surrogate_only" or not task_ids or len(task_ids) != len(set(task_ids)):
+            raise ValueError("Require unique surrogate task IDs")
+        by_task = {e["task_id"]: e for e in entries}
+        if len(by_task) != len(entries) or not set(task_ids) <= by_task.keys():
+            raise ValueError("Surrogate task IDs missing or ambiguous in dataset")
+        entries = [by_task[t] for t in task_ids]
     examples = []
-    for entry in collection["episodes"]:
+    for entry in entries:
         path = (root / entry["episode_file"]).resolve()
         if not path.is_relative_to(root) or file_hash(path) != entry["episode_sha256"]:
             raise ValueError("Episode path/hash differs")
@@ -176,7 +207,19 @@ def load_surrogate_examples(path, tokenizer, manifest, freeze, **kwargs):
     root = path.parent / listing_value["dataset_root"]
     if file_hash(root / "manifest.json") != listing_value["dataset_manifest_sha256"]:
         raise ValueError("Surrogate dataset changed")
-    return load_r03_dataset(root, tokenizer, manifest, freeze, purpose="surrogate_only", **kwargs)
+    task_ids = listing_value.get("task_ids")
+    if task_ids is not None and (listing_value["list_sha256"] != digest(task_ids)
+            or listing_value["manifest_sha256"] != digest(manifest)
+            or listing_value["split_freeze_sha256"] != digest(freeze)):
+        raise ValueError("Surrogate listing differs from frozen inputs")
+    return load_r03_dataset(root, tokenizer, manifest, freeze, purpose="surrogate_only",
+                            task_ids=task_ids, **kwargs)
+
+
+def frozen_builder_hash(path):
+    """Retain the original builder identity; frozen_write still checks all content."""
+    path = Path(path)
+    return json.loads(path.read_text())["builder_sha256"] if path.exists() else file_hash(__file__)
 
 
 def main(argv=None):
@@ -206,13 +249,16 @@ def main(argv=None):
             entries.append(entry)
     publish_dataset(args.surrogate_root, entries, manifest, freeze, source="K100_s0_minus_K20_s0",
         purpose="surrogate_only", source_collection_sha256=digest(large),
-        builder_sha256=file_hash(__file__), verified_evidence_checked=True)
-    sets["surrogate"].update(dataset_root=os.path.relpath(args.surrogate_root, args.output_dir),
-        dataset_manifest_sha256=file_hash(Path(args.surrogate_root) / "manifest.json"),
-        copied_episode_files=True)
+        builder_sha256=frozen_builder_hash(Path(args.surrogate_root) / "manifest.json"),
+        verified_evidence_checked=True)
+    for name in ("surrogate", "surrogate40"):
+        sets[name].update(dataset_root=os.path.relpath(args.surrogate_root, args.output_dir),
+            dataset_manifest_sha256=file_hash(Path(args.surrogate_root) / "manifest.json"),
+            copied_episode_files=True)
     for name, value in sets.items():
-        value["builder_sha256"] = file_hash(__file__)
-        frozen_write(Path(args.output_dir) / f"r03_{name}.json", value)
+        path = Path(args.output_dir) / f"r03_{name}.json"
+        value["builder_sha256"] = frozen_builder_hash(path)
+        frozen_write(path, value)
     if not (Path(args.surrogate_root) / "provenance.json").exists():
         from sed.provenance import write_provenance
         write_provenance(args.surrogate_root, command="build_r03_sets", config=vars(args),
