@@ -1,48 +1,79 @@
 Full regeneration 1/2
 Full regeneration 2/2
-PASS: 42 outputs byte-identical across two full regenerations.
-Text: 1252 artists; overlaps: {}; outside: {}
-N01_decomposition.pdf: 18,056 bytes
-N01_decomposition.png: 309,056 bytes
-N02_queries.pdf: 21,252 bytes
-N02_queries.png: 357,104 bytes
-N03_floor.pdf: 72,195 bytes
-N03_floor.png: 368,535 bytes
-N04_static_vs_learning.pdf: 20,301 bytes
-N04_static_vs_learning.png: 335,076 bytes
-N05_response.pdf: 24,682 bytes
-N05_response.png: 220,582 bytes
-N06_duality.pdf: 31,108 bytes
-N06_duality.png: 306,800 bytes
-N07_moment_order.pdf: 28,062 bytes
-N07_moment_order.png: 296,626 bytes
-N08_rates.pdf: 30,246 bytes
-N08_rates.png: 405,391 bytes
-N09_approximation.pdf: 29,107 bytes
-N09_approximation.png: 388,906 bytes
-N10_regime.pdf: 35,576 bytes
-N10_regime.png: 336,405 bytes
-N11_cold_adam.pdf: 25,725 bytes
-N11_cold_adam.png: 306,704 bytes
-N12_warmth.pdf: 33,542 bytes
-N12_warmth.png: 487,298 bytes
-N13_stability.pdf: 26,160 bytes
-N13_stability.png: 290,551 bytes
-N14_transport.pdf: 56,844 bytes
-N14_transport.png: 580,804 bytes
-N15_adaptive_audit.pdf: 22,177 bytes
-N15_adaptive_audit.png: 341,054 bytes
-N16_coupling.pdf: 20,422 bytes
-N16_coupling.png: 288,751 bytes
-N17_selection.pdf: 37,293 bytes
-N17_selection.png: 480,522 bytes
-N18_linear_response.pdf: 28,016 bytes
-N18_linear_response.png: 545,424 bytes
-N19_learner_statistics.pdf: 32,777 bytes
-N19_learner_statistics.png: 694,419 bytes
-N20_first_order_audit.pdf: 26,599 bytes
-N20_first_order_audit.png: 348,465 bytes
-README.md: 12,120 bytes
-make_figures.py: 107,494 bytes
-text_audit.json: 224,103 bytes
-verify_figures.py: 2,890 bytes
+PASS: 52 outputs byte-identical; all 25 font/layout audits passed.
+fig2_1_decomposition: min 12 pt / 15 px
+fig2_2_queries: min 12 pt / 15 px
+fig2_3_floor: min 12 pt / 15 px
+fig3_1_static_vs_learning: min 12 pt / 15 px
+fig3_2_response: min 12 pt / 15 px
+fig4_1_duality: min 12 pt / 15 px
+fig4_2_moment_order: min 12 pt / 15 px
+fig4_3_rates: min 12 pt / 15 px
+fig4_4_approximation: min 12 pt / 15 px
+fig4_5_regime: min 12 pt / 15 px
+fig5_1_linear_response: min 12 pt / 15 px
+fig5_2_cold_adam: min 12 pt / 15 px
+fig5_3_warmth: min 12 pt / 15 px
+fig5_4_learner_statistics: min 12 pt / 15 px
+fig6_1_information_bound: min 12 pt / 15 px
+fig6_2_learner_weights: min 12 pt / 15 px
+fig7_1_amplitude_law: min 12 pt / 15 px
+fig7_2_rankers: min 12 pt / 15 px
+fig8_1_stability: min 12 pt / 15 px
+fig8_2_transport: min 12 pt / 15 px
+fig8_3_adaptive_audit: min 12 pt / 15 px
+fig8_4_first_order_audit: min 12 pt / 15 px
+fig8_5_certificate: min 12 pt / 15 px
+fig9_1_coupling: min 12 pt / 15 px
+fig9_2_selection: min 12 pt / 15 px
+fig2_1_decomposition.pdf: 17,825 bytes
+fig2_1_decomposition.png: 491,882 bytes
+fig2_2_queries.pdf: 21,032 bytes
+fig2_2_queries.png: 559,509 bytes
+fig2_3_floor.pdf: 72,700 bytes
+fig2_3_floor.png: 617,856 bytes
+fig3_1_static_vs_learning.pdf: 20,354 bytes
+fig3_1_static_vs_learning.png: 516,076 bytes
+fig3_2_response.pdf: 24,438 bytes
+fig3_2_response.png: 341,973 bytes
+fig4_1_duality.pdf: 31,153 bytes
+fig4_1_duality.png: 460,135 bytes
+fig4_2_moment_order.pdf: 28,054 bytes
+fig4_2_moment_order.png: 498,470 bytes
+fig4_3_rates.pdf: 30,296 bytes
+fig4_3_rates.png: 665,780 bytes
+fig4_4_approximation.pdf: 29,617 bytes
+fig4_4_approximation.png: 667,243 bytes
+fig4_5_regime.pdf: 35,508 bytes
+fig4_5_regime.png: 563,467 bytes
+fig5_1_linear_response.pdf: 27,722 bytes
+fig5_1_linear_response.png: 758,728 bytes
+fig5_2_cold_adam.pdf: 25,850 bytes
+fig5_2_cold_adam.png: 482,503 bytes
+fig5_3_warmth.pdf: 169,438 bytes
+fig5_3_warmth.png: 836,441 bytes
+fig5_4_learner_statistics.pdf: 32,821 bytes
+fig5_4_learner_statistics.png: 1,101,160 bytes
+fig6_1_information_bound.pdf: 36,158 bytes
+fig6_1_information_bound.png: 503,634 bytes
+fig6_2_learner_weights.pdf: 37,162 bytes
+fig6_2_learner_weights.png: 1,062,541 bytes
+fig7_1_amplitude_law.pdf: 31,658 bytes
+fig7_1_amplitude_law.png: 1,103,463 bytes
+fig7_2_rankers.pdf: 20,021 bytes
+fig7_2_rankers.png: 1,209,753 bytes
+fig8_1_stability.pdf: 26,481 bytes
+fig8_1_stability.png: 482,900 bytes
+fig8_2_transport.pdf: 56,968 bytes
+fig8_2_transport.png: 845,824 bytes
+fig8_3_adaptive_audit.pdf: 22,012 bytes
+fig8_3_adaptive_audit.png: 539,680 bytes
+fig8_4_first_order_audit.pdf: 26,636 bytes
+fig8_4_first_order_audit.png: 538,676 bytes
+fig8_5_certificate.pdf: 71,296 bytes
+fig8_5_certificate.png: 873,219 bytes
+fig9_1_coupling.pdf: 20,389 bytes
+fig9_1_coupling.png: 432,791 bytes
+fig9_2_selection.pdf: 37,380 bytes
+fig9_2_selection.png: 695,236 bytes
+Runtime: 162.67 seconds

@@ -1,14 +1,23 @@
-# Theoretical framework figures
+# Theoretical framework figures — v0.16
 
-Regenerate from the repository root (CPU only, no network):
+Regenerate and verify from the repository root (CPU only; no network):
 
 ```bash
-CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/make_figures.py
+CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -B theoretical_framework/figures/make_figures.py
+CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -B theoretical_framework/figures/verify_figures.py
 ```
 
-For a subset, append `--only N12,N14`. Each basename produces a vector PDF with embedded Type 42 fonts and a 300 dpi PNG. Captions are embedded in PDF Subject and PNG Description metadata. All figures use constrained layout and explicit colors. The style block uses 9 pt text; a few dense annotations and category labels use 8 pt.
+For a subset use `--only fig5_3,fig7_1`. There are 25 figures: 20 renamed figures (including the revised warmth figure) and the five explicitly specified new figures. Each basename produces a vector PDF with Type 42 fonts and a 300 dpi PNG. PDF Subject and PNG Description contain the caption. The matching specification is `specs/<short id>.md`.
 
-JSON evidence is loaded from the named blobs in Git HEAD; uncommitted result files and `theory/v015_checks/raw/` are never read. The N14 working-tree imports must match HEAD byte for byte. N18–N20 require only stored-data reproduction checks; their specs do not request importing or running otlr.py. Temporary Matplotlib caches are confined to this directory and removed on exit.
+## Font and layout policy
+
+Every figure is 10 inches wide, with at most two panels per row. Full-width panels use additional rows. Base text and axis labels are 14 pt, titles 15 pt, ticks 12 pt, legends and annotations at least 12 pt. At a 900 px display width the smallest text is 15 px (12 × 900 / (10 × 72)). The verifier checks every text artist, including hidden and empty artists, against both the 12 pt and 15 px minima. All figures use constrained layout, explicit colors, sparse numeric ticks, and legends outside crowded axes.
+
+## Provenance
+
+Summary JSON is read only from named Git HEAD blobs. The sole raw-data exception is `theory/v016_checks/results_v016_raw.json.gz`, read from the working tree only after its byte count, SHA-256 and schema match the committed `raw_artifact` entry. It supplies the stored exact warmth grid and the certificate components/variance ratios absent from the summary. The warmth grid can also be computed exactly from its closed form; the generator cross-checks the stored formula. No v0.16 checks are rerun. `theory/v015_checks/raw/` is never read.
+
+The transport figure retains the original seeded finite-evaluator reproduction: 2,000 exact tiny processes, with imported source files required to match HEAD byte for byte before import. No training or experiment suite is invoked. Caches stay in `.mpl-cache/` inside this directory; Python bytecode is disabled. No files are deleted. Superseded figures, specs and verification reports were moved into `_trash/theoretical_framework_figures_v015_20261011/`.
 
 Data-source abbreviations:
 
@@ -16,147 +25,76 @@ Data-source abbreviations:
 - **V**: `theory/v015_checks/results_v015_independent.json`
 - **P**: `theory/v014_repro/results_v014_rerun.json`
 - **T**: `docs/direction/v015_revision/results_v015.json`
+- **U**: `theory/v016_checks/results_v016.json`
 
-| Basename | Node | Data sources / key paths | What it shows |
+| Basename | Section | Data sources / key paths | What it shows |
 | --- | --- | --- | --- |
-| `N01_decomposition` | N01 | exact Fraction instance in N01; P:robust_ambiguity_minimax | Regret decomposition, garbling, and minimax duality. |
-| `N02_queries` | N02 | I:claims[id=[N18(b)](../proofs/N18_optimizer_transformed_response.md)].details.configurations; specified passive formula | Query counts, bound ratios, and passive impossibility. |
-| `N03_floor` | N03 | V:groups[id=E5].data.{curves,actual_learners}; T:checks.T11_adaptive_query_KL_enumeration.rows | Hidden-bit information floors, learners, and additive KL budgets. |
-| `N04_static_vs_learning` | N04 | specified analytic formulas; I:controlled_neural.details.configurations | Static equivalence versus different trained students. |
-| `N05_response` | N05 | exact Fraction instances in N05; I:claims[id=[N19](../proofs/N19_learner_statistics.md)].details.cancellation_absolute_drift | Telescoping, response equivalence, and cancellation. |
-| `N06_duality` | N06 | exact Fraction instance in N06; I:claims[id=C19].details.families; I:claims[id=[N20(a)](../proofs/N20_first_order_audit.md)] | Worst matched-pair discrepancy equals twice approximation error. |
-| `N07_moment_order` | N07 | I:claims[id=C8].details.scalar; I:claims[id=C9].details.{grid_ranks,binary_barriers}; P:constant_gap_parity | Necessary moment orders, exact ranks, and the binary barrier. |
-| `N08_rates` | N08 | I:claims[id=C18].details.curves; I:claims[id=C11].details.cumulant_cases; I:claims[id=C10] | Independent-evidence rates, cumulant coefficients, and a bound uniform in rounds. |
-| `N09_approximation` | N09 | specified exact Chebyshev coefficients; P:scalar_approximation; I:claims[id=C12]; I:claims[id=C19].details.families | Approximation complexity versus exact polynomial degree. |
-| `N10_regime` | N10 | I:controlled_neural.details.configurations; I:claims[id=C13]; V:groups[id=V7].data.linear_failure | Local SGD regime, remainder bounds, and geometric error accumulation. |
-| `N11_cold_adam` | N11 | V:groups[id=E2].data.comparisons; V:groups[id=E1].data.ablations; V:groups[id=V4].data | Cold Adam, ablations, and magnitude-bearing optimizer memory. |
-| `N12_warmth` | N12 | V:groups[id=E8].data.{gaps,[N12(W3)](../proofs/N12_optimizer_warmth.md).per_step,[N12(W3)](../proofs/N12_optimizer_warmth.md).fits,[N12(W1)](../proofs/N12_optimizer_warmth.md).panels} | Warm-up gaps, inverse-count warmth, and [N12(W1)](../proofs/N12_optimizer_warmth.md) residuals. |
-| `N13_stability` | N13 | I:claims[id=C22].details.configurations; P:noisy_feature_duality.explicit_example; I:claims[id=C14] | Tolerant duality and the cost of small feature scale. |
-| `N14_transport` | N14 | theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed [C23](../experiments/N11_adam_cold_start.md) (the v0.14 controlled-network experiment in which Adam departed from the affine comparator) dependency); V:groups[id=V1].data; V:groups[id=E4].data | Reproduced transport certificates, reached-state diagnostics, and uncovered states. |
-| `N15_adaptive_audit` | N15 | I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition} | Adaptive audit gains, replica cost, and variance sources. |
-| `N16_coupling` | N16 | I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17] | Sequential regrouping effects and additive coupling width. |
-| `N17_selection` | N17 | V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results} | Held-out proxy selection, threshold failures, and warm-up transfer. |
-| `N18_linear_response` | N18 | V:groups[id=E10].data.{cells,optimizer_summary,C23_prediction} | Optimizer-increment linear response, remainder orders, and empirical bound checks. |
-| `N19_learner_statistics` | N19 | V:groups[id=E11].data | Clipping, warm Adam, Lion, and LoRA first-order statistics. |
-| `N20_first_order_audit` | N20 | V:groups[id=V9].data; V:groups[id=E12].data.{bins,summary} | Dimension-free concentration and actual-state first-order margin audits. |
+| `fig2_1_decomposition` | 2 | `exact Fraction instance in matching spec; P:robust_ambiguity_minimax` | Regret decomposition, garbling, and minimax duality. |
+| `fig2_2_queries` | 2 | `I:claims[id=C2].details.configurations; specified passive formula` | Query counts, bound ratios, and passive impossibility. |
+| `fig2_3_floor` | 2 | `V:groups[id=E5].data.{curves,actual_learners}; T:checks.T11_adaptive_query_KL_enumeration.rows` | Hidden-bit information floors, learners, and additive KL budgets. |
+| `fig3_1_static_vs_learning` | 3 | `specified analytic formulas; I:controlled_neural.details.configurations` | Static equivalence versus different trained students. |
+| `fig3_2_response` | 3 | `exact Fraction instances in matching spec; I:claims[id=C4].details.cancellation_absolute_drift` | Telescoping, response equivalence, and cancellation. |
+| `fig4_1_duality` | 4 | `exact Fraction instance in matching spec; I:claims[id=C19].details.families; I:claims[id=C5]` | Worst matched-pair discrepancy equals twice approximation error. |
+| `fig4_2_moment_order` | 4 | `I:claims[id=C8].details.scalar; I:claims[id=C9].details.{grid_ranks,binary_barriers}; P:constant_gap_parity` | Necessary moment orders, exact ranks, and the binary barrier. |
+| `fig4_3_rates` | 4 | `I:claims[id=C18].details.curves; I:claims[id=C11].details.cumulant_cases; I:claims[id=C10]` | Independent-evidence rates, cumulant coefficients, and a bound uniform in rounds. |
+| `fig4_4_approximation` | 4 | `specified exact Chebyshev coefficients; P:scalar_approximation; I:claims[id=C12]; I:claims[id=C19].details.families` | Approximation complexity versus exact polynomial degree. |
+| `fig4_5_regime` | 4 | `I:controlled_neural.details.configurations; I:claims[id=C13]; V:groups[id=V7].data.linear_failure` | Local SGD regime, remainder bounds, and geometric error accumulation. |
+| `fig5_1_linear_response` | 5 | `V:groups[id=E10].data.{cells,optimizer_summary,C23_prediction}` | First-order representation as a tool; remainder and empirical bound checks. |
+| `fig5_2_cold_adam` | 5 | `V:groups[id=E2].data.comparisons; V:groups[id=E1].data.ablations; V:groups[id=V4].data` | Cold Adam, ablations, and magnitude-bearing optimizer memory. |
+| `fig5_3_warmth` | 5 | `V:groups[id=E8].data.{gaps,W3.per_step,W1.panels}; U:checks[claim_id=C1.exact].data; authenticated raw /checks/C1.exact/{0,1,3,4}` | Warm-up gaps, exact warmth bounds and nonzero plateaus, affine residuals. |
+| `fig5_4_learner_statistics` | 5 | `V:groups[id=E11].data` | Exact mean Adam increment; gradient moments only under frozen denominators; clipping, Lion, LoRA. |
+| `fig6_1_information_bound` | 6 | `U:checks[claim_id=C2.risk,C2.design,C2.aliasing].data` | Plug-in risk, design duality, and aliasing floors. |
+| `fig6_2_learner_weights` | 6 | `U:checks[claim_id=C3.sensitivity,C3.allocation,C3.separation].data` | Learner sensitivities, allocation error and ratios, and scale separation. |
+| `fig7_1_amplitude_law` | 7 | `U:checks[claim_id=C4.amplitude].{data,failures}` | Finite response, mean-field and quadratic laws; all 33 crossing settings including one FAIL. |
+| `fig7_2_rankers` | 7 | `U:checks[claim_id=C5,C5b].data[0].{overall,v_share_bins,v_share_unavailable}` | Misranking, denominators, and ties for six rankers. |
+| `fig8_1_stability` | 8 | `I:claims[id=C22].details.configurations; P:noisy_feature_duality.explicit_example; I:claims[id=C14]` | Tolerant duality and the cost of small feature scale. |
+| `fig8_2_transport` | 8 | `theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed C23 dependency); V:groups[id=V1].data; V:groups[id=E4].data` | Reproduced transport certificates, reached-state diagnostics, and uncovered states. |
+| `fig8_3_adaptive_audit` | 8 | `I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition}` | Adaptive audit gains, replica cost, and variance sources. |
+| `fig8_4_first_order_audit` | 8 | `V:groups[id=V9].data; V:groups[id=E12].data.{bins,summary}` | Concentration at fixed b (which can grow with dimension); E12 uses the oracle continuation gradient. |
+| `fig8_5_certificate` | 8 | `U:checks[claim_id=C6,C6b].data; authenticated raw /checks/C6/1/raw_replicates/pairs and /checks/C6b/{1,3,5,7}/raw_replicates/pairs` | Zero first-order coverage, strict vs diagnostic finite certificates, variance, and full measurement cost. |
+| `fig9_1_coupling` | 9 | `I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17]` | Sequential regrouping effects and additive coupling width. |
+| `fig9_2_selection` | 9 | `V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results}` | Held-out proxy selection, threshold failures, and warm-up transfer. |
 
-## Data/spec differences
+## Scope and data qualifications
 
-- N03 A: the spec requests K=0…32, but the committed selected curves contain K=0…16. Only stored values are drawn; the panel is labelled with its supported range, with no extrapolation.
-- N12 A: moment N=3, η=0.1, R=1, W=50: spec endpoint 0.0004; data 0.000202258761. Displayed 0.0769 → 0.0002.
-- N12 A: moment N=3, η=0.1, R=4, W=50: spec endpoint 0.0016; data 0.003328877647. Displayed 0.1196 → 0.0033.
-- N12 B: moment N=3, source P has slope -1.119403208 and R² 0.928300307. The separate medians over 9 finite-slope task/source series at η=0.01, W=0 are -1.057698636 and 0.9985193309. Both are now labelled.
-- N12 C clarification: pointwise max residual/r = 0.9984871109 (within 0.151%); law-pair max gap/bound = 0.9883409452 (within 1.166%). The spec’s “within 0.2%” applies to the pointwise residual, not the law-pair ratio. Both are labelled separately.
-- N11 wording: the plotted SGD gaps are small, not identically zero (max |actual SGD| = 0.003390528294); shifted-support residuals are R=1: -2.435468494e-12, R=4: -1.148025361e-05. Signed values are retained; caption says “small”/“nearly”.
-- N18 A: the requested slope-2 guide is anchored to signSGD R=1, whose stored fitted slope is 2.999398618 (approximately cubic). The requested reference guide and actual fitted slope are both retained.
-- N18 C: 5 exact cells have nonnumeric ratios and are omitted, never zero-filled. E10 explicitly says smoothness S1 is not certified and curvature estimates are empirical. The caption reports observed ratios, not a verified uniform smoothness certificate.
-- N19 C: measured gap 8.753159888e-06 exceeds [N12(W1)](../proofs/N12_optimizer_warmth.md) bound 7.126654275e-06; the source caveat says this bound covers only the linear v contribution (2.50425886e-06), not the full nonlinear gap.
-- N20 C: requested bin-row-weighted outside oracle rate = 0.3451124567; combining with the inside rate gives 0.296308675 versus stored eligible rate 0.2869318182 (absolute difference 0.009376856803; tolerance 0.02: PASS). Bin n counts include zero-gold rows excluded from wrong-sign denominators, so row weighting is approximate. Stored proxy rates retain their original denominators.
-- N20 caption: zero oracle error from ratio 0.25 is an empirical bin observation; the [N20(b)](../proofs/N20_first_order_audit.md) separator remains at ratio 1. The outside-margin short-tail-4 error is nonzero; the caption does not claim perfect reliability.
+- The hidden-bit curves store K=0…16, not the original requested 0…32; no extrapolation is drawn.
+- Warm-up endpoints use actual stored values (moment order 3: 0.0769 → 0.0002 for R=1 and 0.1196 → 0.0033 for R=4). The noisy measured median is an early-phase diagnostic, not the stationary mean-field expectation. The affine bound is an empirical residual check.
+- The first-order representation is a tool. Five nonnumeric exact-cell ratios are omitted, never zero-filled. Curvature estimates are empirical and smoothness is not certified. The signSGD reference guide has slope 2 while its selected fitted slope is approximately 3.
+- The exact Adam statistic is the mean Adam increment. First and second gradient moments suffice only under the frozen-denominator approximation. The warm-Adam affine bound covers the linear second-moment contribution, not the full nonlinear measured gap.
+- The concentration constant b can grow with dimension. E12 uses the oracle continuation gradient; its outside-margin oracle mixture is reconstructed by bin-row weighting and checked within 0.02 because gold-zero exclusions change denominators.
+- The tested static proxies did not reliably select. The LESS-style cosine uses loss-gradient direction for SGD and actual updates for Adam; the update-oriented diagnostic flips SGD only. Ties remain separate from wrong signs; unavailable share rows stay in the overall denominator.
+- The amplitude source remains FAIL: beta2=0.99, rho approximately 0.245, T=50 misses the 10% crossing criterion (10.925%). All 33 settings are accounted for: 26 bracketed roots and seven unbracketed in both finite searches. Unbracketed is not proof of no root.
+- First-order certificates certify 0/1,584 eligible pairs. Finite replacement uses B=2 for strict range coverage. Observed-range coverage is diagnostic only. Short-surrogate calibration transfer can fail; wrong certifications are shown. Tail costs include calibration/curvature and use the prescribed M=4 full-audit reference on an M=8 panel (1,016 vs 1,154 replicas). Different accuracy criteria prevent a superiority claim based on costs alone.
+- The additive coupling point has a schematic position because only its width is stored. Tiny signed SGD residuals and unsmoothed warmth measurements are preserved.
 
-## Rendering choices and scope
+## Verification and outputs
 
-- N09 B omits exact zero errors from the log curves. A triangle at the threshold marks every first crossing, including the zero-error endpoint for N=4.
-- N18 uses a fixed 11-optimizer color order, skips missing numeric values, and verifies all exact-cell maxima before drawing. N19 shows zero Lion increments as text at the log floor. N20 verifies its reconstructed oracle mixture within the specified 0.02 tolerance.
-- N11 retains tiny signed SGD and shifted-support gaps. N12 retains the noisy warmth trajectory and signed SGD comparators without smoothing.
-- N14 C uses adjacent strip and bar axes inside the requested panel. Its transport certificate is capped as specified and labelled with its full value. N14 A plots the 2,000 reproduced random instances plus the sharp witness; its 2,572-instance annotation is explicitly the committed full V1 summary.
-- N16 B uses a labelled schematic position for the additive point because the source stores its width but no min/max or absolute response.
-- N17 preserves static/measured/control colors across panels; hatching distinguishes held-out splits. The two C dot plots share their row axis. Only the specified cheap_proxy_results cohort supplies the all-three-metrics count.
-- All prescribed panels and data series are included over their committed support (N03’s missing K values are documented above). No data are downsampled. Coincident curves use distinct markers or line styles. N03 direction 1 and N07 optional package rank markers are omitted, as allowed by their specs.
-- Panel titles preserve spec wording, with line breaks for fit. N01–N05 use their panel descriptions where no literal title is specified.
-- Exact analytic instances use fractions until plotting; N14 reproduces the seeded evaluator and refuses to draw on any mismatch. The [N12(W1)](../proofs/N12_optimizer_warmth.md) source describes an empirical consistency check, not a uniform certificate.
+Fixed metadata, deterministic plotting order, fixed jitter and timestamp-free PDF/PNG outputs are checked across two full regenerations. [verification.json](verification.json) records source hashes, versions, runtime, each output size/hash, and per-figure font minima. [text_audit.json](text_audit.json) records every text font plus visible-text boxes, intersections and clipping. No overlapping text pair is silently exempted.
 
-## Determinism
-
-Fixed `svg.hashsalt`, fixed jitter seed, explicit plotting order, fixed metadata, no PDF creation/modification date, and PNG timestamp stripping. To verify, run `CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/verify_figures.py`. It regenerates all 20 figures twice, compares every PDF/PNG plus README and the text audit byte for byte, and writes sizes and SHA-256 hashes to [verification.json](verification.json). That report records the two-run result for all 42 generated files and the exact interpreter/library environment.
-
-## Rendered text audit
-
-`text_audit.json` records the bounding box of every visible text artist at 300 dpi, all intersecting pairs, out-of-canvas text, and any unrendered formula characters. Off-view ticks and invisible descendants are excluded. Bounding boxes are conservative, especially for rotated and multiline text. No overlapping pair is silently exempted.
-
-| Figure | Text artists | Bounding-box overlaps | Outside canvas |
-| --- | ---: | ---: | ---: |
-| N01 | 58 | 0 | 0 |
-| N02 | 50 | 0 | 0 |
-| N03 | 64 | 0 | 0 |
-| N04 | 60 | 0 | 0 |
-| N05 | 47 | 0 | 0 |
-| N06 | 46 | 0 | 0 |
-| N07 | 54 | 0 | 0 |
-| N08 | 59 | 0 | 0 |
-| N09 | 68 | 0 | 0 |
-| N10 | 65 | 0 | 0 |
-| N11 | 65 | 0 | 0 |
-| N12 | 58 | 0 | 0 |
-| N13 | 50 | 0 | 0 |
-| N14 | 79 | 0 | 0 |
-| N15 | 56 | 0 | 0 |
-| N16 | 36 | 0 | 0 |
-| N17 | 103 | 0 | 0 |
-| N18 | 74 | 0 | 0 |
-| N19 | 95 | 0 | 0 |
-| N20 | 65 | 0 | 0 |
-
-## Output sizes
-
-| File | Bytes |
-| --- | ---: |
-| `N01_decomposition.pdf` | 18,056 |
-| `N01_decomposition.png` | 309,056 |
-| `N02_queries.pdf` | 21,252 |
-| `N02_queries.png` | 357,104 |
-| `N03_floor.pdf` | 72,195 |
-| `N03_floor.png` | 368,535 |
-| `N04_static_vs_learning.pdf` | 20,301 |
-| `N04_static_vs_learning.png` | 335,076 |
-| `N05_response.pdf` | 24,682 |
-| `N05_response.png` | 220,582 |
-| `N06_duality.pdf` | 31,108 |
-| `N06_duality.png` | 306,800 |
-| `N07_moment_order.pdf` | 28,062 |
-| `N07_moment_order.png` | 296,626 |
-| `N08_rates.pdf` | 30,246 |
-| `N08_rates.png` | 405,391 |
-| `N09_approximation.pdf` | 29,107 |
-| `N09_approximation.png` | 388,906 |
-| `N10_regime.pdf` | 35,576 |
-| `N10_regime.png` | 336,405 |
-| `N11_cold_adam.pdf` | 25,725 |
-| `N11_cold_adam.png` | 306,704 |
-| `N12_warmth.pdf` | 33,542 |
-| `N12_warmth.png` | 487,298 |
-| `N13_stability.pdf` | 26,160 |
-| `N13_stability.png` | 290,551 |
-| `N14_transport.pdf` | 56,844 |
-| `N14_transport.png` | 580,804 |
-| `N15_adaptive_audit.pdf` | 22,177 |
-| `N15_adaptive_audit.png` | 341,054 |
-| `N16_coupling.pdf` | 20,422 |
-| `N16_coupling.png` | 288,751 |
-| `N17_selection.pdf` | 37,293 |
-| `N17_selection.png` | 480,522 |
-| `N18_linear_response.pdf` | 28,016 |
-| `N18_linear_response.png` | 545,424 |
-| `N19_learner_statistics.pdf` | 32,777 |
-| `N19_learner_statistics.png` | 694,419 |
-| `N20_first_order_audit.pdf` | 26,599 |
-| `N20_first_order_audit.png` | 348,465 |
-
-## Markdown validation
-
-From the repository root, run the offline, standard-library-only validator with Python 3.11:
-
-```bash
-CUDA_VISIBLE_DEVICES='' python3 theoretical_framework/tools/check_markdown.py
-```
-
-It checks the framework READMEs, proof and experiment pages, this README, the progress report, and the two extension sources. Figure specs and pinned source packages are outside the edit scope; linked source headings are read for anchor validation.
-
-To check GitHub's rendered HTML, run:
-
-```bash
-python3 theoretical_framework/tools/check_markdown.py --online
-python3 theoretical_framework/tools/check_markdown.py --online --cache /tmp/theory-markdown-html
-```
-
-Online mode reads the GitHub token at runtime through `git credential fill`, never prints or stores it, and caches only rendered HTML outside the repository. The default cache is a temporary directory. Offline mode performs no network or credential access.
+| Figure | PNG bytes | PDF bytes | Min font pt | Min at 900 px | Text overlaps | Outside canvas |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `fig2_1_decomposition` | 491,882 | 17,825 | 12 | 15 | 0 | 0 |
+| `fig2_2_queries` | 559,509 | 21,032 | 12 | 15 | 0 | 0 |
+| `fig2_3_floor` | 617,856 | 72,700 | 12 | 15 | 0 | 0 |
+| `fig3_1_static_vs_learning` | 516,076 | 20,354 | 12 | 15 | 0 | 0 |
+| `fig3_2_response` | 341,973 | 24,438 | 12 | 15 | 0 | 0 |
+| `fig4_1_duality` | 460,135 | 31,153 | 12 | 15 | 0 | 0 |
+| `fig4_2_moment_order` | 498,470 | 28,054 | 12 | 15 | 0 | 0 |
+| `fig4_3_rates` | 665,780 | 30,296 | 12 | 15 | 0 | 0 |
+| `fig4_4_approximation` | 667,243 | 29,617 | 12 | 15 | 0 | 0 |
+| `fig4_5_regime` | 563,467 | 35,508 | 12 | 15 | 0 | 0 |
+| `fig5_1_linear_response` | 758,728 | 27,722 | 12 | 15 | 0 | 0 |
+| `fig5_2_cold_adam` | 482,503 | 25,850 | 12 | 15 | 0 | 0 |
+| `fig5_3_warmth` | 836,441 | 169,438 | 12 | 15 | 0 | 0 |
+| `fig5_4_learner_statistics` | 1,101,160 | 32,821 | 12 | 15 | 0 | 0 |
+| `fig6_1_information_bound` | 503,634 | 36,158 | 12 | 15 | 0 | 0 |
+| `fig6_2_learner_weights` | 1,062,541 | 37,162 | 12 | 15 | 0 | 0 |
+| `fig7_1_amplitude_law` | 1,103,463 | 31,658 | 12 | 15 | 0 | 0 |
+| `fig7_2_rankers` | 1,209,753 | 20,021 | 12 | 15 | 0 | 0 |
+| `fig8_1_stability` | 482,900 | 26,481 | 12 | 15 | 0 | 0 |
+| `fig8_2_transport` | 845,824 | 56,968 | 12 | 15 | 0 | 0 |
+| `fig8_3_adaptive_audit` | 539,680 | 22,012 | 12 | 15 | 0 | 0 |
+| `fig8_4_first_order_audit` | 538,676 | 26,636 | 12 | 15 | 0 | 0 |
+| `fig8_5_certificate` | 873,219 | 71,296 | 12 | 15 | 0 | 0 |
+| `fig9_1_coupling` | 432,791 | 20,389 | 12 | 15 | 0 | 0 |
+| `fig9_2_selection` | 695,236 | 37,380 | 12 | 15 | 0 | 0 |
