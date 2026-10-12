@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **01:54 CDT 10-12: framework pages split for GitHub's browser math limit** (e0e9fb0). User screenshot: README "Unable to render
+  expression" on valid math. Cause: undocumented per-page limit in GitHub's client-side renderer (README 1,251 expressions;
+  known-good pages 386 and 666; local MathJax renders all; HTML wraps all). Now every page ≤ 600 (README 202): Level 3 →
+  statements/0K_*.md; proofs 04→04+04_rates_and_composition, 05→05+05_warm_adam+05_learner_statistics,
+  08→08+08_certificate; experiments 05→05+05_warm_adam_and_learners. Validator enforces ≤ 600/page. Asked the user to confirm.
 - **00:46 CDT 10-12: R1/R2 rollout SUBMITTED** on tree fa6ccd5: rollout-p10 45605273 (cold p10 adapter, greedy, BI serving, all
   200 pool games, 2 temperature-1 label samples per visited state for R2's σ²; no teacher). Out $B/reports/runs/r03/rollouts_p10.
 - **00:36 CDT 10-12: R3 SUBMITTED** on tree d6fe9df: r3-amp 45604739 (Corollary 7.2(a) prediction summed over coordinates at
