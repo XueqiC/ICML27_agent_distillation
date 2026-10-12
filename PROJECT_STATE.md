@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **04:58 CDT 10-12: teacher BLOCKED — OpenAI key invalid.** teacher-r1 45624540 FAILED after 1 attempt: HTTP 401
+  "Incorrect API key provided" (free /v1/models probe also 401). Same key on rai llm_apis.env and hpg openai.env
+  (sha8 c7cee533, written 09-10). Asked the user to put a new key into both files (never via Discord). No spend.
+  Meanwhile R1 certificate for P1 (K20 replay) and P3 (39 self successes) SUBMITTED: 45624783–86 (tree 57131a6, items
+  inputs/r1/items_p1p3.json, r=64, T=10, tail seed stream 1101 — P2/P4 will reuse it for pairing).
 - **04:54 CDT 10-12: rollout-p10 DONE** (45605273, 33 min): 90/200 pool games succeed; P3 = 39 successes in R1_P3 subset;
   R2 statistics: 24 clusters (look_at_obj 5-9/10-19/20+ have k=0 teacher visits; long "20+" buckets have high d).
   SUBMITTED: teacher-r1 45624540 (tree b09b49b, hpg-milan CPU, P2 corrections cap 600 [dry run 600], P4 rewrites cap 40
