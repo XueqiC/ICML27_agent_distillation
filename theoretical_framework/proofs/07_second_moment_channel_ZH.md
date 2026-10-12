@@ -13,7 +13,7 @@
   - 在 Corollary 7.2 的区间里，只看参数的一阶分数会把两条同向消息排反，余弦分数则区分不了它们。
 - [Remark 7.5](#s7-5) 说明任何一阶排序器在哪里不可靠。
 - "Theorem B"指 [Theorem 7.1](#s7-1) 与 [Corollary 7.2](#s7-2) 的合称。
-- 用到：complete learner state 与 continuation value（[Definition 1.3–1.4](../README_ZH.md#s1-3)）；一阶表示（[Proposition 5.1](05_optimizer_state_ZH.md#s5-1)）；Adam 的增量映射（[Proposition 5.5(a)](05_optimizer_state_ZH.md#s5-5)）；孤立访问常数 $`\kappa_{\rm iso}`$（[Proposition 6.11(c)](06_learner_relative_information_ZH.md#s6-11)）；[Proposition 3.1(b)](03_learning_consequence_ZH.md#s3-1)。
+- 用到：complete learner state 与 continuation value（[Definition 1.3–1.4](../README_ZH.md#s1-3)）；一阶表示（[Proposition 5.1](05_optimizer_state_ZH.md#s5-1)）；Adam 的增量映射（[Proposition 5.5(a)](05_warm_adam_ZH.md#s5-5)）；孤立访问常数 $`\kappa_{\rm iso}`$（[Proposition 6.11(c)](06_learner_relative_information_ZH.md#s6-11)）；[Proposition 3.1(b)](03_learning_consequence_ZH.md#s3-1)。
 
 ## 设定
 
@@ -23,7 +23,7 @@
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
 ```
 
-其中 bias correction 因子为 $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$、$`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$；不做 bias correction 时 $`q_{1,s}=q_{2,s}=1`$。向量运算都按坐标进行。增量为 $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$，即 [Proposition 5.5(a)](05_optimizer_state_ZH.md#s5-5) 的映射。计数器加一，求导时不对它求导。
+其中 bias correction 因子为 $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$、$`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$；不做 bias correction 时 $`q_{1,s}=q_{2,s}=1`$。向量运算都按坐标进行。增量为 $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$，即 [Proposition 5.5(a)](05_warm_adam_ZH.md#s5-5) 的映射。计数器加一，求导时不对它求导。
 
 **消息与参考尾段.**
 
@@ -102,7 +102,7 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 
 $`V_{t+1}(z)=F(\pi_\theta\,\Phi_{R-1}\circ\cdots\circ\Phi_{t+1}(z))`$，其中 $`\pi_\theta`$ 取出参数部分。由链式法则，$`\nabla V_{t+1}(z_t)=D\Phi_{t+1}^\top\cdots D\Phi_{R-1}^\top(\nabla F,0,0)`$。从右往左累乘，得 $`\chi_k=D\Phi_k^\top\chi_{k+1}`$，$`\chi_R=(\nabla F,0,0)`$。把转置后的各块相乘（所有 $`D`$ 都是对角阵）就得到所列递推：$`m`$ 行收集 $`-\eta\beta_1D_1\chi^\theta+\beta_1\chi^m`$，$`v`$ 行收集 $`\eta\beta_2D_2\chi^\theta+\beta_2\chi^v`$，其余各项都归入 $`\theta`$ 行。裁剪生效时 $`g=c\,r/\lVert r\rVert`$，而 $`r\mapsto r/\lVert r\rVert`$ 的导数是 $`(I-rr^\top/\lVert r\rVert^2)/\lVert r\rVert`$，由此得到所列的 $`J_k`$。递推里用的是 $`J_k^\top`$，它不一定对称。
 
-(b) 就是 $`\mathrm{Val}`$ 的定义，代入 $`\nabla V_{t+1}(z_t)=\chi_{t+1}`$ 以及 [Proposition 5.5(a)](05_optimizer_state_ZH.md#s5-5) 的增量 $`\Delta m=(1-\beta_1)(g-m_t)`$、$`\Delta v=(1-\beta_2)(g\odot g-v_t)`$。
+(b) 就是 $`\mathrm{Val}`$ 的定义，代入 $`\nabla V_{t+1}(z_t)=\chi_{t+1}`$ 以及 [Proposition 5.5(a)](05_warm_adam_ZH.md#s5-5) 的增量 $`\Delta m=(1-\beta_1)(g-m_t)`$、$`\Delta v=(1-\beta_2)(g\odot g-v_t)`$。
 
 (c) 直接从 (b) 读出；对消息律，在 (b) 两边取期望。
 
@@ -270,7 +270,7 @@ h'(\lambda)=\frac{(1-\beta_1)\beta_2-\beta_1\rho_i(1-\beta_2)\lambda}{\big(\beta
 - 定义一对候选的二阶矩占比：两者增量之差在 $`v`$ 通道上的缩并的绝对值，除以 $`\theta`$、$`m`$、$`v`$ 三个通道缩并的绝对值之和。
 - 占比高通常意味着增量相对于 $`v`$ 很大。这正是 [Corollary 7.2(a),(c)](#s7-2) 描述的非线性、会饱和的区域：一阶价值仍按二次律走，真实 response 却不再如此。线性化在那里高估了 $`v`$ 通道造成的伤害。
 - [Theorem 7.1](#s7-1) 的分解是精确的，但它的一阶用法恰好在 $`v`$ 通道重要的地方最不可靠。
-- 二阶矩占比高时，排序应当用有限替换的测量（[Theorem 8.8](08_verification_ZH.md#s8-8)），或者用 [Corollary 7.2(a)](#s7-2) 那样的非线性公式，而不是任何一阶分数。只看参数的分数不够，用精确 continuation gradient 的完整状态分数也不够。
+- 二阶矩占比高时，排序应当用有限替换的测量（[Theorem 8.8](08_certificate_ZH.md#s8-8)），或者用 [Corollary 7.2(a)](#s7-2) 那样的非线性公式，而不是任何一阶分数。只看参数的分数不够，用精确 continuation gradient 的完整状态分数也不够。
 - [Proposition 7.3(b)](#s7-3) 是 [Corollary 7.2(b)](#s7-2) 小增量区间内的陈述。
 - 这一点在受控面板上的证据见 [Check 7.5](../experiments/07_second_moment_channel_ZH.md#c7-5)。
 

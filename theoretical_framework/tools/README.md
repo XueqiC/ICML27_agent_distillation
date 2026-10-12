@@ -12,8 +12,8 @@ OpenAI API calls. The scope is every Markdown file under `theoretical_framework/
 `docs/direction/2026-10-11_v015_progress_ZH.md`, and every Markdown file directly
 under `docs/direction/v015_extension/`. The revision and handoff directories are
 excluded. The v0.16 statement and label policy (S1) covers the framework's
-`README.md`, `README_ZH.md`, all Markdown files directly under `proofs/` and
-`experiments/`, and `figures/README.md`. Historical direction documents, figure
+`README.md`, `README_ZH.md`, all Markdown files directly under `statements/`,
+`proofs/` and `experiments/`, and `figures/README.md`. Historical direction documents, figure
 specs, tool documentation and other pages receive rendering and link checks only.
 
 Pass optional positional `PATH...` arguments to check exactly those files instead
@@ -31,6 +31,8 @@ rendering and link checks only, including files outside the default scope.
 Link targets are still checked even when they are not selected; this does not
 add those targets to the validation or rendering scope.
 The declaration index reads all S1 pages to resolve references and duplicates.
+Numbering coverage for a selected page's section is checked across all its pages
+in the same language, even if the sibling pages are not selected.
 Selecting a new proof or experiment page also compares its declaration set with
 its language counterpart, without validating that counterpart's rendering.
 
@@ -46,11 +48,17 @@ Assumption, Theorem, Proposition, Lemma, Corollary, Remark, Example and Algorith
 - Declare statements in a bold paragraph at the start of a line:
   `**Theorem 6.3 (Title).**` or `**Theorem 6.3（标题）.**`. Both languages use
   English type names. Section 1 declarations belong in the framework READMEs;
-  sections 2–9 belong in `proofs/0K_name.md` and `proofs/0K_name_ZH.md`.
+  sections 2–9 may span any `proofs/0K_*.md` pages and their `_ZH.md` counterparts.
 - Each declaration needs its explicit HTML anchor (an `a` element with `id="sK-J"`) in the preceding
-  three non-blank lines. Numbering starts at `K.1`, increases in source order,
-  and has no gaps. Each number can be declared only once per language across
-  the READMEs and proof pages, regardless of statement type.
+  three non-blank lines. Across a section's pages, every number from `K.1` to
+  the maximum must be declared exactly once per language, regardless of statement
+  type. Within each page, numbers must be strictly increasing and consecutive;
+  a continuation page need not start at `K.1`. Filename order is irrelevant.
+  Section 1 keeps the same numbering rules in the framework READMEs.
+- The `statements/` pages restate results using headings or bold links, such as
+  `#### Theorem 6.3 · Title` or `**[Theorem 6.3](../proofs/06_learner_relative_information.md#s6-3) · Title**`.
+  These are references, not declarations, and do not duplicate the proof-page
+  declarations. Their references, links and source labels still receive S1 checks.
 - Mentions such as `Theorem 6.3`, `Theorems 6.3 and 6.5`,
   `Propositions 5.5–5.9`, `Corollaries 6.7–6.8` and `Definitions 1.3–1.4`
   must resolve to declared statements of the stated type. Both range endpoints
@@ -61,8 +69,10 @@ Assumption, Theorem, Proposition, Lemma, Corollary, Remark, Example and Algorith
   and `Theorem C` are also valid.
 - Declare checks in experiment pages with `## Check K.J · Title` and an explicit
   HTML anchor (`id="cK-J"`) within the preceding three non-blank lines. Their numbering
-  also starts at 1 and has no gaps or duplicates. `Check K.J` mentions must
-  resolve. Section numbers must match `experiments/0K_name.md` or its ZH version.
+  also runs from `K.1` to the maximum across all `experiments/0K_*.md` pages,
+  exactly once per language, with strictly increasing consecutive numbers within
+  each page. `Check K.J` mentions must resolve. Section numbers must match the
+  page's `0K_` prefix, including its ZH version.
 - Proof pairs must declare the same set of `(type, K.J)` pairs; experiment pairs
   must declare the same checks. Missing counterparts are reported. Links ending
   in `#sK-J` or `#cK-J` must resolve to the declaring page and its anchor; a stray
@@ -94,6 +104,12 @@ Old pages' local declarations do not enter the v0.16 index or its duplicate,
 anchor, numbering and parity checks.
 
 Display math uses `math` fences at column 0, with a blank line before and after.
+Every page in the validation scope may contain at most 600 math expressions:
+one per inline dollar/backtick expression and one per `math` block. Literal
+examples inside code spans or non-math code fences do not count. Exceeding the
+limit reports `too many math expressions`, including outside S1 and in the README
+appendix. Split pages at statement or check boundaries, preserve each block's
+anchor and proof, and retarget links to the page that owns the moved anchor.
 The `math-fence-in-list` error rejects fenced math inside any bullet or numbered
 list, including nested lists and indented continuations. It also rejects indented
 math fences outside lists. Inline math uses the dollar/backtick form, such as

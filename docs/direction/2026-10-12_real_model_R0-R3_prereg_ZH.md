@@ -29,7 +29,7 @@
 
 ## R0：pilot 的再分析（约 4 GPU 小时，不调用 teacher）
 
-**目的.** 补上审查指出的两个缺口：用敏感度加权的量代替 warmth 分位数（[Remark 5.11](../../theoretical_framework/proofs/05_optimizer_state_ZH.md#s5-11)）；测 **response** 的非可加性，而不只是 update map 的（[Proposition 5.9](../../theoretical_framework/proofs/05_optimizer_state_ZH.md#s5-9)）。
+**目的.** 补上审查指出的两个缺口：用敏感度加权的量代替 warmth 分位数（[Remark 5.11](../../theoretical_framework/proofs/05_learner_statistics_ZH.md#s5-11)）；测 **response** 的非可加性，而不只是 update map 的（[Proposition 5.9](../../theoretical_framework/proofs/05_learner_statistics_ZH.md#s5-9)）。
 
 **R0a 敏感度加权的冻结分母误差.**
 - 在 pilot 的 9 个 probe 状态上，逐坐标重算 $`\kappa_i`$ 与 $`u_i`$。敏感度用 $`\hat L_i=\lvert\partial\tilde F/\partial\theta_i\rvert`$ 作 proxy，并注明它是 proxy。

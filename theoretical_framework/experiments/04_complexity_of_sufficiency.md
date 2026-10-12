@@ -12,15 +12,15 @@
   - Moment-matched laws give exactly equal learning values for affine learners with up to 5 updates.
   - Every order is necessary for $`N=1,\dots,14`$; parity keeps gap 1 for $`N=1,\dots,8`$.
   - The grid statistic count equals $`\binom{k+N}N-1`$ in all 18 configurations, and the binary barrier is attained (Checks 4.2–4.5).
-- **[Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5) (round-independent bound, averaging rates): PASS.**
+- **[Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5) (round-independent bound, averaging rates): PASS.**
   - No adversarial instance exceeds the bound; the closest has gap/bound $`55/57`$ (Check 4.6).
   - The first unmatched cumulant gives both the exponent and the coefficient of the decay in all six cases (Check 4.7).
   - Replay and deterministic descendants leave the gap constant through 256 exposures (Check 4.8).
-- **[Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6) (exact order is not approximate complexity): PASS.**
+- **[Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6) (exact order is not approximate complexity): PASS.**
   - The Chebyshev truncation error of $`p^N`$ equals the binomial tail; accuracy $`10^{-3}`$ needs only $`q=4,6,9,13`$ for $`N=4,8,16,32`$.
   - Parity keeps error exactly $`1/2`$ below degree $`N`$ (Check 4.9).
   - At equal degree 3, structured families need 3 statistics and parity needs 7 (Check 4.10).
-- **[Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7) (update composition): PASS.**
+- **[Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7) (update composition): PASS.**
   - Block degrees equal the composition bound in all 12 random chains, and the squaring witness attains it.
   - The SGD expansion remainder never exceeds $`0.275`$ times its bound (Check 4.11).
   - The geometric accumulation bound is attained with equality, and the linear-in-$`R`$ reading fails without stability (Check 4.12).
@@ -33,14 +33,14 @@
 | [Check 4.3](#c4-3) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(b) | `v014:C7` | PASS |
 | [Check 4.4](#c4-4) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(c) | `v014:C8`, `pkg:constant_gap_parity` | PASS |
 | [Check 4.5](#c4-5) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d) | `v014:C9`, `pkg:grid_response_dimensions` | PASS |
-| [Check 4.6](#c4-6) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(a) | `v014:C10` | PASS |
-| [Check 4.7](#c4-7) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(b)–(d) | `v014:C11`, `pkg:scalar_exact_decay` | PASS |
-| [Check 4.8](#c4-8) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(e) | `v014:C18` | PASS |
-| [Check 4.9](#c4-9) | [Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6)(a),(b) | `v014:C12`, `pkg:scalar_approximation` | PASS |
-| [Check 4.10](#c4-10) | [Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6); [Theorem 4.2](../proofs/04_complexity_of_sufficiency.md#s4-2)(a),(b); [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d) | `v014:C19` | PASS |
-| [Check 4.11](#c4-11) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(a)–(d) | `v014:C13` | PASS |
-| [Check 4.12](#c4-12) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(e) | `v015:V7` | PASS |
-| [Check 4.13](#c4-13) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(d),(e), regime in a network | `v014:C23` (SGD rows) | regime map |
+| [Check 4.6](#c4-6) | [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(a) | `v014:C10` | PASS |
+| [Check 4.7](#c4-7) | [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(b)–(d) | `v014:C11`, `pkg:scalar_exact_decay` | PASS |
+| [Check 4.8](#c4-8) | [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(e) | `v014:C18` | PASS |
+| [Check 4.9](#c4-9) | [Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6)(a),(b) | `v014:C12`, `pkg:scalar_approximation` | PASS |
+| [Check 4.10](#c4-10) | [Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6); [Theorem 4.2](../proofs/04_complexity_of_sufficiency.md#s4-2)(a),(b); [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d) | `v014:C19` | PASS |
+| [Check 4.11](#c4-11) | [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(a)–(d) | `v014:C13` | PASS |
+| [Check 4.12](#c4-12) | [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(e) | `v015:V7` | PASS |
+| [Check 4.13](#c4-13) | [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(d),(e), regime in a network | `v014:C23` (SGD rows) | regime map |
 
 Code IDs: `v014:` = `theory/independent_checks` (results `results_independent_v014.json`); `v015:` = `theory/v015_checks` (results `results_v015_independent.json`); `pkg:` = package verifier `docs/direction/v014_handoff/verify_environment_information_v014.py`, re-run into `theory/v014_repro/results_v014_rerun.json`.
 
@@ -217,7 +217,7 @@ The re-run file `theory/v014_repro/results_v014_rerun.json` is identical to the 
 **Why it supports Theorem 4.4(c).**
 
 - Every order $`N`$ is necessary for some scalar task, and the gap formula is exact.
-- The scalar gap shrinks exponentially in $`N`$, while the parity gap stays 1 at every order. Exact necessity and fixed-accuracy hardness are therefore different properties; [Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6) and Checks 4.9–4.10 separate them.
+- The scalar gap shrinks exponentially in $`N`$, while the parity gap stays 1 at every order. Exact necessity and fixed-accuracy hardness are therefore different properties; [Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6) and Checks 4.9–4.10 separate them.
 
 <a id="c4-5"></a>
 
@@ -273,7 +273,7 @@ The second table is the independent implementation, `results_v014_rerun.json →
 
 **Verdict.** PASS on 288 adversarially searched instances (582 assertions, worst residual 0). The bound $`C_J\delta_N`$ is never exceeded; the tightest instance has gap/bound $`55/57\approx0.965`$. On a fixed problem the gap and the bound are both constant as $`R`$ grows from 1 to 50.
 
-**Why.** [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(a) bounds the learning-value gap of every convex-affine learner by $`C_J\delta_N\le N3^N\delta_N`$, uniformly in the number of updates $`R`$. It is falsified by an instance above the bound, or by a family whose worst ratio grows with $`R`$.
+**Why.** [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(a) bounds the learning-value gap of every convex-affine learner by $`C_J\delta_N\le N3^N\delta_N`$, uniformly in the number of updates $`R`$. It is falsified by an instance above the bound, or by a family whose worst ratio grows with $`R`$.
 
 **Setup.**
 
@@ -315,7 +315,7 @@ Source: entry `v014:C10`, `details.fixed_problem_R_sweep`.
 
 **Verdict.** PASS (1,530 instances, 1,797 assertions). The exact scalar law holds in all 210 cells $`N=2,\dots,8`$, $`n=1,\dots,30`$. In all six cumulant cases the exact gap starts at $`n^{1-r}`$ with the predicted coefficient and has no slower term; a vanishing contraction removes the leading term; unequal means converge to $`J(\mu_P)-J(\mu_Q)=13/32`$ at rate $`O(1/n)`$. A cumulant-free implementation reproduces the exact law in 20 cases.
 
-**Why.** [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(b) predicts both the exponent $`1-r`$ and the coefficient $`\langle D^rJ(\mu),\Delta\kappa_r\rangle/r!`$ of the decay in the number $`n`$ of independent blocks. It is falsified by a wrong leading coefficient, by a slower term $`n^{-j}`$ with $`j<r-1`$, by a residual that is not $`O(n^{-r})`$, or by a nonzero leading term when the contraction vanishes. Part (c) is the exact law $`\Delta_N/n^{N-1}`$ for the scalar witnesses, and part (d) gives the limit $`J(\mu_P)-J(\mu_Q)`$ when the means differ.
+**Why.** [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(b) predicts both the exponent $`1-r`$ and the coefficient $`\langle D^rJ(\mu),\Delta\kappa_r\rangle/r!`$ of the decay in the number $`n`$ of independent blocks. It is falsified by a wrong leading coefficient, by a slower term $`n^{-j}`$ with $`j<r-1`$, by a residual that is not $`O(n^{-r})`$, or by a nonzero leading term when the contraction vanishes. Part (c) is the exact law $`\Delta_N/n^{N-1}`$ for the scalar witnesses, and part (d) gives the limit $`J(\mu_P)-J(\mu_Q)`$ when the means differ.
 
 **Setup.**
 
@@ -366,7 +366,7 @@ Source: entry `v014:C10`, `details.fixed_problem_R_sweep`.
 
 **Verdict.** PASS (45 instances, 140 assertions). With independent blocks the gap decays exactly as $`\text{gap}_1/n^{N-1}`$ (log-log slopes $`-1,-2,-3`$ for $`N=2,3,4`$). Replaying one block, or training on deterministic descendants of one parent block, leaves the gap constant through 256 exposures.
 
-**Why.** The rates of [Theorem 4.5](../proofs/04_complexity_of_sufficiency.md#s4-5)(b)–(c) are in the number of independent blocks. Part (e) predicts that two kinds of exposure without new evidence leave the gap at its one-block value: replaying one block $`n`$ times, and training on $`n`$ deterministic descendants of one parent block. This separates information from exposure.
+**Why.** The rates of [Theorem 4.5](../proofs/04_rates_and_composition.md#s4-5)(b)–(c) are in the number of independent blocks. Part (e) predicts that two kinds of exposure without new evidence leave the gap at its one-block value: replaying one block $`n`$ times, and training on $`n`$ deterministic descendants of one parent block. This separates information from exposure.
 
 **Setup.**
 
@@ -411,7 +411,7 @@ Source: entry `v014:C18`, `details.curves`; slopes from the $`n=1`$ and $`n=256`
 
 **Verdict.** PASS (136 instances, 484 assertions, worst residual $`1.0\times10^{-17}`$). For $`N=1,\dots,16`$ and every $`q<N`$, the truncation error of $`p^N`$ equals the binomial tail and stays below $`2e^{-q^2/N}`$ (largest tail/bound ratio 0.430). An independent implementation to $`N=32`$ finds that accuracy $`10^{-3}`$ needs only $`q=4,6,9,13`$ for $`N=4,8,16,32`$. The best degree-$`(<N)`$ approximation error of parity is exactly $`1/2`$.
 
-**Why.** [Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6)(a) makes three falsifiable claims: the Chebyshev expansion is an identity; the truncation error equals the binomial tail $`\Pr\lbrace\lvert B-N\rvert>q\rbrace`$, $`B\sim\mathrm{Bin}(2N,\tfrac12)`$, not merely is bounded by it; and the tail is at most $`2e^{-q^2/N}`$. Part (b) says the best lower-degree error for parity is exactly $`1/2`$; a smaller value would falsify it.
+**Why.** [Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6)(a) makes three falsifiable claims: the Chebyshev expansion is an identity; the truncation error equals the binomial tail $`\Pr\lbrace\lvert B-N\rvert>q\rbrace`$, $`B\sim\mathrm{Bin}(2N,\tfrac12)`$, not merely is bounded by it; and the tail is at most $`2e^{-q^2/N}`$. Part (b) says the best lower-degree error for parity is exactly $`1/2`$; a smaller value would falsify it.
 
 **Setup.**
 
@@ -466,7 +466,7 @@ Source: `results_v014_rerun.json → scalar_approximation` (fields `Chebyshev_tr
 
 **Verdict.** PASS (21 subspaces, 1,445 assertions). Three response families share maximum degree 3. The scalar and structured families are resolved exactly by 3 statistics; the parity family keeps uniform error at least $`0.0625`$ (discrepancy at least $`0.125`$) until all 7 nonconstant directions are present. Exact span dimensions, including the constant, are 4, 4 and 8. On every selected subspace the discrepancy equals twice the uniform error to $`1.6\times10^{-15}`$.
 
-**Why.** The degree of a response family does not determine its approximate complexity; the operative quantity is the approximation width, which [Theorem 4.2](../proofs/04_complexity_of_sufficiency.md#s4-2)(b) identifies with the worst-pair discrepancy. This check compares three families with the same maximum degree, expecting the structured families to be cheap and parity expensive ([Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6)). It also re-tests the duality of Theorem 4.2(b) on structured rather than random responses, and the span dimension that Theorem 4.2(a) and [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d) predict for a given family.
+**Why.** The degree of a response family does not determine its approximate complexity; the operative quantity is the approximation width, which [Theorem 4.2](../proofs/04_complexity_of_sufficiency.md#s4-2)(b) identifies with the worst-pair discrepancy. This check compares three families with the same maximum degree, expecting the structured families to be cheap and parity expensive ([Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6)). It also re-tests the duality of Theorem 4.2(b) on structured rather than random responses, and the span dimension that Theorem 4.2(a) and [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d) predict for a given family.
 
 **Setup.**
 
@@ -502,7 +502,7 @@ Source: `results_v014_rerun.json → scalar_approximation` (fields `Chebyshev_tr
 
 **Why it supports the statements.**
 
-- At equal maximum degree the scalar and structured families are captured exactly by 3 statistics, parity needs all $`2^3-1=7`$, and with 3 statistics parity still leaves worst-pair discrepancy $`0.25`$: task structure, not degree or horizon, sets the information order ([Proposition 4.6](../proofs/04_complexity_of_sufficiency.md#s4-6)).
+- At equal maximum degree the scalar and structured families are captured exactly by 3 statistics, parity needs all $`2^3-1=7`$, and with 3 statistics parity still leaves worst-pair discrepancy $`0.25`$: task structure, not degree or horizon, sets the information order ([Proposition 4.6](../proofs/04_rates_and_composition.md#s4-6)).
 - The exact span dimensions are the numbers the span criterion predicts, and they are far below the worst case over all tasks counted by [Theorem 4.4](../proofs/04_complexity_of_sufficiency.md#s4-4)(d).
 - The duality of [Theorem 4.2](../proofs/04_complexity_of_sufficiency.md#s4-2)(b) holds on structured, non-random responses too, including the parity family, where the discrepancy stays large.
 
@@ -512,7 +512,7 @@ Source: `results_v014_rerun.json → scalar_approximation` (fields `Chebyshev_tr
 
 **Verdict.** PASS (72 instances, 371 assertions, worst residual 0). In all 12 random polynomial update chains the actual block degrees equal the bound $`D_i=Nb_i\prod_{t>i}a_t`$, and blockwise moment matching through $`D_i`$ preserves the learning value exactly. The squaring witness attains the bound at degrees 1, 2, 4, 8. The threshold learner separates two equal-mean laws, $`2/3`$ against $`0`$. The SGD expansion remainder never exceeds 0.275 of its $`\eta^3`$ bound.
 
-**Why.** [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(a) claims that the response degree in block $`i`$ is at most $`Nb_i\prod_{t>i}a_t`$ and that this many moments suffice; a wrong degree count would make the moment sufficiency false. Part (b) claims the bound is attained, so a loose count would be detected. Part (c) claims that no moment order suffices for a discontinuous update. Part (d), the local SGD expansion, is the first-order description of SGD used in [§5](05_optimizer_state.md), so its remainder bound must hold.
+**Why.** [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(a) claims that the response degree in block $`i`$ is at most $`Nb_i\prod_{t>i}a_t`$ and that this many moments suffice; a wrong degree count would make the moment sufficiency false. Part (b) claims the bound is attained, so a loose count would be detected. Part (c) claims that no moment order suffices for a discontinuous update. Part (d), the local SGD expansion, is the first-order description of SGD used in [§5](05_optimizer_state.md), so its remainder bound must hold.
 
 **Setup.**
 
@@ -552,7 +552,7 @@ Source: `results_v014_rerun.json → scalar_approximation` (fields `Chebyshev_tr
 
 **Verdict.** PASS (717 instances, 1,435 assertions, worst residual 0). The geometric bound holds in every instance and is attained with equality. The witness $`\eta=\tfrac12`$, $`L=C=1`$, $`R=4`$ has $`e_4=65/32`$, above the linear value $`RC\eta^2=1`$.
 
-**Why.** A one-step $`O(\eta^2)`$ error does not by itself give an $`O(R\eta^2)`$ training error. [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(e) states a geometric bound and claims it is sharp, so that linear accumulation needs a stability condition. Both claims are checked exactly.
+**Why.** A one-step $`O(\eta^2)`$ error does not by itself give an $`O(R\eta^2)`$ training error. [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(e) states a geometric bound and claims it is sharp, so that linear accumulation needs a stability condition. Both claims are checked exactly.
 
 **Setup.** Exact rational recursions $`e_{t+1}=s\cdot((1+\eta L)e_t+C\eta^2)`$ with slack $`s\in(0,1]`$, random $`\eta\in(0,1]`$, $`L\in[0,1]`$, $`C\in(0,1]`$ and $`R\le40`$; fixed-seed random restarts and hill-climbing over $`(\eta,L,C,R,s)`$ supplement the random cases.
 
@@ -578,7 +578,7 @@ Source: `results_v014_rerun.json → scalar_approximation` (fields `Chebyshev_tr
 
 **Verdict.** Regime map, consistent with the theorem. The tangent affine-SGD prediction agrees with the actual network in all 35 SGD settings with $`\eta\le0.1`$ and at most 4 updates, or $`\eta=0.01`$ over 40 updates; the largest deviation there is $`2.5\times10^{-4}`$. At $`\eta\ge1`$ it departs in 35 of 42 settings, by up to 0.53.
 
-**Why.** [Theorem 4.7](../proofs/04_complexity_of_sufficiency.md#s4-7)(d),(e) predicts that for SGD the response is governed by the mean consumed gradient up to $`O(\eta^2)`$ per step, with errors that accumulate geometrically. In a nonlinear network, a fixed initial-tangent affine-SGD prediction should therefore be accurate at small $`\eta R`$ and inaccurate at large $`\eta`$ or long horizons. This is a test of where the description applies, not of a bound.
+**Why.** [Theorem 4.7](../proofs/04_rates_and_composition.md#s4-7)(d),(e) predicts that for SGD the response is governed by the mean consumed gradient up to $`O(\eta^2)`$ per step, with errors that accumulate geometrically. In a nonlinear network, a fixed initial-tangent affine-SGD prediction should therefore be accurate at small $`\eta R`$ and inaccurate at large $`\eta`$ or long horizons. This is a test of where the description applies, not of a bound.
 
 **Setup.** Controlled small network, not a large model and not an external benchmark.
 

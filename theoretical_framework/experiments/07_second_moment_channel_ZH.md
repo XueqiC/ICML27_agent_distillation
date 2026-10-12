@@ -205,7 +205,7 @@ Check 7.2 与 7.3 共用一个代码 ID：其中唯一 FAIL 的断言是 Check 7
 
 - 在 1,687 个 provider 对上，每个一阶或余弦排序器的判错率都在 11.4%–28.8%。
 - 完整状态一阶分数用精确 continuation gradient 和全部三个通道。二阶矩占比不低于 0.5 时，它的判错率为 51%–67%。
-- [Theorem 8.8](../proofs/08_verification_ZH.md#s8-8) 的有限配对替换分数总体判错 2.8%，高占比处 4.3%（161 对中错 7 对，完整状态分数错 96 对）。
+- [Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8) 的有限配对替换分数总体判错 2.8%，高占比处 4.3%（161 对中错 7 对，完整状态分数错 96 对）。
 
 **为什么做.**
 
@@ -226,7 +226,7 @@ Check 7.2 与 7.3 共用一个代码 ID：其中唯一 FAIL 的断言是 Check 7
   - 只看参数的一阶分数：把精确 continuation gradient 限制在 $`\theta`$ 上，与平均 $`\Delta\theta`$ 缩并。
   - 完整状态一阶分数：$`\theta`$、$`m`$、$`v`$ 三项与精确 continuation gradient 的缩并，即 [§8](08_verification_ZH.md) 一阶 audit 的 oracle 分数。
   - CRN 测得的一阶分数，不用梯度 oracle：沿平均增量方向的 common random numbers 方向差分，用与任务一致的 surrogate 或短尾段 surrogate。
-  - [Theorem 8.8](../proofs/08_verification_ZH.md#s8-8) 的有限配对替换分数 $`\hat S`$，与任务一致的 surrogate，$`r=256`$ 个副本。
+  - [Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8) 的有限配对替换分数 $`\hat S`$，与任务一致的 surrogate，$`r=256`$ 个副本。
 - **二阶矩占比.** 一对候选的增量之差在 $`v`$ 通道上的缩并的绝对值，除以 $`\theta`$、$`m`$、$`v`$ 三项缩并的绝对值之和，用精确 continuation gradient 计算。
   - 分组固定为 $`[0,.25),[.25,.5),[.5,.75),[.75,1]`$。
   - 非光滑的 threshold 任务上不可用。

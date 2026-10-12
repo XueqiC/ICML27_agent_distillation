@@ -12,15 +12,15 @@
   - 对至多 5 次更新的仿射学习器，矩匹配的分布给出完全相同的学习价值。
   - 对 $`N=1,\dots,14`$，每一阶都是必要的；对 $`N=1,\dots,8`$，parity 的差距保持为 1。
   - 18 个配置中网格统计量个数全部等于 $`\binom{k+N}N-1`$，二元壁垒被取到（Check 4.2–4.5）。
-- **[Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)（与轮数无关的界、平均化速率）：PASS。**
+- **[Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)（与轮数无关的界、平均化速率）：PASS。**
   - 没有对抗实例越过界，最接近的 gap/bound 为 $`55/57`$（Check 4.6）。
   - 在全部六个情形中，第一个不匹配的 cumulant 同时给出衰减的指数和系数（Check 4.7）。
   - replay 和确定性后代样本在 256 倍曝光内都让差距保持不变（Check 4.8）。
-- **[Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)（精确阶不等于近似复杂度）：PASS。**
+- **[Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)（精确阶不等于近似复杂度）：PASS。**
   - $`p^N`$ 的 Chebyshev 截断误差等于二项尾概率；要达到 $`10^{-3}`$ 的精度，$`N=4,8,16,32`$ 时只需 $`q=4,6,9,13`$。
   - parity 在次数低于 $`N`$ 时误差恰为 $`1/2`$（Check 4.9）。
   - 最高次数同为 3 时，结构化的族需要 3 个统计量，parity 需要 7 个（Check 4.10）。
-- **[Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)（更新复合）：PASS。**
+- **[Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)（更新复合）：PASS。**
   - 12 条随机更新链的块次数全部等于复合上界，平方构造取到了它。
   - SGD 展开的余项从不超过其界的 $`0.275`$ 倍（Check 4.11）。
   - 几何累积界可以取等号；没有稳定性条件时，关于 $`R`$ 线性的理解不成立（Check 4.12）。
@@ -33,14 +33,14 @@
 | [Check 4.3](#c4-3) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(b) | `v014:C7` | PASS |
 | [Check 4.4](#c4-4) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(c) | `v014:C8`、`pkg:constant_gap_parity` | PASS |
 | [Check 4.5](#c4-5) | [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) | `v014:C9`、`pkg:grid_response_dimensions` | PASS |
-| [Check 4.6](#c4-6) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(a) | `v014:C10` | PASS |
-| [Check 4.7](#c4-7) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(b)–(d) | `v014:C11`、`pkg:scalar_exact_decay` | PASS |
-| [Check 4.8](#c4-8) | [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(e) | `v014:C18` | PASS |
-| [Check 4.9](#c4-9) | [Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)(a),(b) | `v014:C12`、`pkg:scalar_approximation` | PASS |
-| [Check 4.10](#c4-10) | [Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)；[Theorem 4.2](../proofs/04_complexity_of_sufficiency_ZH.md#s4-2)(a),(b)；[Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) | `v014:C19` | PASS |
-| [Check 4.11](#c4-11) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(a)–(d) | `v014:C13` | PASS |
-| [Check 4.12](#c4-12) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(e) | `v015:V7` | PASS |
-| [Check 4.13](#c4-13) | [Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(d),(e)，网络中的适用范围 | `v014:C23`（SGD 部分） | 适用范围图 |
+| [Check 4.6](#c4-6) | [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(a) | `v014:C10` | PASS |
+| [Check 4.7](#c4-7) | [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(b)–(d) | `v014:C11`、`pkg:scalar_exact_decay` | PASS |
+| [Check 4.8](#c4-8) | [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(e) | `v014:C18` | PASS |
+| [Check 4.9](#c4-9) | [Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)(a),(b) | `v014:C12`、`pkg:scalar_approximation` | PASS |
+| [Check 4.10](#c4-10) | [Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)；[Theorem 4.2](../proofs/04_complexity_of_sufficiency_ZH.md#s4-2)(a),(b)；[Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) | `v014:C19` | PASS |
+| [Check 4.11](#c4-11) | [Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(a)–(d) | `v014:C13` | PASS |
+| [Check 4.12](#c4-12) | [Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(e) | `v015:V7` | PASS |
+| [Check 4.13](#c4-13) | [Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(d),(e)，网络中的适用范围 | `v014:C23`（SGD 部分） | 适用范围图 |
 
 代码 ID：`v014:` 指 `theory/independent_checks`（结果文件 `results_independent_v014.json`）；`v015:` 指 `theory/v015_checks`（结果文件 `results_v015_independent.json`）；`pkg:` 指修订包自带的验证脚本 `docs/direction/v014_handoff/verify_environment_information_v014.py`，重新运行的结果在 `theory/v014_repro/results_v014_rerun.json`。
 
@@ -217,7 +217,7 @@
 **为什么支持 Theorem 4.4(c)。**
 
 - 对某个标量任务而言，每一阶 $`N`$ 都是必要的，差距公式精确成立。
-- 标量差距随 $`N`$ 指数缩小，parity 差距则在每一阶都保持为 1。所以"精确必要性"和"固定精度下的困难性"是两回事；[Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6) 与 Check 4.9–4.10 把二者分开。
+- 标量差距随 $`N`$ 指数缩小，parity 差距则在每一阶都保持为 1。所以"精确必要性"和"固定精度下的困难性"是两回事；[Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6) 与 Check 4.9–4.10 把二者分开。
 
 <a id="c4-5"></a>
 
@@ -273,7 +273,7 @@
 
 **结论。** 在 288 个对抗搜索得到的实例（582 条断言，最大残差 0）上 PASS。界 $`C_J\delta_N`$ 从未被越过，最紧的实例 gap/bound $`=55/57\approx0.965`$。在一个固定问题上，$`R`$ 从 1 增加到 50，差距和界都保持不变。
 
-**为什么做。** [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(a) 对每一个凸仿射学习器给出学习价值差距的上界 $`C_J\delta_N\le N3^N\delta_N`$，并且关于更新次数 $`R`$ 一致。证伪方式有两种：找到超过这个界的实例，或找到一族最坏比值随 $`R`$ 增长的实例。
+**为什么做。** [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(a) 对每一个凸仿射学习器给出学习价值差距的上界 $`C_J\delta_N\le N3^N\delta_N`$，并且关于更新次数 $`R`$ 一致。证伪方式有两种：找到超过这个界的实例，或找到一族最坏比值随 $`R`$ 增长的实例。
 
 **设置。**
 
@@ -315,7 +315,7 @@
 
 **结论。** PASS（1,530 个实例、1,797 条断言）。精确的标量律在 $`N=2,\dots,8`$、$`n=1,\dots,30`$ 的全部 210 个格点上成立。在全部六个 cumulant 情形中，精确差距恰好从 $`n^{1-r}`$ 开始，系数与预测一致，没有更慢的项；缩并为零时首项消失；均值不同时，差距以 $`O(1/n)`$ 收敛到 $`J(\mu_P)-J(\mu_Q)=13/32`$。一个不使用 cumulant 的独立实现在 20 个情形中复现了精确律。
 
-**为什么做。** [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(b) 同时预测了差距随独立块数 $`n`$ 衰减的指数 $`1-r`$ 和系数 $`\langle D^rJ(\mu),\Delta\kappa_r\rangle/r!`$。证伪方式包括：首项系数不对；出现 $`j<r-1`$ 的更慢项 $`n^{-j}`$；余项不是 $`O(n^{-r})`$；缩并为零时首项却不为零。(c) 是标量见证的精确律 $`\Delta_N/n^{N-1}`$；(d) 给出均值不同时的极限 $`J(\mu_P)-J(\mu_Q)`$。
+**为什么做。** [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(b) 同时预测了差距随独立块数 $`n`$ 衰减的指数 $`1-r`$ 和系数 $`\langle D^rJ(\mu),\Delta\kappa_r\rangle/r!`$。证伪方式包括：首项系数不对；出现 $`j<r-1`$ 的更慢项 $`n^{-j}`$；余项不是 $`O(n^{-r})`$；缩并为零时首项却不为零。(c) 是标量见证的精确律 $`\Delta_N/n^{N-1}`$；(d) 给出均值不同时的极限 $`J(\mu_P)-J(\mu_Q)`$。
 
 **设置。**
 
@@ -366,7 +366,7 @@
 
 **结论。** PASS（45 个实例、140 条断言）。使用独立块时，差距精确地按 $`\text{gap}_1/n^{N-1}`$ 衰减（$`N=2,3,4`$ 的双对数斜率为 $`-1,-2,-3`$）。重放一个块，或用同一母块的确定性后代训练，差距在 256 倍曝光内保持不变。
 
-**为什么做。** [Theorem 4.5](../proofs/04_complexity_of_sufficiency_ZH.md#s4-5)(b)–(c) 的速率是关于独立块的个数。(e) 预测，两种只增加曝光、不带来新证据的做法会让差距停留在单块时的值：把一个块重放 $`n`$ 次，以及用同一母块的 $`n`$ 个确定性后代训练。这把信息与曝光区分开。
+**为什么做。** [Theorem 4.5](../proofs/04_rates_and_composition_ZH.md#s4-5)(b)–(c) 的速率是关于独立块的个数。(e) 预测，两种只增加曝光、不带来新证据的做法会让差距停留在单块时的值：把一个块重放 $`n`$ 次，以及用同一母块的 $`n`$ 个确定性后代训练。这把信息与曝光区分开。
 
 **设置。**
 
@@ -411,7 +411,7 @@
 
 **结论。** PASS（136 个实例、484 条断言，最大残差 $`1.0\times10^{-17}`$）。对 $`N=1,\dots,16`$ 与每个 $`q<N`$，$`p^N`$ 的截断误差都等于二项尾概率，并且低于 $`2e^{-q^2/N}`$（尾概率与界之比最大为 0.430）。一个扩展到 $`N=32`$ 的独立实现发现，要达到 $`10^{-3}`$ 的精度，$`N=4,8,16,32`$ 时只需 $`q=4,6,9,13`$。parity 的最佳次数 $`<N`$ 逼近误差恰为 $`1/2`$。
 
-**为什么做。** [Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)(a) 有三条可证伪的断言：Chebyshev 展开是恒等式；截断误差等于二项尾概率 $`\Pr\lbrace\lvert B-N\rvert>q\rbrace`$（$`B\sim\mathrm{Bin}(2N,\tfrac12)`$），而不只是以它为上界；这个尾概率至多为 $`2e^{-q^2/N}`$。(b) 断言 parity 的最佳低次逼近误差恰为 $`1/2`$，找到更小的值就能将其证伪。
+**为什么做。** [Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)(a) 有三条可证伪的断言：Chebyshev 展开是恒等式；截断误差等于二项尾概率 $`\Pr\lbrace\lvert B-N\rvert>q\rbrace`$（$`B\sim\mathrm{Bin}(2N,\tfrac12)`$），而不只是以它为上界；这个尾概率至多为 $`2e^{-q^2/N}`$。(b) 断言 parity 的最佳低次逼近误差恰为 $`1/2`$，找到更小的值就能将其证伪。
 
 **设置。**
 
@@ -466,7 +466,7 @@
 
 **结论。** PASS（21 个子空间、1,445 条断言）。三个 response 族的最高次数都是 3。标量族和结构化族用 3 个统计量就被精确刻画；parity 族在 7 个非常数方向全部到位之前，一致误差始终至少 $`0.0625`$（差异至少 $`0.125`$）。含常数的精确 span 维数为 4、4、8。在每个选出的子空间上，差异与两倍一致误差之差不超过 $`1.6\times10^{-15}`$。
 
-**为什么做。** response 族的次数并不决定它的近似复杂度；起作用的是逼近宽度，而 [Theorem 4.2](../proofs/04_complexity_of_sufficiency_ZH.md#s4-2)(b) 把它与最坏分布对差异等同起来。本检验比较三个最高次数相同的族，预期结构化的族代价低、parity 代价高（[Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)）。它同时在结构化（而非随机）的 response 上再次检验 Theorem 4.2(b) 的对偶，并检验 Theorem 4.2(a) 与 [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) 对一个给定的族所预测的 span 维数。
+**为什么做。** response 族的次数并不决定它的近似复杂度；起作用的是逼近宽度，而 [Theorem 4.2](../proofs/04_complexity_of_sufficiency_ZH.md#s4-2)(b) 把它与最坏分布对差异等同起来。本检验比较三个最高次数相同的族，预期结构化的族代价低、parity 代价高（[Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)）。它同时在结构化（而非随机）的 response 上再次检验 Theorem 4.2(b) 的对偶，并检验 Theorem 4.2(a) 与 [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) 对一个给定的族所预测的 span 维数。
 
 **设置。**
 
@@ -502,7 +502,7 @@
 
 **为什么支持这些陈述。**
 
-- 最高次数相同时，标量族和结构化族用 3 个统计量就能精确刻画，parity 需要全部 $`2^3-1=7`$ 个；只给 3 个统计量时，parity 仍留下 $`0.25`$ 的最坏分布对差异。决定信息阶数的是任务结构，而不是次数或决策步数（[Proposition 4.6](../proofs/04_complexity_of_sufficiency_ZH.md#s4-6)）。
+- 最高次数相同时，标量族和结构化族用 3 个统计量就能精确刻画，parity 需要全部 $`2^3-1=7`$ 个；只给 3 个统计量时，parity 仍留下 $`0.25`$ 的最坏分布对差异。决定信息阶数的是任务结构，而不是次数或决策步数（[Proposition 4.6](../proofs/04_rates_and_composition_ZH.md#s4-6)）。
 - 精确的 span 维数就是 span 判据预测的数值，并且远低于 [Theorem 4.4](../proofs/04_complexity_of_sufficiency_ZH.md#s4-4)(d) 统计的所有任务上的最坏情形。
 - [Theorem 4.2](../proofs/04_complexity_of_sufficiency_ZH.md#s4-2)(b) 的对偶在非随机的结构化 response 上同样成立，包括差异始终很大的 parity 族。
 
@@ -512,7 +512,7 @@
 
 **结论。** PASS（72 个实例、371 条断言，最大残差 0）。12 条随机多项式更新链的实际块次数都等于上界 $`D_i=Nb_i\prod_{t>i}a_t`$，按 $`D_i`$ 逐块匹配矩后学习价值精确相等。平方构造在次数 1、2、4、8 上取到这个上界。阈值学习器把两个均值相同的分布区分为 $`2/3`$ 对 $`0`$。SGD 展开的余项从不超过其 $`\eta^3`$ 界的 0.275 倍。
 
-**为什么做。** [Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(a) 断言第 $`i`$ 块上的 response 次数不超过 $`Nb_i\prod_{t>i}a_t`$，并且匹配这么多阶矩就足够；次数算错，矩充分性就不成立。(b) 断言这个上界可以取到，所以次数算松也会被发现。(c) 断言一旦更新不连续，任何矩阶都不够。(d) 的局部 SGD 展开是 [§5](05_optimizer_state_ZH.md) 所用的 SGD 一阶描述，所以它的余项界必须成立。
+**为什么做。** [Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(a) 断言第 $`i`$ 块上的 response 次数不超过 $`Nb_i\prod_{t>i}a_t`$，并且匹配这么多阶矩就足够；次数算错，矩充分性就不成立。(b) 断言这个上界可以取到，所以次数算松也会被发现。(c) 断言一旦更新不连续，任何矩阶都不够。(d) 的局部 SGD 展开是 [§5](05_optimizer_state_ZH.md) 所用的 SGD 一阶描述，所以它的余项界必须成立。
 
 **设置。**
 
@@ -552,7 +552,7 @@
 
 **结论。** PASS（717 个实例、1,435 条断言，最大残差 0）。几何级数界在每个实例上都成立，并且可以取等号。反例 $`\eta=\tfrac12`$、$`L=C=1`$、$`R=4`$ 给出 $`e_4=65/32`$，超过线性值 $`RC\eta^2=1`$。
 
-**为什么做。** 单步 $`O(\eta^2)`$ 的误差本身推不出整个训练 $`O(R\eta^2)`$ 的误差。[Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(e) 给出一个几何级数界，并断言它是紧的，因此线性累积需要稳定性条件。这两点都要精确检验。
+**为什么做。** 单步 $`O(\eta^2)`$ 的误差本身推不出整个训练 $`O(R\eta^2)`$ 的误差。[Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(e) 给出一个几何级数界，并断言它是紧的，因此线性累积需要稳定性条件。这两点都要精确检验。
 
 **设置。** 精确有理数递推 $`e_{t+1}=s\cdot((1+\eta L)e_t+C\eta^2)`$，松弛系数 $`s\in(0,1]`$；$`\eta\in(0,1]`$、$`L\in[0,1]`$、$`C\in(0,1]`$、$`R\le40`$ 随机取值；另外在 $`(\eta,L,C,R,s)`$ 上做固定种子的随机重启加爬山搜索。
 
@@ -578,7 +578,7 @@
 
 **结论。** 适用范围图，与定理一致。在 $`\eta\le0.1`$ 且至多 4 次更新、或 $`\eta=0.01`$ 且 40 次更新的全部 35 个 SGD 设置上，切线仿射 SGD 预测都与实际网络一致，最大偏差 $`2.5\times10^{-4}`$。到 $`\eta\ge1`$ 时，42 个设置中有 35 个偏离，偏差最大 0.53。
 
-**为什么做。** [Theorem 4.7](../proofs/04_complexity_of_sufficiency_ZH.md#s4-7)(d),(e) 预言：对 SGD，response 每一步由 consumed gradient 的均值决定，误差为 $`O(\eta^2)`$，并按几何级数累积。在非线性网络中，固定初始切线的仿射 SGD 预测因此应当在 $`\eta R`$ 小时准确，在 $`\eta`$ 大或视野长时失效。这一检验是看描述在哪里适用，而不是检验一个界。
+**为什么做。** [Theorem 4.7](../proofs/04_rates_and_composition_ZH.md#s4-7)(d),(e) 预言：对 SGD，response 每一步由 consumed gradient 的均值决定，误差为 $`O(\eta^2)`$，并按几何级数累积。在非线性网络中，固定初始切线的仿射 SGD 预测因此应当在 $`\eta R`$ 小时准确，在 $`\eta`$ 大或视野长时失效。这一检验是看描述在哪里适用，而不是检验一个界。
 
 **设置。** 受控小网络，不是大模型，也不是外部 benchmark。
 

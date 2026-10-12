@@ -205,7 +205,7 @@ Checks 7.2 and 7.3 share one code ID: its single FAIL assertion is the crossing 
 
 - Every first-order or cosine ranker has a wrong-sign rate between 11.4% and 28.8% on 1,687 provider pairs.
 - The full-state first-order score uses the exact continuation gradient and all three channels. It is wrong 51%–67% of the time where the second-moment share is at least 0.5.
-- The finite paired-replacement score of [Theorem 8.8](../proofs/08_verification.md#s8-8) is wrong 2.8% of the time overall and 4.3% at high share (7 of 161 pairs, against 96 for the full-state score).
+- The finite paired-replacement score of [Theorem 8.8](../proofs/08_certificate.md#s8-8) is wrong 2.8% of the time overall and 4.3% at high share (7 of 161 pairs, against 96 for the full-state score).
 
 **Why.**
 
@@ -226,7 +226,7 @@ Checks 7.2 and 7.3 share one code ID: its single FAIL assertion is the crossing 
   - Parameter-only first-order score: the exact continuation gradient restricted to $`\theta`$, contracted with the mean $`\Delta\theta`$.
   - Full-state first-order score: the $`\theta`$, $`m`$ and $`v`$ contractions with the exact continuation gradient, the oracle score of the first-order audit in [§8](08_verification.md).
   - CRN-measured first-order scores, which use no gradient oracle: a common-random-number directional difference along the mean increment, with the task-aligned surrogate or with a short-tail surrogate.
-  - Finite paired-replacement score $`\hat S`$ of [Theorem 8.8](../proofs/08_verification.md#s8-8), task-aligned surrogate, $`r=256`$ replicates.
+  - Finite paired-replacement score $`\hat S`$ of [Theorem 8.8](../proofs/08_certificate.md#s8-8), task-aligned surrogate, $`r=256`$ replicates.
 - **Second-moment share** of a pair: $`\lvert v\text{-contraction}\rvert/(\lvert\theta\rvert+\lvert m\rvert+\lvert v\rvert\text{ contractions})`$ of the pair's increment contrast, computed with the exact continuation gradient.
   - Fixed bins $`[0,.25),[.25,.5),[.5,.75),[.75,1]`$.
   - Unavailable for the nonsmooth threshold task.

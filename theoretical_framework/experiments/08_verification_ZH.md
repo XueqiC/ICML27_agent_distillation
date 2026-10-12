@@ -14,16 +14,16 @@
   - 符号恒等式在 50 个有理数实例上精确成立。
   - 下置信界与无条件形式都是必要的：见证中精确期望收益为 $`-78/15625`$，条件化偏差为 $`1/4\to119/494`$。
   - 充分的 Hoeffding 代价是每个候选 1,016 个配对副本。
-- **[Proposition 8.4](../proofs/08_verification_ZH.md#s8-4)（测量平均增量）在全部 144 个单元格、直到 $`p=10^5`$ 都成立.** 实测偏差分位数至多为界的 0.615，并且在增量界 $`b`$ 固定时不随 $`p`$ 增长，与 [Remark 8.5](../proofs/08_verification_ZH.md#s8-5) 一致。
-- **[Theorem 8.8](../proofs/08_verification_ZH.md#s8-8)（CRN 配对替换证书，Theorem C）.** 在冻结的受控面板上（1,728 个候选对）：
+- **[Proposition 8.4](../proofs/08_certificate_ZH.md#s8-4)（测量平均增量）在全部 144 个单元格、直到 $`p=10^5`$ 都成立.** 实测偏差分位数至多为界的 0.615，并且在增量界 $`b`$ 固定时不随 $`p`$ 增长，与 [Remark 8.5](../proofs/08_certificate_ZH.md#s8-5) 一致。
+- **[Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8)（CRN 配对替换证书，Theorem C）.** 在冻结的受控面板上（1,728 个候选对）：
   - 作为排序器，点估计 $`\hat S`$ 在 1,687 个 gold 非零的候选对中判错 48 个（2.8%）。
   - 测量所用的轨迹数，$`r=64`$ 时为全尾段配对 audit 的 7.0%，$`r=256`$ 时为 28.0%。
   - common random numbers 把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）。
-  - 用先验区间 $`B=2`$ 的严格证书：与任务一致的 surrogate 认证 0 对，需校准的 surrogate 在 $`r=256`$ 时认证 8 对，没有认证错误。这正是 [Remark 8.12](../proofs/08_verification_ZH.md#s8-12) 记录的缺口。
-- **[Corollary 8.9](../proofs/08_verification_ZH.md#s8-9)（一阶版本及其上限）.**
+  - 用先验区间 $`B=2`$ 的严格证书：与任务一致的 surrogate 认证 0 对，需校准的 surrogate 在 $`r=256`$ 时认证 8 对，没有认证错误。这正是 [Remark 8.12](../proofs/08_certificate_ZH.md#s8-12) 记录的缺口。
+- **[Corollary 8.9](../proofs/08_certificate_ZH.md#s8-9)（一阶版本及其上限）.**
   - 用 oracle 延续值梯度时，一阶分数在 margin 超过余项界的 56/396 行上没有判错，与 (a) 一致。
   - 实测的一阶证书 (b) 在 1,584 个光滑候选对上认证 0 对。仅二阶余项一项就在 69% 的候选对上超过实测一阶分数、在 73% 上超过真实差距；按上限 (c)，这些候选对在一阶意义下永远无法被认证。
-- **[Remark 8.12](../proofs/08_verification_ZH.md#s8-12)（未解决问题）有数据支撑.** 把 $`B`$ 换成观测区间（只是诊断，不是保证）时：
+- **[Remark 8.12](../proofs/08_certificate_ZH.md#s8-12)（未解决问题）有数据支撑.** 把 $`B`$ 换成观测区间（只是诊断，不是保证）时：
   - 与任务一致的 surrogate 认证 45%–57% 的候选对，没有错误；
   - 需校准的 surrogate 认证 23%–28%，其中有 22–28 个认证错误，说明校准的迁移可能失效。
 
@@ -41,10 +41,10 @@
 | [Check 8.10](#c8-10) | [Theorem 8.3](../proofs/08_verification_ZH.md#s8-3)(a)、(b) | `v014:C21` | PASS |
 | [Check 8.11](#c8-11) | [Theorem 8.3](../proofs/08_verification_ZH.md#s8-3)(c) | `pkg:adaptive_gate_expectations` | PASS |
 | [Check 8.12](#c8-12) | [Theorem 8.3](../proofs/08_verification_ZH.md#s8-3)(d) | `pkg:T13`、`v015:E7` | PASS；`v015:E7` 的副本数是预测 |
-| [Check 8.13](#c8-13) | [Proposition 8.4](../proofs/08_verification_ZH.md#s8-4)(a)、[Remark 8.5](../proofs/08_verification_ZH.md#s8-5) | `v015:V9` | PASS |
-| [Check 8.14](#c8-14) | [Theorem 8.8](../proofs/08_verification_ZH.md#s8-8)、[Proposition 8.10](../proofs/08_verification_ZH.md#s8-10)、[Remarks 8.11–8.12](../proofs/08_verification_ZH.md#s8-11) | `v016:C6b`、`v016:C5b` | PASS（没有错误的严格证书）；严格证书覆盖率 0（与任务一致的 surrogate） |
-| [Check 8.15](#c8-15) | [Corollary 8.9](../proofs/08_verification_ZH.md#s8-9)(a)、(d) | `v015:E12` | margin 内零判错（oracle 梯度） |
-| [Check 8.16](#c8-16) | [Corollary 8.9](../proofs/08_verification_ZH.md#s8-9)(b)、(c) | `v016:C6` | PASS（实现层面）；1,584 对中认证 0 对 |
+| [Check 8.13](#c8-13) | [Proposition 8.4](../proofs/08_certificate_ZH.md#s8-4)(a)、[Remark 8.5](../proofs/08_certificate_ZH.md#s8-5) | `v015:V9` | PASS |
+| [Check 8.14](#c8-14) | [Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8)、[Proposition 8.10](../proofs/08_certificate_ZH.md#s8-10)、[Remarks 8.11–8.12](../proofs/08_certificate_ZH.md#s8-11) | `v016:C6b`、`v016:C5b` | PASS（没有错误的严格证书）；严格证书覆盖率 0（与任务一致的 surrogate） |
+| [Check 8.15](#c8-15) | [Corollary 8.9](../proofs/08_certificate_ZH.md#s8-9)(a)、(d) | `v015:E12` | margin 内零判错（oracle 梯度） |
+| [Check 8.16](#c8-16) | [Corollary 8.9](../proofs/08_certificate_ZH.md#s8-9)(b)、(c) | `v016:C6` | PASS（实现层面）；1,584 对中认证 0 对 |
 
 所有检验都是精确的有限计算、有限过程上的 Monte Carlo，或受控小网络。没有一项是真实模型或 benchmark 上的结果。
 
@@ -453,7 +453,7 @@ $`\epsilon=0`$ 时，对每个 $`\alpha`$ 差异都是 $`0`$。
 
 **结论.** 在全部 144 个单元格中（每格 20,000 次试验，共 2,880,000 个实例），失败率都远低于 $`\delta`$，实测偏差分位数从不超过界的 0.615。增量界 $`b`$ 固定时，这个比值从 $`p=1`$ 到 $`p=100{,}000`$ 都不增长。
 
-**动机.** [Proposition 8.4](../proofs/08_verification_ZH.md#s8-4)(a) 说，经验平均增量在 Hilbert 范数下以 $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$ 的速率集中，界中不显含维数。LoRA adapter 有上千万个参数。若存在隐含的维数依赖，会表现为失败率高于 $`\delta`$，或实测分位数随 $`p`$ 增长而逼近界。
+**动机.** [Proposition 8.4](../proofs/08_certificate_ZH.md#s8-4)(a) 说，经验平均增量在 Hilbert 范数下以 $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$ 的速率集中，界中不显含维数。LoRA adapter 有上千万个参数。若存在隐含的维数依赖，会表现为失败率高于 $`\delta`$，或实测分位数随 $`p`$ 增长而逼近界。
 
 **设置.**
 
@@ -480,7 +480,7 @@ $`\epsilon=0`$ 时，对每个 $`\alpha`$ 差异都是 $`0`$。
 **为什么支持该陈述.**
 
 - 界在每个单元格都成立，且至少保守 1.6 倍；在 $`b`$ 固定时，没有任何量随维数变差。
-- 如 [Remark 8.5](../proofs/08_verification_ZH.md#s8-5) 所说，$`b`$ 本身可以随维数增长：对未归一化的符号型增量，$`b=\eta\sqrt p`$。这时一阶差异也是同一尺度，所以相对精度仍由 $`1/\sqrt n`$ 决定（`data.caveat`）。
+- 如 [Remark 8.5](../proofs/08_certificate_ZH.md#s8-5) 所说，$`b`$ 本身可以随维数增长：对未归一化的符号型增量，$`b=\eta\sqrt p`$。这时一阶差异也是同一尺度，所以相对精度仍由 $`1/\sqrt n`$ 决定（`data.caveat`）。
 - 这一检验只覆盖平均增量的估计。排序还需要延续值梯度与余项（Check 8.15–8.16）。
 
 集中性结果是 [Figure 8.4](#c8-15) 的 A 幅。
@@ -491,14 +491,14 @@ $`\epsilon=0`$ 时，对每个 $`\alpha`$ 差异都是 $`0`$。
 
 **结论.**
 
-- **没有错误的严格证书.** 两个副本数下都没有：[Theorem 8.8](../proofs/08_verification_ZH.md#s8-8) 的断言通过。
-- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.12](../proofs/08_verification_ZH.md#s8-12) 的未解决问题。
+- **没有错误的严格证书.** 两个副本数下都没有：[Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8) 的断言通过。
+- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.12](../proofs/08_certificate_ZH.md#s8-12) 的未解决问题。
 - **作为排序器，测量是有效的.** 与任务一致的点估计 $`\hat S`$ 在 $`r=256`$ 时于 1,687 个 gold 非零的候选对中判错 48 个（2.8%），$`r=64`$ 时判错 65 个（3.9%）。
 - **它便宜.** 测量所用轨迹数是同一面板上全尾段配对 audit 的 7.0%（$`r=64`$）和 28.0%（$`r=256`$）。
 - **CRN 有效.** common random numbers 把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）；候选对比值的中位数为 0.0035。
 - **校准的迁移可能失效.** 把 $`B`$ 换成观测区间（只是诊断）时，与任务一致的 surrogate 认证 45%–57% 的候选对、没有错误；需校准的 surrogate 认证 23%–28%，其中有 22–28 个认证错误。
 
-**动机.** [Theorem 8.8](../proofs/08_verification_ZH.md#s8-8) 把 oracle 延续值梯度换成一个可测量的量：在被审计状态上一次有限替换的效应，用 common random numbers 估计。它的估计目标在期望上精确成立，也不需要光滑性，所以只有统计项（$`e_{\rm stat}`$）与 surrogate 校准项（$`\varepsilon_{\rm sur}`$）两类误差。这一检验回答三个问题：
+**动机.** [Theorem 8.8](../proofs/08_certificate_ZH.md#s8-8) 把 oracle 延续值梯度换成一个可测量的量：在被审计状态上一次有限替换的效应，用 common random numbers 估计。它的估计目标在期望上精确成立，也不需要光滑性，所以只有统计项（$`e_{\rm stat}`$）与 surrogate 校准项（$`\varepsilon_{\rm sur}`$）两类误差。这一检验回答三个问题：
 
 - 有没有错误的严格证书（必须没有）；
 - 先验区间的代价有多大（Remark 8.12）；
@@ -508,7 +508,7 @@ $`\epsilon=0`$ 时，对每个 $`\alpha`$ 差异都是 $`0`$。
 
 - **面板.** 冻结的受控网络 provider 面板：40 个不同的 held-out cell，九个 provider 律（一个参考加 $`M=8`$ 个候选），48 个 split/cell 组合，1,728 个无序候选对（其中 1,584 个在光滑目标上），以及 432 个 候选对参考 的行（其中 396 个光滑，就是 Check 8.15 做 oracle margin 分析的那些行）。
 - **gold.** 每个候选对的精确八步更新结果：一个候选边界，之后是全部 128 条七步参考历史。测量之后重新计算，与冻结记录的差不超过 $`1.1\times10^{-16}`$。
-- **替换.** 对十个支撑点中的每一个，执行实际的一轮 optimizer 增量。第 $`\ell`$ 个副本抽一条新的七步参考尾段 $`\omega_\ell`$，所有候选共用；每个更新后的支撑点状态沿它继续，终端结果再按各 provider 的精确律加权。对支撑点的积分发生在非线性尾段之后，所以估计目标就是 [Definition 8.6](../proofs/08_verification_ZH.md#s8-6) 中的 $`\tilde L(P^j)-\tilde L(P^k)`$，不是平均更新的近似。
+- **替换.** 对十个支撑点中的每一个，执行实际的一轮 optimizer 增量。第 $`\ell`$ 个副本抽一条新的七步参考尾段 $`\omega_\ell`$，所有候选共用；每个更新后的支撑点状态沿它继续，终端结果再按各 provider 的精确律加权。对支撑点的积分发生在非线性尾段之后，所以估计目标就是 [Definition 8.6](../proofs/08_certificate_ZH.md#s8-6) 中的 $`\tilde L(P^j)-\tilde L(P^k)`$，不是平均更新的近似。
 - **副本.** $`r=256`$ 条独立尾段；$`r=64`$ 取前 64 条。随机流 `SeedSequence([160160,66,warmup_step,recipe_id,0])`。
 - **Surrogate.**
   - *与任务一致（aligned）*：完整七步参考尾段之后的有界任务效用；$`\alpha=1`$，$`\varepsilon_{\rm sur}=0`$。
@@ -596,7 +596,7 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 
 **结论.** 在 396 个光滑行中一阶 margin 超过余项界的 56 行上，用 **oracle** 延续值梯度计算的一阶分数没有一次判错符号；在同样这些行上，每个静态 proxy 都有 35.7% 判错。在 margin 之外，oracle 分数在 gold 非零的行上判错 34.1%。
 
-**动机.** [Corollary 8.9](../proofs/08_verification_ZH.md#s8-9)(a) 说，只要一阶 margin 超过二阶余项，一阶分数就能正确排出两个反馈律。Corollary 8.9(d) 补充：一个廉价分数只有满足 (i) 它把实际学习器经 optimizer 变换后的平均增量与实际状态上的延续值梯度配对，并且 (ii) 只在 margin 成立的地方使用，才能排对。这里在冻结 held-out 面板的同一批行上检验这两个条件，不重新拟合任何东西。它用的是每一行参考尾段的精确延续值梯度，真实的 audit 拿不到这个量；Check 8.14 与 8.16 是对应的可测量版本。
+**动机.** [Corollary 8.9](../proofs/08_certificate_ZH.md#s8-9)(a) 说，只要一阶 margin 超过二阶余项，一阶分数就能正确排出两个反馈律。Corollary 8.9(d) 补充：一个廉价分数只有满足 (i) 它把实际学习器经 optimizer 变换后的平均增量与实际状态上的延续值梯度配对，并且 (ii) 只在 margin 成立的地方使用，才能排对。这里在冻结 held-out 面板的同一批行上检验这两个条件，不重新拟合任何东西。它用的是每一行参考尾段的精确延续值梯度，真实的 audit 拿不到这个量；Check 8.14 与 8.16 是对应的可测量版本。
 
 **设置.**
 

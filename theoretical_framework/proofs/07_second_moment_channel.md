@@ -13,7 +13,7 @@
   - In the regime of Corollary 7.2, parameter-only first-order scores rank two same-direction messages in the wrong order, and cosine scores cannot separate them.
 - [Remark 7.5](#s7-5) states where any first-order ranker is unreliable.
 - "Theorem B" denotes [Theorem 7.1](#s7-1) together with [Corollary 7.2](#s7-2).
-- Uses: the complete learner state and continuation value ([Definitions 1.3–1.4](../README.md#s1-3)); the first-order representation ([Proposition 5.1](05_optimizer_state.md#s5-1)); the Adam increment map ([Proposition 5.5(a)](05_optimizer_state.md#s5-5)); the isolated-visit constant $`\kappa_{\rm iso}`$ ([Proposition 6.11(c)](06_learner_relative_information.md#s6-11)); [Proposition 3.1(b)](03_learning_consequence.md#s3-1).
+- Uses: the complete learner state and continuation value ([Definitions 1.3–1.4](../README.md#s1-3)); the first-order representation ([Proposition 5.1](05_optimizer_state.md#s5-1)); the Adam increment map ([Proposition 5.5(a)](05_warm_adam.md#s5-5)); the isolated-visit constant $`\kappa_{\rm iso}`$ ([Proposition 6.11(c)](06_learner_relative_information.md#s6-11)); [Proposition 3.1(b)](03_learning_consequence.md#s3-1).
 
 ## Setting
 
@@ -23,7 +23,7 @@
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
 ```
 
-with bias-correction factors $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$ and $`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$, or $`q_{1,s}=q_{2,s}=1`$ without bias correction. Operations on vectors are coordinatewise. The increment is $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$, the map of [Proposition 5.5(a)](05_optimizer_state.md#s5-5); the counter advances by one and is never differentiated.
+with bias-correction factors $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$ and $`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$, or $`q_{1,s}=q_{2,s}=1`$ without bias correction. Operations on vectors are coordinatewise. The increment is $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$, the map of [Proposition 5.5(a)](05_warm_adam.md#s5-5); the counter advances by one and is never differentiated.
 
 **Message and reference tail.**
 
@@ -102,7 +102,7 @@ Then:
 
 $`V_{t+1}(z)=F(\pi_\theta\,\Phi_{R-1}\circ\cdots\circ\Phi_{t+1}(z))`$, where $`\pi_\theta`$ extracts the parameters. By the chain rule, $`\nabla V_{t+1}(z_t)=D\Phi_{t+1}^\top\cdots D\Phi_{R-1}^\top(\nabla F,0,0)`$. Accumulating from the right gives $`\chi_k=D\Phi_k^\top\chi_{k+1}`$ with $`\chi_R=(\nabla F,0,0)`$. Multiplying the transposed blocks (all $`D`$'s are diagonal) gives the stated recursion: the $`m`$-row collects $`-\eta\beta_1D_1\chi^\theta+\beta_1\chi^m`$, the $`v`$-row collects $`\eta\beta_2D_2\chi^\theta+\beta_2\chi^v`$, and the $`\theta`$-row collects the remaining terms. When clipping is active, $`g=c\,r/\lVert r\rVert`$, and the derivative of $`r\mapsto r/\lVert r\rVert`$ is $`(I-rr^\top/\lVert r\rVert^2)/\lVert r\rVert`$, which gives the stated $`J_k`$. The recursion uses $`J_k^\top`$, which need not be symmetric.
 
-(b) is the definition of $`\mathrm{Val}`$ with $`\nabla V_{t+1}(z_t)=\chi_{t+1}`$ and the increments $`\Delta m=(1-\beta_1)(g-m_t)`$, $`\Delta v=(1-\beta_2)(g\odot g-v_t)`$ of [Proposition 5.5(a)](05_optimizer_state.md#s5-5).
+(b) is the definition of $`\mathrm{Val}`$ with $`\nabla V_{t+1}(z_t)=\chi_{t+1}`$ and the increments $`\Delta m=(1-\beta_1)(g-m_t)`$, $`\Delta v=(1-\beta_2)(g\odot g-v_t)`$ of [Proposition 5.5(a)](05_warm_adam.md#s5-5).
 
 (c) is read off from (b); for a law, take expectations in (b).
 
@@ -270,7 +270,7 @@ which is positive for $`\lambda<\lambda_{\rm PO}`$.
 - Call the second-moment share of a candidate pair the absolute $`v`$-channel contraction of the pair's increment contrast, divided by the sum of the absolute $`\theta`$-, $`m`$- and $`v`$-channel contractions.
 - A high share typically means that the increment is large relative to $`v`$. That is the nonlinear, saturating regime of [Corollary 7.2(a),(c)](#s7-2), where the first-order value keeps following the quadratic law while the actual response does not. There the linearization overstates the harm done through the $`v`$-channel.
 - The decomposition of [Theorem 7.1](#s7-1) is exact, but its first-order use is least reliable exactly where the $`v`$-channel matters.
-- Where the second-moment share is high, a ranking should use a finite-replacement measurement ([Theorem 8.8](08_verification.md#s8-8)) or a nonlinear formula such as [Corollary 7.2(a)](#s7-2), not any first-order score. Neither a parameter-only score nor a full-state score with the exact continuation gradient is sufficient.
+- Where the second-moment share is high, a ranking should use a finite-replacement measurement ([Theorem 8.8](08_certificate.md#s8-8)) or a nonlinear formula such as [Corollary 7.2(a)](#s7-2), not any first-order score. Neither a parameter-only score nor a full-state score with the exact continuation gradient is sufficient.
 - [Proposition 7.3(b)](#s7-3) is a statement inside the small-increment regime of [Corollary 7.2(b)](#s7-2).
 - The controlled-panel evidence for this remark is in [Check 7.5](../experiments/07_second_moment_channel.md#c7-5).
 

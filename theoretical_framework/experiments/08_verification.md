@@ -14,16 +14,16 @@
   - The signed identity is exact on 50 rational instances.
   - The lower confidence bound and the unconditional form are both necessary: there are witnesses with exact expected gain $`-78/15625`$ and a conditioning bias of $`1/4\to119/494`$.
   - The sufficient Hoeffding cost is 1,016 paired replicas per candidate.
-- **[Proposition 8.4](../proofs/08_verification.md#s8-4) (measuring the mean increment) holds in all 144 cells, up to $`p=10^5`$.** The realized deviation quantile is at most 0.615 of the bound and does not grow with $`p`$ at a fixed increment bound $`b`$, as [Remark 8.5](../proofs/08_verification.md#s8-5) states.
-- **[Theorem 8.8](../proofs/08_verification.md#s8-8) (CRN paired-replacement certificate, Theorem C).** Measured on the frozen controlled panel of 1,728 candidate pairs:
+- **[Proposition 8.4](../proofs/08_certificate.md#s8-4) (measuring the mean increment) holds in all 144 cells, up to $`p=10^5`$.** The realized deviation quantile is at most 0.615 of the bound and does not grow with $`p`$ at a fixed increment bound $`b`$, as [Remark 8.5](../proofs/08_certificate.md#s8-5) states.
+- **[Theorem 8.8](../proofs/08_certificate.md#s8-8) (CRN paired-replacement certificate, Theorem C).** Measured on the frozen controlled panel of 1,728 candidate pairs:
   - As a ranker, the point estimate $`\hat S`$ has the wrong sign on 48 of 1,687 nonzero-gold pairs (2.8%).
   - Its measurement uses 7.0% of the trajectories of a full-tail paired audit at $`r=64`$, and 28.0% at $`r=256`$.
   - Common random numbers cut the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances).
-  - The strict certificate with the a-priori range $`B=2`$ certifies 0 pairs with the aligned surrogate, and 8 pairs with the calibrated surrogate at $`r=256`$; none is wrong. This is the gap recorded in [Remark 8.12](../proofs/08_verification.md#s8-12).
-- **[Corollary 8.9](../proofs/08_verification.md#s8-9) (first-order version and its cap).**
+  - The strict certificate with the a-priori range $`B=2`$ certifies 0 pairs with the aligned surrogate, and 8 pairs with the calibrated surrogate at $`r=256`$; none is wrong. This is the gap recorded in [Remark 8.12](../proofs/08_certificate.md#s8-12).
+- **[Corollary 8.9](../proofs/08_certificate.md#s8-9) (first-order version and its cap).**
   - With the oracle continuation gradient the first-order score has zero wrong signs on the 56 of 396 rows where its margin exceeds the remainder bound, as (a) states.
   - The measured first-order certificate (b) certifies 0 of 1,584 smooth pairs. The second-order remainder alone exceeds the measured first-order score on 69% of pairs and the true gap on 73%; by the cap (c) those pairs can never be certified at first order.
-- **[Remark 8.12](../proofs/08_verification.md#s8-12) (open problems) is supported by data.** With the observed range in place of $`B`$, which is a diagnostic and not a guarantee:
+- **[Remark 8.12](../proofs/08_certificate.md#s8-12) (open problems) is supported by data.** With the observed range in place of $`B`$, which is a diagnostic and not a guarantee:
   - the aligned surrogate certifies 45–57% of pairs with no error;
   - the calibrated surrogate certifies 23–28% of pairs with 22–28 wrong certificates, so transfer of the calibration can fail.
 
@@ -41,10 +41,10 @@
 | [Check 8.10](#c8-10) | [Theorem 8.3](../proofs/08_verification.md#s8-3)(a), (b) | `v014:C21` | PASS |
 | [Check 8.11](#c8-11) | [Theorem 8.3](../proofs/08_verification.md#s8-3)(c) | `pkg:adaptive_gate_expectations` | PASS |
 | [Check 8.12](#c8-12) | [Theorem 8.3](../proofs/08_verification.md#s8-3)(d) | `pkg:T13`, `v015:E7` | PASS; the `v015:E7` replica count is a forecast |
-| [Check 8.13](#c8-13) | [Proposition 8.4](../proofs/08_verification.md#s8-4)(a), [Remark 8.5](../proofs/08_verification.md#s8-5) | `v015:V9` | PASS |
-| [Check 8.14](#c8-14) | [Theorem 8.8](../proofs/08_verification.md#s8-8), [Proposition 8.10](../proofs/08_verification.md#s8-10), [Remarks 8.11–8.12](../proofs/08_verification.md#s8-11) | `v016:C6b`, `v016:C5b` | PASS (no wrong strict certificate); strict coverage 0 (aligned) |
-| [Check 8.15](#c8-15) | [Corollary 8.9](../proofs/08_verification.md#s8-9)(a), (d) | `v015:E12` | zero wrong signs inside the margin (oracle gradient) |
-| [Check 8.16](#c8-16) | [Corollary 8.9](../proofs/08_verification.md#s8-9)(b), (c) | `v016:C6` | PASS (implementation); 0 of 1,584 pairs certified |
+| [Check 8.13](#c8-13) | [Proposition 8.4](../proofs/08_certificate.md#s8-4)(a), [Remark 8.5](../proofs/08_certificate.md#s8-5) | `v015:V9` | PASS |
+| [Check 8.14](#c8-14) | [Theorem 8.8](../proofs/08_certificate.md#s8-8), [Proposition 8.10](../proofs/08_certificate.md#s8-10), [Remarks 8.11–8.12](../proofs/08_certificate.md#s8-11) | `v016:C6b`, `v016:C5b` | PASS (no wrong strict certificate); strict coverage 0 (aligned) |
+| [Check 8.15](#c8-15) | [Corollary 8.9](../proofs/08_certificate.md#s8-9)(a), (d) | `v015:E12` | zero wrong signs inside the margin (oracle gradient) |
+| [Check 8.16](#c8-16) | [Corollary 8.9](../proofs/08_certificate.md#s8-9)(b), (c) | `v016:C6` | PASS (implementation); 0 of 1,584 pairs certified |
 
 All checks are exact finite computations, Monte Carlo on finite processes, or a controlled small network. None is a real-model or benchmark result.
 
@@ -453,7 +453,7 @@ Variance decomposition of the paired contrast (`v015:E7`):
 
 **Verdict.** In all 144 cells (20,000 trials each, 2,880,000 instances) the failure rate is far below $`\delta`$, and the realized deviation quantile never exceeds 0.615 of the bound. The ratio does not grow from $`p=1`$ to $`p=100{,}000`$ at a fixed increment bound $`b`$.
 
-**Why.** [Proposition 8.4](../proofs/08_verification.md#s8-4)(a) states that the empirical mean increment concentrates in the Hilbert norm at rate $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$, with no explicit dimension. LoRA adapters have tens of millions of parameters. An implicit dimension dependence would show as a failure rate above $`\delta`$, or as a realized quantile that rises toward the bound as $`p`$ grows.
+**Why.** [Proposition 8.4](../proofs/08_certificate.md#s8-4)(a) states that the empirical mean increment concentrates in the Hilbert norm at rate $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$, with no explicit dimension. LoRA adapters have tens of millions of parameters. An implicit dimension dependence would show as a failure rate above $`\delta`$, or as a realized quantile that rises toward the bound as $`p`$ grows.
 
 **Setup.**
 
@@ -480,7 +480,7 @@ By law, the largest quantile/bound is 0.574 (sign), 0.408 (clipped Gaussian) and
 **Why it supports the statement.**
 
 - The bound is valid and conservative by a factor of at least 1.6 in every cell, and nothing in it deteriorates with dimension at fixed $`b`$.
-- As [Remark 8.5](../proofs/08_verification.md#s8-5) states, $`b`$ itself can grow with dimension: for unnormalized sign-type increments $`b=\eta\sqrt p`$. The first-order differences then have the same scale, so the relative accuracy is still set by $`1/\sqrt n`$ (`data.caveat`).
+- As [Remark 8.5](../proofs/08_certificate.md#s8-5) states, $`b`$ itself can grow with dimension: for unnormalized sign-type increments $`b=\eta\sqrt p`$. The first-order differences then have the same scale, so the relative accuracy is still set by $`1/\sqrt n`$ (`data.caveat`).
 - The check covers the estimation of the mean increment only. Ranking also needs the continuation gradient and the remainder (Checks 8.15–8.16).
 
 The concentration result is panel A of [Figure 8.4](#c8-15).
@@ -491,14 +491,14 @@ The concentration result is panel A of [Figure 8.4](#c8-15).
 
 **Verdict.**
 
-- **No wrong strict certificate** at either replica count: the assertion of [Theorem 8.8](../proofs/08_verification.md#s8-8) passes.
-- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.12](../proofs/08_verification.md#s8-12).
+- **No wrong strict certificate** at either replica count: the assertion of [Theorem 8.8](../proofs/08_certificate.md#s8-8) passes.
+- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.12](../proofs/08_certificate.md#s8-12).
 - **As a ranker the measurement works.** The aligned point estimate $`\hat S`$ has the wrong sign on 48 of 1,687 nonzero-gold pairs (2.8%) at $`r=256`$, and on 65 (3.9%) at $`r=64`$.
 - **It is cheap.** Measurement takes 7.0% ($`r=64`$) and 28.0% ($`r=256`$) of the trajectories of a full-tail paired audit of the same panel.
 - **CRN pays.** Common random numbers reduce the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances); the median pair ratio is 0.0035.
 - **Calibration transfer can fail.** With the observed range in place of $`B`$, which is a diagnostic only, the aligned surrogate certifies 45–57% of pairs with no error, but the calibrated surrogate certifies 23–28% with 22–28 wrong certificates.
 
-**Why.** [Theorem 8.8](../proofs/08_verification.md#s8-8) replaces the oracle continuation gradient by a measurable quantity: the effect of one finite replacement at the audited state, estimated with common random numbers. Its estimand is exact in expectation and needs no smoothness, so its only error terms are statistical ($`e_{\rm stat}`$) and surrogate calibration ($`\varepsilon_{\rm sur}`$). The check asks three questions:
+**Why.** [Theorem 8.8](../proofs/08_certificate.md#s8-8) replaces the oracle continuation gradient by a measurable quantity: the effect of one finite replacement at the audited state, estimated with common random numbers. Its estimand is exact in expectation and needs no smoothness, so its only error terms are statistical ($`e_{\rm stat}`$) and surrogate calibration ($`\varepsilon_{\rm sur}`$). The check asks three questions:
 
 - whether any strict certificate is wrong (it must not be);
 - how much the a-priori range costs (Remark 8.12);
@@ -508,7 +508,7 @@ The concentration result is panel A of [Figure 8.4](#c8-15).
 
 - **Panel.** The frozen controlled-network provider panel: 40 unique held-out cells, nine provider laws (one reference and $`M=8`$ candidates), 48 split/cell occurrences, 1,728 unordered candidate pairs (1,584 on smooth objectives), and 432 candidate-versus-reference rows (396 smooth, the rows on which the oracle-margin analysis of Check 8.15 was run).
 - **Gold.** The exact eight-update outcome of each pair: one candidate boundary followed by all 128 seven-update reference histories. It is recomputed after measurement and agrees with the frozen records to $`1.1\times10^{-16}`$.
-- **Replacements.** The actual one-round optimizer increment is executed for each of the ten support atoms. In replica $`\ell`$ one fresh seven-update reference tail $`\omega_\ell`$ is drawn and shared by all candidates; each updated atom state is continued under it, and terminal outcomes are weighted by each provider's exact law. The integration over atoms happens after the nonlinear tail, so the estimand is $`\tilde L(P^j)-\tilde L(P^k)`$ of [Definition 8.6](../proofs/08_verification.md#s8-6), not a mean-update approximation.
+- **Replacements.** The actual one-round optimizer increment is executed for each of the ten support atoms. In replica $`\ell`$ one fresh seven-update reference tail $`\omega_\ell`$ is drawn and shared by all candidates; each updated atom state is continued under it, and terminal outcomes are weighted by each provider's exact law. The integration over atoms happens after the nonlinear tail, so the estimand is $`\tilde L(P^j)-\tilde L(P^k)`$ of [Definition 8.6](../proofs/08_certificate.md#s8-6), not a mean-update approximation.
 - **Replicas.** $`r=256`$ independent tails; $`r=64`$ uses the first 64. Streams `SeedSequence([160160,66,warmup_step,recipe_id,0])`.
 - **Surrogates.**
   - *Aligned:* the bounded task utility after the full seven-update reference tail; $`\alpha=1`$, $`\varepsilon_{\rm sur}=0`$.
@@ -596,7 +596,7 @@ The certificate results are panels B–D of [Figure 8.5](#c8-16).
 
 **Verdict.** On the 56 of 396 smooth rows where the first-order margin exceeds the remainder bound, the first-order score computed with the **oracle** continuation gradient has zero wrong signs. On the same rows every static proxy is wrong 35.7% of the time. Outside the margin the oracle score is wrong on 34.1% of nonzero-gold rows.
 
-**Why.** [Corollary 8.9](../proofs/08_verification.md#s8-9)(a) states that a first-order score ranks two feedback laws correctly whenever its margin exceeds the second-order remainder. Corollary 8.9(d) adds that a cheap score can rank correctly only if (i) it pairs the optimizer-transformed mean increment with the continuation gradient at the actual state and (ii) it is used where the margin holds. The check tests both conditions on the exact rows of the frozen held-out panel, without refitting anything. It uses the exact continuation gradient of each row's reference tail, which a real audit does not have; Checks 8.14 and 8.16 are the measured counterparts.
+**Why.** [Corollary 8.9](../proofs/08_certificate.md#s8-9)(a) states that a first-order score ranks two feedback laws correctly whenever its margin exceeds the second-order remainder. Corollary 8.9(d) adds that a cheap score can rank correctly only if (i) it pairs the optimizer-transformed mean increment with the continuation gradient at the actual state and (ii) it is used where the margin holds. The check tests both conditions on the exact rows of the frozen held-out panel, without refitting anything. It uses the exact continuation gradient of each row's reference tail, which a real audit does not have; Checks 8.14 and 8.16 are the measured counterparts.
 
 **Setup.**
 

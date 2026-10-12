@@ -22,6 +22,7 @@ from urllib.parse import quote, unquote, urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
+MAX_MATH_EXPRESSIONS = 600
 DENIED = re.compile(
     r"\\(?:operatorname|boldsymbol|tag|label|eqref|ref|require|href|url|"
     r"newcommand|renewcommand|def|class|style|cssId|html|unicode|bbox)(?![A-Za-z])"
@@ -60,6 +61,7 @@ DISPLAY = re.compile(r"\\[\[\]]|\\begin\{(?:equation\*?|align\*?|gather\*?|multl
 def scope(root: Path = ROOT) -> tuple[list[Path], set[Path]]:
     framework = root / "theoretical_framework"
     s1 = [framework / "README.md", framework / "README_ZH.md"]
+    s1 += sorted((framework / "statements").glob("*.md"))
     s1 += sorted((framework / "proofs").glob("*.md"))
     s1 += sorted((framework / "experiments").glob("*.md"))
     s1 += [framework / "figures/README.md"]
@@ -259,6 +261,18 @@ def mask_inline(line: str, kinds: set[str]) -> str:
     return line
 
 
+def math_expression_count(text: str) -> int:
+    """Count rendered dollar/backtick expressions and math blocks, not examples."""
+    total = 0
+    for _, line, language, opening, _, _ in block_lines(text):
+        if language == "math" and opening:
+            total += 1
+        elif language is None:
+            total += sum(kind == "math" and backtick
+                         for kind, _, _, _, backtick in inline_tokens(line))
+    return total
+
+
 def bracket_labels(line: str):
     """Balanced labels, with brackets in code/math excluded from nesting."""
     plain = mask_inline(line, {"code", "math"})
@@ -417,7 +431,7 @@ class FrameworkIndex:
                     previous.append((raw, not fence and not appendix))
 
     def validate_page(self, path: Path, report: Report):
-        counters: dict[str, int] = defaultdict(int)
+        counters: dict[tuple[str, int], int] = {}
         for declaration in self.pages[path]:
             _, n, word, number, anchored = declaration
             kind = "check" if word == "Check" else "statement"
@@ -433,16 +447,44 @@ class FrameworkIndex:
             if not anchored:
                 anchor = ("c" if kind == "check" else "s") + number.replace(".", "-")
                 report.hit(path, n, f"missing adjacent {kind} anchor: {anchor} (previous 3 non-blank lines)")
-            expected = counters[kind] + 1
+            # A continuation page can start at any positive item. Section-wide
+            # validation below checks that earlier items exist on sibling pages.
+            key = kind, section
+            expected = counters[key] + 1 if key in counters else max(1, item)
             if item != expected:
                 reason = "gap" if item > expected else "out-of-order declaration"
                 report.hit(path, n, f"{kind} numbering {reason}: expected {section}.{expected}, got {number}")
-            counters[kind] = item
+            counters[key] = item
             registry = self.checks if kind == "check" else self.statements
             same_language = [d for d in registry[number] if language(d.path) == language(path)]
             if len(same_language) > 1:
                 locations = ", ".join(f"{d.path.name}:{d.line}" for d in same_language)
                 report.hit(path, n, f"duplicate framework {kind}: {number} ({language(path)}; {locations})")
+
+    def validate_sections(self, files: list[Path], report: Report):
+        """Check coverage from K.1 across all pages, separately per language.
+
+        A selected page brings its section's numbering into scope, but sibling
+        rendering and page parity retain their existing selection semantics.
+        """
+        selected = set(files)
+        for kind, registry in (("statement", self.statements), ("check", self.checks)):
+            sections: dict[tuple[str, int], list[Declaration]] = defaultdict(list)
+            for declarations in registry.values():
+                for declaration in declarations:
+                    section = int(declaration.number.split(".")[0])
+                    sections[language(declaration.path), section].append(declaration)
+            for (lang, section), declarations in sorted(sections.items()):
+                relevant = [d for d in declarations if d.path in selected]
+                if not relevant:
+                    continue
+                items = {int(d.number.split(".")[1]) for d in declarations}
+                missing = sorted(set(range(1, max(items) + 1)) - items)
+                if missing:
+                    first = min(relevant, key=lambda d: (d.path, d.line))
+                    labels = ", ".join(f"{section}.{item}" for item in missing)
+                    report.hit(first.path, first.line,
+                               f"{kind} numbering gap: missing {labels} across section {section} ({lang})")
 
     def validate_parity(self, files: list[Path], texts: dict[Path, str], report: Report):
         visited = set()
@@ -539,6 +581,9 @@ def offline(files: list[Path], s1: set[Path], report: Report):
             report.hit(path, 1, "missing scoped file")
             continue
         text = texts[path]
+        expressions = math_expression_count(text)
+        if expressions > MAX_MATH_EXPRESSIONS:
+            report.hit(path, 1, f"too many math expressions: {expressions} (maximum {MAX_MATH_EXPRESSIONS})")
         if path in s1:
             framework.validate_page(path, report)
             for n, paragraph in reference_paragraphs(path, text):
@@ -663,7 +708,9 @@ def offline(files: list[Path], s1: set[Path], report: Report):
         state = list(lines_outside_fences(text))
         if state and state[-1][2] and not (FENCE.match(state[-1][1]) and not FENCE.match(state[-1][1])[2].strip()):
             report.hit(path, len(lines), "unterminated fenced block")
-    framework.validate_parity([path for path in files if path in s1], texts, report)
+    policy_files = [path for path in files if path in s1]
+    framework.validate_sections(policy_files, report)
+    framework.validate_parity(policy_files, texts, report)
 
 
 class RenderedHTML(HTMLParser):

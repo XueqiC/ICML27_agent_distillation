@@ -132,7 +132,7 @@
 
 **结论.** 受控发现。在留出的学习器状态上，测试过的五个静态 proxy 判错率为 0.359–0.547（随机 0.547），Spearman 至多 0.10。实测的 4 步尾段在每一种状态、$`\epsilon`$、学习率与 warmth 的变化下，判错率至多 0.031，regret 为零。在留出的阈值任务上，1 步与 4 步尾段的 regret 为 0.044 与 0.032，随机为 0.019。全尾段在每个划分上 regret 与判错率都为零。
 
-**为什么做.** Rule 2 说候选必须按它实际的"更新加尾段"response 来评判。这个检验问：当学习器状态、任务、配方或 optimizer warmth 改变时，更便宜的统计量能否代替 response。每种改变都是单独的留出划分，所以只拟合了 pilot 的 proxy 无法通过。短尾段 proxy 是尾段被截断的一轮边界 response，即 [Definition 8.6](../proofs/08_verification_ZH.md#s8-6) 意义下的 surrogate；阈值划分检验这样的 surrogate 在新任务上能否保持排序，也就是 [Remark 8.11](../proofs/08_verification_ZH.md#s8-11) 的校准迁移问题。
+**为什么做.** Rule 2 说候选必须按它实际的"更新加尾段"response 来评判。这个检验问：当学习器状态、任务、配方或 optimizer warmth 改变时，更便宜的统计量能否代替 response。每种改变都是单独的留出划分，所以只拟合了 pilot 的 proxy 无法通过。短尾段 proxy 是尾段被截断的一轮边界 response，即 [Definition 8.6](../proofs/08_certificate_ZH.md#s8-6) 意义下的 surrogate；阈值划分检验这样的 surrogate 在新任务上能否保持排序，也就是 [Remark 8.11](../proofs/08_certificate_ZH.md#s8-11) 的校准迁移问题。
 
 **设置**（`theory/v015_checks/proxy_split_freeze.json`，SHA-256 `ac8f4aee…`，在任何留出测量之前写入）：
 
@@ -196,7 +196,7 @@
 
 1. *测试过的静态 proxy 不是 response.* 在留出的学习器状态上，以及从 fresh 状态迁到 warm 状态时，它们与随机分数相当：判错率 0.36–0.56，随机为 0.55–0.58；Spearman 至多 0.10。同一个更新统计量，在不同的完整状态上对应不同的学习后果，这正是 [Proposition 3.1](../proofs/03_learning_consequence_ZH.md#s3-1) 与 [§5](../proofs/05_optimizer_state_ZH.md) 的 optimizer state 结果所预言的。这是关于所测 proxy 的发现，不是对所有静态统计量的证明；被证明的不一致性只限于 [Proposition 7.3](../proofs/07_second_moment_channel_ZH.md#s7-3) 的两类。
 2. *实测的 response 能选对.* 4 步尾段在每一种状态、$`\epsilon`$、学习率与 warmth 的变化下，判错率不超过 3.1%，regret 为 0。1 步尾段在学习率变化下变差（判错率 0.39），但仍几乎选得最优（regret 0.0007）。
-3. *尾段长度是估计对象的一部分.* 在留出的 `threshold` 任务上，短尾段比随机选得差（regret 0.044 与 0.032，随机 0.019），因为它们的排序与 8 步全尾段不同。全尾段是唯一在每个划分上 regret 与判错率都为零的测量。用 [Remark 8.11](../proofs/08_verification_ZH.md#s8-11) 的话说：在一个任务族上校准好的 surrogate，到另一个任务族上可能失去排序，所以必须核对校准迁移。静态 proxy 在这个划分上碰巧达到零 regret，但判错率为 8%–25%，在留出状态上又与随机相当，所以它们不能跨划分迁移。
+3. *尾段长度是估计对象的一部分.* 在留出的 `threshold` 任务上，短尾段比随机选得差（regret 0.044 与 0.032，随机 0.019），因为它们的排序与 8 步全尾段不同。全尾段是唯一在每个划分上 regret 与判错率都为零的测量。用 [Remark 8.11](../proofs/08_certificate_ZH.md#s8-11) 的话说：在一个任务族上校准好的 surrogate，到另一个任务族上可能失去排序，所以必须核对校准迁移。静态 proxy 在这个划分上碰巧达到零 regret，但判错率为 8%–25%，在留出状态上又与随机相当，所以它们不能跨划分迁移。
 4. *量级.* regret 在回报单位下为 $`10^{-3}`$–$`10^{-2}`$，每个划分有 8 个 cell（任务划分与 warm-to-fresh 划分为 4 个）。cell bootstrap（`regret_bootstrap95`）描述的是这个有限面板内部的变化，不是总体置信区间。
 
 <a id="c9-5"></a>
@@ -205,7 +205,7 @@
 
 **结论.** 受控发现。warm-up 压缩了候选之间的差别：随机选择的 regret 在 5 个留出划分中的 4 个下降，$`W=5`$ 时平均下降 0.0079，$`W=20`$ 时平均下降 0.0100。它没有让静态 proxy 变得可预测：五个静态 proxy 与 $`W\in\lbrace 5,20\rbrace`$ 的 10 种组合中，没有一种同时改进 regret、判错率和 Spearman，它们的判错率上升 1–13 个百分点。
 
-**为什么做.** 在 warm 的 optimizer state 上，候选必须匹配的一阶统计量会改变（[Proposition 5.6–5.8](../proofs/05_optimizer_state_ZH.md#s5-6)）。这个检验问：把矩预热之后，Check 9.4 中的静态统计量会不会变得可预测。
+**为什么做.** 在 warm 的 optimizer state 上，候选必须匹配的一阶统计量会改变（[Proposition 5.6–5.8](../proofs/05_warm_adam_ZH.md#s5-6)）。这个检验问：把矩预热之后，Check 9.4 中的静态统计量会不会变得可预测。
 
 **设置**（`theory/v015_checks/proxy_split_freeze_E9.json`，SHA-256 `f895853d…`；模型 `proxy_models_frozen_E9.json`，SHA-256 `c96065f0…`；两者都在任何新的留出面板之前写入）：
 
@@ -249,7 +249,7 @@
 
 **为什么支持 Rule 3.**
 
-1. *warm-up 压缩了候选之间的差别.* 均匀随机选择的 regret 衡量的是菜单上 gold 对比值的分散程度。它在 5 个划分中的 4 个下降，阈值任务上降得最多（0.043 降到 0.004）：warm-up 之后可选的差别变小了。这与 [Proposition 5.6](../proofs/05_optimizer_state_ZH.md#s5-6) 一致：在 warm 状态上，response 在所述残差以内只依赖于平均预条件梯度，所以主要在符号结构上不同的候选会彼此靠近。
+1. *warm-up 压缩了候选之间的差别.* 均匀随机选择的 regret 衡量的是菜单上 gold 对比值的分散程度。它在 5 个划分中的 4 个下降，阈值任务上降得最多（0.043 降到 0.004）：warm-up 之后可选的差别变小了。这与 [Proposition 5.6](../proofs/05_warm_adam_ZH.md#s5-6) 一致：在 warm 状态上，response 在所述残差以内只依赖于平均预条件梯度，所以主要在符号结构上不同的候选会彼此靠近。
 2. *warm-up 没有让静态 proxy 变得可预测.* 除"只看符号"之外的四个静态 proxy，regret 在任何划分上都没有改进，判错率上升 1–8 个百分点，$`W=20`$ 时 Spearman 下降 0.15–0.21。"只看符号"的 regret 略有改进，但符号准确率下降 6–13 个百分点。没有一个静态 proxy 与 $`W`$ 的组合同时改进三项指标。
 3. *对方法的含义.* warmth 决定的是哪个统计量携带信息（Rule 3）。这里用的静态 proxy 在两种状态下都不是那个统计量，所以仍然要测量 response，并且要在记录了 warmth 的状态上测量（[Algorithm 9.2](../proofs/09_mechanism_and_method_ZH.md#s9-2) 第 1 步与第 5 步）。
 

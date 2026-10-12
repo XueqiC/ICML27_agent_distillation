@@ -152,11 +152,11 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 
 *步骤.*
 
-1. **记录完整学习器状态.** 每个检查点都保存可恢复的完整状态 $`z_t=(\theta_t,o_t)`$，包括 $`m`$、$`v`$、步数计数器、采样器与随机状态。按 [Remark 5.11](05_optimizer_state_ZH.md#s5-11) 记录 warmth：敏感度加权的 warmth 及其最大项。
+1. **记录完整学习器状态.** 每个检查点都保存可恢复的完整状态 $`z_t=(\theta_t,o_t)`$，包括 $`m`$、$`v`$、步数计数器、采样器与随机状态。按 [Remark 5.11](05_learner_statistics_ZH.md#s5-11) 记录 warmth：敏感度加权的 warmth 及其最大项。
 
-   *依据：* feedback law 必须携带的统计量取决于 optimizer state，而不只取决于 $`\theta`$（[Proposition 5.3](05_optimizer_state_ZH.md#s5-3)、[Proposition 5.6–5.7](05_optimizer_state_ZH.md#s5-6)、[Theorem 5.10](05_optimizer_state_ZH.md#s5-10)）；coverage 与 transport 都是关于完整状态的陈述（[Theorem 8.2](08_verification_ZH.md#s8-2)）。
+   *依据：* feedback law 必须携带的统计量取决于 optimizer state，而不只取决于 $`\theta`$（[Proposition 5.3](05_optimizer_state_ZH.md#s5-3)、[Proposition 5.6–5.7](05_warm_adam_ZH.md#s5-6)、[Theorem 5.10](05_learner_statistics_ZH.md#s5-10)）；coverage 与 transport 都是关于完整状态的陈述（[Theorem 8.2](08_verification_ZH.md#s8-2)）。
 2. **先获取，再编译.**
-   - 先做一个 pilot，在学生访问的状态上估计学习器相对权重（learner-relative weight）$`W_s`$ 与 teacher 覆盖 $`k_s=KH\,d_T(s)`$。参数坐标按状态分开（state-owned）时用 [Proposition 6.11](06_learner_relative_information_ZH.md#s6-11) 的闭式；否则在状态簇上用分组 CRN 替换分数（[Definition 8.6](08_verification_ZH.md#s8-6)）测量 $`W_s`$。
+   - 先做一个 pilot，在学生访问的状态上估计学习器相对权重（learner-relative weight）$`W_s`$ 与 teacher 覆盖 $`k_s=KH\,d_T(s)`$。参数坐标按状态分开（state-owned）时用 [Proposition 6.11](06_learner_relative_information_ZH.md#s6-11) 的闭式；否则在状态簇上用分组 CRN 替换分数（[Definition 8.6](08_certificate_ZH.md#s8-6)）测量 $`W_s`$。
    - 剩余的查询按 water-filling 分配：$`n_s^\star=(\sqrt{W_s/\lambda}-k_s)_+`$（[Proposition 6.10](06_learner_relative_information_ZH.md#s6-10)）；一般模型中这就是以 $`c=\sum_tJ_t^*g_t`$ 为目标向量的 c-optimal design（[Theorem 6.5](06_learner_relative_information_ZH.md#s6-5)）。
    - 维护证据台账。只有新证据计入信息预算。
 
@@ -165,27 +165,27 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 
    *依据：* 分组恰好通过联合 packet response 的不可加部分改变结果（[Proposition 9.1](#s9-1)），所以候选是它的 packet 律，而不是一袋单元。
 4. **记录每个候选的学习器统计量，并控制幅度.**
-   - 在 $`z_t`$ 上，为每个候选记录在当前 optimizer 下决定其一阶效应的量：平均 optimizer 增量 $`\mathbb E\,\Delta`$（[Theorem 5.10](05_optimizer_state_ZH.md#s5-10)；AdamW 下是 [Proposition 5.5](05_optimizer_state_ZH.md#s5-5) 的平均 Adam 增量）、裁剪的激活率（[Proposition 5.9](05_optimizer_state_ZH.md#s5-9)），以及逐坐标的幅度比 $`\lambda`$（相对 running RMS）和从 optimizer state 读出的信噪比 $`\rho`$（[Corollary 7.2](07_second_moment_channel_ZH.md#s7-2)）。
+   - 在 $`z_t`$ 上，为每个候选记录在当前 optimizer 下决定其一阶效应的量：平均 optimizer 增量 $`\mathbb E\,\Delta`$（[Theorem 5.10](05_learner_statistics_ZH.md#s5-10)；AdamW 下是 [Proposition 5.5](05_warm_adam_ZH.md#s5-5) 的平均 Adam 增量）、裁剪的激活率（[Proposition 5.9](05_learner_statistics_ZH.md#s5-9)），以及逐坐标的幅度比 $`\lambda`$（相对 running RMS）和从 optimizer state 读出的信噪比 $`\rho`$（[Corollary 7.2](07_second_moment_channel_ZH.md#s7-2)）。
    - 若一个候选在高 $`\rho`$ 坐标上的质量落在价值峰值 $`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho\,\omega_T)`$ 之外，或落在 Corollary 7.2(c) 的大 $`\lambda`$ 区间，就标记它。候选经缩放或裁剪得到的变体是新的候选，进入第 5 步的菜单。
 
-   *依据：* 平均梯度相同的候选在一阶上就可以不同（[Theorem 5.10](05_optimizer_state_ZH.md#s5-10)）；warm Adam 下，同方向、幅度更大的消息价值可能更低（[Corollary 7.2](07_second_moment_channel_ZH.md#s7-2)）；只看参数的分数和余弦分数在那里会排错或打平（[Proposition 7.3](07_second_moment_channel_ZH.md#s7-3)）；二阶矩通道占主导处一阶分数不可靠（[Remark 7.5](07_second_moment_channel_ZH.md#s7-5)）。所以被标记的候选只能用第 5 步的有限测量来排序。全局范数裁剪给 $`\lambda`$ 设了上限（[Remark 7.4](07_second_moment_channel_ZH.md#s7-4)）。
+   *依据：* 平均梯度相同的候选在一阶上就可以不同（[Theorem 5.10](05_learner_statistics_ZH.md#s5-10)）；warm Adam 下，同方向、幅度更大的消息价值可能更低（[Corollary 7.2](07_second_moment_channel_ZH.md#s7-2)）；只看参数的分数和余弦分数在那里会排错或打平（[Proposition 7.3](07_second_moment_channel_ZH.md#s7-3)）；二阶矩通道占主导处一阶分数不可靠（[Remark 7.5](07_second_moment_channel_ZH.md#s7-5)）。所以被标记的候选只能用第 5 步的有限测量来排序。全局范数裁剪给 $`\lambda`$ 设了上限（[Remark 7.4](07_second_moment_channel_ZH.md#s7-4)）。
 5. **在实际状态上测量后果.**
-   - 在 $`z_t`$ 上用 common random numbers（CRN）抽 $`r`$ 个副本，对所有候选对（包括每个候选对参考）计算配对替换分数 $`\hat S^{jk}`$（[Definition 8.6](08_verification_ZH.md#s8-6)）及半径 $`e_{\rm stat}^{jk}`$（[Theorem 8.8](08_verification_ZH.md#s8-8)）。
-   - 在少数候选对上，用全尾段任务评测的配对 audit 校准 $`(\alpha,\varepsilon_{\rm sur})`$（[Theorem 8.3](08_verification_ZH.md#s8-3)、[Remark 8.11](08_verification_ZH.md#s8-11)）。
-   - 一阶分数只能作为筛选，且只用于一阶 margin 超过二阶余项（[Corollary 8.9](08_verification_ZH.md#s8-9)）、第 4 步未标记的候选对。
+   - 在 $`z_t`$ 上用 common random numbers（CRN）抽 $`r`$ 个副本，对所有候选对（包括每个候选对参考）计算配对替换分数 $`\hat S^{jk}`$（[Definition 8.6](08_certificate_ZH.md#s8-6)）及半径 $`e_{\rm stat}^{jk}`$（[Theorem 8.8](08_certificate_ZH.md#s8-8)）。
+   - 在少数候选对上，用全尾段任务评测的配对 audit 校准 $`(\alpha,\varepsilon_{\rm sur})`$（[Theorem 8.3](08_verification_ZH.md#s8-3)、[Remark 8.11](08_certificate_ZH.md#s8-11)）。
+   - 一阶分数只能作为筛选，且只用于一阶 margin 超过二阶余项（[Corollary 8.9](08_certificate_ZH.md#s8-9)）、第 4 步未标记的候选对。
    - 若在特征上拟合 response 模型，用 [Theorem 8.1](08_verification_ZH.md#s8-1) 的有界系数目标。
 6. **选择、训练、重新 audit、冻结、检验迁移.**
    - 选择 $`j_t\in\arg\max_j\big[\hat S^{j0}-e_{\rm stat}^{j0}-\varepsilon_{\rm sur}\big]`$。若没有候选相对参考的下界为正，就保留参考；按点估计做出的选择报告为未认证。
-   - 用 $`P^{j_t}`$ 训练到下一个检查点。把选择用到未经 audit 的状态上，需要 [Theorem 8.2](08_verification_ZH.md#s8-2) 的 transport 项与退出项，或者在下一个检查点重新 audit、核对排序是否仍然成立（[Remark 8.11](08_verification_ZH.md#s8-11)）。
+   - 用 $`P^{j_t}`$ 训练到下一个检查点。把选择用到未经 audit 的状态上，需要 [Theorem 8.2](08_verification_ZH.md#s8-2) 的 transport 项与退出项，或者在下一个检查点重新 audit、核对排序是否仍然成立（[Remark 8.11](08_certificate_ZH.md#s8-11)）。
    - 在评测数据之前冻结候选菜单、特征、cell、surrogate、校准与选择器。在留出的任务族、配方与状态上，分别评测方法迁移（在新任务族上、用它自己的 $`K`$ 条示范重跑冻结的流程）与策略迁移（把蒸馏好的学生直接部署到新任务族、不再更新）。
 
 *保证.* 每项保证都是把所引定理用于相应步骤的输出，不需要额外论证。
 
-- **(G1) 单个检查点.** 在 [Assumption 8.7](08_verification_ZH.md#s8-7) 下，以至少 $`1-\delta`$ 的概率、对 $`z_t`$ 上所有候选对同时成立：若第 6 步因下界为正而选中 $`j_t\ne0`$，则在 $`z_t`$ 上把一轮参考换成 $`P^{j_t}`$、之后走参考尾段，不会降低任务价值（[Theorem 8.8](08_verification_ZH.md#s8-8)）。
+- **(G1) 单个检查点.** 在 [Assumption 8.7](08_certificate_ZH.md#s8-7) 下，以至少 $`1-\delta`$ 的概率、对 $`z_t`$ 上所有候选对同时成立：若第 6 步因下界为正而选中 $`j_t\ne0`$，则在 $`z_t`$ 上把一轮参考换成 $`P^{j_t}`$、之后走参考尾段，不会降低任务价值（[Theorem 8.8](08_certificate_ZH.md#s8-8)）。
 - **(G2) 整次训练.** 若第 5 步的 audit 是实际状态上的全尾段配对 audit，第 6 步按其下置信界选择，则 $`L_E({\rm adaptive})-L_E(0)\ge-\delta`$（[Theorem 8.3](08_verification_ZH.md#s8-3)）。
 - **(G3) 信息.** 只对 transcript 做后处理的步骤都不会降低信息 regret（[Proposition 2.4](02_feasibility_and_acquisition_ZH.md#s2-4)）。在 [Theorem 6.5](06_learner_relative_information_ZH.md#s6-5) 的假设下，第 2 步的获取在其中所述的常数因子内达到学习器相对的信息界。
 - **(G4) 其余情形为经验结论.** 按点估计做出的选择、迁移未经核实的校准、或在未 audit 的状态上不带 transport 项使用的选择，都不带证书。此时结论是关于冻结方法在声明的任务与 seed 总体上的平均结果，由整次训练的随机对照支持，并标注为经验结论。
-- **已知局限.** 用 [Assumption 8.7](08_verification_ZH.md#s8-7) 的先验区间时，Theorem 8.8 的半径可能超过候选之间的典型差距，这是一个未解决的问题（[Remark 8.12](08_verification_ZH.md#s8-12)）。在这种情况下第 6 步属于 (G4)。
+- **已知局限.** 用 [Assumption 8.7](08_certificate_ZH.md#s8-7) 的先验区间时，Theorem 8.8 的半径可能超过候选之间的典型差距，这是一个未解决的问题（[Remark 8.12](08_certificate_ZH.md#s8-12)）。在这种情况下第 6 步属于 (G4)。
 
 ## 设计规则的推导
 
@@ -211,8 +211,8 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 
 **Rule 3（匹配学习器的统计量，而不是原始梯度）.** 候选在一阶上必须匹配的，是完整学习器状态的平均增量在 continuation value 梯度方向上的部分。因此 response 及其统计量要按完整状态及其 warmth 来索引。
 
-- 一阶表示通过完整状态的平均增量写出结果差（[Proposition 5.1](05_optimizer_state_ZH.md#s5-1)）。[Theorem 5.10](05_optimizer_state_ZH.md#s5-10) 对每种学习器算出这个统计量：SGD 是平均梯度；裁剪下是裁剪后的均值，只看平均方向的误差不超过 $`c(1-p_{\rm act})`$（[Proposition 5.9](05_optimizer_state_ZH.md#s5-9)）；cold Adam 一步是符号分布，幅度保留在 $`m`$ 中（[Proposition 5.3](05_optimizer_state_ZH.md#s5-3)）；warm 状态下是平均 Adam 增量，只有在冻结分母近似下才化为 $`(\mathbb EG,\mathbb E\,G\odot G)`$（[Proposition 5.5](05_optimizer_state_ZH.md#s5-5)、[Proposition 5.6](05_optimizer_state_ZH.md#s5-6)）。
-- 在 cold 状态上，均值相同的分布在一阶上就分开（[Proposition 5.7](05_optimizer_state_ZH.md#s5-7)）。$`\beta_2`$ 固定时，warmth 收敛到平台 $`(1-\beta_2)/\beta_2`$，而不是趋于零（[Proposition 5.8](05_optimizer_state_ZH.md#s5-8)）。所以冻结分母描述每一步都有一个误差下限，warmth 必须测量，不能假定它很小。
+- 一阶表示通过完整状态的平均增量写出结果差（[Proposition 5.1](05_optimizer_state_ZH.md#s5-1)）。[Theorem 5.10](05_learner_statistics_ZH.md#s5-10) 对每种学习器算出这个统计量：SGD 是平均梯度；裁剪下是裁剪后的均值，只看平均方向的误差不超过 $`c(1-p_{\rm act})`$（[Proposition 5.9](05_learner_statistics_ZH.md#s5-9)）；cold Adam 一步是符号分布，幅度保留在 $`m`$ 中（[Proposition 5.3](05_optimizer_state_ZH.md#s5-3)）；warm 状态下是平均 Adam 增量，只有在冻结分母近似下才化为 $`(\mathbb EG,\mathbb E\,G\odot G)`$（[Proposition 5.5](05_warm_adam_ZH.md#s5-5)、[Proposition 5.6](05_warm_adam_ZH.md#s5-6)）。
+- 在 cold 状态上，均值相同的分布在一阶上就分开（[Proposition 5.7](05_warm_adam_ZH.md#s5-7)）。$`\beta_2`$ 固定时，warmth 收敛到平台 $`(1-\beta_2)/\beta_2`$，而不是趋于零（[Proposition 5.8](05_warm_adam_ZH.md#s5-8)）。所以冻结分母描述每一步都有一个误差下限，warmth 必须测量，不能假定它很小。
 - warm Adam 下，消息还通过二阶矩通道起作用（[Theorem 7.1](07_second_moment_channel_ZH.md#s7-1)）；在所述区间内，它的价值关于相对 running RMS 的幅度是凹的，超过一个显式阈值后变负（[Corollary 7.2](07_second_moment_channel_ZH.md#s7-2)）。所以相对于 $`\sqrt v`$ 的幅度也是统计量的一部分。
 - 参数相同、optimizer 矩不同的两个状态会走到不同的下一状态，response 也可以不同，所以 transport 条件要在完整状态上陈述（[Theorem 8.2](08_verification_ZH.md#s8-2)）。
 
@@ -225,15 +225,15 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 
 - (i) 冻结 audit 的证书，含实测的 transport 与退出概率（[Theorem 8.2](08_verification_ZH.md#s8-2)(b)）；
 - (ii) 实际状态上、基于全尾段配对 audit 的下置信界保证（[Theorem 8.3](08_verification_ZH.md#s8-3)(c)）；
-- (iii) 被 audit 状态上、带校准 surrogate 的 CRN 配对替换证书（[Theorem 8.8](08_verification_ZH.md#s8-8)），沿训练推广只能靠 transport 项或重新 audit（[Remark 8.11](08_verification_ZH.md#s8-11)）；
+- (iii) 被 audit 状态上、带校准 surrogate 的 CRN 配对替换证书（[Theorem 8.8](08_certificate_ZH.md#s8-8)），沿训练推广只能靠 transport 项或重新 audit（[Remark 8.11](08_certificate_ZH.md#s8-11)）；
 - (iv) 冻结方法的整次训练随机对照，标注为经验结论。
 
 推导：
 
 - 去掉 transport 项是无效的：audit 可以报告零差距，而学习差距为 $`1`$（[Theorem 8.2](08_verification_ZH.md#s8-2)(d)）。
 - 实际状态上的全尾段 audit 保证损失不超过 $`\delta`$，但每个候选需要上千个配对副本（[Theorem 8.3](08_verification_ZH.md#s8-3)(c)–(d)）。
-- 配对替换分数在期望下精确，不需要 continuation value 梯度，也不需要曲率，半径只含统计项与校准项（[Theorem 8.8](08_verification_ZH.md#s8-8)）。在 CRN 下，它的方差由两个候选增量之差决定（[Proposition 8.10](08_verification_ZH.md#s8-10)）。
-- 只有当候选对的一阶项超过二阶余项界时，一阶分数才能认证它。所以平均增量沿 surrogate 梯度方向相同的候选对，无论真实差距多大，一阶上都认证不了（[Corollary 8.9](08_verification_ZH.md#s8-9)）；Theorem 8.8 可以认证这类候选对。
+- 配对替换分数在期望下精确，不需要 continuation value 梯度，也不需要曲率，半径只含统计项与校准项（[Theorem 8.8](08_certificate_ZH.md#s8-8)）。在 CRN 下，它的方差由两个候选增量之差决定（[Proposition 8.10](08_certificate_ZH.md#s8-10)）。
+- 只有当候选对的一阶项超过二阶余项界时，一阶分数才能认证它。所以平均增量沿 surrogate 梯度方向相同的候选对，无论真实差距多大，一阶上都认证不了（[Corollary 8.9](08_certificate_ZH.md#s8-9)）；Theorem 8.8 可以认证这类候选对。
 - 按点估计选择、或不带 transport 的外推，都不带 (i)–(iii) 中的任何保证。
 
 **Rule 6（先冻结，再检验迁移）.** 选择器、特征、cell、surrogate 与候选都在评测它们的数据之前冻结；迁移只能通过目标 response 的已核实分解来保证，否则就要测量。
@@ -251,8 +251,8 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 - **已覆盖.** Proposition 9.1 由精确有限计算和一个受控小网络检验；选择规则在该网络的冻结留出面板上检验（[实验](../experiments/09_mechanism_and_method_ZH.md)）。Theorem A、B、C 的检验见 [§6](../experiments/06_learner_relative_information_ZH.md)、[§7](../experiments/07_second_moment_channel_ZH.md)、[§8](../experiments/08_verification_ZH.md) 的实验页。这些都是精确有限计算或受控小网络。
 - **未覆盖.** 本页的任何陈述都没有真实模型或 benchmark 结果的支持。下面的真实模型检验已经设计好，尚未运行。
 - **计划中的真实模型检验**（ALFWorld；用 AdamW 加梯度裁剪训练的 LoRA 学生，主表配方）。探索阶段每个配置单 seed；每个排序都在它所预测的评测之前预先注册。
-  - *R0（已有 pilot 的再分析）.* 报告敏感度加权的 warmth 及其最大项（[Remark 5.11](05_optimizer_state_ZH.md#s5-11)），并用 CRN surrogate 尾段测量 **response** 的不可加性，与已测的 update map 不可加性并列。
-  - *R1（Theorem C：同状态、同预算的排序）.* 从保存的完整 optimizer state 出发，比较四个候选 feedback law：$`K`$ 条示范的 replay、teacher 在学生状态上的修正（查询）、经环境奖励筛选的自生成轨迹、teacher 对示范的改写。用带校准 surrogate 的 CRN 配对替换分数排序（[Theorem 8.8](08_verification_ZH.md#s8-8)），预先注册排序，再用每个候选继续训练并评测。对照排序器：LESS、GRACE、梯度范数、静态 proxy。判据是被认证的候选对与实际排序是否一致、秩相关，以及对校准迁移的单独检验。
+  - *R0（已有 pilot 的再分析）.* 报告敏感度加权的 warmth 及其最大项（[Remark 5.11](05_learner_statistics_ZH.md#s5-11)），并用 CRN surrogate 尾段测量 **response** 的不可加性，与已测的 update map 不可加性并列。
+  - *R1（Theorem C：同状态、同预算的排序）.* 从保存的完整 optimizer state 出发，比较四个候选 feedback law：$`K`$ 条示范的 replay、teacher 在学生状态上的修正（查询）、经环境奖励筛选的自生成轨迹、teacher 对示范的改写。用带校准 surrogate 的 CRN 配对替换分数排序（[Theorem 8.8](08_certificate_ZH.md#s8-8)），预先注册排序，再用每个候选继续训练并评测。对照排序器：LESS、GRACE、梯度范数、静态 proxy。判据是被认证的候选对与实际排序是否一致、秩相关，以及对校准迁移的单独检验。
   - *R2（Theorem A：查询分配）.* 查询预算固定，比较不查询、在学生状态上均匀分配、SGD 式分配，以及用分组 CRN 分数测得 $`W_s`$ 的学习器相对 water-filling（[Proposition 6.10](06_learner_relative_information_ZH.md#s6-10)）。各臂的预测顺序与幅度事先由 Proposition 6.10 的方差公式写下。
   - *R3（Theorem B：二阶矩通道）.* 构造若干消息批：它们的 LESS 余弦分数相同，但在高信噪比坐标上的幅度 $`\lambda`$ 不同。预测：$`\lambda_1+\lambda_2>2\lambda^\star`$ 的批对会被余弦分数和只看参数的分数排错（[Proposition 7.3](07_second_moment_channel_ZH.md#s7-3)）；由 R1 的 CRN 证书测量。
   - baseline 只用完整的官方代码运行。
@@ -261,5 +261,5 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 
 - **数据与 teacher 选择.** LESS（Xia et al., 2024）按与目标的梯度余弦相似度给训练数据排序；GRACE（Panigrahi et al., 2025）为蒸馏给 teacher 打分。Algorithm 9.2 则在实际的 optimizer state 上，按实测后果给候选 feedback law 排序；[Proposition 7.3](07_second_moment_channel_ZH.md#s7-3) 指出余弦类分数在哪里不一致。
 - **主动获取.** DAgger（Ross et al., 2011）在学生访问的状态上查询 teacher。第 2 步按学习器相对权重分配这些查询，而不是均匀分配（[Proposition 6.10](06_learner_relative_information_ZH.md#s6-10)）。
-- **影响与 metagradient.** TracIn（Pruthi et al., 2020）、influence functions（Koh & Liang, 2017）、metagradient（Engstrom et al., 2025）与 In-Run Data Shapley（Wang et al., 2025）都是一阶或 fixed-state 的归因。在 Algorithm 9.2 中，它们只能在 [Corollary 8.9](08_verification_ZH.md#s8-9) 的条件下充当第 5 步的筛选。
+- **影响与 metagradient.** TracIn（Pruthi et al., 2020）、influence functions（Koh & Liang, 2017）、metagradient（Engstrom et al., 2025）与 In-Run Data Shapley（Wang et al., 2025）都是一阶或 fixed-state 的归因。在 Algorithm 9.2 中，它们只能在 [Corollary 8.9](08_certificate_ZH.md#s8-9) 的条件下充当第 5 步的筛选。
 - **packet 的组织.** Proposition 9.1 是标准的耦合线性代数；在这里它的用途是一个带精确零假设的机制检验。

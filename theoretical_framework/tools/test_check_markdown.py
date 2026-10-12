@@ -97,6 +97,28 @@ class MarkdownTests(unittest.TestCase):
         text = "```math\n\\mathbb E[(M_K-n)_+]\n```\n"
         self.assertEqual(self.validate(text)[0], 0)
 
+    def test_math_expression_budget_includes_inline_and_display(self):
+        for inline, display in ((600, 0), (0, 600), (599, 1)):
+            with self.subTest(inline=inline, display=display):
+                text = "$`x`$\n\n" * inline + "```math\nx=1\n```\n\n" * display
+                self.assertEqual(check.math_expression_count(text), 600)
+                self.assertEqual(self.validate(text), (0, ""))
+                errors, output = self.validate(text + "$`y`$\n")
+                self.assertEqual(errors, 1, output)
+                self.assertIn("too many math expressions: 601 (maximum 600)", output)
+
+    def test_math_expression_budget_ignores_literal_examples(self):
+        examples = ("`` $`x`$ ``\n\n"
+                    "````text\n$`x`$\n\n```math\nx=1\n```\n````\n\n"
+                    r"\$`x`\$" + "\n\n")
+        text = "$`x`$\n\n" * 600 + examples
+        self.assertEqual(check.math_expression_count(text), 600)
+        self.assertEqual(self.validate(text), (0, ""))
+        # A multiline display is one expression; code and TeX inside it are
+        # never counted as additional inline expressions or opening fences.
+        self.assertEqual(check.math_expression_count(
+            "```math\na+b\nc+d\n```\n\n> $`z`$\n\n- $`w`$\n"), 3)
+
     def test_measured_list_fence_failure(self):
         text = "- **(b)** text $`x`$\n\n  ```math\n  z=1\n  ```\n"
         self.assertIn("math-fence-in-list", self.validate(text)[1])
@@ -172,6 +194,8 @@ class MarkdownTests(unittest.TestCase):
                      "theoretical_framework/extra/deep/page.md",
                      "docs/direction/2026-10-11_v015_progress_ZH.md",
                      "docs/direction/v015_extension/Extra.md",
+                     "theoretical_framework/statements/02_page.md",
+                     "theoretical_framework/statements/02_page_ZH.md",
                      "docs/direction/v015_revision/untouched.md",
                      "docs/direction/v014_handoff/untouched.md"]
             for name in names:
@@ -182,6 +206,8 @@ class MarkdownTests(unittest.TestCase):
             self.assertEqual(set(files), {root / name for name in names[:-2]})
             self.assertIn(root / names[1], labels)
             self.assertIn(root / names[3], labels)
+            self.assertIn(root / names[9], labels)
+            self.assertIn(root / names[10], labels)
             for index in (4, 5, 6, 7, 8):
                 self.assertNotIn(root / names[index], labels)
             spec = root / names[4]
@@ -444,6 +470,85 @@ class FrameworkPolicyTests(unittest.TestCase):
     def test_shared_counter_across_statement_types(self):
         self.pair("proofs/02_page.md", self.statement("Definition", "2.1") + self.statement("Theorem", "2.2") + self.statement("Remark", "2.3"))
         self.assertEqual(self.validate(), (0, ""))
+
+    def test_numbering_across_pages_is_independent_of_filename_order(self):
+        for folder, make in (("proofs", lambda n: self.statement("Theorem", n)),
+                             ("experiments", self.declaration_check)):
+            # The later range deliberately sorts before the first page.
+            self.pair(f"{folder}/05_z_first.md", make("5.1") + make("5.2"))
+            self.pair(f"{folder}/05_a_next.md", make("5.3") + make("5.4"))
+            self.assertEqual(self.validate(), (0, ""))
+            self.assertEqual(self.validate(f"{folder}/05_a_next.md"), (0, ""))
+
+    def test_cross_page_numbering_requires_every_item_per_language(self):
+        for folder, kind, make in (("proofs", "statement", lambda n: self.statement("Theorem", n)),
+                                   ("experiments", "check", self.declaration_check)):
+            self.pair(f"{folder}/05_first.md", make("5.1"))
+            self.pair(f"{folder}/05_next.md", make("5.3") + make("5.4"))
+            for selected in ((), (f"{folder}/05_next.md",)):
+                with self.subTest(kind=kind, selected=selected):
+                    self.assertIn(f"{kind} numbering gap: missing 5.2 across section 5 (EN)",
+                                  self.validate(*selected)[1])
+            # An EN declaration cannot fill a gap in the ZH sequence.
+            self.write(f"{folder}/05_first.md", make("5.1") + make("5.2"))
+            output = self.validate()[1]
+            self.assertNotIn(f"missing 5.2 across section 5 (EN)", output)
+            self.assertIn(f"missing 5.2 across section 5 (ZH)", output)
+            self.pair(f"{folder}/05_first.md", make("5.1") + make("5.2"))
+            self.assertEqual(self.validate(), (0, ""))
+
+    def test_page_numbering_cannot_skip_items_supplied_by_siblings(self):
+        for folder, kind, make in (("proofs", "statement", lambda n: self.statement("Theorem", n)),
+                                   ("experiments", "check", self.declaration_check)):
+            self.pair(f"{folder}/05_first.md", make("5.1") + make("5.3"))
+            self.pair(f"{folder}/05_next.md", make("5.2"))
+            output = self.validate()[1]
+            self.assertIn(f"{kind} numbering gap: expected 5.2, got 5.3", output)
+            self.assertNotIn("across section 5", output)
+            self.pair(f"{folder}/05_first.md", make("5.1"))
+            self.pair(f"{folder}/05_next.md", make("5.3") + make("5.2"))
+            self.assertIn(f"{kind} numbering out-of-order declaration", self.validate()[1])
+            self.pair(f"{folder}/05_next.md", make("5.2") + make("5.3"))
+            self.assertEqual(self.validate(), (0, ""))
+
+    def test_split_pages_keep_duplicate_detection_and_page_parity(self):
+        for folder, kind, make in (("proofs", "statement", lambda n: self.statement("Theorem", n)),
+                                   ("experiments", "check", self.declaration_check)):
+            self.pair(f"{folder}/05_first.md", make("5.1") + make("5.2"))
+            self.pair(f"{folder}/05_next.md", make("5.2") + make("5.3"))
+            self.assertIn(f"duplicate framework {kind}: 5.2", self.validate()[1])
+            # Both languages have the same complete section, but disagree on
+            # which page owns item 5.2; section parity alone is insufficient.
+            self.pair(f"{folder}/05_first.md", make("5.1"), make("5.1") + make("5.2"))
+            self.pair(f"{folder}/05_next.md", make("5.2") + make("5.3"), make("5.3"))
+            self.assertIn(f"{kind} EN/ZH parity", self.validate()[1])
+            self.pair(f"{folder}/05_first.md", make("5.1"))
+            self.pair(f"{folder}/05_next.md", make("5.2") + make("5.3"))
+            self.assertEqual(self.validate(), (0, ""))
+
+    def test_statements_pages_are_policy_checked_restatements(self):
+        self.pair("proofs/02_page.md", self.statement("Theorem", "2.1"))
+        restatement = ("#### Theorem 2.1 · Title\n\n"
+                       "**[Theorem 2.1](../proofs/02_page.md#s2-1) · Title**\n\n"
+                       "#### [Theorem 2.1](../proofs/02_page.md#s2-1) · Title\n")
+        self.pair("statements/02_page.md", restatement)
+        self.assertEqual(self.validate(), (0, ""))
+        for phrase, error in (("Theorem 2.2.", "undefined framework statement"),
+                              ("Proposition 2.1.", "statement type mismatch"),
+                              ("N01.", "retired node label"),
+                              (self.statement("Theorem", "2.1"), "statement declared in wrong section/page")):
+            self.write("statements/02_page.md", restatement + "\n" + phrase)
+            self.assertIn(error, self.validate("statements/02_page.md")[1])
+
+    def test_math_expression_budget_applies_outside_policy_and_in_appendix(self):
+        for name, prefix in (("tools/README.md", ""),
+                             ("README.md", "## Appendix · Correspondence with earlier labels and sources\n\n"),
+                             ("statements/02_page.md", "")):
+            with self.subTest(name=name):
+                self.write(name, prefix + "$`x`$\n\n" * 601)
+                errors, output = self.validate(name)
+                self.assertEqual(errors, 1, output)
+                self.assertIn("too many math expressions: 601 (maximum 600)", output)
 
     def test_declarations_belong_to_their_section_and_page_kind(self):
         for page, body, kind in (("README.md", self.statement("Theorem", "2.1"), "statement"),
