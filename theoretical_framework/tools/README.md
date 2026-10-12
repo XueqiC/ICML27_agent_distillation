@@ -84,8 +84,7 @@ Assumption, Theorem, Proposition, Lemma, Corollary, Remark, Example and Algorith
   are checked inside inline code too; link labels count as prose, while link
   destinations and HTML attributes do not.
 - Only the exact README sections
-  `## Appendix · Correspondence with earlier labels and sources` and
-  `## 附录 · 与早期编号及出处的对照` exempt earlier labels and statement references.
+  `## Appendix · Sources` and `## 附录 · 出处` (and their former names) exempt source-document labels and statement references.
   The exemption includes subordinate headings and ends at the next level 1 or
   level 2 heading. It never exempts rendering or links. Old `Source concordance`
   headings and proof-page source lines do not create exemptions.

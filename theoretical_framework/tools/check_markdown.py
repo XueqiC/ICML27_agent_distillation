@@ -52,7 +52,8 @@ CHECK = re.compile(rf"^## Check\s+(?P<number>{NUMBER})\s+·\s+\S")
 CHECK_REF = re.compile(rf"(?<![A-Za-z0-9_])Checks?\s+(?P<number>{NUMBER})")
 CODE_ID = re.compile(r"(?<![A-Za-z0-9_])[CVET]\d+[a-z]?(?:\.[A-Za-z][A-Za-z0-9_-]*)?(?![A-Za-z0-9_])")
 NODE = re.compile(r"(?<![A-Za-z0-9_])(?:N(?:0[1-9]|1\d|20)|W[0-3])(?:\([a-z]\))?(?![A-Za-z0-9_])")
-APPENDICES = {"Appendix · Correspondence with earlier labels and sources",
+APPENDICES = {"Appendix · Sources", "附录 · 出处",
+              "Appendix · Correspondence with earlier labels and sources",
               "附录 · 与早期编号及出处的对照"}
 EQ_REF = re.compile(r"[（(]([AB]?\d+[a-z]?)[)）]")
 DISPLAY = re.compile(r"\\[\[\]]|\\begin\{(?:equation\*?|align\*?|gather\*?|multline\*?|displaymath)\}")
