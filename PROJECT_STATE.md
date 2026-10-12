@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **00:36 CDT 10-12: R3 SUBMITTED** on tree d6fe9df: r3-amp 45604739 (Corollary 7.2(a) prediction summed over coordinates at
+  z10, batch plan[115]=[11,12,2,19], fine grid 0–16; written before any CRN outcome), r3-0..5 45604740–45 (afterok:amp; 8
+  messages {zero, c∈{0.5,1,2,4,8} clip off, c∈{1,4} clip on} × r=16, T=10; 128 items, 6 shards). Out $B/reports/runs/r03/r3.
 - **00:35 CDT 10-12: R0 + noise reference SUBMITTED** on tree a943c21 (ICML27_runs/a943c21; .venv and data/verified/r03_surrogate
   symlinked to $B). Jobs (all 1×B200, PENDING Priority): noise-a 45604558, noise-b 45604559 (cold p40 on dev300, two servers),
   r0a 45604560 (warmth_dump at state-update-1/4/8, ckpt 31221/104070/416280), r0b 45604561–64 (CRN unions A,B,A∪B,0 at
