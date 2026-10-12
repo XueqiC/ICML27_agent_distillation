@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:32 CDT 10-11: theoretical_framework/ rewritten to v0.16 and pushed** (d8051a2, bf546a4, c366d08, 93e966e). User accepted
+  the v0.16 direction ("认可", 21:15 CDT) and approved R0–R3 (~40 B200 GPU-h; "R2 你可以选择几组合适的" = I pick the query
+  budgets). New layout: README (Level 0–2 overview, per-section mermaid graphs at 20px, §1 Definitions 1.1–1.5, Level 3 exact
+  statements, status, concordance appendix N01–N20 → new numbers) + proofs/0K_*.md and experiments/0K_*.md for §2–§9 (EN+ZH,
+  32 pages; old N-pages in _trash/theoretical_framework_v015_nodes_20261011). §5 optimizer state, §6 Theorem A, §7 Theorem B,
+  §8 verification + Theorem C (Thm 8.8), §9 CED. 25 figures (fig2_1…fig9_2, ≥12 pt at 900 px; 5 new for A–C). Validator now
+  enforces declared K.J labels, anchors sK-J/cK-J, EN/ZH parity, suite-prefixed codes (91 tests); full tree offline PASS,
+  GitHub file view PASS. Errors in the v0.16 draft found while re-deriving (errata at the top of the draft): Cor 4.2(b) error
+  term and (c) "iff"; Cor 5.4 cap wording; Thm 3.5 condition (E) vacuous for singular designs → regularized design; Remark 3.6
+  √dim factor unproved → 4d^{3/2}; Prop 2.4(c) v-block remainder is first order in η; Remark 5.7 medians recomputed (0.0035/
+  0.0035/0.0195/0.0045); "7% incl. calibration" → 7.0% aligned (no calibration) vs 11.2% (4.0% in tail updates) calibrated.
+  NEXT: write R0–R3 pre-registration (configs, predictions, criteria, GPU and teacher-token budgets with hard caps), show the
+  user, then run R0 → R1 certificate → R3 → R2 (teacher labels last).
 - **15:25 CDT 10-11: README BFS restructure + file-view rendering fix pushed.** User screenshot: N02(b) display math shown as
   raw code. Cause (measured with pushed probe refs): GitHub's file view leaves a ```math fence inside a list as code whenever
   that list also has inline math; the /markdown API renders it, so --online had passed. 107 fences / 30 pages moved out of
