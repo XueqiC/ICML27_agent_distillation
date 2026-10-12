@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **00:46 CDT 10-12: R1/R2 rollout SUBMITTED** on tree fa6ccd5: rollout-p10 45605273 (cold p10 adapter, greedy, BI serving, all
+  200 pool games, 2 temperature-1 label samples per visited state for R2's σ²; no teacher). Out $B/reports/runs/r03/rollouts_p10.
 - **00:36 CDT 10-12: R3 SUBMITTED** on tree d6fe9df: r3-amp 45604739 (Corollary 7.2(a) prediction summed over coordinates at
   z10, batch plan[115]=[11,12,2,19], fine grid 0–16; written before any CRN outcome), r3-0..5 45604740–45 (afterok:amp; 8
   messages {zero, c∈{0.5,1,2,4,8} clip off, c∈{1,4} clip on} × r=16, T=10; 128 items, 6 shards). Out $B/reports/runs/r03/r3.
