@@ -52,16 +52,17 @@ CHECK = re.compile(rf"^## Check\s+(?P<number>{NUMBER})\s+·\s+\S")
 CHECK_REF = re.compile(rf"(?<![A-Za-z0-9_])Checks?\s+(?P<number>{NUMBER})")
 CODE_ID = re.compile(r"(?<![A-Za-z0-9_])[CVET]\d+[a-z]?(?:\.[A-Za-z][A-Za-z0-9_-]*)?(?![A-Za-z0-9_])")
 NODE = re.compile(r"(?<![A-Za-z0-9_])(?:N(?:0[1-9]|1\d|20)|W[0-3])(?:\([a-z]\))?(?![A-Za-z0-9_])")
-APPENDICES = {"Appendix · Sources", "附录 · 出处",
-              "Appendix · Correspondence with earlier labels and sources",
-              "附录 · 与早期编号及出处的对照"}
+APPENDICES = {"Appendix · Sources", "附录 · 出处"}
+PAGE_KINDS = {"statements", "proofs", "experiments"}
+RESULT_PAGE = re.compile(r"^(0[2-9])-(\d{2})_.+\.md$")
 EQ_REF = re.compile(r"[（(]([AB]?\d+[a-z]?)[)）]")
 DISPLAY = re.compile(r"\\[\[\]]|\\begin\{(?:equation\*?|align\*?|gather\*?|multline\*?|displaymath)\}")
 
 
 def scope(root: Path = ROOT) -> tuple[list[Path], set[Path]]:
     framework = root / "theoretical_framework"
-    s1 = [framework / "README.md", framework / "README_ZH.md"]
+    s1 = [framework / name for name in
+          ("README.md", "README_ZH.md", "references.md", "references_ZH.md")]
     s1 += sorted((framework / "statements").glob("*.md"))
     s1 += sorted((framework / "proofs").glob("*.md"))
     s1 += sorted((framework / "experiments").glob("*.md"))
@@ -258,7 +259,7 @@ def inline_tokens(line: str):
 def mask_inline(line: str, kinds: set[str]) -> str:
     for kind, start, end, _, _ in reversed(list(inline_tokens(line))):
         if kind in kinds:
-            line = line[:start] + " " * (end - start) + line[end:]
+            line = line[:start] + re.sub(r"[^\n]", " ", line[start:end]) + line[end:]
     return line
 
 
@@ -323,7 +324,7 @@ def markdown_links(line: str):
 
 def mask_links(line: str) -> str:
     for _, _, start, end in reversed(list(markdown_links(line))):
-        line = line[:start] + " " * (end - start) + line[end:]
+        line = line[:start] + re.sub(r"[^\n]", " ", line[start:end]) + line[end:]
     return line
 
 
@@ -342,6 +343,32 @@ def is_figure_provenance(path: Path) -> bool:
     return (path.parts[-3:] == ("theoretical_framework", "figures", "README.md")
             or path.suffix == ".md"
             and path.parts[-4:-1] == ("theoretical_framework", "figures", "specs"))
+
+
+def is_legacy(path: Path) -> bool:
+    return path.parent.name in PAGE_KINDS and bool(
+        re.match(r"(?:0[2-9]_|N\d{2}(?:_|\.))", path.name))
+
+
+def page_number(path: Path) -> str | None:
+    if path.parent.name in PAGE_KINDS and (match := RESULT_PAGE.fullmatch(path.name)):
+        return f"{int(match[1])}.{int(match[2])}"
+    return None
+
+
+def local_destination(path: Path, dest: str) -> tuple[Path, str] | None:
+    url = urlsplit(html.unescape(dest))
+    if url.scheme or url.netloc or dest.startswith("/"):
+        return None
+    target = (path.parent / unquote(url.path)).resolve() if url.path else path.resolve()
+    return target, unquote(url.fragment)
+
+
+def explicit_anchors(text: str) -> set[str]:
+    return {html.unescape(match[1])
+            for _, line, fence in lines_outside_fences(text) if not fence
+            for match in re.finditer(r'<a\s+id=["\']([^"\']+)["\']\s*></a>',
+                                     mask_inline(line, {"code", "math"}))}
 
 
 def language(path: Path) -> str:
@@ -366,12 +393,12 @@ def policy_text(line: str, *, keep_code: bool = False) -> str:
     return re.sub(r"<[^>]*>", "", line).replace("*", "")
 
 
-def reference_paragraphs(path: Path, text: str):
+def reference_paragraphs(path: Path, text: str, *, keep_links: bool = False):
     """Join wrapped prose, without letting references cross fenced examples."""
     paragraph: list[str] = []
     first = 1
     for n, line, fence, appendix in policy_lines(path, text):
-        prose = "" if fence or appendix else policy_text(line)
+        prose = "" if fence or appendix else (line if keep_links else policy_text(line))
         if not prose.strip():
             if paragraph:
                 yield first, "\n".join(paragraph)
@@ -399,12 +426,13 @@ class FrameworkIndex:
     while section writers work. Missing pages remain ordinary link/parity errors.
     """
     def __init__(self, texts: dict[Path, str], s1: set[Path]):
+        self.texts = texts
         self.pages: dict[Path, list[Declaration]] = defaultdict(list)
         self.statements: dict[str, list[Declaration]] = defaultdict(list)
         self.checks: dict[str, list[Declaration]] = defaultdict(list)
         for path in sorted(s1 & texts.keys()):
-            if path.parent.name in {"proofs", "experiments"} and re.match(r"N\d{2}(?:_|\.)", path.name):
-                # Old local numbering must not supply or shadow v0.16 statements.
+            if is_legacy(path):
+                # Section pages must not supply or shadow per-result declarations.
                 continue
             previous: list[tuple[str, bool]] = []
             raw_lines = texts[path].splitlines()
@@ -424,43 +452,71 @@ class FrameworkIndex:
                             for prior, eligible in previous[-3:])
                         declaration = Declaration(path, n, word, number, anchored)
                         self.pages[path].append(declaration)
-                        if statement and (is_readme(path) or path.parent.name == "proofs"):
-                            self.statements[number].append(declaration)
-                        elif check and path.parent.name == "experiments":
-                            self.checks[number].append(declaration)
+                        if self.correct_owner(declaration):
+                            registry = self.statements if statement else self.checks
+                            registry[number].append(declaration)
                 if raw.strip():
                     previous.append((raw, not fence and not appendix))
 
+    @staticmethod
+    def correct_owner(declaration: Declaration) -> bool:
+        path, _, word, number, _ = declaration
+        own_number = page_number(path)
+        section = number.split(".")[0]
+        if word == "Check":
+            return (path.parent.name == "experiments" and own_number is not None
+                    and own_number.split(".")[0] == section)
+        return (is_readme(path) and section == "1"
+                or path.parent.name == "statements" and own_number == number)
+
     def validate_page(self, path: Path, report: Report):
-        counters: dict[tuple[str, int], int] = {}
+        if is_legacy(path):
+            return
+        own_number = page_number(path)
+        if path.parent.name in PAGE_KINDS:
+            if own_number is None:
+                report.hit(path, 1, "invalid result page filename: expected KK-JJ_<slug>[_ZH].md")
+            else:
+                if path.parent.name == "statements":
+                    count = sum(d.word != "Check" for d in self.pages[path])
+                    if count != 1:
+                        report.hit(path, 1, f"statement declaration count: expected 1, got {count}")
+                self.validate_navigation(path, report)
         for declaration in self.pages[path]:
             _, n, word, number, anchored = declaration
             kind = "check" if word == "Check" else "statement"
-            section, item = map(int, number.split("."))
-            page_section = re.match(r"^0([2-9])_", path.name)
-            correct_page = (
-                is_readme(path) and section == 1 and kind == "statement"
-                or path.parent.name == ("experiments" if kind == "check" else "proofs")
-                and page_section and int(page_section[1]) == section
-            )
-            if not correct_page:
+            if not self.correct_owner(declaration):
                 report.hit(path, n, f"{kind} declared in wrong section/page: {word} {number}")
             if not anchored:
                 anchor = ("c" if kind == "check" else "s") + number.replace(".", "-")
                 report.hit(path, n, f"missing adjacent {kind} anchor: {anchor} (previous 3 non-blank lines)")
-            # A continuation page can start at any positive item. Section-wide
-            # validation below checks that earlier items exist on sibling pages.
-            key = kind, section
-            expected = counters[key] + 1 if key in counters else max(1, item)
-            if item != expected:
-                reason = "gap" if item > expected else "out-of-order declaration"
-                report.hit(path, n, f"{kind} numbering {reason}: expected {section}.{expected}, got {number}")
-            counters[key] = item
+            if int(number.split(".")[1]) < 1:
+                report.hit(path, n, f"{kind} numbering invalid: counters start at 1, got {number}")
             registry = self.checks if kind == "check" else self.statements
             same_language = [d for d in registry[number] if language(d.path) == language(path)]
             if len(same_language) > 1:
                 locations = ", ".join(f"{d.path.name}:{d.line}" for d in same_language)
                 report.hit(path, n, f"duplicate framework {kind}: {number} ({language(path)}; {locations})")
+
+    def validate_navigation(self, path: Path, report: Report):
+        framework = path.parent.parent
+        if path.parent.name == "statements":
+            required = [framework / ("README_ZH.md" if language(path) == "ZH" else "README.md")]
+            required += [framework / kind / path.name for kind in ("proofs", "experiments")
+                         if framework / kind / path.name in self.texts]
+        else:
+            statement = framework / "statements" / path.name
+            required = [statement]
+            if statement not in self.texts:
+                report.hit(path, 1, f"missing matching statement page: {statement.name}")
+        targets = {destination[0]
+                   for _, line, fence in lines_outside_fences(self.texts[path]) if not fence
+                   for _, dest, start, _ in markdown_links(line)
+                   if not (start and line[start - 1] == "!")
+                   if (destination := local_destination(path, dest)) is not None}
+        for target in required:
+            if target.resolve() not in targets:
+                report.hit(path, 1, f"missing required page link: {target.relative_to(framework)}")
 
     def validate_sections(self, files: list[Path], report: Report):
         """Check coverage from K.1 across all pages, separately per language.
@@ -468,7 +524,11 @@ class FrameworkIndex:
         A selected page brings its section's numbering into scope, but sibling
         rendering and page parity retain their existing selection semantics.
         """
-        selected = set(files)
+        selected_sections = {}
+        for path in sorted(files):
+            number = "1.1" if is_readme(path) else page_number(path)
+            if number is not None:
+                selected_sections.setdefault((language(path), int(number.split(".")[0])), path)
         for kind, registry in (("statement", self.statements), ("check", self.checks)):
             sections: dict[tuple[str, int], list[Declaration]] = defaultdict(list)
             for declarations in registry.values():
@@ -476,44 +536,76 @@ class FrameworkIndex:
                     section = int(declaration.number.split(".")[0])
                     sections[language(declaration.path), section].append(declaration)
             for (lang, section), declarations in sorted(sections.items()):
-                relevant = [d for d in declarations if d.path in selected]
-                if not relevant:
+                selected_path = selected_sections.get((lang, section))
+                if selected_path is None:
                     continue
                 items = {int(d.number.split(".")[1]) for d in declarations}
                 missing = sorted(set(range(1, max(items) + 1)) - items)
                 if missing:
-                    first = min(relevant, key=lambda d: (d.path, d.line))
                     labels = ", ".join(f"{section}.{item}" for item in missing)
-                    report.hit(first.path, first.line,
+                    report.hit(selected_path, 1,
                                f"{kind} numbering gap: missing {labels} across section {section} ({lang})")
 
     def validate_parity(self, files: list[Path], texts: dict[Path, str], report: Report):
         visited = set()
         selected = set(files)
         for path in sorted(selected):
-            if path.parent.name not in {"proofs", "experiments"}:
-                continue
-            # Legacy N-pages still get rendering, links and label checks, but do
-            # not impose the new page-pair structure while they are being removed.
-            if not re.match(r"^0[2-9]_", path.name):
+            if not (is_readme(path) or page_number(path) is not None):
                 continue
             en = path.with_name(path.stem.removesuffix("_ZH") + ".md")
             zh = en.with_name(en.stem + "_ZH.md")
             if en in visited:
                 continue
             visited.add(en)
-            kind = "statement" if path.parent.name == "proofs" else "check"
             if en not in texts or zh not in texts:
                 missing = en if en not in texts else zh
-                report.hit(path, 1, f"{kind} EN/ZH parity: missing counterpart {missing.name}")
+                report.hit(path, 1, f"page EN/ZH parity: missing counterpart {missing.name}")
                 continue
-            def pairs(p):
-                return {(d.word, d.number) for d in self.pages[p]
-                        if (d.word == "Check") == (kind == "check")}
-            en_pairs, zh_pairs = pairs(en), pairs(zh)
-            if en_pairs != zh_pairs:
-                report.hit(path, 1, f"{kind} EN/ZH parity: EN only {sorted(en_pairs - zh_pairs)}; "
-                           f"ZH only {sorted(zh_pairs - en_pairs)}")
+            for kind in ("statement", "check"):
+                def pairs(p):
+                    return {(d.word, d.number) for d in self.pages[p]
+                            if (d.word == "Check") == (kind == "check")}
+                en_pairs, zh_pairs = pairs(en), pairs(zh)
+                if en_pairs != zh_pairs:
+                    report.hit(path, 1, f"{kind} EN/ZH parity: EN only {sorted(en_pairs - zh_pairs)}; "
+                               f"ZH only {sorted(zh_pairs - en_pairs)}")
+            def anchors(p):
+                return {a for a in explicit_anchors(texts[p]) if re.fullmatch(r"[sc]\d+-\d+", a)}
+            en_anchors, zh_anchors = anchors(en), anchors(zh)
+            if en_anchors != zh_anchors:
+                report.hit(path, 1, f"anchor EN/ZH parity: EN only {sorted(en_anchors - zh_anchors)}; "
+                           f"ZH only {sorted(zh_anchors - en_anchors)}")
+
+    def check_links(self, path: Path, n: int, paragraph: str, report: Report):
+        """Only the primary heading may mention a check without an anchor link."""
+        if is_legacy(path):
+            return
+        plain = policy_text(mask_links(paragraph))
+        for match in CHECK_REF.finditer(plain):
+            line = n + plain.count("\n", 0, match.start())
+            line_start = plain.rfind("\n", 0, match.start()) + 1
+            primary = (plain[line_start:match.start()] == "## "
+                       and any(d.line == line and d.word == "Check" for d in self.pages[path]))
+            if not primary:
+                report.hit(path, line, f"unlinked secondary check: {' '.join(match[0].split())}")
+        for label, dest, start, _ in markdown_links(paragraph):
+            if label == "reference definition":
+                continue
+            plain_label = policy_text(label)
+            for match in CHECK_REF.finditer(plain_label):
+                numbers = [match["number"]]
+                end = match.end()
+                while continuation := CONTINUATION.match(plain_label, end):
+                    numbers.append(continuation["number"])
+                    end = continuation.end()
+                destination = local_destination(path, dest)
+                for number in numbers:
+                    if (start and paragraph[start - 1] == "!" or destination is None
+                            or destination[1] != "c" + number.replace(".", "-")
+                            or not any(d.path.resolve() == destination[0]
+                                       for d in self.checks.get(number, []))):
+                        line = n + paragraph.count("\n", 0, start)
+                        report.hit(path, line, f"secondary check link is not primary: Check {number} ({dest})")
 
     def references(self, path: Path, n: int, prose: str, report: Report):
         def verify(word, number, line):
@@ -569,6 +661,8 @@ class Report:
 
 def offline(files: list[Path], s1: set[Path], report: Report):
     anchor_cache: dict[Path, dict[str, int]] = {}
+    reference_anchors: dict[Path, set[str]] = {}
+    checked_keys: set[tuple[Path, str]] = set()
     texts = {}
     for path in sorted(set(files) | s1):
         try:
@@ -589,9 +683,11 @@ def offline(files: list[Path], s1: set[Path], report: Report):
             framework.validate_page(path, report)
             for n, paragraph in reference_paragraphs(path, text):
                 framework.references(path, n, paragraph, report)
+            for n, paragraph in reference_paragraphs(path, text, keep_links=True):
+                framework.check_links(path, n, paragraph, report)
         lines = [line for _, line, _ in lines_outside_fences(text)]
-        for n, line, language, opening, in_list, indent in block_lines(text):
-            if language == "math" and FENCE.match(line) and (in_list or indent):
+        for n, line, fence_language, opening, in_list, indent in block_lines(text):
+            if fence_language == "math" and FENCE.match(line) and (in_list or indent):
                 if opening or indent:
                     report.hit(path, n, "math-fence-in-list: math fences must start at column 0 outside lists")
         visible_numbers = set(re.findall(r"\\qquad\(([^)]+)\)", "\n".join(
@@ -649,6 +745,25 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                 if u.scheme or u.netloc or dest.startswith("/"):
                     continue
                 target = (path.parent / unquote(u.path)).resolve() if u.path else path.resolve()
+                if target.name in {"references.md", "references_ZH.md"} and u.fragment:
+                    key = unquote(u.fragment)
+                    # Check both languages even when only one citing page is selected
+                    # or the linked reference file has not been written yet.
+                    for name in ("references.md", "references_ZH.md"):
+                        reference = target.with_name(name)
+                        if (reference, key) in checked_keys:
+                            continue
+                        checked_keys.add((reference, key))
+                        if reference not in reference_anchors:
+                            reference_text = texts.get(reference)
+                            if reference_text is None:
+                                try:
+                                    reference_text = reference.read_text(encoding="utf-8")
+                                except (FileNotFoundError, IsADirectoryError):
+                                    reference_text = ""
+                            reference_anchors[reference] = explicit_anchors(reference_text)
+                        if key not in reference_anchors[reference]:
+                            report.hit(path, n, f"reference key missing in {language(reference)}: {key} ({name})")
                 if not target.exists():
                     report.hit(path, n, f"missing link target: {dest}")
                     continue
@@ -665,7 +780,7 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                     fragment = unquote(u.fragment)
                     if fragment not in anchor_cache[target]:
                         report.hit(path, n, f"missing heading anchor: {dest}")
-                    elif path in s1 and (m := re.fullmatch(r"([sc])([1-9])-([0-9]+)", fragment)):
+                    elif path in s1 and not is_legacy(path) and (m := re.fullmatch(r"([sc])([1-9])-([0-9]+)", fragment)):
                         registry = framework.statements if m[1] == "s" else framework.checks
                         if not any(d.path == target for d in registry.get(f"{m[2]}.{m[3]}", [])):
                             report.hit(path, n, f"framework anchor on wrong page: {dest}")

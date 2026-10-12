@@ -3,7 +3,7 @@
 **状态.**
 - 用户于 2026-10-11 22:20 CDT 批准 R0–R3（约 40 B200 GPU 小时）；R2 的查询预算由我选定。
 - 本文在任何作业提交之前写定：配置、预测、判据、算力与 teacher 预算。运行后不改动本文；偏离之处另写在结果页并注明。
-- 对应理论：框架 [§6 Theorem A](../../theoretical_framework/proofs/06_learner_relative_information_ZH.md)、[§7 Theorem B](../../theoretical_framework/proofs/07_second_moment_channel_ZH.md)、[§8 Theorem C](../../theoretical_framework/proofs/08_verification_ZH.md)，以及 [§5](../../theoretical_framework/proofs/05_optimizer_state_ZH.md) 的 warmth 与裁剪结果。
+- 对应理论：框架 [§6 Theorem A](../../theoretical_framework/statements/06-01_environment_family_and_distiller_ZH.md)、[§7 Theorem B](../../theoretical_framework/statements/07-01_state_channel_decomposition_ZH.md)、[§8 Theorem C](../../theoretical_framework/statements/08-01_stability_approximation_tradeoff_ZH.md)，以及 [§5](../../theoretical_framework/statements/05-01_optimizer_transformed_expansion_ZH.md) 的 warmth 与裁剪结果。
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## R0：pilot 的再分析（约 4 GPU 小时，不调用 teacher）
 
-**目的.** 补上审查指出的两个缺口：用敏感度加权的量代替 warmth 分位数（[Remark 5.11](../../theoretical_framework/proofs/05_learner_statistics_ZH.md#s5-11)）；测 **response** 的非可加性，而不只是 update map 的（[Proposition 5.9](../../theoretical_framework/proofs/05_learner_statistics_ZH.md#s5-9)）。
+**目的.** 补上审查指出的两个缺口：用敏感度加权的量代替 warmth 分位数（[Remark 5.11](../../theoretical_framework/statements/05-11_checking_warm_state_conditions_ZH.md#s5-11)）；测 **response** 的非可加性，而不只是 update map 的（[Proposition 5.9](../../theoretical_framework/statements/05-09_partially_active_clipping_ZH.md#s5-9)）。
 
 **R0a 敏感度加权的冻结分母误差.**
 - 在 pilot 的 9 个 probe 状态上，逐坐标重算 $`\kappa_i`$ 与 $`u_i`$。敏感度用 $`\hat L_i=\lvert\partial\tilde F/\partial\theta_i\rvert`$ 作 proxy，并注明它是 proxy。
@@ -49,7 +49,7 @@
 
 ## R3：Theorem B 在真实模型上（约 3 GPU 小时，不调用 teacher）
 
-**目的.** 检验 [Corollary 7.2](../../theoretical_framework/proofs/07_second_moment_channel_ZH.md#s7-2) 的幅度定律和 [Remark 7.4](../../theoretical_framework/proofs/07_second_moment_channel_ZH.md#s7-4) 的裁剪机制。还要检验只看参数的分数与余弦分数（[Proposition 7.3](../../theoretical_framework/proofs/07_second_moment_channel_ZH.md#s7-3)）在真实模型上的表现。
+**目的.** 检验 [Corollary 7.2](../../theoretical_framework/statements/07-02_stationary_amplitude_law_ZH.md#s7-2) 的幅度定律和 [Remark 7.4](../../theoretical_framework/statements/07-04_relation_prior_work_role_clipping_ZH.md#s7-4) 的裁剪机制。还要检验只看参数的分数与余弦分数（[Proposition 7.3](../../theoretical_framework/statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)）在真实模型上的表现。
 
 **设计.**
 - 在 p10 上固定一个参考 batch $`b`$。消息 = 用 $`b`$ 的损失乘以倍数 $`c`$ 做一步更新，$`c\in\lbrace0.5,1,2,4,8\rbrace`$。
