@@ -1,6 +1,11 @@
 """R03 pool rollout, environment-win filtering, and reusable visible state records."""
 import argparse
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import nullcontext
+from copy import deepcopy
+from functools import partial
 import json
+import multiprocessing
 import os
 from pathlib import Path
 
@@ -153,31 +158,59 @@ def read_rollouts(paths, manifest, freeze, pool_path, *, subset="all"):
     return result
 
 
-def run_pool(tasks, config, output, *, env_factory, policy_factory, inputs=()):
+def _pool_episode(job):
+    task, config, directory, env_factory, policy_factory, inputs = job
+    try:
+        run_episode(env_factory(task), policy_factory(directory), task, config, directory,
+            policy_condition="r03_p10_lora_greedy_thinking_off", purpose="generation", input_paths=inputs)
+    except Exception as exc:
+        return type(exc).__name__
+    return None
+
+
+def _pool_environment(task, *, config):
+    verify_task_files(config["environment"]["data_root"], task)
+    return _environment(config, task)
+
+
+def _pool_policy(directory, *, spec):
+    return PoolStudent(log_dir=directory / "student_calls", **spec)
+
+
+def run_pool(tasks, config, output, *, env_factory, policy_factory, inputs=(), workers=1):
+    if type(workers) is not int or workers < 1:
+        raise ValueError("workers must be positive")
+    from sed.manifest import authorize_task
+    for task in tasks:
+        authorize_task(task, "generation")
+    config = deepcopy(config)
+    config.setdefault("r03_rollout", {})["workers"] = workers
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     write_provenance(output, command="r03_rollout_pool", config=config, inputs=inputs)
     ledger = JsonlLedger(output / "rollouts.jsonl")
     failures = 0
-    for i, task in enumerate(tasks):
-        from sed.manifest import authorize_task
-        authorize_task(task, "generation")
-        directory = output / "episodes" / f"{i:03d}-{digest(task['task_id'])[:12]}"
-        try:
-            run_episode(env_factory(task), policy_factory(directory), task, config, directory,
-                policy_condition="r03_p10_lora_greedy_thinking_off", purpose="generation", input_paths=inputs)
-        except Exception as exc:
-            failures += 1
-            JsonlLedger(output / "failures.jsonl").append({"task_id": task["task_id"],
-                                                        "error_type": type(exc).__name__})
-        if (directory / "episode.json").exists():
-            ep = json.loads((directory / "episode.json").read_text())
-            if "initial" in ep:
-                record = episode_record(directory, task, relative_to=output)
-                ledger.append(record, unique_key="episode_id")
-                per_episode = output / "episode_jsonl" / (digest(task["task_id"]) + ".jsonl")
-                # Evidence paths are relative to the JSONL containing them.
-                JsonlLedger(per_episode).append(episode_record(directory, task, relative_to=per_episode.parent))
+    directories = [output / "episodes" / f"{i:03d}-{digest(t['task_id'])[:12]}" for i, t in enumerate(tasks)]
+    jobs = [(t, config, d, env_factory, policy_factory, inputs) for t, d in zip(tasks, directories)]
+    # As in eval.run_suite, spawn isolates environment RNG/backend/client state.
+    # Only the parent writes aggregate ledgers, in the original frozen task order.
+    executor = (ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
+                if workers > 1 else nullcontext())
+    with executor as pool:
+        results = pool.map(_pool_episode, jobs) if pool else map(_pool_episode, jobs)
+        for task, directory, error_type in zip(tasks, directories, results):
+            if error_type is not None:
+                failures += 1
+                JsonlLedger(output / "failures.jsonl").append({"task_id": task["task_id"],
+                                                            "error_type": error_type})
+            if (directory / "episode.json").exists():
+                ep = json.loads((directory / "episode.json").read_text())
+                if "initial" in ep:
+                    record = episode_record(directory, task, relative_to=output)
+                    ledger.append(record, unique_key="episode_id")
+                    per_episode = output / "episode_jsonl" / (digest(task["task_id"]) + ".jsonl")
+                    # Evidence paths are relative to the JSONL containing them.
+                    JsonlLedger(per_episode).append(episode_record(directory, task, relative_to=per_episode.parent))
     result = {"games": len(tasks), "failed_episodes": failures, "rollouts": str(ledger.path)}
     write_json(output / "summary.json", result, exclusive=True)
     return result
@@ -216,10 +249,13 @@ def main(argv=None):
     p.add_argument("--lora-check")
     p.add_argument("--label-samples", type=int, default=0,
                    help="Extra unexecuted temperature-1 student actions per visited state (default: 0)")
+    p.add_argument("--workers", type=int, default=1, help="Isolated rollout processes (default: 1)")
     p.add_argument("--output", required=True)
     args = p.parse_args(argv)
     if args.label_samples < 0 or (args.mode == "filter" and args.label_samples):
         p.error("--label-samples must be nonnegative and is only used by run")
+    if args.workers < 1 or (args.mode == "filter" and args.workers != 1):
+        p.error("--workers must be positive and is only used by run")
     config = load_config(args.config)
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     inputs = [args.config, args.pool, config["paths"]["manifest"], config["paths"]["split_freeze"]]
@@ -263,16 +299,12 @@ def main(argv=None):
             "checkpoint": "p10", "endpoint": args.endpoint, "model": args.model_name,
             "temperature": 0, "enable_thinking": False, "max_tokens": 1024,
             "label_samples": args.label_samples, "label_sampling": dict(PoolStudent.label_sampling)}
-        def environment(task):
-            verify_task_files(config["environment"]["data_root"], task)
-            return _environment(config, task)
-        def policy(directory):
-            return PoolStudent(label_samples=args.label_samples,
-                endpoint=args.endpoint, model=args.model_name, revision=model["revision"],
-                enable_thinking=False, max_tokens=1024, log_dir=directory / "student_calls",
-                **context_options(config))
-        result = run_pool(tasks, config, args.output, env_factory=environment,
-                          policy_factory=policy, inputs=inputs)
+        spec = dict(label_samples=args.label_samples, endpoint=args.endpoint,
+            model=args.model_name, revision=model["revision"], enable_thinking=False,
+            max_tokens=1024, **context_options(config))
+        result = run_pool(tasks, config, args.output,
+            env_factory=partial(_pool_environment, config=config),
+            policy_factory=partial(_pool_policy, spec=spec), inputs=inputs, workers=args.workers)
     print(json.dumps({k: v for k, v in result.items() if k != "episodes"}, indent=2))
 
 

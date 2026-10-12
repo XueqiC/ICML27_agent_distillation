@@ -1,4 +1,6 @@
 import json
+from functools import partial
+import os
 
 import pytest
 
@@ -100,6 +102,54 @@ def test_negative_label_count_cli_rejected_before_loading_inputs(tmp_path):
     from tools.rollout_pool import main
     with pytest.raises(SystemExit):
         main(["run", "--label-samples", "-1", "--output", str(tmp_path / "unused")])
+
+
+@pytest.mark.parametrize("workers", ["0", "-1"])
+def test_invalid_worker_count_cli_rejected_before_loading_inputs(tmp_path, workers):
+    from tools.rollout_pool import main
+    with pytest.raises(SystemExit):
+        main(["run", "--workers", workers, "--output", str(tmp_path / "unused")])
+
+
+def fake_worker_environment(task, *, data_root, fail_task):
+    if task["task_id"] == fail_task:
+        raise ValueError("PRIVATE_FAILURE_MESSAGE")
+    return Environment(data_root, max_episode_steps=2, backend_factory=FakeBackend)
+
+
+def fake_worker_policy(directory):
+    policy = ScriptedPolicy(["look"])
+    policy.spec = {"pid": os.getpid(), "cuda": os.environ.get("CUDA_VISIBLE_DEVICES")}
+    return policy
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_rollout_workers_isolate_episodes_keep_order_and_failed_attempts(tmp_path, data_root, workers):
+    manifest = build_manifest(data_root)
+    freeze = freeze_splits(manifest)
+    tasks = [resolve_task(manifest, freeze, t) for t in freeze["seed_pool_candidates"][:3]]
+    config = load_config()
+    config["environment"].update(data_root=str(data_root), max_episode_steps=2)
+    output = tmp_path / "rollout"
+    result = run_pool(tasks, config, output, workers=workers,
+        env_factory=partial(fake_worker_environment, data_root=data_root, fail_task=tasks[1]["task_id"]),
+        policy_factory=fake_worker_policy)
+    assert result["games"] == 3 and result["failed_episodes"] == 1
+    assert json.loads((output / "failures.jsonl").read_text()) == {
+        "task_id": tasks[1]["task_id"], "error_type": "ValueError"}
+    pool = tmp_path / "pool.json"
+    write_json(pool, listing("r03_pool200", tasks, manifest, freeze))
+    records = read_rollouts([output / "rollouts.jsonl"], manifest, freeze, pool)
+    assert [record["task_id"] for record, _ in records] == [t["task_id"] for t in (tasks[0], tasks[2])]
+    assert all(len(record["states"]) == 2 for record, _ in records)
+    for _, directory in records:
+        provenance = json.loads((directory / "provenance.json").read_text())
+        worker = provenance["details"]["policy_spec"]
+        assert (worker["pid"] == os.getpid()) is (workers == 1)
+        assert worker["cuda"] == ""
+        assert provenance["config"]["r03_rollout"]["workers"] == workers
+    provenance = json.loads((output / "provenance.json").read_text())
+    assert provenance["config"]["r03_rollout"]["workers"] == workers
 
 
 @pytest.fixture

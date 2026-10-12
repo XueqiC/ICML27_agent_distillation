@@ -114,8 +114,13 @@ from dev300 for rollouts, labels, gradients or training.
 existing adapter/server equivalence report and the recorded p10 token count.
 Episode-driving generation is greedy, thinking OFF, 1024 generated tokens per step, 40 policy
 turns; parsing, admissible commands, parser feedback, context-overflow handling,
-and termination are unchanged. Start the vLLM server separately with the
-existing serving/equivalence workflow. No server is started by the new tool.
+and termination are unchanged. The rollout CLI consumes an existing server;
+the launcher below manages serving and equivalence checks around it.
+`run --workers N` runs episodes in isolated spawned processes (default **1**).
+Each episode owns its environment and student client. The parent writes the
+aggregate ledgers in frozen task order and records the worker count in run and
+episode provenance. Worker failures retain sanitized errors and existing
+episode evidence.
 
 `run --label-samples k` (default **0**) adds k independent calls to the same
 served student at each visited decision state, with **temperature 1**, thinking
@@ -330,13 +335,107 @@ paths/settings across R1 and R2. `teachers/capped.py` has no separate executable
 CLI; collector `--cap`, `--run-id`, `--cache`, `--usage-ledger`, and `--dry-run`
 configure it.
 
-The existing `scripts/eval_adapters.sh` refuses any list name besides dev40/dev140.
-It was not edited (outside ownership). `eval/run_suite.py` accepts dev300 directly,
-verified by an offline test; the command above bypasses that shell-only name
-restriction while retaining harness checks. Do not rename dev300 to dev140:
-that name triggers the exact original dev140-content validator.
+`scripts/eval_adapters.sh` accepts frozen dev40, dev140 and r03_dev300 lists.
+Do not rename dev300 to dev140: that name triggers the exact original
+dev140-content validator. Evaluation and rollout launchers use separate lists.
+
+## Serving and rollout launcher (R1/R2)
+
+`scripts/hpg_rollout_adapter.slurm` sources `scripts/rollout_adapter.sh`, just as
+the evaluation wrapper sources `scripts/eval_adapters.sh`. Its SLURM header is
+identical except for job name `r03-rollout`. The evaluation launcher is unchanged;
+the new body duplicates its serving/check/cleanup workflow.
+
+This is a future cluster command; implementation tests use fake executables:
+
+```bash
+PROJECT_ROOT=/path/to/ICML27_agent_distillation \
+HPG_CONFIG=/path/to/ICML27_agent_distillation/configs/hpg.env \
+ADAPTER='p10=/path/to/cold/checkpoint-tokens-104070' \
+VERIFIED=/path/to/ICML27_agent_distillation/data/verified/seeds_k20_s0 \
+OUT=/path/to/new-r03-p10-run \
+ROLLOUT_SUBSET=R2 LABEL_SAMPLES=2 WORKERS=8 BATCH_INVARIANT=1 \
+sbatch scripts/hpg_rollout_adapter.slurm
+```
+
+Set these environment variables before submission; paths are resolved after
+changing to `PROJECT_ROOT`. `ADAPTER` is one quoted `NAME=PATH` string, including
+when the path contains spaces. It is never evaluated as shell code or split into
+multiple adapters.
+
+| Variable | Meaning / default |
+| --- | --- |
+| `ADAPTER` | Required single `NAME=PATH`; validated local p10 LoRA checkpoint with 104070 supervised tokens. |
+| `OUT` | Required new directory; existing paths and symlinks are refused. |
+| `VERIFIED` | Training-eligible verified seeds for the HF/serving checks. Set explicitly to K20 s0 for this workflow; `hpg.env` otherwise defaults to `data/verified/seeds_k10_s0` under `PROJECT_ROOT`. |
+| `ROLLOUT_SUBSET` | `all`, `R1_P2`, `R1_P3`, or `R2` (default `R2`). |
+| `LABEL_SAMPLES` | Nonnegative extra student label calls per visited state; default `0`, use e.g. `2` for R2 gradient labels. |
+| `WORKERS` | Positive rollout process count; HPG default `8`, passed as `--workers`. Direct CLI default remains `1`. |
+| `BATCH_INVARIANT` | `0` or `1`, default `1`; exported as `VLLM_BATCH_INVARIANT` for the server. |
+| `TASKS` | Frozen pool JSON, default `data/manifest/r03_pool200.json`, passed as `--pool`. Set before loading HPG defaults so dev40 is never selected implicitly. Dev/sealed lists fail CPU preflight. |
+| `CONFIG` | Model/harness configuration; default `configs/base.yaml`. |
+| `PROJECT_ROOT`, `HPG_CONFIG` | Same wrapper configuration mechanism as evaluation: source `${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}`, then `cd "$PROJECT_ROOT"`. |
+| `ENV_PYTHON` | CPU harness / serving-supervisor Python; default `${PROJECT_ROOT}/.venv/bin/python` from `hpg.env`. |
+| `TRAIN_PYTHON`, `VLLM_PYTHON` | Installed HF-reference and vLLM Python executables; same cluster defaults as `configs/hpg.env`, individually overridable. |
+| `MODEL_PATH`, `HF_HOME`, `ALFWORLD_DATA_ROOT` | Same pinned local base snapshot, cache and installed environment paths as `configs/hpg.env`, individually overridable. No downloads or installations. |
+| `LORA_CONVERSION` | Same serving option as evaluation: `none` (default), `targets`, or `gemma4`. |
+| `LORA_DTYPE` | `bfloat16` (default) or `float16`. |
+| `READY_TIMEOUT` | Positive server readiness timeout in seconds, default `900`. |
+| `DECODING`, `ENABLE_THINKING`, `MAX_TOKENS` | Fixed to `greedy`, `off`, `1024`; conflicting values are rejected. |
+
+`ADAPTERS`, `MERGED_MODEL_PATH` and `INCLUDE_BASE=1` are rejected: this launcher
+requires exactly one adapter. It exports `PYTHONPATH=$PROJECT_ROOT/src:$PROJECT_ROOT`,
+`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, `TOKENIZERS_PARALLELISM=false`,
+`VLLM_ATTENTION_BACKEND=FLASH_ATTN`, and `VLLM_USE_FLASHINFER_SAMPLER=0`.
+The SLURM wrapper also exports `CUDA_DEVICE_ORDER=PCI_BUS_ID`. HF reference and
+serving inherit the scheduler's GPU allocation; preflight, the serving comparison
+client and rollout workers run with `CUDA_VISIBLE_DEVICES=''`.
+
+Before serving, the launcher validates the pool with `rollout_pool.pool_tasks`
+and checks adapter/base identity, then runs the same `--hf-only` reference check
+as evaluation. It starts `harness/serve_student.py --port 0`, reads the endpoint
+from `OUT/server/ready.json`, and runs the serving comparison. A failed check
+writes `OUT/check/FAILED` and prevents rollouts. After both checks pass, it runs:
+
+```bash
+"$ENV_PYTHON" tools/rollout_pool.py run --config "$CONFIG" \
+  --pool "$TASKS" --subset "$ROLLOUT_SUBSET" --endpoint "$endpoint" --model-name "$name" \
+  --server-provenance "$OUT/server/provenance.json" --lora-check "$OUT/check/report.json" \
+  --label-samples "$LABEL_SAMPLES" --workers "$WORKERS" --output "$OUT/rollouts"
+```
+
+Artifacts are `OUT/hf/reference.json`, `OUT/check/report.json`, `OUT/server/`,
+and `OUT/rollouts/rollouts.jsonl` plus episode evidence. EXIT/TERM/INT traps stop
+the active work process group and the serving supervisor, which owns vLLM
+cleanup. The endpoint is always taken from the readiness handshake.
+
+Temperature-1 labels require **no server-wide sampling flag**. With
+`LABEL_SAMPLES=k`, each `PoolStudent.generate` first requests the greedy action
+(`temperature=0`), then makes k separate POST requests to the same
+`endpoint/chat/completions`, with the same adapter name and messages. Each label
+request explicitly sends `temperature=1`, `top_p=1`, `top_k=-1`, `min_p=0`,
+`repetition_penalty=1`, `presence_penalty=0`, `frequency_penalty=0`,
+`max_tokens=1024`, `chat_template_kwargs={"enable_thinking": false}`,
+`stream=false`, and `skip_special_tokens=false`. These are separate draws, not
+an `n=k` batch; there is no per-label fixed seed or automatic retry. Only the
+greedy action enters the environment/history. Labels and failures retain the
+existing call ledgers and step metadata; they make zero teacher calls.
 
 ## CPU validation and synthetic query counts
+
+Serving/rollout launcher validation: **233 CPU tests passed**, including mocked
+launch order, default/overridden options, failed checks, server/rollout errors,
+SIGTERM cleanup during HF/check/rollout, existing-output refusal, real CPU
+dev/sealed pool rejection, process isolation, label request fields, and existing
+evaluation/serving regressions. `bash -n` and `git diff --check` also passed.
+No GPU, network, teacher request, SLURM submission or commit was made.
+
+```bash
+CUDA_VISIBLE_DEVICES='' .venv/bin/python -m pytest -q \
+  tests/test_rollout_pool.py tests/test_rollout_launcher.py \
+  tests/test_adapter_launchers.py tests/test_lora_serving.py \
+  tests/test_serve_student.py tests/test_r03_sets.py
+```
 
 ```bash
 CUDA_VISIBLE_DEVICES='' .venv/bin/python -m pytest -q \
