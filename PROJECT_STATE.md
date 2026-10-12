@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **03:20 CDT 10-12: noise reference DONE**: cold p40 on dev300 = 241/300 (server a, 45604558) and 242/300 (server b, 45604559);
+  15 task flips between identical servers (7/8). Use paired McNemar on flips; differences ≲ ±8 tasks are server noise.
 - **02:56 CDT 10-12: framework reorganized per result + references** (11588ae). User: every linked page must be readable alone;
   one statement/proof/experiments set per numbered item; README Level 2+3 merged with per-item links; complete correct
   references; no earlier labels anywhere (appendix = sources only, f69bbf0). Now: statements/KK-JJ_<slug>.md (67 items),

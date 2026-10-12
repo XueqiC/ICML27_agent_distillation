@@ -144,3 +144,5 @@ agentgym-k2s0 direct eval | old-tree eval-iter-2 failed (overflow) after full tr
 - r03-noise/r0a/r0b | tree a943c21, z10=pilot cold p10 (update 115), surrogate40, CRN T=10 r=4 (R0b) | hpg 45604558–64 | pending | $B/reports/runs/r03/
 - r03-r3 | tree d6fe9df, z10, batch plan[115], c∈{0.5..8} clip off + {1,4} clip on, r=16, T=10, surrogate40 | hpg 45604739–45 | pending | $B/reports/runs/r03/r3
 - r03-rollout-p10 | tree fa6ccd5, cold p10 adapter, pool200 all, greedy BI, label-samples 2 | hpg 45605273 | pending | $B/reports/runs/r03/rollouts_p10
+- r03-noise-a 45604558 COMPLETED 16:06 | cold p40 on dev300, BI server a | 241/300 (80.3%), 0 errors/overflow | $B/reports/runs/r03/noise/a
+- r03-noise-b 45604559 COMPLETED 15:34 | cold p40 on dev300, BI server b | 242/300 (80.7%); vs server a: 15 task flips (7 only-a, 8 only-b), net +1 | $B/reports/runs/r03/noise/b
