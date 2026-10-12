@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:44 CDT 10-11: R0–R3 pre-registered** (docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md, 8cde4c1; sent to the user).
+  Start z10 = pilot cold p10 checkpoint (update 115; = main-table k20s0); surrogate = K100 s0 \ K20 s0 (80 teacher successes);
+  dev300 = dev140 + 160 group-disjoint train games; pool200 for rollouts/queries; CRN tails T=10 (~1.4 min each).
+  Budgets: R0 4 / R3 3 / R1 10 / R2 7 GPU-h (~24, hard cap 40); teacher ≤640 (R1) + ≤1,500 (R2) calls, hard caps.
+  Order: noise ref + R0 → R3 → R1 → R2. Engineering by Codex in parallel (no GPU): A = tools/crn_tail.py, warmth_dump,
+  grad_stats, amplitude_prediction, train/continue_from_state.py; B = data/manifest/build_r03_sets.py, rollout_pool,
+  teachers/capped.py, collect_corrections, collect_rewrites, r2_allocate. Then my review → rai smoke → hpg (SLURM mine).
 - **22:32 CDT 10-11: theoretical_framework/ rewritten to v0.16 and pushed** (d8051a2, bf546a4, c366d08, 93e966e). User accepted
   the v0.16 direction ("认可", 21:15 CDT) and approved R0–R3 (~40 B200 GPU-h; "R2 你可以选择几组合适的" = I pick the query
   budgets). New layout: README (Level 0–2 overview, per-section mermaid graphs at 20px, §1 Definitions 1.1–1.5, Level 3 exact
