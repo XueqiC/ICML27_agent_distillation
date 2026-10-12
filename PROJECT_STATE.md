@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **06:24 CDT 10-12: R2 allocation fixed before any query** (prereg addendum B, 2b86cd4): σ² spans 1e4–1e8, so A3 = dσ² ≈ A2;
+  Prop 6.11(b)'s Adam weight uses a scale-free variance → A3 W ∝ d. Predicted (scale-free) errors n=100: A3 .046 < A2 .055 <
+  A1 .058; n=400: A3 .028 < A1 .031 < A2 .039. Teacher total R1 600 + R2 558 = 1,158 calls (cap 2,140). Still blocked on the key.
 - **04:58 CDT 10-12: teacher BLOCKED — OpenAI key invalid.** teacher-r1 45624540 FAILED after 1 attempt: HTTP 401
   "Incorrect API key provided" (free /v1/models probe also 401). Same key on rai llm_apis.env and hpg openai.env
   (sha8 c7cee533, written 09-10). Asked the user to put a new key into both files (never via Discord). No spend.
