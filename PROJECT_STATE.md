@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **03:32 CDT 10-12: R0a DONE** (45604560, 19 min). Pre-registered criterion E_fd ≤ 0.1·|Σ L̂_i Δθ_i| FAILS at all 6 states, but
+  that denominator is mis-specified (L̂_i = |∂F̃/∂θ_i| times signed Δθ cancels; 7e-6 at p10). Against the true first-order term
+  |Σ ∂F̃/∂θ_i Δθ_i| (post hoc, labelled so): ratio 29.7 (update 1), 2.1 (4), 0.98 (8), 0.100 (p03), 0.097 (p10), 0.084 (p40).
+  Quantiles say κ>1 for only 0.01% of coordinates at p10, yet the weighted frozen-denominator error is ~10% of the first-order
+  term: quantiles overstate warmth (Remark 5.11). Top terms: LoRA-B, layer-13 MLP gate_proj.
 - **03:20 CDT 10-12: noise reference DONE**: cold p40 on dev300 = 241/300 (server a, 45604558) and 242/300 (server b, 45604559);
   15 task flips between identical servers (7/8). Use paired McNemar on flips; differences ≲ ±8 tasks are server noise.
 - **02:56 CDT 10-12: framework reorganized per result + references** (11588ae). User: every linked page must be readable alone;

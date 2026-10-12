@@ -146,3 +146,4 @@ agentgym-k2s0 direct eval | old-tree eval-iter-2 failed (overflow) after full tr
 - r03-rollout-p10 | tree fa6ccd5, cold p10 adapter, pool200 all, greedy BI, label-samples 2 | hpg 45605273 | pending | $B/reports/runs/r03/rollouts_p10
 - r03-noise-a 45604558 COMPLETED 16:06 | cold p40 on dev300, BI server a | 241/300 (80.3%), 0 errors/overflow | $B/reports/runs/r03/noise/a
 - r03-noise-b 45604559 COMPLETED 15:34 | cold p40 on dev300, BI server b | 242/300 (80.7%); vs server a: 15 task flips (7 only-a, 8 only-b), net +1 | $B/reports/runs/r03/noise/b
+- r03-r0a 45604560 COMPLETED 19:12 | warmth_dump at 6 states, surrogate40 | E_fd/|Σ L̂Δθ| (prereg, mis-specified: L̂=|∂F|) fails everywhere; E_fd/|Σ∂FΔθ| (true first-order, post hoc) = 29.7 (u1), 2.1 (u4), 0.98 (u8), 0.100 (p03), 0.097 (p10), 0.084 (p40); frac κ>1 = 0.01% at p10 | $B/reports/runs/r03/r0a
