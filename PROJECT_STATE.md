@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **07:18 CDT 10-12: R3 DONE — Cor 7.2 prediction NOT supported on the real model at p10.** Measured δF(c) (per-token, vs zero
+  message, r=16): +0.0005/+0.0012/+0.0011/+0.0007/+0.0002 for c=0.5/1/2/4/8 clip off, all inside the diagnostic radius
+  (0.004–0.007); predicted −0.019…−0.080 (15–300× larger, opposite sign). Clip on c=1 vs 4: equal means (diff 8e-8) but
+  per-replica |Z| up to 0.003 although consumed gradients agree up to rounding → a floating-point chaos noise floor of ~3e-3
+  per replica after 10 tail updates. Likely failed assumption: linear response (tail gradients independent of θ, H=0). The
+  measured curve is flat-to-concave within noise. To record in the §7 experiments page as a real-model check (negative).
 - **06:24 CDT 10-12: R2 allocation fixed before any query** (prereg addendum B, 2b86cd4): σ² spans 1e4–1e8, so A3 = dσ² ≈ A2;
   Prop 6.11(b)'s Adam weight uses a scale-free variance → A3 W ∝ d. Predicted (scale-free) errors n=100: A3 .046 < A2 .055 <
   A1 .058; n=400: A3 .028 < A1 .031 < A2 .039. Teacher total R1 600 + R2 558 = 1,158 calls (cap 2,140). Still blocked on the key.
