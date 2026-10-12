@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **14:48 CDT 10-12: R1 certificate P1 vs P3 DONE — PRE-REGISTERED (partial) RANKING: P1 > P3.** 45624783–86 (tree 57131a6),
+  r=64, T=10, tail seed 1101. Ŝ(P1−P3): geo-prob +0.00138 (57/64 replicas positive, SE 1.5e-4, diagnostic radius 0.00121 →
+  certified by the diagnostic radius only; strict a-priori radius 0.325), per-token +0.00156 (54/64, diagnostic 0.00150 →
+  borderline). Prediction ordered P3 above P1 → this pair goes against it on the surrogate. Reading: the student already fits
+  its own successes (message loss 0.128 vs 0.211, grad norm 2.42 vs 3.76), and the surrogate is 40 held-out teacher
+  trajectories, which favours teacher-distribution data (surrogate alignment uncalibrated, Remark 8.11). This ranking is fixed
+  before any continuation; P2/P4 join with the same seed stream once the teacher key works; the full 4-way ranking is
+  written here before the R1 continuation arms are submitted.
 - **07:18 CDT 10-12: R3 DONE — Cor 7.2 prediction NOT supported on the real model at p10.** Measured δF(c) (per-token, vs zero
   message, r=16): +0.0005/+0.0012/+0.0011/+0.0007/+0.0002 for c=0.5/1/2/4/8 clip off, all inside the diagnostic radius
   (0.004–0.007); predicted −0.019…−0.080 (15–300× larger, opposite sign). Clip on c=1 vs 4: equal means (diff 8e-8) but
