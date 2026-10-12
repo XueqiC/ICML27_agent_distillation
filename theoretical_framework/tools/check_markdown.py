@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter, defaultdict
 import hashlib
 import html
 from html.parser import HTMLParser
@@ -15,6 +16,7 @@ import sys
 import tempfile
 import time
 import unicodedata
+from typing import NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlsplit
 from urllib.request import Request, urlopen
@@ -26,13 +28,32 @@ DENIED = re.compile(
 )
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})([^\n]*)$")
 DOLLAR = re.compile(r"(?<!\\)(?:\\\\)*\$")
+STATEMENT_WORDS = ("Definition", "Assumption", "Theorem", "Proposition", "Lemma",
+                   "Corollary", "Remark", "Example", "Algorithm")
+WORD_TYPES = {form: word for word in STATEMENT_WORDS
+              for form in (word, "Corollaries" if word == "Corollary" else word + "s")}
+WORDS = "|".join(sorted(WORD_TYPES, key=len, reverse=True))
+NUMBER = r"[1-9]\.\d+(?!\d|\.\d|[A-Za-z_])"
 RESULT = re.compile(
-    r"(?<![A-Za-z0-9_])(?:Props?\.|Propositions?|Thms?\.?|Theorems?|Lemma|"
-    r"Cor\.|Corollary|Corollaries|定理|命题|引理|推论)\s*"
-    r"(?:[ACW]?\d+(?:\.\d+|[abc′″])?(?:\([a-g]\))?|[ABC](?![A-Za-z]))"
+    rf"(?<![A-Za-z0-9_])(?P<word>{WORDS}|Props?\.?|Thms?\.?|Cor\.?|Def\.?|Ass\.?|"
+    r"定理|命题|引理|推论|定义|假设)\s*"
+    r"(?P<number>[A-Z]?\d+(?:\.\d+)*(?:[abc′″])?|[ABC])(?![A-Za-z0-9_])"
 )
+CONTINUATION = re.compile(
+    rf"\s*(?:\([a-g]\)|（[a-g]）)?\s*(?P<join>[-–—]|,\s*(?:and\s+)?|and\b|or\b|和|与|、|及|至)"
+    rf"\s*(?P<number>{NUMBER})"
+)
+STATEMENT = re.compile(
+    rf"^\*\*(?P<word>{'|'.join(STATEMENT_WORDS)})\s+(?P<number>{NUMBER})\s*"
+    r"(?:\(.+\)|（.+）)\.\*\*"
+)
+CHECK = re.compile(rf"^## Check\s+(?P<number>{NUMBER})\s+·\s+\S")
+CHECK_REF = re.compile(rf"(?<![A-Za-z0-9_])Checks?\s+(?P<number>{NUMBER})")
+CODE_ID = re.compile(r"(?<![A-Za-z0-9_])[CVET]\d+[a-z]?(?:\.[A-Za-z][A-Za-z0-9_-]*)?(?![A-Za-z0-9_])")
+NODE = re.compile(r"(?<![A-Za-z0-9_])(?:N(?:0[1-9]|1\d|20)|W[0-3])(?:\([a-z]\))?(?![A-Za-z0-9_])")
+APPENDICES = {"Appendix · Correspondence with earlier labels and sources",
+              "附录 · 与早期编号及出处的对照"}
 EQ_REF = re.compile(r"[（(]([AB]?\d+[a-z]?)[)）]")
-SOURCE_LINE = re.compile(r"^\*\*(?:Source:|出处：)\*\* ")
 DISPLAY = re.compile(r"\\[\[\]]|\\begin\{(?:equation\*?|align\*?|gather\*?|multline\*?|displaymath)\}")
 
 
@@ -41,8 +62,7 @@ def scope(root: Path = ROOT) -> tuple[list[Path], set[Path]]:
     s1 = [framework / "README.md", framework / "README_ZH.md"]
     s1 += sorted((framework / "proofs").glob("*.md"))
     s1 += sorted((framework / "experiments").glob("*.md"))
-    s1 += [framework / "figures/README.md",
-           root / "docs/direction/2026-10-11_v015_progress_ZH.md"]
+    s1 += [framework / "figures/README.md"]
     files = sorted(framework.rglob("*.md"))
     files += [root / "docs/direction/2026-10-11_v015_progress_ZH.md"]
     files += sorted((root / "docs/direction/v015_extension").glob("*.md"))
@@ -298,23 +318,198 @@ def prose_only(line: str) -> str:
     return line
 
 
-def local_results(text: str) -> set[str]:
-    result = set()
-    for _, line, fence in lines_outside_fences(text):
-        if fence or SOURCE_LINE.match(line):
-            continue
-        # A result is locally defined only by a bold declaration or a heading,
-        # never merely by a mention in a proof or a source line.
-        m = re.match(r"^(?:#{1,6}\s+|\*\*)(Lemma|Corollary|引理|推论)\s+"
-                     r"([123](?:\.0)?|[ABC])(?=\s*[（(])", line)
-        if m:
-            result.add(m[0].lstrip("#* ").strip())
-    return result
+def is_readme(path: Path) -> bool:
+    return path.parent.name == "theoretical_framework" and path.name in {"README.md", "README_ZH.md"}
+
+
+def is_figure_provenance(path: Path) -> bool:
+    """Figure provenance documents use literal JSON keys and IDs in code spans."""
+    return (path.parts[-3:] == ("theoretical_framework", "figures", "README.md")
+            or path.suffix == ".md"
+            and path.parts[-4:-1] == ("theoretical_framework", "figures", "specs"))
+
+
+def language(path: Path) -> str:
+    return "ZH" if path.stem.endswith("_ZH") else "EN"
+
+
+def policy_lines(path: Path, text: str):
+    """The exact README appendix exempts labels, never rendering or links."""
+    appendix = False
+    for n, line, fence in lines_outside_fences(text):
+        if not fence and (m := re.match(r"^ {0,3}(#{1,2})\s+(.+?)(?:\s+#+)?\s*$", line)):
+            appendix = is_readme(path) and m[1] == "##" and m[2] in APPENDICES
+        yield n, line, fence, appendix
+
+
+def policy_text(line: str, *, keep_code: bool = False) -> str:
+    """Visible labels count as prose; URLs, HTML attributes and math do not."""
+    for label, _, start, end in reversed(list(markdown_links(line))):
+        replacement = "" if label == "reference definition" else label
+        line = line[:start] + replacement + line[end:]
+    line = mask_inline(line, {"math"} if keep_code else {"code", "math"})
+    return re.sub(r"<[^>]*>", "", line).replace("*", "")
+
+
+def reference_paragraphs(path: Path, text: str):
+    """Join wrapped prose, without letting references cross fenced examples."""
+    paragraph: list[str] = []
+    first = 1
+    for n, line, fence, appendix in policy_lines(path, text):
+        prose = "" if fence or appendix else policy_text(line)
+        if not prose.strip():
+            if paragraph:
+                yield first, "\n".join(paragraph)
+                paragraph.clear()
+        else:
+            if not paragraph:
+                first = n
+            paragraph.append(prose)
+    if paragraph:
+        yield first, "\n".join(paragraph)
+
+
+class Declaration(NamedTuple):
+    path: Path
+    line: int
+    word: str
+    number: str
+    anchored: bool
+
+
+class FrameworkIndex:
+    """Index the entire policy scope, even when validating selected files only.
+
+    Read each page once so declarations and its validation use the same snapshot
+    while section writers work. Missing pages remain ordinary link/parity errors.
+    """
+    def __init__(self, texts: dict[Path, str], s1: set[Path]):
+        self.pages: dict[Path, list[Declaration]] = defaultdict(list)
+        self.statements: dict[str, list[Declaration]] = defaultdict(list)
+        self.checks: dict[str, list[Declaration]] = defaultdict(list)
+        for path in sorted(s1 & texts.keys()):
+            if path.parent.name in {"proofs", "experiments"} and re.match(r"N\d{2}(?:_|\.)", path.name):
+                # Old local numbering must not supply or shadow v0.16 statements.
+                continue
+            previous: list[tuple[str, bool]] = []
+            raw_lines = texts[path].splitlines()
+            for n, line, fence, appendix in policy_lines(path, texts[path]):
+                # block_lines removes quote markers for rendering, but quoted
+                # examples are not declarations at the start of a source line.
+                raw = raw_lines[n - 1]
+                if not fence and not appendix:
+                    statement, check = STATEMENT.match(raw), CHECK.match(raw)
+                    if statement or check:
+                        match = statement or check
+                        number = match["number"]
+                        word = statement["word"] if statement else "Check"
+                        anchor = ("s" if statement else "c") + number.replace(".", "-")
+                        anchored = any(eligible and re.fullmatch(
+                            rf'<a\s+id=["\']{anchor}["\']\s*></a>', prior.strip())
+                            for prior, eligible in previous[-3:])
+                        declaration = Declaration(path, n, word, number, anchored)
+                        self.pages[path].append(declaration)
+                        if statement and (is_readme(path) or path.parent.name == "proofs"):
+                            self.statements[number].append(declaration)
+                        elif check and path.parent.name == "experiments":
+                            self.checks[number].append(declaration)
+                if raw.strip():
+                    previous.append((raw, not fence and not appendix))
+
+    def validate_page(self, path: Path, report: Report):
+        counters: dict[str, int] = defaultdict(int)
+        for declaration in self.pages[path]:
+            _, n, word, number, anchored = declaration
+            kind = "check" if word == "Check" else "statement"
+            section, item = map(int, number.split("."))
+            page_section = re.match(r"^0([2-9])_", path.name)
+            correct_page = (
+                is_readme(path) and section == 1 and kind == "statement"
+                or path.parent.name == ("experiments" if kind == "check" else "proofs")
+                and page_section and int(page_section[1]) == section
+            )
+            if not correct_page:
+                report.hit(path, n, f"{kind} declared in wrong section/page: {word} {number}")
+            if not anchored:
+                anchor = ("c" if kind == "check" else "s") + number.replace(".", "-")
+                report.hit(path, n, f"missing adjacent {kind} anchor: {anchor} (previous 3 non-blank lines)")
+            expected = counters[kind] + 1
+            if item != expected:
+                reason = "gap" if item > expected else "out-of-order declaration"
+                report.hit(path, n, f"{kind} numbering {reason}: expected {section}.{expected}, got {number}")
+            counters[kind] = item
+            registry = self.checks if kind == "check" else self.statements
+            same_language = [d for d in registry[number] if language(d.path) == language(path)]
+            if len(same_language) > 1:
+                locations = ", ".join(f"{d.path.name}:{d.line}" for d in same_language)
+                report.hit(path, n, f"duplicate framework {kind}: {number} ({language(path)}; {locations})")
+
+    def validate_parity(self, files: list[Path], texts: dict[Path, str], report: Report):
+        visited = set()
+        selected = set(files)
+        for path in sorted(selected):
+            if path.parent.name not in {"proofs", "experiments"}:
+                continue
+            # Legacy N-pages still get rendering, links and label checks, but do
+            # not impose the new page-pair structure while they are being removed.
+            if not re.match(r"^0[2-9]_", path.name):
+                continue
+            en = path.with_name(path.stem.removesuffix("_ZH") + ".md")
+            zh = en.with_name(en.stem + "_ZH.md")
+            if en in visited:
+                continue
+            visited.add(en)
+            kind = "statement" if path.parent.name == "proofs" else "check"
+            if en not in texts or zh not in texts:
+                missing = en if en not in texts else zh
+                report.hit(path, 1, f"{kind} EN/ZH parity: missing counterpart {missing.name}")
+                continue
+            def pairs(p):
+                return {(d.word, d.number) for d in self.pages[p]
+                        if (d.word == "Check") == (kind == "check")}
+            en_pairs, zh_pairs = pairs(en), pairs(zh)
+            if en_pairs != zh_pairs:
+                report.hit(path, 1, f"{kind} EN/ZH parity: EN only {sorted(en_pairs - zh_pairs)}; "
+                           f"ZH only {sorted(zh_pairs - en_pairs)}")
+
+    def references(self, path: Path, n: int, prose: str, report: Report):
+        def verify(word, number, line):
+            if word == "Check":
+                if not self.checks.get(number):
+                    report.hit(path, line, f"undefined framework check: Check {number}")
+            elif not self.statements.get(number):
+                report.hit(path, line, f"undefined framework statement: {word} {number}")
+            elif word not in {d.word for d in self.statements[number]}:
+                declared = ", ".join(sorted({d.word for d in self.statements[number]}))
+                report.hit(path, line, f"statement type mismatch: {word} {number} (declared {declared})")
+
+        for pattern in (RESULT, CHECK_REF):
+            for match in pattern.finditer(prose):
+                line = n + prose.count("\n", 0, match.start())
+                word = match["word"] if pattern is RESULT else "Check"
+                number = match["number"]
+                if WORD_TYPES.get(word) == "Theorem" and number in {"A", "B", "C"}:
+                    continue
+                if word != "Check" and (word not in WORD_TYPES or not re.fullmatch(NUMBER, number)):
+                    label = " ".join(match[0].split())
+                    report.hit(path, line, f"original/nonlocal result label: {label}")
+                    continue
+                word = WORD_TYPES.get(word, word)
+                verify(word, number, line)
+                end = match.end()
+                while continuation := CONTINUATION.match(prose, end):
+                    line = n + prose.count("\n", 0, continuation.start("number"))
+                    following = continuation["number"]
+                    if continuation["join"] in {"-", "–", "—", "至"} and number.split(".")[0] != following.split(".")[0]:
+                        report.hit(path, line, f"framework range crosses sections: {number}–{following}")
+                    verify(word, following, line)
+                    number, end = following, continuation.end()
 
 
 class Report:
     def __init__(self):
         self.errors = 0
+        self.counts: Counter[str] = Counter()
 
     def hit(self, path: Path, line: int, message: str):
         try:
@@ -323,15 +518,31 @@ class Report:
             name = path
         print(f"{name}:{line}: {message}")
         self.errors += 1
+        rule = message.split(":", 1)[0].split(" at column ", 1)[0]
+        if rule.startswith("denylisted macro "):
+            rule = "denylisted macro"
+        self.counts[rule] += 1
 
 
 def offline(files: list[Path], s1: set[Path], report: Report):
     anchor_cache: dict[Path, dict[str, int]] = {}
+    texts = {}
+    for path in sorted(set(files) | s1):
+        try:
+            texts[path] = path.read_text(encoding="utf-8")
+        except (FileNotFoundError, IsADirectoryError):
+            # Old pages can disappear during the concurrent restructuring.
+            continue
+    framework = FrameworkIndex(texts, s1)
     for path in files:
-        if not path.is_file():
+        if path not in texts:
             report.hit(path, 1, "missing scoped file")
             continue
-        text = path.read_text(encoding="utf-8")
+        text = texts[path]
+        if path in s1:
+            framework.validate_page(path, report)
+            for n, paragraph in reference_paragraphs(path, text):
+                framework.references(path, n, paragraph, report)
         lines = [line for _, line, _ in lines_outside_fences(text)]
         for n, line, language, opening, in_list, indent in block_lines(text):
             if language == "math" and FENCE.match(line) and (in_list or indent):
@@ -339,14 +550,11 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                     report.hit(path, n, "math-fence-in-list: math fences must start at column 0 outside lists")
         visible_numbers = set(re.findall(r"\\qquad\(([^)]+)\)", "\n".join(
             l for _, l, f in lines_outside_fences(text) if f == "math")))
-        local = local_results(text)
-        local_warm = set(re.findall(r"\*\*\((W[0-3])\)\*\*", text))
         heading_lines = set(headings(text).values())
         reference_labels = {" ".join(m[1].split()).casefold()
                             for _, l, f in lines_outside_fences(text) if not f
                             if (m := re.match(r"^ {0,3}\[([^\]]+)\]:", l))}
-        concordance = False
-        for n, line, fence in lines_outside_fences(text):
+        for n, line, fence, appendix in policy_lines(path, text):
             for m in re.finditer(r"\$\$", line):
                 report.hit(path, n, f"display dollars at column {m.start() + 1}")
             for m in DENIED.finditer(line):
@@ -400,25 +608,42 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                     continue
                 if u.fragment:
                     if target not in anchor_cache:
-                        anchor_cache[target] = headings(target.read_text(encoding="utf-8")) if target.suffix.lower() == ".md" else {}
-                    if unquote(u.fragment) not in anchor_cache[target]:
+                        target_text = texts.get(target)
+                        if target_text is None and target.suffix.lower() == ".md":
+                            try:
+                                target_text = target.read_text(encoding="utf-8")
+                            except FileNotFoundError:
+                                report.hit(path, n, f"missing link target: {dest}")
+                                continue
+                        anchor_cache[target] = headings(target_text) if target_text is not None else {}
+                    fragment = unquote(u.fragment)
+                    if fragment not in anchor_cache[target]:
                         report.hit(path, n, f"missing heading anchor: {dest}")
+                    elif path in s1 and (m := re.fullmatch(r"([sc])([1-9])-([0-9]+)", fragment)):
+                        registry = framework.statements if m[1] == "s" else framework.checks
+                        if not any(d.path == target for d in registry.get(f"{m[2]}.{m[3]}", [])):
+                            report.hit(path, n, f"framework anchor on wrong page: {dest}")
             if path not in s1:
                 continue
-            if re.match(r"^## (Source concordance|出处对照)\s*$", line):
-                concordance = True
-            elif re.match(r"^#{1,2} ", line):
-                concordance = False
-            if concordance or (path.parent.name == "proofs" and SOURCE_LINE.match(line)):
+            prose = policy_text(line)
+            # Code IDs never belong in README prose, including its appendix.
+            if is_readme(path):
+                for m in CODE_ID.finditer(prose):
+                    report.hit(path, n, f"check code in README prose: {m[0]}")
+            elif path.parent.name == "experiments":
+                for m in CODE_ID.finditer(prose):
+                    report.hit(path, n, f"unprefixed check code: {m[0]} (use a suite-prefixed code span)")
+                for kind, start, end, _, _ in tokens:
+                    if kind != "code":
+                        continue
+                    code = line[start:end].strip("`")
+                    for m in CODE_ID.finditer(code):
+                        if not re.search(r"(?<![A-Za-z0-9_])(?:v\d+|pkg):$", code[:m.start()]):
+                            report.hit(path, n, f"unprefixed check code: {m[0]} (missing suite prefix)")
+            if appendix:
                 continue
-            prose = prose_only(line)
-            # Link labels and image alt text are visible references too. Do not
-            # exempt an old result name merely because it is inside a link.
-            labels = " ".join(label for label, _, _, _ in markdown_links(line))
-            labels = re.sub(r"(?<!\\)\$(?:\\.|[^$])*?\$", "", labels)
-            for m in RESULT.finditer(prose + " " + labels):
-                if m[0] not in local:
-                    report.hit(path, n, f"original/nonlocal result label: {m[0]}")
+            for m in NODE.finditer(policy_text(line, keep_code=not is_figure_provenance(path))):
+                report.hit(path, n, f"retired node label: {m[0]}")
             for m in EQ_REF.finditer(prose):
                 k = m[1]
                 if k in visible_numbers or (k.isdigit() and int(k) >= 1900):
@@ -432,18 +657,13 @@ def offline(files: list[Path], s1: set[Path], report: Report):
             for m in re.finditer(r"(?:eqs?\.\s*|式\s*)[（(](A?\d+[a-z]?)[)）]", prose):
                 if m[1] not in visible_numbers:
                     report.hit(path, n, f"nonlocal equation citation: {m[0]}")
-            for m in re.finditer(r"§+\d+(?:\.\d+)?|(?<![A-Za-z0-9_])A\d+[′″]?(?![A-Za-z0-9_])", prose):
-                if m[0] not in visible_numbers:
+            for m in re.finditer(r"§+\s*\d+(?:\.\d+)*|(?<![A-Za-z0-9_])A\d+[′″]?(?![A-Za-z0-9_])", prose):
+                if not re.fullmatch(r"§\s*[1-9]", m[0]):
                     report.hit(path, n, f"bare source label: {m[0]}")
-            if (path.parent.name == "theoretical_framework" and path.name.startswith("README")) or "v015_progress" in path.name:
-                for m in re.finditer(r"(?<![A-Za-z0-9_])[CVET]\d+(?![A-Za-z0-9_])", prose):
-                    report.hit(path, n, f"unlinked check ID: {m[0]}")
-            for m in re.finditer(r"(?<![A-Za-z0-9_-])W[0-3](?:\([ab]\))?(?![A-Za-z0-9_])", prose):
-                if not path.name.startswith("N12_") and m[0] not in local_warm:
-                    report.hit(path, n, f"bare warm-Adam label: {m[0]}")
         state = list(lines_outside_fences(text))
         if state and state[-1][2] and not (FENCE.match(state[-1][1]) and not FENCE.match(state[-1][1])[2].strip()):
             report.hit(path, len(lines), "unterminated fenced block")
+    framework.validate_parity([path for path in files if path in s1], texts, report)
 
 
 class RenderedHTML(HTMLParser):
@@ -760,6 +980,8 @@ def main(argv=None) -> int:
             # RuntimeError messages above are fixed strings, never raw SDK/network errors.
             print(str(error), file=sys.stderr)
             return 1
+    for rule, count in sorted(report.counts.items()):
+        print(f"  {rule}: {count}")
     print(f"{'FAIL' if report.errors else 'PASS'}: {len(files)} files; {report.errors} errors"
           + ("; offline + GitHub file view" if args.blob else
              "; offline + GitHub Markdown API" if args.online else "; offline"))

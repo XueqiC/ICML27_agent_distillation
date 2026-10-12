@@ -182,7 +182,7 @@ class MarkdownTests(unittest.TestCase):
             self.assertEqual(set(files), {root / name for name in names[:-2]})
             self.assertIn(root / names[1], labels)
             self.assertIn(root / names[3], labels)
-            for index in (4, 5, 6, 8):
+            for index in (4, 5, 6, 7, 8):
                 self.assertNotIn(root / names[index], labels)
             spec = root / names[4]
             spec.write_text("Thm. 7, (32), C23.\n\n  ```math\n  z=1\n  ```\n", encoding="utf-8")
@@ -262,6 +262,339 @@ class MarkdownTests(unittest.TestCase):
         parser = check.RenderedHTML()
         parser.feed('<p><math-renderer>x_i</math-renderer><code>$literal$</code>$raw$</p>')
         self.assertEqual("".join(parser.text).strip(), "$raw$")
+
+
+class FrameworkPolicyTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.framework = self.root / "theoretical_framework"
+        for name in ("README.md", "README_ZH.md", "figures/README.md"):
+            self.write(name, "")
+        self.write("docs/direction/2026-10-11_v015_progress_ZH.md", "")
+        for obj, name in ((check, "urlopen"), (check, "credential"), (check.subprocess, "run")):
+            guard = patch.object(obj, name, side_effect=AssertionError("live I/O attempted"))
+            guard.start()
+            self.addCleanup(guard.stop)
+
+    def write(self, name, text):
+        path = (self.root if name.startswith("docs/") else self.framework) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def pair(self, name, en, zh=None):
+        self.write(name, en)
+        self.write(name.removesuffix(".md") + "_ZH.md", en if zh is None else zh)
+
+    def statement(self, word, number, zh=False):
+        title = "（标题）" if zh else " (Title)"
+        return f'<a id="s{number.replace(".", "-")}"></a>\n\n**{word} {number}{title}.**\n\n'
+
+    def declaration_check(self, number):
+        return f'<a id="c{number.replace(".", "-")}"></a>\n\n## Check {number} · Title\n\n'
+
+    def validate(self, *names):
+        files, s1 = check.scope(self.root)
+        if names:
+            files = [(self.root if name.startswith("docs/") else self.framework) / name for name in names]
+        report, output = check.Report(), io.StringIO()
+        with contextlib.redirect_stdout(output):
+            check.offline(files, s1, report)
+        self.assertEqual(report.errors, sum(report.counts.values()))
+        return report.errors, output.getvalue()
+
+    def test_all_statement_types_and_zh_declarations(self):
+        en = "".join(self.statement(word, f"2.{j}") for j, word in enumerate(check.STATEMENT_WORDS, 1))
+        zh = "".join(self.statement(word, f"2.{j}", True) for j, word in enumerate(check.STATEMENT_WORDS, 1))
+        self.pair("proofs/02_types.md", en, zh)
+        self.pair("README.md", self.statement("Definition", "1.1"), self.statement("Definition", "1.1", True))
+        self.write("figures/README.md", "Definitions 1.1 and 2.1; Theorem A, Theorem B, Theorem C; Theorems A, B and C.")
+        self.assertEqual(self.validate(), (0, ""))
+
+    def test_references_resolve_in_unselected_pages(self):
+        self.pair("proofs/06_info.md", self.statement("Theorem", "6.1"))
+        self.write("README.md", "Theorem 6.1 and [Theorem 6.1](proofs/06_info.md#s6-1).")
+        self.assertEqual(self.validate("README.md"), (0, ""))
+        # References require a declaration somewhere; per-language parity is a
+        # separate check, not a second undefined-reference error.
+        (self.framework / "proofs/06_info.md").unlink()
+        self.write("README.md", "Theorem 6.1.")
+        self.assertEqual(self.validate("README.md"), (0, ""))
+
+    def test_undefined_and_wrong_type_in_prose_links_and_zh(self):
+        self.pair("proofs/06_info.md", self.statement("Theorem", "6.1"))
+        for name in ("README.md", "README_ZH.md"):
+            for phrase, error in (("Theorem 6.2", "undefined framework statement"),
+                                  ("Proposition 6.1", "statement type mismatch"),
+                                  ("[Lemma 6.1](proofs/06_info.md#s6-1)", "statement type mismatch")):
+                with self.subTest(name=name, phrase=phrase):
+                    self.write(name, "参见 " + phrase + "。")
+                    self.assertIn(error, self.validate(name)[1])
+
+    def test_plural_ranges_and_lists_check_endpoints(self):
+        self.pair("proofs/05_state.md", "".join(self.statement("Proposition", f"5.{j}") for j in range(1, 10)))
+        words = ["Definition", "Assumption", "Theorem", "Lemma", "Theorem", "Remark", "Corollary", "Corollary"]
+        self.pair("proofs/06_info.md", "".join(self.statement(word, f"6.{j}") for j, word in enumerate(words, 1)))
+        self.pair("README.md", "".join(self.statement("Definition", f"1.{j}") for j in range(1, 5)))
+        phrases = ("Propositions 5.5–5.9", "Theorems 6.3 and 6.5", "Corollaries 6.7–6.8",
+                   "Definitions 1.3–1.4", "Propositions 5.5, 5.7, and 5.9", "Propositions 5.5、5.6 和 5.9",
+                   "Theorems [6.3](../proofs/06_info.md#s6-3) and [6.5](../proofs/06_info.md#s6-5)")
+        for phrase in phrases:
+            with self.subTest(phrase=phrase):
+                self.write("figures/README.md", phrase + ".")
+                self.assertEqual(self.validate(), (0, ""))
+        for phrase, error in (("Propositions 5.5–5.10", "undefined framework statement: Proposition 5.10"),
+                              ("Propositions 5.12–5.13", "undefined framework statement: Proposition 5.12"),
+                              ("Theorems 6.3 and 6.4", "statement type mismatch: Theorem 6.4"),
+                              ("Propositions 5.5–6.5", "framework range crosses sections"),
+                              ("Definitions 1.3–6.1", "framework range crosses sections")):
+            with self.subTest(phrase=phrase):
+                self.write("figures/README.md", phrase)
+                self.assertIn(error, self.validate()[1])
+        # Only endpoints, not the differently typed interior, are checked.
+        self.write("figures/README.md", "Theorems 6.3–6.5.")
+        self.assertEqual(self.validate(), (0, ""))
+
+    def test_declarations_not_mentions_headings_code_or_appendix(self):
+        examples = ("Theorem 2.1 (Title).", "## Theorem 2.1 (Title)",
+                    "> **Theorem 2.1 (Title).**", "`**Theorem 2.1 (Title).**`",
+                    "```text\n**Theorem 2.1 (Title).**\n```", "**[Theorem 2.1](#title) · Title**")
+        for example in examples:
+            with self.subTest(example=example):
+                self.pair("proofs/02_page.md", "# Title\n\n" + example)
+                self.write("README.md", "Theorem 2.1.")
+                self.assertIn("undefined framework statement", self.validate("README.md")[1])
+        self.write("README.md", "## Appendix · Correspondence with earlier labels and sources\n\n" + self.statement("Theorem", "1.1"))
+        self.write("README_ZH.md", "Theorem 1.1.")
+        self.assertIn("undefined framework statement", self.validate("README_ZH.md")[1])
+
+    def test_wrapped_references_report_the_relevant_line(self):
+        self.pair("proofs/02_page.md", self.statement("Theorem", "2.1") + self.statement("Theorem", "2.2"))
+        self.write("README.md", "Theorems 2.1 and\n2.2.\n\nTheorem\n2.1.")
+        self.assertEqual(self.validate(), (0, ""))
+        self.write("README.md", "Theorems 2.1 and\n2.99.")
+        self.assertIn("README.md:2: undefined framework statement: Theorem 2.99", self.validate()[1])
+        self.write("README.md", "Theorem 2.1 and\n\n```text\n2.99\n```\n\n2.99")
+        self.assertEqual(self.validate(), (0, ""))
+
+    def test_legacy_local_numbering_cannot_supply_or_shadow_new_declarations(self):
+        self.write("proofs/N01_old.md", self.statement("Theorem", "2.1") + self.statement("Theorem", "2.2"))
+        self.pair("proofs/02_page.md", self.statement("Definition", "2.1"))
+        self.assertEqual(self.validate("proofs/02_page.md"), (0, ""))
+        self.write("README.md", "Theorem 2.1. Theorem 2.2.")
+        errors, output = self.validate("README.md")
+        self.assertEqual(errors, 2, output)
+        self.assertIn("statement type mismatch", output)
+        self.assertIn("undefined framework statement", output)
+
+    def test_duplicate_numbers_per_language_across_types_and_pages(self):
+        self.pair("proofs/02_one.md", self.statement("Theorem", "2.1"))
+        self.assertEqual(self.validate(), (0, ""))
+        self.pair("proofs/02_two.md", self.statement("Proposition", "2.1"))
+        self.assertIn("duplicate framework statement: 2.1", self.validate()[1])
+        self.assertIn("duplicate framework statement", self.validate("proofs/02_one.md")[1])
+        self.write("README.md", self.statement("Definition", "1.1") * 2)
+        self.assertIn("duplicate framework statement: 1.1", self.validate("README.md")[1])
+        self.pair("experiments/02_one.md", self.declaration_check("2.1") * 2)
+        self.assertIn("duplicate framework check", self.validate()[1])
+
+    def test_statement_and_check_parity(self):
+        self.pair("proofs/02_page.md", self.statement("Theorem", "2.1"), self.statement("Proposition", "2.1", True))
+        self.assertIn("statement EN/ZH parity", self.validate()[1])
+        self.pair("proofs/02_page.md", self.statement("Theorem", "2.1"))
+        self.pair("experiments/02_page.md", self.declaration_check("2.1"), "")
+        self.assertIn("check EN/ZH parity", self.validate()[1])
+        self.pair("experiments/02_page.md", self.declaration_check("2.1"))
+        self.assertEqual(self.validate(), (0, ""))
+        (self.framework / "proofs/02_page_ZH.md").unlink()
+        self.assertIn("statement EN/ZH parity: missing counterpart", self.validate()[1])
+        (self.framework / "experiments/02_page.md").unlink()
+        self.assertIn("check EN/ZH parity: missing counterpart", self.validate()[1])
+
+    def test_anchor_adjacency_uses_three_nonblank_lines(self):
+        for kind in ("statement", "check"):
+            folder, prefix = ("proofs", "s") if kind == "statement" else ("experiments", "c")
+            declaration = "**Theorem 2.1（标题）.**" if kind == "statement" else "## Check 2.1 · 标题"
+            for middle in ("\n\n\n\n", "\nA line.\n\nAnother line.\n"):
+                self.pair(f"{folder}/02_page.md", f'<a id="{prefix}2-1"></a>\n{middle}{declaration}')
+                self.assertEqual(self.validate(), (0, ""))
+            for text in (declaration, f'<a id="{prefix}2-2"></a>\n{declaration}',
+                         f'<a id="{prefix}2-1"></a>\nA\nB\nC\n{declaration}',
+                         f'{declaration}\n<a id="{prefix}2-1"></a>',
+                         f'```html\n<a id="{prefix}2-1"></a>\n```\n{declaration}'):
+                with self.subTest(kind=kind, text=text):
+                    self.pair(f"{folder}/02_page.md", text)
+                    self.assertIn(f"missing adjacent {kind} anchor", self.validate()[1])
+            self.pair(f"{folder}/02_page.md", f'<a id="{prefix}2-1"></a>\n\n{declaration}')
+
+    def test_statement_and_check_numbering_gaps_and_order(self):
+        for folder, kind, make in (("proofs", "statement", lambda n: self.statement("Theorem", n)),
+                                   ("experiments", "check", self.declaration_check)):
+            for numbers, error in ((("2.2",), "gap"), (("2.1", "2.3"), "gap"),
+                                   (("2.1", "2.2", "2.1"), "out-of-order declaration"),
+                                   (("2.0",), "out-of-order declaration")):
+                with self.subTest(kind=kind, numbers=numbers):
+                    self.pair(f"{folder}/02_page.md", "".join(make(n) for n in numbers))
+                    self.assertIn(f"{kind} numbering {error}", self.validate()[1])
+            self.pair(f"{folder}/02_page.md", make("2.1") + make("2.2"))
+        self.assertEqual(self.validate(), (0, ""))
+
+    def test_shared_counter_across_statement_types(self):
+        self.pair("proofs/02_page.md", self.statement("Definition", "2.1") + self.statement("Theorem", "2.2") + self.statement("Remark", "2.3"))
+        self.assertEqual(self.validate(), (0, ""))
+
+    def test_declarations_belong_to_their_section_and_page_kind(self):
+        for page, body, kind in (("README.md", self.statement("Theorem", "2.1"), "statement"),
+                                  ("proofs/02_page.md", self.statement("Definition", "1.1"), "statement"),
+                                  ("proofs/02_page.md", self.statement("Theorem", "3.1"), "statement"),
+                                  ("experiments/02_page.md", self.statement("Theorem", "2.1"), "statement"),
+                                  ("proofs/02_page.md", self.declaration_check("2.1"), "check"),
+                                  ("experiments/02_page.md", self.declaration_check("3.1"), "check")):
+            with self.subTest(page=page, body=body):
+                self.pair(page, body)
+                self.assertIn(f"{kind} declared in wrong section/page", self.validate(page)[1])
+        self.write("figures/README.md", self.statement("Theorem", "3.1"))
+        self.write("README.md", "Theorem 3.1")
+        self.assertIn("undefined framework statement", self.validate("README.md")[1])
+
+    def test_check_references_and_link_ownership(self):
+        self.pair("proofs/02_page.md", self.statement("Theorem", "2.1"))
+        self.pair("experiments/02_page.md", self.declaration_check("2.1"))
+        self.write("README.md", "Check 2.1. [Check 2.1](experiments/02_page.md#c2-1)\n"
+                   "[Theorem 2.1](proofs/02_page.md#s2-1)")
+        self.assertEqual(self.validate(), (0, ""))
+        self.write("README.md", "Check 2.2. Checks 2.1–2.3.")
+        errors, output = self.validate("README.md")
+        self.assertEqual(errors, 2, output)
+        self.assertIn("undefined framework check: Check 2.2", output)
+        self.assertIn("undefined framework check: Check 2.3", output)
+        for anchor in ("s2-1", "c2-1"):
+            self.write("figures/README.md", f'<a id="{anchor}"></a>')
+            self.write("README.md", f"[wrong](figures/README.md#{anchor})")
+            self.assertIn("framework anchor on wrong page", self.validate("README.md")[1])
+        self.write("README.md", "[wrong](proofs/02_page.md#c2-1)")
+        self.assertIn("missing heading anchor", self.validate("README.md")[1])
+
+    def test_section_references_and_bare_source_labels(self):
+        self.write("README.md", "§1, §2–§9, §1–§3, § 9。")
+        self.assertEqual(self.validate(), (0, ""))
+        for text in ("§0", "§10", "§5.2", "§5.2.1", "§1–§12", "A5", "eqs. (A11)"):
+            with self.subTest(text=text):
+                self.write("README.md", text)
+                self.assertGreater(self.validate()[0], 0)
+
+    def test_retired_node_and_result_labels_including_links_and_zh(self):
+        for label in ("N01", "N20", "N12(b)", "N19(c)", "W0", "W3", "`N12`",
+                      "[N12(b)](README.md)"):
+            self.write("README.md", label)
+            self.assertIn("retired node label", self.validate("README.md")[1])
+        for label in ("Theorem 7", "Thm. C4", "Prop. A5", "Corollary 9", "Lemma W0", "定理 3",
+                      "Props. A5–A7", "Theorem C4", "Prop. 2.3", "Theorem 10.1"):
+            with self.subTest(label=label):
+                self.write("README_ZH.md", label)
+                self.assertIn("original/nonlocal result label", self.validate("README_ZH.md")[1])
+
+    def test_figure_provenance_code_spans_allow_literal_keys_and_ids(self):
+        labels = [f"N{i:02d}" for i in range(1, 21)] + [f"W{i}" for i in range(4)]
+        labels += ["C5", "E8", "V7", "T03", "C4.amplitude",
+                   "V:groups[id=E8].data.{gaps,W3.per_step,W1.panels}"]
+        for name in ("figures/README.md", "figures/specs/fig5_3.md"):
+            for marker in ("`", "``"):
+                with self.subTest(name=name, marker=marker):
+                    self.write(name, " ".join(f"{marker}{label}{marker}" for label in labels))
+                    self.assertEqual(self.validate(name), (0, ""))
+
+    def test_figure_provenance_keeps_existing_prose_rules(self):
+        for label in ("N01", "N20", "W0", "W3", "[N12](README.md)"):
+            with self.subTest(label=label):
+                self.write("figures/README.md", f"`N02 W1 C5 E8` {label}")
+                errors, output = self.validate("figures/README.md")
+                self.assertEqual(errors, 1, output)
+                self.assertIn("retired node label", output)
+        # Figure check codes already allow prose, and specs remain outside the
+        # source-label policy scope. Do not expand either policy here.
+        self.write("figures/README.md", "C5 E8")
+        self.write("figures/specs/fig5_3.md", "N01 N20 W0 W3 C5 E8")
+        self.assertEqual(self.validate("figures/README.md", "figures/specs/fig5_3.md"), (0, ""))
+
+    def test_figure_provenance_exemption_requires_a_closed_code_span(self):
+        self.write("figures/README.md", "`N01 W3")
+        errors, output = self.validate("figures/README.md")
+        self.assertEqual(errors, 2, output)
+        self.assertIn("retired node label: N01", output)
+        self.assertIn("retired node label: W3", output)
+
+    def test_figure_provenance_keeps_rendering_and_link_checks(self):
+        for name in ("figures/README.md", "figures/specs/fig5_3.md"):
+            with self.subTest(name=name):
+                self.write(name, "`N01 W3 C5 E8` $bad$ [missing](missing.md)")
+                errors, output = self.validate(name)
+                self.assertEqual(errors, 2, output)
+                self.assertIn("inline math must use", output)
+                self.assertIn("missing link target", output)
+
+    def test_figure_provenance_exemption_does_not_apply_to_main_pages(self):
+        for name in ("README.md", "README_ZH.md", "proofs/N01.md", "experiments/N01.md"):
+            with self.subTest(name=name):
+                self.write(name, "`N01` `W3`")
+                errors, output = self.validate(name)
+                self.assertEqual(errors, 2, output)
+                self.assertIn("retired node label: N01", output)
+                self.assertIn("retired node label: W3", output)
+
+    def test_only_exact_readme_appendices_exempt_labels(self):
+        labels = "N01 N20 W0 W3 Theorem 7 Props. A5–A7 定理 3 §5.2 eqs. (A11) Theorem 6.99 Check 2.99"
+        for name, title in (("README.md", "Appendix · Correspondence with earlier labels and sources"),
+                            ("README_ZH.md", "附录 · 与早期编号及出处的对照")):
+            self.write(name, f"## {title}\n\n{labels}\n\n### Nested\n{labels}")
+            self.assertEqual(self.validate(name), (0, ""))
+            self.write(name, f"## {title}\n{labels}\n## Later\nN12")
+            self.assertIn("retired node label", self.validate(name)[1])
+            self.write(name, f"## {title}\n$bad$ [missing](missing.md)")
+            output = self.validate(name)[1]
+            self.assertIn("inline math must use", output)
+            self.assertIn("missing link target", output)
+        for name, title in (("README.md", "Source concordance"), ("README_ZH.md", "出处对照"),
+                            ("proofs/02_page.md", "Appendix · Correspondence with earlier labels and sources")):
+            self.write(name, f"## {title}\nN12")
+            self.assertIn("retired node label", self.validate(name)[1])
+
+    def test_readme_check_codes_must_be_code_even_in_links_and_appendix(self):
+        for name in ("README.md", "README_ZH.md"):
+            for prefix in ("", "## Appendix · Correspondence with earlier labels and sources\n"):
+                for code in ("C5", "V7", "E12", "T03", "v016:C4.amplitude", "[C5](README.md)"):
+                    self.write(name, prefix + code)
+                    self.assertIn("check code in README prose", self.validate(name)[1])
+            self.write(name, "`C5` `V7` `E12` `T03` `v016:C4.amplitude`")
+            self.assertEqual(self.validate(name), (0, ""))
+
+    def test_experiment_check_codes_need_suite_and_code_span(self):
+        for text in ("`v014:C5` `v015:V7` `v015:E6` `pkg:T12` `v016:C4.amplitude` `v016:C5b`",
+                     "[`v016:C4.amplitude`](../README.md)"):
+            self.pair("experiments/02_page.md", text)
+            self.assertEqual(self.validate(), (0, ""))
+        for text in ("C5", "V7", "E12", "T03", "`C5`", "v014:C5", "`other:C5`",
+                     "[C5](../README.md)", "`v015:E6, E12`", "`T03`", "`C4.amplitude`"):
+            with self.subTest(text=text):
+                self.pair("experiments/02_page.md", text)
+                self.assertIn("unprefixed check code", self.validate()[1])
+
+    def test_legacy_pages_and_historical_documents(self):
+        self.write("proofs/N12_old.md", "**Source:** Thm. 7\n\n**(W0)**\n\nN12(b)")
+        output = self.validate("proofs/N12_old.md")[1]
+        self.assertIn("original/nonlocal result label", output)
+        self.assertIn("retired node label", output)
+        self.assertNotIn("EN/ZH parity", output)
+        for name in ("docs/direction/2026-10-11_v015_progress_ZH.md", "docs/direction/v015_extension/extra.md"):
+            self.write(name, "N12 W0 Theorem 7 Theorem 6.99 Check 6.99 C5 §5.2")
+            self.assertEqual(self.validate(name), (0, ""))
+            self.write(name, "N12 W0 $bad$ [link](missing.md)")
+            errors, output = self.validate(name)
+            self.assertEqual(errors, 2, output)
+            self.assertIn("inline math must use", output)
+            self.assertIn("missing link target", output)
 
 
 class PathSelectionTests(unittest.TestCase):
@@ -352,12 +685,16 @@ class PathSelectionTests(unittest.TestCase):
                 self.assertEqual(status, 1)
                 self.assertIn("original/nonlocal result label", output)
                 self.assertIn("nonlocal equation/number label", output)
-                if path.parent.name == "theoretical_framework" or "v015_progress" in path.name:
-                    self.assertIn("unlinked check ID", output)
+                if path.parent.name == "theoretical_framework":
+                    self.assertIn("check code in README prose", output)
+                elif path.parent.name == "experiments":
+                    self.assertIn("unprefixed check code", output)
 
     def test_other_selected_files_get_rendering_and_link_checks_only(self):
         for path in (self.extra, self.root / "theoretical_framework/figures/specs/N01.md",
-                     self.root / "theoretical_framework/tools/README.md"):
+                     self.root / "theoretical_framework/tools/README.md",
+                     self.root / "docs/direction/2026-10-11_v015_progress_ZH.md",
+                     self.root / "docs/direction/v015_extension/page.md"):
             with self.subTest(path=path):
                 path.write_text("Thm. 7, (32), C23.\n", encoding="utf-8")
                 self.assertEqual(self.run_main([str(path)])[0], 0)
@@ -384,7 +721,7 @@ class PathSelectionTests(unittest.TestCase):
         status, output = self.run_main([str(alias)])
         self.assertEqual(status, 1)
         self.assertIn("original/nonlocal result label", output)
-        self.assertIn("unlinked check ID", output)
+        self.assertIn("check code in README prose", output)
 
     def test_invalid_paths_fail_before_checks_in_all_modes(self):
         outside = self.base / "outside.md"
