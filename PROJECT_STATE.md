@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **02:56 CDT 10-12: framework reorganized per result + references** (11588ae). User: every linked page must be readable alone;
+  one statement/proof/experiments set per numbered item; README Level 2+3 merged with per-item links; complete correct
+  references; no earlier labels anywhere (appendix = sources only, f69bbf0). Now: statements/KK-JJ_<slug>.md (67 items),
+  proofs/ (46), experiments/ (48), EN+ZH; references.md (38 entries verified online). Validator enforces the layout.
+  Checks: offline 356 files 0 errors, MathJax 31,886 expressions 0 errors, file view 329 pages pass; max 371 expr/page.
 - **01:54 CDT 10-12: framework pages split for GitHub's browser math limit** (e0e9fb0). User screenshot: README "Unable to render
   expression" on valid math. Cause: undocumented per-page limit in GitHub's client-side renderer (README 1,251 expressions;
   known-good pages 386 and 666; local MathJax renders all; HTML wraps all). Now every page ≤ 600 (README 202): Level 3 →
