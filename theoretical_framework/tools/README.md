@@ -153,7 +153,7 @@ Direction documents are outside this policy. Names ending in `_ZH.md` use
 Chinese bibliography headings and catalog entries; other pages use English.
 
 A citation is an inline Markdown link such as `[Author, year](#ref-key)`.
-The key comes from an explicit `<a id="key"></a>` in both global catalogs.
+The key is the id of an explicit HTML anchor that both global catalogs declare.
 Links inside code spans or fenced blocks, images, and reference-link definitions
 are not citations. `[References](../references.md)` is navigation, not a citation.
 Body citation keys must match between an English page and its `_ZH` counterpart
@@ -161,7 +161,7 @@ when both exist. Each ref page needs at least one body citation.
 
 The final H2 must be exactly `## References` or `## 参考文献`, appear once, and
 contain exactly the generated introduction and entries. Each entry has an
-explicit `<a id="ref-key"></a>` anchor and the complete paragraph from the
+explicit HTML anchor whose id is `ref-` plus the key, and the complete paragraph from the
 appropriate global catalog, in English catalog order. The generator rebases
 relative links, excludes global usage lines, and ends the file with one newline.
 Every entry must be cited in the body; every body citation must resolve in this
