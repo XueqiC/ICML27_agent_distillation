@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:45 CDT 10-12: hpg dept /blue full (18.24T/20T) — cleanup coordinated by hq (control plane); tc gave a list only.**
+  Live dependencies (never delete): tc-alignment/envs/ (vllm-serve venv = VLLM_PYTHON, alfworld data), tc-alignment-vllm/,
+  tools/hf-cache, tools/uv-pythons, ICML27_*; on yd24f: /blue/yd24f.fsu/xc25.fsu/hq/tc-alignment/.venv (TRAIN_PYTHON; the
+  dept path is a symlink) and /blue/yd24f.fsu/xc25.fsu/hq/tools/uv-pythons. tc-alignment/results/appworld_students (1.2T)
+  and similar dirs hold ~1.5T of Qwen3.5-4B student weights: FROZEN until the user decides (/orange, rai, or delete; his
+  09-23 "move everything Qwen" missed them). If hub_merged dirs are ever deleted: alfabl_CE_conseq_s0, crcd_hyb_stage1_s0,
+  crcd_r2_b3pref_s0 hub_merged are training bases of 7 downstream students — re-export them before any downstream retrain;
+  re-export needs Qwen3.5-4B @851bf6e (only on rai now). RTD dirs (9, 70G) re-merge from results/rtd_v1/*/round-N/lora.
+  To do myself after sdl's rsync finishes: delete tools/vllm-cache (8.8G torch.compile cache; hq agreed).
 - **20:40 CDT 10-12: teacher collection RUNNING with the new key** (user sent it 20:16 CDT, valid 30 days; sha8 c43d7f3d; in
   rai llm_apis.env and hpg secrets/openai.env, old files kept as .bak-20261012-oldopenai). teacher-r1 45727129 (tree 9cf3201,
   run IDs r03-r1-p2-k2 / r03-r1-p4-k2 — the old run ID is halted by its 401 by design): P2 400/600 success, 0 failed.
