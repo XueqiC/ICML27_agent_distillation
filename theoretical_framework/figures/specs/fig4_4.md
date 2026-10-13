@@ -8,7 +8,7 @@
 
 ## Panel (a) — "p^16 and its low-order Chebyshev truncations" (recomputed exactly)
 
-Data: compute (32) in the script for $`N=16`$. Coefficients are $`a_0=4^{-N}\binom{2N}{N}`$ and $`a_j=2\cdot4^{-N}\binom{2N}{N-j}`$ for $`j\ge1`$. The truncation is $`h_q(p)=\sum_{j\le q}a_jT_j(2p-1)`$; use `numpy.polynomial.chebyshev.chebval`.
+Data: compute the Chebyshev expansion (4.7) of [Proposition 4.6](../../statements/04-06_exact_order_not_approximate_complexity.md#s4-6) in the script for $`N=16`$. Coefficients are $`a_0=4^{-N}\binom{2N}{N}`$ and $`a_j=2\cdot4^{-N}\binom{2N}{N-j}`$ for $`j\ge1`$. The truncation is $`h_q(p)=\sum_{j\le q}a_jT_j(2p-1)`$; use `numpy.polynomial.chebyshev.chebval`.
 
 Plot:
 

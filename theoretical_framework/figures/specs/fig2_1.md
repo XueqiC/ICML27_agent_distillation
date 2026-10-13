@@ -35,7 +35,7 @@
 
 - $`D_\varepsilon`$ is $`D`$ passed through a binary symmetric channel with flip probability $`\varepsilon`$. Use 101 grid points.
 - Horizontal dashed lines at $`\mathcal R_{\rm info}(D)`$ ($`\varepsilon=0`$) and at the no-data value $`\mathbb EJ^\Pi-\max_\pi\mathbb EJ(\pi)`$, which is attained at $`\varepsilon=\tfrac12`$.
-- Caption note: "monotone: a garbling can only raise the information term (Prop. 1.4)".
+- Caption note: "monotone: a garbling can only raise the information term (Proposition 2.4)".
 - Axes: "flip probability ε", "information regret".
 
 **Panel (c): minimax duality on the package instance.**
@@ -46,7 +46,7 @@
 - Mark the common value $`0.1`$ at $`\rho=\mu=\tfrac12`$ with a dot, labelled "primal = dual = 0.1 (JSON: robust_ambiguity_minimax)".
 - Axes: "mixture weight", "regret".
 
-**Caption.** (a) Exact regret decomposition for four learners on one finite problem: the learner changes only the algorithm term. (b) Garbling the transcript never lowers the information term; monotone: a garbling can only raise the information term (Prop. 1.4). (c) Robust ambiguity: min over policy mixtures equals max over priors.
+**Caption.** (a) Exact regret decomposition for four learners on one finite problem: the learner changes only the algorithm term. (b) Garbling the transcript never lowers the information term; monotone: a garbling can only raise the information term (Proposition 2.4). (c) Robust ambiguity: min over policy mixtures equals max over priors.
 
 ## References
 

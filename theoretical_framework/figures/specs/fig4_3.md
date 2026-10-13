@@ -4,7 +4,7 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
-**Message:** the discrepancy decays only with *independent* blocks, at exactly the exponent set by the first unmatched cumulant. Replay and descendants do not decay. The Thm. 14 bound never grows with R.
+**Message:** the discrepancy decays only with *independent* blocks, at exactly the exponent set by the first unmatched cumulant. Replay and descendants do not decay. The bound of Theorem 4.5(a) never grows with R.
 
 ## Panel (a) — "Independent evidence vs exposure" (log-log)
 
@@ -34,7 +34,7 @@ Plot:
 - A horizontal reference at 1.
 - Axes: $`x`$ "independent blocks n", $`y`$ "n^{r−1}·gap / predicted coefficient". Title: "(b) Leading term = ⟨D^r J, Δκ_r⟩ / (r! n^{r−1})".
 
-## Panel (c) — "Thm 14 bound is uniform in R"
+## Panel (c) — "Theorem 4.5(a) bound is uniform in R"
 
 Data: claim `C10`:
 
@@ -50,7 +50,7 @@ Plot:
 - A single y-axis "gap or ratio" from 0 to 1.1 is acceptable, since both quantities are dimensionless and in [0,1]. Do not use a dual axis.
 - Title: "(c) |gap| ≤ C_J δ_N, independent of R".
 
-**Caption.** Theorems 14–15 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). (b) the leading coefficient equals the first-unmatched-cumulant contraction in all 6 cases; a zero contraction removes the leading term (C11). (c) the round-independent bound holds for R up to 50 and is nearly tight (C10).
+**Caption.** Theorem 4.5 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). (b) the leading coefficient equals the first-unmatched-cumulant contraction in all 6 cases; a zero contraction removes the leading term (C11). (c) the round-independent bound holds for R up to 50 and is nearly tight (C10).
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). Panel (b) evaluates the stored exact gap polynomials with SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)); their leading coefficient is the contraction with the first unmatched joint cumulant ([Leonov & Shiryaev, 1959](#ref-leonov1959method)) of [Theorem 4.5(b)](../../statements/04-05_round_independent_bound_averaging_rates.md#s4-5).
 

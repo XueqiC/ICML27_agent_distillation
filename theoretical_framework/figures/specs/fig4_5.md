@@ -12,7 +12,7 @@
 - Colorbar label: "log10 max |actual − affine| gap deviation".
 - Annotate: "agreement margin = 1e-4 + 0.1|pred| + 4 SE".
 
-**Panel B — "Expansion (35): remainder vs η³ bound".**
+**Panel B — "Expansion (4.9): remainder vs η³ bound".**
 - Data: `claims[id=C13].details.logistic` (60 rows: `eta`, `remainder`, `bound`).
 - Log-log scatter, x = `bound`, y = `remainder`, colored by `eta`.
 - Dashed line y = x; text "max remainder/bound = 0.274" (`claims[id=C13].best_ratio`).
@@ -24,7 +24,7 @@
 - Plot both on a linear y-axis; mark $`R=4`$ with "e_4 = 65/32 > 1".
 - Inset text: "squaring witness: gaps −1, 1/4, 3/256, 315/16777216 at R=1..4" from `claims[id=C13].details.amplification`.
 
-**Caption.** Left: the tangent affine-SGD prediction matches the actual controlled network for η≤0.1 and short horizons, and fails at η≥1. Middle: the third-order remainder of (35) stays below its bound. Right: per-step errors accumulate geometrically; the linear-in-R reading fails without a stability condition.
+**Caption.** Left: the tangent affine-SGD prediction matches the actual controlled network for η≤0.1 and short horizons, and fails at η≥1. Middle: the third-order remainder of (4.9) stays below its bound. Right: per-step errors accumulate geometrically; the linear-in-R reading fails without a stability condition.
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). Panel B checks the third-order remainder of the one-step SGD expansion of [Theorem 4.7(d)](../../statements/04-07_update_composition_amplifies_information_requirement.md#s4-7), the expansion behind weak approximations of SGD by stochastic modified equations ([Li et al., 2019](#ref-li2019stochastic)).
 

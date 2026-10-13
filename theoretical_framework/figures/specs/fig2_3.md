@@ -41,7 +41,7 @@
 - Optionally hatch direction 1 next to them.
 - Axes: "K", "nats".
 
-**Caption.** (a) Exact hidden-bit risk (m=8, uniform): targeted queries beat equal numbers of extra demonstrations; replay adds nothing. (b) Adam/SGD learners never go below the information floor. (c) Demonstration plus query KL always covers kl(1−δ, δ) (A15).
+**Caption.** (a) Exact hidden-bit risk (m=8, uniform): targeted queries beat equal numbers of extra demonstrations; replay adds nothing. (b) Adam/SGD learners never go below the information floor. (c) Demonstration plus query KL always covers kl(1−δ, δ) (2.11).
 
 ## References
 

@@ -9,8 +9,8 @@
 - **Data:** `theory/independent_checks/results_independent_v014.json`, the `claims` entry with `id == "C16"`, field `details.configurations`. There are 5 rows with fields `R`, `M`, `n`, `delta`, `gain`, `SE` and `expected_sum_B`.
 - **Plot:** x = configuration index, with tick labels "R=1,M=2,n=8,δ=.4" and so on.
   - Gain as a point with a ±2·SE error bar.
-  - Bound (44), y = −δ: short horizontal dashes.
-  - Bound (45), y = expected_sum_B − 2δ: short horizontal dashes in a second style.
+  - First bound of Theorem 8.3(c)(ii), y = −δ: short horizontal dashes; legend "Thm 8.3(c), first: −δ".
+  - Second bound of Theorem 8.3(c)(ii), y = expected_sum_B − 2δ: short horizontal dashes in a second style; legend "Thm 8.3(c), second: E ΣB − 2δ".
   - A thin y = 0 line. Use a linear y-axis; the range covers −0.85 to 0.2, so the bounds are visible.
   - The last configuration (n=1000) gets a direct label "selects the good candidate: +0.136".
 - **Title:** "C16: gain ≥ −δ and ≥ E ΣB − 2δ (100k runs each)".

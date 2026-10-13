@@ -6,7 +6,7 @@
 
 **Message:** the worst feature-matched pair of laws separates a response by *exactly* twice its uniform distance to the feature span.
 
-## Panel (a) — "Thm 8(b) on a 5-point alphabet" (exact, recomputed in the script)
+## Panel (a) — "Theorem 4.2(b) on a 5-point alphabet" (exact, recomputed in the script)
 
 Data, computed exactly with `fractions.Fraction`; no external file is needed:
 
@@ -41,9 +41,9 @@ Plot:
 - The identity line $`y=x`$ (dashed gray), with axes from $`0`$ to $`0.55`$.
 - Annotation: "max |discrepancy − 2·error| = …", computed in the script from the same entries (expected $`1.6\times10^{-15}`$).
 - Second annotation from `claims[id=C5].details.max_duality_residual`: "C5: 300 random instances, max residual 2.2e-14".
-- Axes: $`x`$ "2 × best uniform approximation error (LP)", $`y`$ "worst-pair discrepancy (primal LP)". Title: "(b) Equality (20) across tested subspaces".
+- Axes: $`x`$ "2 × best uniform approximation error (LP)", $`y`$ "worst-pair discrepancy (primal LP)". Title: "(b) Equality (4.2) across tested subspaces".
 
-**Caption.** Thm 8(b): for feature-matched laws, the largest response gap equals twice the uniform distance of the response to the feature span. (a) exact 5-point example; (b) independent primal/dual LPs on all C19 subspaces (and C5’s 300 random instances).
+**Caption.** Theorem 4.2(b): for feature-matched laws, the largest response gap equals twice the uniform distance of the response to the feature span. (a) exact 5-point example; (b) independent primal/dual LPs on all C19 subspaces (and C5’s 300 random instances).
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). The equality in panel (b) is the linear-programming duality of [Theorem 4.2(b)](../../statements/04-02_sufficiency_duality_transfer.md#s4-2) ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)); both linear programs behind the stored results were solved by SciPy's `linprog` ([Virtanen et al., 2020](#ref-virtanen2020scipy)) with HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
 

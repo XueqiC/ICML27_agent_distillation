@@ -15,8 +15,8 @@ Data:
 
 Plot:
 
-- Semilog-$`y`$. Series 1 is $`\lvert\Delta_N\rvert`$ with markers, labelled "scalar witness (26): lower moments equal".
-- Series 2 is the constant 1 at $`N=1,\dots,8`$, with markers, labelled "parity witness (27): all degree < N moments equal".
+- Semilog-$`y`$. Series 1 is $`\lvert\Delta_N\rvert`$ with markers, labelled "scalar witness, Thm 4.4(c): lower moments equal".
+- Series 2 is the constant 1 at $`N=1,\dots,8`$, with markers, labelled "parity witness, Thm 4.4(c): all degree < N moments equal".
 - Overlay the closed form $`N!/(2^{N-1}N^N)`$ as a thin dashed curve on the same $`N`$ grid, computed in the script, to show the exact match.
 - Axes: $`x`$ "order N", $`y`$ "learning-value gap |E_P J − E_Q J|". Title: "(a) Each order is needed".
 
@@ -43,7 +43,7 @@ Plot:
 - Use a linear $`x`$-axis from 0 to 15.
 - Axes: $`x`$ "number of nonconstant features d", $`y`$ "worst-pair discrepancy". Title: "(c) Fewer than 2^k − 1 features: error 1".
 
-**Caption.** Theorems 11–13 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); parity laws keep gap 1 (package check). (b) the monomial evaluation rank on the grid equals C(k+N, N) in all 18 configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2ᵏ − 1 features leaves worst-case error 1 (C9).
+**Caption.** Theorem 4.4 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); parity laws keep gap 1 (package check). (b) the monomial evaluation rank on the grid equals C(k+N, N) in all 18 configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2ᵏ − 1 features leaves worst-case error 1 (C9).
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). The parity witness of panel (a) and the binary barrier of panel (c) are Fourier facts on the Boolean cube ([O'Donnell, 2014](#ref-odonnell2014analysis)); see [Theorem 4.4](../../statements/04-04_affine_learners_moment_order.md#s4-4).
 

@@ -4,7 +4,7 @@
 
 **Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
-**Message.** No strategy beats the query lower bound (8), a change-of-measure bound ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)). An optimal SPRT ([Wald, 1945](#ref-wald1945sequential)) sits essentially on it, the sufficient fixed $`n`$ of (9) lies above, and a passive learner is stuck at regret $`\Delta`$.
+**Message.** No strategy beats the query lower bound (2.6) of Theorem 2.6(b), a change-of-measure bound ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)). An optimal SPRT ([Wald, 1945](#ref-wald1945sequential)) sits essentially on it, the sufficient fixed $`n`$ of Theorem 2.6(c) lies above, and a passive learner is stuck at regret $`\Delta`$.
 
 **Data.** `theory/independent_checks/results_independent_v014.json` → the entry of `claims` with `id == "C2"` → `details.configurations`. Each row has `Delta`, `delta` (rational strings), `bound8`, `min_fixed_n`, `sprt_expected_n`, `n9`, `fixed_ratio` and `sprt_ratio`.
 
@@ -12,7 +12,7 @@
 
 - The x values are $`1/\Delta^2`$, i.e. 64, 100, 256, 1024, 4096.
 - Four series:
-  - bound (8) (`bound8`), black solid;
+  - bound (2.6) (`bound8`), black solid;
   - SPRT expected queries (`sprt_expected_n`), blue markers and line;
   - smallest successful fixed-$`n`$ test (`min_fixed_n`), orange markers;
   - sufficient $`n_9`$ (`n9`), grey dashed.
@@ -21,9 +21,9 @@
 **Panel (b): ratios to the bound for all 25 configurations.**
 
 - Scatter of `sprt_ratio` (blue circles) and `fixed_ratio` (orange squares) against configuration index. Group the index by $`\delta`$, with vertical separators labelled δ=0.01 … 0.4, and order by $`\Delta`$ within each group.
-- Horizontal line at 1, labelled "lower bound (8)".
+- Horizontal line at 1, labelled "lower bound (2.6)".
 - Highlight the points with `sprt_ratio == 1.0`, labelled "SPRT attains the bound".
-- Y axis: "queries / bound (8)", log scale from 0.9 to 8.
+- Y axis: "queries / bound (2.6)", log scale from 0.9 to 8.
 
 **Panel (c): passive impossibility for $`\Delta=1/8`$.**
 
@@ -31,7 +31,7 @@
 - Horizontal dashed line at $`\Delta`$, with the minimum at $`m=\tfrac12`$ marked.
 - Axes: "mean output E p̂", "expected regret".
 
-**Caption.** (a)–(b) Exact query counts: the SPRT meets the KL lower bound (8), fixed-sample tests and the sufficient n of (9) lie above it, and no strategy falls below. (c) Any passive learner has worst-case regret at least Δ.
+**Caption.** (a)–(b) Exact query counts: the SPRT meets the KL lower bound (2.6) of Theorem 2.6(b), fixed-sample tests and the sufficient n of Theorem 2.6(c) lie above it, and no strategy falls below. (c) Any passive learner has worst-case regret at least Δ.
 
 ## References
 

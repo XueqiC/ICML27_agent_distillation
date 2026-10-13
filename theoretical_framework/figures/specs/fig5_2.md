@@ -15,7 +15,7 @@
 - Horizontal bars of `gap` for R=1 and R=4 side by side, for variants in this order: baseline, inside_sqrt, epsilon_1e-06, epsilon_0.0001, epsilon_0.01, epsilon_0.1, no_bias_correction, global_clip_0.1, sum_reduction, warm_5, shift_support.
 - Highlight warm_5 and shift_support.
 
-**Panel C — "Same signs, different memory (A4)".**
+**Panel C — "Same signs, different memory (Prop. 5.3(e))".**
 - Data: `groups[id=V4].data.exact` (two branches). Use θ0 = 0 and η = 1.
 - Plot θ for steps t = 0, 1, 2. Branch G1=1: θ1 = −1, θ2 = −1 + `delta2` (=+√102/51). Branch G1=2: θ2 = −1 − √246/123.
 - Annotate $`\widehat m_2=\mp1/6`$ and $`\widehat v_2=17/24, 41/24`$.

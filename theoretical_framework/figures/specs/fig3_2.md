@@ -17,10 +17,10 @@
 - Compute $`V_t^0`$ backward, $`d_t^S`$ forward, and $`c_t=d_t^S(K^0-K^S)V_{t+1}^0`$ for $`t=0,\dots,5`$.
 - Bar chart of $`c_t`$ against $`t`$, with positive and negative bars coloured differently.
 - Horizontal line at the total $`L(0)-L(S)=\nu V_0^0-d_R^SF`$. Annotate "Σ c_t = L(0) − L(S) exactly", and print both numbers to 6 decimals.
-- Grey hatched marker or second line for $`\sum_td_t^S\lvert(K^0-K^S)V_{t+1}^0\rvert`$, labelled "bound (15)".
+- Grey hatched marker or second line for $`\sum_td_t^S\lvert(K^0-K^S)V_{t+1}^0\rvert`$, labelled "bound (3.3)".
 - Axes: "round t", "drift contribution".
 
-**Panel (b): one-boundary equivalence (16).**
+**Panel (b): one-boundary equivalence (3.4).**
 
 - Laws $`P=(\tfrac12,0,\tfrac12)`$ and $`Q=(0,1,0)`$ on a 3-message alphabet.
 - Three responses: $`g_1=(1,1,1)`$, $`g_2=(0,\tfrac12,1)`$, $`g_3=(0,0,1)`$.
@@ -35,7 +35,7 @@
 - Text: "final gap = 0, Σ|drift| = 2 (JSON claims[C4].details.cancellation_absolute_drift)".
 - Axes: "round", "drift".
 
-**Caption.** (a) The learning-value gap equals the occupancy-weighted sum of per-round response discrepancies (14), bounded by their absolute sum (15). (b) Two laws are interchangeable for one-boundary replacements exactly when they agree on every response (16). (c) Per-round discrepancies can cancel, so matching one final mean does not require pointwise matching.
+**Caption.** (a) The learning-value gap equals the occupancy-weighted sum of per-round response discrepancies (3.2), bounded by their absolute sum (3.3). (b) Two laws are interchangeable for one-boundary replacements exactly when they agree on every response (3.4). (c) Per-round discrepancies can cancel, so matching one final mean does not require pointwise matching.
 
 ## References
 

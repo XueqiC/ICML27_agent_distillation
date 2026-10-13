@@ -2486,7 +2486,7 @@
         "fontsize_px_at_900": 17.5
       },
       {
-        "text": "bound (8)",
+        "text": "bound (2.6)",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -2501,7 +2501,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "sufficient n (9)",
+        "text": "sufficient n, Thm 2.6(c)",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -2566,7 +2566,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "queries / bound (8)",
+        "text": "queries / bound (2.6)",
         "fontsize_pt": 14.0,
         "fontsize_px_at_900": 17.5
       },
@@ -3056,7 +3056,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "lower bound (8)",
+        "text": "lower bound (2.6)",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -3530,13 +3530,13 @@
         ]
       },
       {
-        "text": "bound (8)",
+        "text": "bound (2.6)",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
           1329.229,
           3483.376,
-          1573.104,
+          1620.854,
           3531.376
         ]
       },
@@ -3563,13 +3563,13 @@
         ]
       },
       {
-        "text": "sufficient n (9)",
+        "text": "sufficient n, Thm 2.6(c)",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
           1329.229,
           3264.376,
-          1693.854,
+          1911.854,
           3312.376
         ]
       },
@@ -3640,14 +3640,14 @@
         ]
       },
       {
-        "text": "queries / bound (8)",
+        "text": "queries / bound (2.6)",
         "axes": null,
         "fontsize_pt": 14.0,
         "bbox": [
           41.779,
-          2356.688,
+          2328.875,
           98.779,
-          2914.938
+          2942.75
         ]
       },
       {
@@ -3695,13 +3695,13 @@
         ]
       },
       {
-        "text": "lower bound (8)",
+        "text": "lower bound (2.6)",
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
           1373.042,
           1720.428,
-          1769.667,
+          1817.417,
           1768.428
         ]
       },
@@ -6434,102 +6434,102 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n0.01",
+        "text": "3.1(a)\nSGD\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n0.01",
+        "text": "3.1(a)\nSGD\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n0.1",
+        "text": "3.1(a)\nSGD\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n0.1",
+        "text": "3.1(a)\nSGD\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n1",
+        "text": "3.1(a)\nSGD\n1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nSGD\n1",
+        "text": "3.1(a)\nSGD\n1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nAdam\n0.01",
+        "text": "3.1(a)\nAdam\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nAdam\n0.01",
+        "text": "3.1(a)\nAdam\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nAdam\n0.1",
+        "text": "3.1(a)\nAdam\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop5\nAdam\n0.1",
+        "text": "3.1(a)\nAdam\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n0.01",
+        "text": "3.1(b)\nSGD\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n0.01",
+        "text": "3.1(b)\nSGD\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n0.1",
+        "text": "3.1(b)\nSGD\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n0.1",
+        "text": "3.1(b)\nSGD\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n1",
+        "text": "3.1(b)\nSGD\n1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nSGD\n1",
+        "text": "3.1(b)\nSGD\n1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nAdam\n0.01",
+        "text": "3.1(b)\nAdam\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nAdam\n0.01",
+        "text": "3.1(b)\nAdam\n0.01",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nAdam\n0.1",
+        "text": "3.1(b)\nAdam\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Prop6\nAdam\n0.1",
+        "text": "3.1(b)\nAdam\n0.1",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -7833,112 +7833,112 @@
         ]
       },
       {
-        "text": "Prop5\nSGD\n0.01",
+        "text": "3.1(a)\nSGD\n0.01",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          415.531,
+          412.531,
           478.885,
-          558.406,
+          561.406,
           638.085
         ]
       },
       {
-        "text": "Prop5\nSGD\n0.1",
+        "text": "3.1(a)\nSGD\n0.1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          669.089,
+          666.089,
           478.885,
-          811.964,
+          814.964,
           638.085
         ]
       },
       {
-        "text": "Prop5\nSGD\n1",
+        "text": "3.1(a)\nSGD\n1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          922.647,
+          919.647,
           478.885,
-          1065.522,
+          1068.522,
           638.085
         ]
       },
       {
-        "text": "Prop5\nAdam\n0.01",
+        "text": "3.1(a)\nAdam\n0.01",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1175.392,
+          1173.205,
           478.885,
-          1319.892,
+          1322.08,
           638.085
         ]
       },
       {
-        "text": "Prop5\nAdam\n0.1",
+        "text": "3.1(a)\nAdam\n0.1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1428.95,
+          1426.763,
           478.885,
-          1573.45,
+          1575.638,
           638.085
         ]
       },
       {
-        "text": "Prop6\nSGD\n0.01",
+        "text": "3.1(b)\nSGD\n0.01",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1683.258,
+          1679.758,
           478.885,
-          1826.258,
+          1829.758,
           638.085
         ]
       },
       {
-        "text": "Prop6\nSGD\n0.1",
+        "text": "3.1(b)\nSGD\n0.1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1936.816,
+          1933.316,
           478.885,
-          2079.816,
+          2083.316,
           638.085
         ]
       },
       {
-        "text": "Prop6\nSGD\n1",
+        "text": "3.1(b)\nSGD\n1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2190.374,
+          2186.874,
           478.885,
-          2333.374,
+          2336.874,
           638.085
         ]
       },
       {
-        "text": "Prop6\nAdam\n0.01",
+        "text": "3.1(b)\nAdam\n0.01",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2443.182,
+          2440.432,
           478.885,
-          2587.682,
+          2590.432,
           638.085
         ]
       },
       {
-        "text": "Prop6\nAdam\n0.1",
+        "text": "3.1(b)\nAdam\n0.1",
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2696.74,
+          2693.99,
           478.885,
-          2841.24,
+          2843.99,
           638.085
         ]
       },
@@ -8233,7 +8233,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "bound (15) = 0.119081",
+        "text": "bound (3.3) = 0.119081",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -8348,7 +8348,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "(b) One-boundary equivalence (16)",
+        "text": "(b) One-boundary equivalence (3.4)",
         "fontsize_pt": 15.0,
         "fontsize_px_at_900": 18.75
       },
@@ -8820,20 +8820,20 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1391.854,
+          1383.917,
           3281.023,
-          1939.479,
+          1931.542,
           3329.023
         ]
       },
       {
-        "text": "bound (15) = 0.119081",
+        "text": "bound (3.3) = 0.119081",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1391.854,
+          1383.917,
           3208.023,
-          1979.104,
+          1987.042,
           3256.023
         ]
       },
@@ -8948,13 +8948,13 @@
         ]
       },
       {
-        "text": "(b) One-boundary equivalence (16)",
+        "text": "(b) One-boundary equivalence (3.4)",
         "axes": 1,
         "fontsize_pt": 15.0,
         "bbox": [
-          1077.104,
+          1067.104,
           3094.954,
-          2178.854,
+          2188.854,
           3154.954
         ]
       },
@@ -9459,7 +9459,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "(b) Equality (20) across tested subspaces",
+        "text": "(b) Equality (4.2) across tested subspaces",
         "fontsize_pt": 15.0,
         "fontsize_px_at_900": 18.75
       },
@@ -10005,13 +10005,13 @@
         ]
       },
       {
-        "text": "(b) Equality (20) across tested subspaces",
+        "text": "(b) Equality (4.2) across tested subspaces",
         "axes": 1,
         "fontsize_pt": 15.0,
         "bbox": [
-          964.604,
+          954.667,
           1640.448,
-          2259.479,
+          2269.417,
           1700.448
         ]
       },
@@ -10272,12 +10272,12 @@
         "fontsize_px_at_900": 17.5
       },
       {
-        "text": "scalar witness (26):\nlower moments equal",
+        "text": "scalar witness, Thm 4.4(c):\nlower moments equal",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "parity witness (27):\nall degree < N moments equal",
+        "text": "parity witness, Thm 4.4(c):\nall degree < N moments equal",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -11929,18 +11929,18 @@
         ]
       },
       {
-        "text": "scalar witness (26):\nlower moments equal",
+        "text": "scalar witness, Thm 4.4(c):\nlower moments equal",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
           1285.971,
           3446.12,
-          1829.721,
+          1961.846,
           3549.72
         ]
       },
       {
-        "text": "parity witness (27):\nall degree < N moments equal",
+        "text": "parity witness, Thm 4.4(c):\nall degree < N moments equal",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
@@ -17201,7 +17201,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Expansion (35): remainder vs η³ bound",
+        "text": "Expansion (4.9): remainder vs η³ bound",
         "fontsize_pt": 15.0,
         "fontsize_px_at_900": 18.75
       },
@@ -18081,13 +18081,13 @@
         ]
       },
       {
-        "text": "Expansion (35): remainder vs η³ bound",
+        "text": "Expansion (4.9): remainder vs η³ bound",
         "axes": 1,
         "fontsize_pt": 15.0,
         "bbox": [
-          985.898,
+          976.086,
           3062.091,
-          2209.273,
+          2219.086,
           3122.091
         ]
       },
@@ -21233,7 +21233,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Same signs, different memory ",
+        "text": "Same signs, different memory (Prop. 5.3(e))",
         "fontsize_pt": 15.0,
         "fontsize_px_at_900": 18.75
       },
@@ -22066,13 +22066,13 @@
         ]
       },
       {
-        "text": "Same signs, different memory ",
+        "text": "Same signs, different memory (Prop. 5.3(e))",
         "axes": 2,
         "fontsize_pt": 15.0,
         "bbox": [
-          1255.833,
+          1048.958,
           1557.079,
-          2221.458,
+          2428.333,
           1617.079
         ]
       },
@@ -24411,7 +24411,7 @@
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "Controlled small network, not a real-model result; warm-Adam affine bound is an empirical consistency check.",
+        "text": "Controlled small network, not a real-model result; the Prop. 5.6 check is empirical.",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -24580,9 +24580,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1056.151,
+          1064.829,
           4549.67,
-          1840.776,
+          1849.454,
           4708.87
         ]
       },
@@ -24591,9 +24591,9 @@
         "axes": null,
         "fontsize_pt": 14.0,
         "bbox": [
-          1331.298,
+          1345.762,
           3556.882,
-          1847.673,
+          1862.137,
           3613.882
         ]
       },
@@ -24613,9 +24613,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1294.681,
+          1306.119,
           3630.549,
-          1326.431,
+          1337.869,
           3678.549
         ]
       },
@@ -24624,9 +24624,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1580.349,
+          1594.885,
           3630.549,
-          1612.099,
+          1626.635,
           3678.549
         ]
       },
@@ -24635,9 +24635,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1957.981,
+          1976.614,
           3630.549,
-          1989.731,
+          2008.364,
           3678.549
         ]
       },
@@ -24646,9 +24646,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2227.774,
+          2249.505,
           3630.549,
-          2291.274,
+          2313.005,
           3678.549
         ]
       },
@@ -24657,9 +24657,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2513.441,
+          2538.272,
           3630.549,
-          2576.941,
+          2601.772,
           3678.549
         ]
       },
@@ -24668,9 +24668,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2891.074,
+          2920.0,
           3630.549,
-          2954.574,
+          2983.5,
           3678.549
         ]
       },
@@ -24745,9 +24745,9 @@
         "axes": 0,
         "fontsize_pt": 15.0,
         "bbox": [
-          1215.173,
+          1229.637,
           4768.5,
-          1963.798,
+          1978.262,
           4828.5
         ]
       },
@@ -24756,9 +24756,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1288.923,
+          1303.387,
           3412.65,
-          1397.048,
+          1411.512,
           3460.65
         ]
       },
@@ -24767,9 +24767,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1288.923,
+          1303.387,
           3339.65,
-          1397.048,
+          1411.512,
           3387.65
         ]
       },
@@ -24778,9 +24778,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1288.923,
+          1303.387,
           3266.65,
-          1428.798,
+          1443.262,
           3314.65
         ]
       },
@@ -24789,9 +24789,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1588.798,
+          1603.262,
           3412.65,
-          1925.798,
+          1940.262,
           3460.65
         ]
       },
@@ -24800,9 +24800,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1588.798,
+          1603.262,
           3339.65,
-          1861.923,
+          1876.387,
           3387.65
         ]
       },
@@ -24811,9 +24811,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1588.798,
+          1603.262,
           3266.65,
-          2005.048,
+          2019.512,
           3314.65
         ]
       },
@@ -24822,9 +24822,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          362.815,
+          363.972,
           2210.032,
-          993.315,
+          994.472,
           2258.032
         ]
       },
@@ -24833,9 +24833,9 @@
         "axes": null,
         "fontsize_pt": 14.0,
         "bbox": [
-          1264.173,
+          1278.637,
           1940.36,
-          1914.798,
+          1929.262,
           1997.36
         ]
       },
@@ -24844,9 +24844,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          738.792,
+          744.49,
           2014.027,
-          824.013,
+          829.71,
           2063.727
         ]
       },
@@ -24855,9 +24855,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1546.751,
+          1561.214,
           2014.727,
-          1632.221,
+          1646.684,
           2063.727
         ]
       },
@@ -24866,9 +24866,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2354.897,
+          2378.125,
           2014.027,
-          2440.242,
+          2463.471,
           2063.727
         ]
       },
@@ -24943,9 +24943,9 @@
         "axes": 1,
         "fontsize_pt": 15.0,
         "bbox": [
-          859.548,
+          874.012,
           3153.678,
-          2319.423,
+          2333.887,
           3213.678
         ]
       },
@@ -24954,9 +24954,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          887.361,
+          901.824,
           1797.827,
-          1092.111,
+          1106.574,
           1845.827
         ]
       },
@@ -24965,9 +24965,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          887.361,
+          901.824,
           1724.827,
-          1123.861,
+          1138.324,
           1772.827
         ]
       },
@@ -24976,9 +24976,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          1283.861,
+          1298.324,
           1797.827,
-          1552.111,
+          1566.574,
           1845.827
         ]
       },
@@ -24987,9 +24987,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          1283.861,
+          1298.324,
           1724.827,
-          1583.861,
+          1598.324,
           1772.827
         ]
       },
@@ -24998,9 +24998,9 @@
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
-          1743.861,
+          1758.324,
           1797.827,
-          2406.611,
+          2421.074,
           1845.827
         ]
       },
@@ -25009,9 +25009,9 @@
         "axes": 2,
         "fontsize_pt": 12.0,
         "bbox": [
-          336.148,
+          337.016,
           1393.025,
-          1142.773,
+          1143.641,
           1552.225
         ]
       },
@@ -25020,9 +25020,9 @@
         "axes": null,
         "fontsize_pt": 14.0,
         "bbox": [
-          1476.298,
+          1490.762,
           398.537,
-          1702.673,
+          1717.137,
           455.537
         ]
       },
@@ -25031,9 +25031,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          573.014,
+          577.193,
           472.204,
-          709.828,
+          714.008,
           521.904
         ]
       },
@@ -25042,9 +25042,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1076.005,
+          1085.524,
           472.904,
-          1191.302,
+          1200.821,
           521.904
         ]
       },
@@ -25053,9 +25053,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          1568.55,
+          1583.409,
           472.204,
-          1683.222,
+          1698.08,
           521.904
         ]
       },
@@ -25064,9 +25064,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2060.783,
+          2080.981,
           472.204,
-          2175.455,
+          2195.652,
           521.904
         ]
       },
@@ -25075,9 +25075,9 @@
         "axes": null,
         "fontsize_pt": 12.0,
         "bbox": [
-          2552.953,
+          2578.49,
           472.904,
-          2667.75,
+          2693.287,
           521.904
         ]
       },
@@ -25152,9 +25152,9 @@
         "axes": 2,
         "fontsize_pt": 15.0,
         "bbox": [
-          1012.798,
+          1027.262,
           1611.855,
-          2166.173,
+          2180.637,
           1671.855
         ]
       },
@@ -25163,9 +25163,9 @@
         "axes": 2,
         "fontsize_pt": 12.0,
         "bbox": [
-          1369.611,
+          1384.074,
           256.005,
-          1554.111,
+          1568.574,
           304.005
         ]
       },
@@ -25174,9 +25174,9 @@
         "axes": 2,
         "fontsize_pt": 12.0,
         "bbox": [
-          1369.611,
+          1384.074,
           183.005,
-          1522.361,
+          1536.824,
           231.005
         ]
       },
@@ -25185,9 +25185,9 @@
         "axes": 2,
         "fontsize_pt": 12.0,
         "bbox": [
-          1714.111,
+          1728.574,
           256.005,
-          1924.361,
+          1938.824,
           304.005
         ]
       },
@@ -25196,20 +25196,20 @@
         "axes": 2,
         "fontsize_pt": 12.0,
         "bbox": [
-          1714.111,
+          1728.574,
           183.005,
-          1860.486,
+          1874.949,
           231.005
         ]
       },
       {
-        "text": "Controlled small network, not a real-model result; warm-Adam affine bound is an empirical consistency check.",
+        "text": "Controlled small network, not a real-model result; the Prop. 5.6 check is empirical.",
         "axes": 3,
         "fontsize_pt": 12.0,
         "bbox": [
-          206.861,
+          572.199,
           49.266,
-          2972.111,
+          2635.699,
           97.266
         ]
       }
@@ -49850,12 +49850,12 @@
         "fontsize_px_at_900": 17.5
       },
       {
-        "text": "bound (44): −δ",
+        "text": "Thm 8.3(c), first: −δ",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
       {
-        "text": "bound (45): E ΣB − 2δ",
+        "text": "Thm 8.3(c), second: E ΣB − 2δ",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -51007,24 +51007,24 @@
         ]
       },
       {
-        "text": "bound (44): −δ",
+        "text": "Thm 8.3(c), first: −δ",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1406.604,
+          1303.042,
           3316.981,
-          1787.479,
+          1810.792,
           3364.981
         ]
       },
       {
-        "text": "bound (45): E ΣB − 2δ",
+        "text": "Thm 8.3(c), second: E ΣB − 2δ",
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1406.604,
+          1303.042,
           3243.981,
-          1964.354,
+          2067.917,
           3291.981
         ]
       },
@@ -51033,9 +51033,9 @@
         "axes": 0,
         "fontsize_pt": 12.0,
         "bbox": [
-          1406.604,
+          1303.042,
           3170.981,
-          1698.979,
+          1595.417,
           3218.981
         ]
       },
@@ -58221,7 +58221,7 @@
         "fontsize_px_at_900": 17.5
       },
       {
-        "text": "C17: 320 random tables;\n(46) slack median 0.23,\nmax 0.71",
+        "text": "C17: 320 random tables;\nProp. 9.1(b) slack median 0.23,\nmax 0.71",
         "fontsize_pt": 12.0,
         "fontsize_px_at_900": 15.0
       },
@@ -58759,13 +58759,13 @@
         ]
       },
       {
-        "text": "C17: 320 random tables;\n(46) slack median 0.23,\nmax 0.71",
+        "text": "C17: 320 random tables;\nProp. 9.1(b) slack median 0.23,\nmax 0.71",
         "axes": 1,
         "fontsize_pt": 12.0,
         "bbox": [
           1614.69,
           1258.054,
-          2236.815,
+          2396.815,
           1417.254
         ]
       },

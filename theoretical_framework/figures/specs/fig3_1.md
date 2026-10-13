@@ -9,7 +9,7 @@
 **Data.**
 
 - Panels (a) and (b) are analytic: use the formulas below and no data.
-- Panel (c): `theory/independent_checks/results_independent_v014.json` → `controlled_neural.details.configurations`, filtered to `task` in {"Prop5", "Prop6"}. Fields: `optimizer`, `step_size`, `updates`, `neural_gap`, `SE`.
+- Panel (c): `theory/independent_checks/results_independent_v014.json` → `controlled_neural.details.configurations`, filtered to `task` in {"Prop5", "Prop6"} (stored keys of constructions (a) and (b) of [Proposition 3.1](../../statements/03-01_static_value_not_learning_value.md#s3-1)). Fields: `optimizer`, `step_size`, `updates`, `neural_gap`, `SE`.
 
 **Panel (a): Static equivalence, different trained students.**
 
@@ -31,7 +31,7 @@
 **Panel (c): controlled neural network.**
 
 - Grouped bar chart, log y axis, of `neural_gap` for configurations with `updates` in {1, 4}.
-- Groups: (Prop5, Prop6) × optimizer and step size, i.e. SGD 0.01, SGD 0.1, SGD 1.0, Adam 0.01, Adam 0.1 (Adam: [Kingma & Ba, 2015](#ref-kingma2015adam)).
+- Groups: (construction (a), construction (b) of Proposition 3.1; tick labels "3.1(a)", "3.1(b)") × optimizer and step size, i.e. SGD 0.01, SGD 0.1, SGD 1.0, Adam 0.01, Adam 0.1 (Adam: [Kingma & Ba, 2015](#ref-kingma2015adam)).
 - Within each group, two bars for R=1 and R=4.
 - All values are positive.
 - Label the panel "controlled neural, not Gemma, not an external benchmark".

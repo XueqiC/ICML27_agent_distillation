@@ -2,7 +2,7 @@
 
 **Output:** `theoretical_framework/figures/fig8_1_stability.pdf` (vector) and `fig8_1_stability.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
-**Message:** the tolerant discrepancy equals the dual formula (36). A perfectly representing but small-scale feature certifies only $`\epsilon/\alpha`$.
+**Message:** the tolerant discrepancy equals the dual formula of [Theorem 8.1(a)](../../statements/08-01_stability_approximation_tradeoff.md#s8-1). A perfectly representing but small-scale feature certifies only $`\epsilon/\alpha`$.
 
 ## Panel A — C22 stability control
 

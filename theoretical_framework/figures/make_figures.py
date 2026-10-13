@@ -251,12 +251,12 @@ def n01(d):
     outcomes = [optimal, max(prior @ values), sum(prior @ values)/values.shape[1], bayes(F(1, 4))]
     algorithms = [optimal-outcome for outcome in outcomes]
     totals = [F(1)-outcome for outcome in outcomes]
-    require(all(rep+info+a == t for a, t in zip(algorithms, totals)), 'N01 decomposition check failed')
+    require(all(rep+info+a == t for a, t in zip(algorithms, totals)), 'Theorem 2.2 decomposition check failed')
     eps = [F(i, 200) for i in range(101)]
     risk = [oracle-bayes(e) for e in eps]
-    require(all(a <= b for a, b in zip(risk, risk[1:])), 'N01 garbling monotonicity failed')
+    require(all(a <= b for a, b in zip(risk, risk[1:])), 'Proposition 2.4 garbling monotonicity failed')
     j = d.package['robust_ambiguity_minimax']
-    require(j['primal_regret'] == j['dual_regret'], 'N01 package primal/dual mismatch')
+    require(j['primal_regret'] == j['dual_regret'], 'Proposition 2.3 package primal/dual mismatch')
     fig, (a,b,c) = figure(3, (14, 4.5))
     yy = np.arange(len(outcomes)); left = np.zeros(len(yy))
     for vals, col, name in [([rep]*len(yy), GRAY, 'representation'), ([info]*len(yy), BLUE, 'information'),
@@ -278,8 +278,8 @@ def n01(d):
     c.plot(j['policy_mixture'][0], j['primal_regret'], 'o', color=BLACK)
     note(c, f"primal = dual = {j['primal_regret']:g}\n(committed robust ambiguity check)", x=.14, y=.98)
     labels(c, 'mixture weight', 'regret'); title(c, '(c) Minimax duality'); legend(c)
-    d.captions['fig2_1'] = ('N01. (a) Exact regret decomposition for four learners on one finite problem: the learner changes only the algorithm term. '
-        '(b) Garbling the transcript never lowers the information term; monotone: a garbling can only raise the information term (Prop. 1.4). '
+    d.captions['fig2_1'] = ('(a) Exact regret decomposition for four learners on one finite problem: the learner changes only the algorithm term. '
+        '(b) Garbling the transcript never lowers the information term; monotone: a garbling can only raise the information term (Proposition 2.4). '
         '(c) Robust ambiguity: min over policy mixtures equals max over priors.')
     return fig
 
@@ -289,9 +289,9 @@ def n02(d):
     subset = sorted([r for r in rows if F(r['delta']) == target], key=lambda r: 1/F(r['Delta'])**2)
     fig, (a,b,c) = figure(3, (14, 4.5))
     x = [float(1/F(r['Delta'])**2) for r in subset]
-    for key, col, marker, ls, name in [('bound8', BLACK, None, '-', 'bound (8)'),
+    for key, col, marker, ls, name in [('bound8', BLACK, None, '-', 'bound (2.6)'),
             ('sprt_expected_n', BLUE, 'o', '-', 'SPRT expected queries'),
-            ('min_fixed_n', ORANGE, 's', '', 'smallest successful fixed n'), ('n9', GRAY, None, '--', 'sufficient n (9)')]:
+            ('min_fixed_n', ORANGE, 's', '', 'smallest successful fixed n'), ('n9', GRAY, None, '--', 'sufficient n, Thm 2.6(c)')]:
         a.plot(x, array(subset, key), color=col, marker=marker, ls=ls, label=name)
     a.set_xscale('log'); a.set_yscale('log'); note(a, f'δ = {float(target):g}', x=.63, y=.17)
     labels(a, '1 / Δ²', 'number of queries'); title(a, '(a) Queries against inverse squared gap'); legend(a)
@@ -299,7 +299,7 @@ def n02(d):
     ix = np.arange(len(ordered)); deltas = sorted({F(r['delta']) for r in ordered})
     b.scatter(ix, array(ordered, 'sprt_ratio'), color=BLUE, marker='o', s=20, label='SPRT')
     b.scatter(ix, array(ordered, 'fixed_ratio'), color=ORANGE, marker='s', s=20, label='fixed n')
-    b.axhline(1, color=BLACK, lw=1.5, label='lower bound (8)')
+    b.axhline(1, color=BLACK, lw=1.5, label='lower bound (2.6)')
     exact = [i for i,r in enumerate(ordered) if r['sprt_ratio'] == 1.0]
     b.scatter(exact, np.ones(len(exact)), s=70, facecolors='none', edgecolors=GREEN, label='SPRT attains the bound')
     centers = []
@@ -309,7 +309,7 @@ def n02(d):
         if ids[0]: b.axvline(ids[0]-.5, color=GRAY, lw=.6)
     b.set_xticks(centers, [f'δ={float(v):g}' for v in deltas], rotation=25)
     b.set_yscale('log'); b.set_ylim(.9, 8)
-    labels(b, 'configuration (Δ increasing within group)', 'queries / bound (8)')
+    labels(b, 'configuration (Δ increasing within group)', 'queries / bound (2.6)')
     title(b, '(b) Ratios to the lower bound'); legend(b)
     delta = max(F(r['Delta']) for r in rows); m = np.linspace(0, 1, 201)
     plus, minus = 2*float(delta)*(1-m), 2*float(delta)*m
@@ -317,7 +317,7 @@ def n02(d):
     c.plot(m, np.maximum(plus, minus), color=BLACK, lw=2, label='worst case')
     c.axhline(float(delta), color=GRAY, ls='--', label=f'Δ = {delta}'); c.plot(.5, float(delta), 'o', color=GREEN)
     labels(c, 'mean output E p̂', 'expected regret'); title(c, '(c) Passive impossibility'); legend(c, ncol=2)
-    d.captions['fig2_2'] = ('N02. (a)–(b) Exact query counts: the SPRT meets the KL lower bound (8), fixed-sample tests and the sufficient n of (9) lie above it, '
+    d.captions['fig2_2'] = ('(a)–(b) Exact query counts: the SPRT meets the KL lower bound (2.6) of Theorem 2.6(b), fixed-sample tests and the sufficient n of Theorem 2.6(c) lie above it, '
                         'and no strategy falls below. (c) Any passive learner has worst-case regret at least Δ.')
     return fig
 
@@ -348,17 +348,17 @@ def n03(d):
     minimum = min(number(r['risk'])-number(r['information_floor']) for r in learners)
     note(b, f'no point below the diagonal\n(min risk − floor = {minimum:.3g})')
     b.set_xlim(0,high); b.set_ylim(0,high)
-    steps = sorted({r['steps'] for r in learners}); require(len(steps)==1, 'N03 learner update counts differ')
+    steps = sorted({r['steps'] for r in learners}); require(len(steps)==1, 'Theorem 2.10 learner update counts differ')
     labels(b, 'information floor', f'actual learner risk ({steps[0]} updates)'); title(b, '(b) Learners respect the information floor')
     legend(b, [handle(BLUE,'Adam','o',''),handle(ORANGE,'SGD','o','')]+
            [handle(GRAY,k,m,'') for k,m in [('active','o'),('passive','s'),('replay','^')]]+[handle(GRAY,'information floor',ls='--')], ncol=2)
     rr = only(d.documents['T']['checks']['T11_adaptive_query_KL_enumeration']['rows'], direction=0)
-    for r in rr: require(r['binary_KL_lower'] <= r['transcript_KL']+1e-12 <= r['KL_upper']+2e-12, 'N03 KL ordering failed')
+    for r in rr: require(r['binary_KL_lower'] <= r['transcript_KL']+1e-12 <= r['KL_upper']+2e-12, 'Proposition 2.11 KL ordering failed')
     for i,(key,col,name) in enumerate([('binary_KL_lower',BLUE,'binary KL lower'),('transcript_KL',ORANGE,'transcript KL'),('KL_upper',GRAY,'KL upper')]):
         c.bar(array(rr,'K')+(i-1)*.24, array(rr,key), width=.23, color=col, label=name)
     labels(c, 'K', 'nats'); title(c, '(c) Demonstration plus query KL'); legend(c)
-    d.captions['fig2_3'] = (f"N03. (a) Exact hidden-bit risk (m={rows[0]['m']}, uniform): targeted queries beat equal numbers of extra demonstrations; replay adds nothing. "
-        '(b) Adam/SGD learners never go below the information floor. (c) Demonstration plus query KL always covers kl(1−δ, δ) (A15).')
+    d.captions['fig2_3'] = (f"(a) Exact hidden-bit risk (m={rows[0]['m']}, uniform): targeted queries beat equal numbers of extra demonstrations; replay adds nothing. "
+        '(b) Adam/SGD learners never go below the information floor. (c) Demonstration plus query KL always covers kl(1−δ, δ) (2.11).')
     return fig
 
 
@@ -383,13 +383,13 @@ def n04(d):
     groups = [(task,opt,eta) for task in ('Prop5','Prop6') for opt,eta in configurations]
     for j,(updates,col) in enumerate([(1,BLUE),(4,ORANGE)]):
         rr = [one(d.neural['configurations'],task=t,optimizer=o,step_size=e,updates=updates) for t,o,e in groups]
-        require(all(r['neural_gap'] > 0 for r in rr),'N04 nonpositive neural gap on log axis')
+        require(all(r['neural_gap'] > 0 for r in rr),'Proposition 3.1 nonpositive neural gap on log axis')
         c.bar(np.arange(len(groups))+(j-.5)*.37,array(rr,'neural_gap'),width=.35,color=col,label=f'R={rr[0]["updates"]}')
-    c.set_xticks(np.arange(len(groups)),[f'{t}\n{o}\n{e:g}' for t,o,e in groups],fontsize=12)
+    c.set_xticks(np.arange(len(groups)),[f'{dict(Prop5="3.1(a)",Prop6="3.1(b)")[t]}\n{o}\n{e:g}' for t,o,e in groups],fontsize=12)
     c.set_yscale('log'); labels(c,'configuration','trained-student return gap (log)')
     title(c,'(c) Controlled network: trained-student gaps'); legend(c,ncol=2,y=-.43)
-    d.captions['fig3_1'] = (f'N04. (a) Identical static values for every aliased student, but frequency distillation yields {returns[0]} vs {returns[1]}. '
-        '(b) Identical mean updates, but a curvature-dependent gap ±η²/8. (c) In a real tanh network, the statically equivalent sources still give different trained students '
+    d.captions['fig3_1'] = (f'(a) Identical static values for every aliased student, but frequency distillation yields {returns[0]} vs {returns[1]}. '
+        '(b) Identical mean updates, but a curvature-dependent gap ±η²/8. (c) In a real tanh network (ticks 3.1(a), 3.1(b): the two constructions of Proposition 3.1), the statically equivalent sources still give different trained students '
         f'(exact enumeration, R ≤ {max(r["updates"] for r in rr)}).')
     return fig
 
@@ -404,7 +404,7 @@ def telescope(k0, ks, terminal, rounds):
         contributions.append(occupancy @ drift); bounds.append(occupancy @ np.abs(drift))
         occupancy = occupancy @ ks
     total = v[0][0]-occupancy @ terminal
-    require(sum(contributions)==total,'N05 exact telescoping reproduction failed')
+    require(sum(contributions)==total,'Theorem 3.2 exact telescoping reproduction failed')
     return contributions, total, sum(bounds)
 
 
@@ -413,11 +413,11 @@ def n05(d):
     ks = rational([['.4','.4','.2'],['.3','.4','.3'],['.1','.2','.7']])
     contributions,total,bound = telescope(k0,ks,rational(['0','1/2','1']),6)
     cancellation,gap,absolute = telescope(rational([[1,0],[0,1]]),rational([[0,1],[1,0]]),rational([0,1]),2)
-    require(absolute == F(d.c('C4')['cancellation_absolute_drift']), 'N05 cancellation JSON check failed')
+    require(absolute == F(d.c('C4')['cancellation_absolute_drift']), 'Theorem 3.2 cancellation JSON check failed')
     fig,(a,b,c) = figure(3,(14,4.5))
     a.bar(range(len(contributions)),list(map(float,contributions)),color=[BLUE if v>=0 else ORANGE for v in contributions])
     a.axhline(float(total),color=BLACK,label=f'final gap = {float(total):.6f}')
-    a.axhline(float(bound),color=GRAY,ls='--',label=f'bound (15) = {float(bound):.6f}')
+    a.axhline(float(bound),color=GRAY,ls='--',label=f'bound (3.3) = {float(bound):.6f}')
     note(a,r'$\sum_t c_t = L(0) - L(S)$ exactly'+f'\n{float(sum(contributions)):.6f} = {float(total):.6f}',y=.39)
     labels(a,'round t','drift contribution'); title(a,'(a) Telescoping on a 3-state process'); legend(a)
     p,q = rational(['1/2',0,'1/2']),rational([0,1,0])
@@ -425,12 +425,12 @@ def n05(d):
     for shift,law,col,name in [(-.18,p,BLUE,'P'),(.18,q,ORANGE,'Q')]:
         b.bar(np.arange(len(responses))+shift,[float(law@g) for g in responses],width=.35,color=col,label=name)
     b.set_xticks(range(len(responses)),['g₁','g₂','g₃\nseparating intervention'])
-    labels(b,'response','expected final return'); title(b,'(b) One-boundary equivalence (16)'); legend(b,ncol=2)
+    labels(b,'response','expected final return'); title(b,'(b) One-boundary equivalence (3.4)'); legend(b,ncol=2)
     c.bar(range(len(cancellation)),list(map(float,cancellation)),color=[ORANGE,BLUE]); c.axhline(0,color=GRAY)
     note(c,f'final gap = {gap}, Σ|drift| = {absolute}\nC4: committed cancellation witness',y=.97)
     c.set_xticks(range(len(cancellation))); labels(c,'round','drift'); title(c,'(c) Cancellation witness')
-    d.captions['fig3_2'] = ('N05. (a) The learning-value gap equals the occupancy-weighted sum of per-round response discrepancies (14), bounded by their absolute sum (15). '
-        '(b) Two laws are interchangeable for one-boundary replacements exactly when they agree on every response (16). '
+    d.captions['fig3_2'] = ('(a) The learning-value gap equals the occupancy-weighted sum of per-round response discrepancies (3.2), bounded by their absolute sum (3.3). '
+        '(b) Two laws are interchangeable for one-boundary replacements exactly when they agree on every response (3.4). '
         '(c) Per-round discrepancies can cancel, so matching one final mean does not require pointwise matching.')
     return fig
 
@@ -438,8 +438,8 @@ def n05(d):
 def n06(d):
     y = np.array([F(i,4) for i in range(5)],dtype=object); error=F(1,8)
     g=y*y; h=y-error; p=rational(['1/2',0,0,0,'1/2']); q=rational([0,0,1,0,0])
-    require(max(abs(g-h))==error and list((g-h)[[0,2,4]])==[error,-error,error], 'N06 uniform-error/sign reproduction failed')
-    require(p@y==q@y==F(1,2) and (p-q)@g==2*error, 'N06 extremal-pair reproduction failed')
+    require(max(abs(g-h))==error and list((g-h)[[0,2,4]])==[error,-error,error], 'Theorem 4.2 uniform-error/sign reproduction failed')
+    require(p@y==q@y==F(1,2) and (p-q)@g==2*error, 'Theorem 4.2 extremal-pair reproduction failed')
     fig,(a,b)=figure(2,(11,4.2))
     x=np.linspace(0,1,401)
     a.plot(x,x*x,color=BLACK,label='g(y) = y²'); a.plot(y.astype(float),g.astype(float),'o',color=BLACK)
@@ -465,8 +465,8 @@ def n06(d):
     c5=d.claims['C5']
     note(b,f'max |discrepancy − 2·error| = {max(residuals):.2g}\nC5: {c5["n_instances"]} random instances,\nmax residual {c5["details"]["max_duality_residual"]:.2g}')
     labels(b,'2 × best uniform approximation error (LP)','worst-pair discrepancy (primal LP)')
-    title(b,'(b) Equality (20) across tested subspaces'); legend(b,ncol=2)
-    d.captions['fig4_1'] = ('Thm 8(b): for feature-matched laws, the largest response gap equals twice the uniform distance of the response to the feature span. '
+    title(b,'(b) Equality (4.2) across tested subspaces'); legend(b,ncol=2)
+    d.captions['fig4_1'] = ('Theorem 4.2(b): for feature-matched laws, the largest response gap equals twice the uniform distance of the response to the feature span. '
         f'(a) exact {len(y)}-point example; (b) independent primal/dual LPs on all C19 subspaces (and C5’s {c5["n_instances"]} random instances).')
     return fig
 
@@ -474,11 +474,11 @@ def n06(d):
 def n07(d):
     scalar=d.c('C8')['scalar']; parity=d.package['constant_gap_parity']; c9=d.c('C9')
     closed=[F(math.factorial(r['N']),2**(r['N']-1)*r['N']**r['N']) for r in scalar]
-    require(all(abs(F(r['delta']))==v for r,v in zip(scalar,closed)), 'N07 scalar closed-form reproduction failed')
-    require(d.claims['C9']['status']=='PASS','N07 full-interface assertion requires C9 PASS')
+    require(all(abs(F(r['delta']))==v for r,v in zip(scalar,closed)), 'Theorem 4.4 scalar closed-form reproduction failed')
+    require(d.claims['C9']['status']=='PASS','Theorem 4.4 full-interface assertion requires C9 PASS')
     fig,(a,b,c)=figure(3,(13,4.2))
-    a.semilogy(array(scalar,'N'),abs(array(scalar,'delta')),color=BLUE,marker='o',label='scalar witness (26):\nlower moments equal')
-    a.semilogy(array(parity,'N'),array(parity,'exact_value_gap'),color=ORANGE,marker='s',label='parity witness (27):\nall degree < N moments equal')
+    a.semilogy(array(scalar,'N'),abs(array(scalar,'delta')),color=BLUE,marker='o',label='scalar witness, Thm 4.4(c):\nlower moments equal')
+    a.semilogy(array(parity,'N'),array(parity,'exact_value_gap'),color=ORANGE,marker='s',label='parity witness, Thm 4.4(c):\nall degree < N moments equal')
     a.semilogy(array(scalar,'N'),list(map(float,closed)),color=BLACK,ls='--',label=r'$N!/(2^{N-1}N^N)$')
     labels(a,'order N',r'learning-value gap $|E_P J - E_Q J|$'); title(a,'(a) Each order is needed'); legend(a)
     ranks=c9['grid_ranks']; ks=sorted({r['k'] for r in ranks}); exact=0
@@ -499,7 +499,7 @@ def n07(d):
     labels(c,'number of nonconstant features d','worst-pair discrepancy'); title(c,r'(c) Fewer than $2^k - 1$ features: error 1')
     handles,_=c.get_legend_handles_labels(); handles.append(Line2D([],[],color=GRAY,marker='o',mfc='none',ls='',label='full interface\n(C9 assertion, PASS)'))
     legend(c,handles,ncol=2)
-    d.captions['fig4_2']=(f'Theorems 11–13 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); '
+    d.captions['fig4_2']=(f'Theorem 4.4 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); '
         f'parity laws keep gap {number(parity[0]["exact_value_gap"]):g} (package check). (b) the monomial evaluation rank on the grid equals C(k+N, N) '
         f'in all {len(ranks)} configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2ᵏ − 1 features leaves worst-case error 1 (C9).')
     return fig
@@ -526,7 +526,7 @@ def n08(d):
     for i,r in enumerate(regular):
         poly=sp.sympify(r['exact_gap_polynomial_in_inverse_n'],locals={'inverse_n':inv})
         coef=sp.Rational(r['predicted_coefficient'])
-        require(sp.simplify(poly/inv**(r['r']-1)/coef-1)==0,'N08 cumulant normalization failed')
+        require(sp.simplify(poly/inv**(r['r']-1)/coef-1)==0,'Theorem 4.5 cumulant normalization failed')
         ys=np.asarray(sp.lambdify(inv,poly,'numpy')(1/ns),dtype=float)*ns.astype(float)**(r['r']-1)/float(coef)
         b.plot(ns,ys,color=COLORS[i],marker=MARKERS[i],markevery=(i*3,20),label=rf'$k={r["k"]},\ r={r["r"]}$',alpha=.85)
     for i,r in enumerate(r for r in cases if 'vanishing_contraction_r' in r):
@@ -544,7 +544,7 @@ def n08(d):
     c.axhline(1,color=GRAY,ls=':',lw=1.5); c.set_xscale('log'); c.set_ylim(0,1.1)
     best=F(c10['best_exact_ratio']); note(c,f'max over {d.claims["C10"]["n_instances"]} searched instances:\n{best} ≈ {float(best):.3f}',x=.28,y=.71)
     labels(c,r'rounds $R$','gap or ratio'); title(c,r'(c) $|\mathrm{gap}|\leq C_J\delta_N$, independent of $R$'); legend(c)
-    d.captions['fig4_3']=('Theorems 14–15 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). '
+    d.captions['fig4_3']=('Theorem 4.5 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). '
         f'(b) the leading coefficient equals the first-unmatched-cumulant contraction in all {len(regular)} cases; a zero contraction removes the leading term (C11). '
         f'(c) the round-independent bound holds for R up to {max(r["R"] for r in sweep)} and is nearly tight (C10).')
     return fig
@@ -557,9 +557,9 @@ def n09(d):
     p=np.linspace(0,1,2001); a.plot(p,p**N,color=BLACK,lw=2,label=rf'$p^{{{N}}}$')
     for q,col in zip((4,6,8),('#80B1D3','#377EB8','#084C81')):
         row=one(rows,N=N,q=q); exact=sum(coeff[q+1:])
-        require(math.isclose(float(exact),row['Chebyshev_truncation_error'],abs_tol=1e-14),'N09 Chebyshev tail reproduction failed')
+        require(math.isclose(float(exact),row['Chebyshev_truncation_error'],abs_tol=1e-14),'Proposition 4.6 Chebyshev tail reproduction failed')
         pred=np.polynomial.chebyshev.chebval(2*p-1,list(map(float,coeff[:q+1])))
-        require(math.isclose(max(abs(pred-p**N)),float(exact),abs_tol=1e-14),'N09 sampled Chebyshev error differs from exact tail')
+        require(math.isclose(max(abs(pred-p**N)),float(exact),abs_tol=1e-14),'Proposition 4.6 sampled Chebyshev error differs from exact tail')
         a.plot(p,pred,color=col,label=rf'$h_{{{q}}}$, sup error {row["Chebyshev_truncation_error"]:.3g}')
     parity=one(rows,N=N,q=0)['parity_best_degree_q_error']
     a.axhline(parity,color=GRAY,ls='--',label=f'parity below degree N: constant {parity:g}\n(best error {parity:g})')
@@ -619,11 +619,11 @@ def n10(d):
         rr=only(rows,eta=eta); b.scatter(array(rr,'bound'),array(rr,'remainder'),color=COLORS[i],marker=MARKERS[i],s=20,label=f'η={eta:g}')
     lo=min(array(rows,'remainder'))*.7; hi=max(array(rows,'bound'))*1.2; identity(b,lo,hi)
     b.set_xscale('log'); b.set_yscale('log'); note(b,f'max remainder/bound = {d.claims["C13"]["best_ratio"]:.3f}')
-    labels(b,'η³ bound','remainder'); title(b,'Expansion (35): remainder vs η³ bound'); legend(b,ncol=3)
+    labels(b,'η³ bound','remainder'); title(b,'Expansion (4.9): remainder vs η³ bound'); legend(b,ncol=3)
     inp=d.g('V7')['linear_failure']['inputs']; eta,L,C=(F(inp[k]) for k in ('eta','L','C'))
     errors=[]; e=F(0); horizon=range(1,13)
     for R in horizon: e=(1+eta*L)*e+C*eta**2; errors.append(e)
-    chosen=inp['R']; require(errors[chosen-1]==F(d.g('V7')['linear_failure']['e']), 'N10 recurrence reproduction failed')
+    chosen=inp['R']; require(errors[chosen-1]==F(d.g('V7')['linear_failure']['e']), 'Theorem 4.7 recurrence reproduction failed')
     linear=[R*C*eta**2 for R in horizon]
     c.plot(list(horizon),list(map(float,errors)),color=BLUE,marker='o',label='geometric recursion (equality)')
     c.plot(list(horizon),list(map(float,linear)),color=ORANGE,ls='--',label='R C η²')
@@ -632,7 +632,7 @@ def n10(d):
     note(c,'squaring witness: gaps\n'+', '.join(r['gap'] for r in amp[:2])+',\n'+', '.join(r['gap'] for r in amp[2:])+f'\nat R={min(r["R"] for r in amp)}…{max(r["R"] for r in amp)}')
     labels(c,'rounds R','accumulated error'); title(c,'Error accumulation needs stability'); legend(c)
     d.captions['fig4_5']=('Left: the tangent affine-SGD prediction matches the actual controlled network for η≤0.1 and short horizons, and fails at η≥1. '
-        'Middle: the third-order remainder of (35) stays below its bound. Right: per-step errors accumulate geometrically; the linear-in-R reading fails without a stability condition.')
+        'Middle: the third-order remainder of (4.9) stays below its bound. Right: per-step errors accumulate geometrically; the linear-in-R reading fails without a stability condition.')
     return fig
 
 
@@ -667,10 +667,10 @@ def n11(d):
         c.plot(range(len(values)),values,color=COLORS[i],marker=MARKERS[i],label=f'G₁={r["first"]}')
         c.annotate(f'm̂₂={r["mhat2"]}, v̂₂={r["vhat2"]}',xy=(2,values[-1]),xytext=(-8,12 if i==0 else -22),textcoords='offset points',ha='right',color=COLORS[i])
     found=[r for r in data['grid'] if r['found']]
-    require(len(found)/len(data['grid'])==data['grid_fraction'],'N11 beta-grid fraction check failed')
-    require(all(F(r['beta1'])>0 for r in found),'N11 beta-grid sign check failed')
+    require(len(found)/len(data['grid'])==data['grid_fraction'],'Proposition 5.3 beta-grid fraction check failed')
+    require(all(F(r['beta1'])>0 for r in found),'Proposition 5.3 beta-grid sign check failed')
     note(c,f'β-grid witnesses: {len(found)}/{len(data["grid"])} cells,\nall with β₁>0',x=.1,y=.91)
-    c.set_xticks([0,1,2]); c.set_ylim(-1.45,.2); labels(c,'step t','θ'); title(c,'Same signs, different memory (A4)'); legend(c,ncol=2)
+    c.set_xticks([0,1,2]); c.set_ylim(-1.45,.2); labels(c,'step t','θ'); title(c,'Same signs, different memory (Prop. 5.3(e))'); legend(c,ncol=2)
     d.captions['fig5_2']=('Left: cold Adam separates laws whose first two gradient moments agree, and a frozen-Jacobian Adam reproduces the gap while SGD shows small residual gaps. '
         'Middle: removing sign disagreement (shifted support) nearly removes the gap, and warm moments remove most of it. '
         'Right: two histories with identical sign sequences take opposite second steps because m retains magnitudes.')
@@ -678,7 +678,7 @@ def n11(d):
 
 
 def n12(d):
-    data=d.g('E8'); fig,(a,b,c)=figure(3,(13,4.8), 'Controlled small network, not a real-model result; W1 is an empirical consistency check.')
+    data=d.g('E8'); fig,(a,b,c)=figure(3,(13,4.8), 'Controlled small network, not a real-model result; the Prop. 5.6 check is empirical.')
     horizons=(1,4,40); tasks=(('moment',3,'-'),('parity',2,'--'))
     for task,N,ls in tasks:
         for i,R in enumerate(horizons):
@@ -721,8 +721,8 @@ def n12(d):
     allx,ally=[],[]
     for p in panels:
         xx=np.asarray(p['r']); yy=np.asarray(p['pointwise_residual'])
-        require(np.all(xx>0) and np.all(yy>0),'N12 W1 has nonpositive log-scatter values')
-        require(np.all(yy<=xx*(1+1e-12)),'N12 W1 residual exceeds bound')
+        require(np.all(xx>0) and np.all(yy>0),'Proposition 5.6 check has nonpositive log-scatter values')
+        require(np.all(yy<=xx*(1+1e-12)),'Proposition 5.6 residual exceeds bound')
         c.scatter(xx,yy,color=COLORS[etas.index(p['eta'])],marker=MARKERS[task_names.index(p['task'])],s=22,alpha=.7)
         allx.extend(xx); ally.extend(yy)
     low=min(min(allx),min(ally))*.6; high=max(allx)*1.4; identity(c,low,high)
@@ -767,7 +767,7 @@ def n13(d):
     c14=d.claims['C14']; note(b,f'C14: {c14["n_instances"]} random instances,\nmax primal–dual gap {c14["details"]["max_duality_residual"]:.2g}',x=.34,y=.28)
     b.set_xlim(0,1.6);b.set_ylim(0,1.2);labels(b,'tolerance ε','discrepancy')
     title(b,'Primal = dual; the optimizer drops the feature when ε outweighs its gain',width=49);legend(b,ncol=3)
-    d.captions['fig8_1']=('N13. Left: tolerant discrepancy for φ = αg (C22). LP values coincide with min{1, ε/α}. '
+    d.captions['fig8_1']=('Left: tolerant discrepancy for φ = αg (C22). LP values coincide with min{1, ε/α}. '
         'Right: the explicit example Y = {0, ½, 1}, φ(y) = y, g = 1{y = 1}; primal, dual and closed form coincide. Exact finite computations, not neural results.')
     return fig
 
@@ -777,7 +777,7 @@ def reproduce_transport(d):
            'theory/independent_checks/check_v014_independent.py']
     # Imports execute working-tree source. Refuse it unless byte-identical to HEAD.
     for path in paths:
-        require((ROOT/path).read_bytes()==committed_bytes(path),f'N14 import is not committed/unmodified: {path}')
+        require((ROOT/path).read_bytes()==committed_bytes(path),f'Theorem 8.2 import is not committed/unmodified: {path}')
     oldcwd=Path.cwd(); oldpath=sys.path.copy(); oldconfig=os.environ['MPLCONFIGDIR']
     try:
         os.chdir(ROOT/'theory/v015_checks'); sys.path.insert(0,str(Path.cwd()))
@@ -787,10 +787,10 @@ def reproduce_transport(d):
             score,record=mathematics.evaluate_markov(g,mathematics.markov_instance(g.rng))
             scores.append(score);pairs.append((number(record['bound']),number(record['gap'])))
         expected=d.g('V1')['worst_random']['ratio']
-        require(max(scores)==expected,f'N14 reproduction failed: max(score)={max(scores):.17g}, V1 worst_random.ratio={expected:.17g}; N14 will not be drawn')
-        require(not g.failures,'N14 finite evaluator assertions failed; N14 will not be drawn')
-        require(all(y<=x for x,y in pairs),'N14 recomputed gap exceeds certificate; N14 will not be drawn')
-        print(f'N14 reproduction PASS: {len(pairs):,} random instances, max ratio {max(scores):.17g}',flush=True)
+        require(max(scores)==expected,f'Theorem 8.2 reproduction failed: max(score)={max(scores):.17g}, V1 worst_random.ratio={expected:.17g}; fig8_2 will not be drawn')
+        require(not g.failures,'Theorem 8.2 finite evaluator assertions failed; fig8_2 will not be drawn')
+        require(all(y<=x for x,y in pairs),'Theorem 8.2 recomputed gap exceeds certificate; fig8_2 will not be drawn')
+        print(f'Theorem 8.2 reproduction PASS: {len(pairs):,} random instances, max ratio {max(scores):.17g}',flush=True)
         return np.array(pairs)
     finally:
         os.chdir(oldcwd);sys.path[:]=oldpath;os.environ['MPLCONFIGDIR']=oldconfig
@@ -805,7 +805,7 @@ def n14(d):
     a.scatter([x],[y],color=RED,marker='D',s=38,label=f'sharp transport witness\n(D={number(witness["D"]):g}, a={number(witness["local"][0][0]["a"]):g})')
     lim=max(pairs[:,0].max(),x)*1.05;identity(a,0,lim);a.set_xlim(0,lim);a.set_ylim(0,lim)
     group=d.groups['V1']; violations=len(group.get('counterexamples',[]))
-    require(group['status']=='PASS' and group['worst_residual']==0 and violations==0,'N14 committed V1 summary reports a failure')
+    require(group['status']=='PASS' and group['worst_residual']==0 and violations==0,'Theorem 8.2 committed V1 summary reports a failure')
     note(a,f'Committed V1 summary:\n{group["n_instances"]:,} instances, {violations} violations;\nmax ratio {group["best_ratio"]:g}')
     labels(a,'bound (39a)','exact gap');title(a,'V1: (39a) ≥ exact gap');legend(a)
     rr=sorted(e4['observations'],key=lambda r:r['diagnostic_bound']);index=np.arange(len(rr))
@@ -843,7 +843,7 @@ def n14(d):
     right.text(.98,.97,'invalid without\ntransport',transform=right.transAxes,ha='right',va='top',color=RED,fontsize=12)
     right.set_ylabel('gap or certificate (cap marked)')
     group_title(fig,left,right,'Uncovered state: charge a or ρ')
-    d.captions['fig8_2']=(f'N14. (A) Exact gap versus the transport-aware certificate on {len(pairs):,} random finite training processes (V1); no point lies above y = x. '
+    d.captions['fig8_2']=(f'(A) Exact gap versus the transport-aware certificate on {len(pairs):,} random finite training processes (V1); no point lies above y = x. '
         f'The annotation summarizes all {group["n_instances"]:,} committed V1 instances. (B) In a controlled network (E4), the measured-transport local bound contains '
         f'the gold full-tail contrast at all {len(rr)} reached states, while zero-transport anchor predictions miss {missed}. '
         '(C) Transport and feature drift at reached states, and the uncovered-state witness. Exact finite computations and a controlled small network; not a real-model result.')
@@ -860,7 +860,7 @@ def bernstein_n(radius, variance, M, delta):
         mid=(low+high)//2
         if valid(mid): high=mid
         else: low=mid+1
-    require(valid(low) and (low==2 or not valid(low-1)), 'N15 smallest Bernstein n check failed')
+    require(valid(low) and (low==2 or not valid(low-1)), 'Theorem 8.3 smallest Bernstein n check failed')
     return low
 
 
@@ -877,20 +877,20 @@ def n15(d):
     fig,(a,b,c)=figure(3,(15,4.5),'Finite computations and a controlled small network; not a real-model result.')
     rr=d.c('C16')['configurations'];x=np.arange(len(rr))
     a.errorbar(x,array(rr,'gain'),yerr=2*array(rr,'SE'),fmt='o',color=BLUE,capsize=3,label='gain ± 2 SE')
-    for key,col,ls,name in [('minus_delta',ORANGE,'-','bound (44): −δ'),('lcb',GREEN,'--','bound (45): E ΣB − 2δ')]:
+    for key,col,ls,name in [('minus_delta',ORANGE,'-','Thm 8.3(c), first: −δ'),('lcb',GREEN,'--','Thm 8.3(c), second: E ΣB − 2δ')]:
         vals=[-r['delta'] if key=='minus_delta' else r['expected_sum_B']-2*r['delta'] for r in rr]
         for j,v in enumerate(vals):a.plot([j-.25,j+.25],[v,v],color=col,ls=ls,label=name if j==0 else None)
     a.axhline(0,color=GRAY);a.set_ylim(-.85,.22)
     a.set_xticks(x,[f'R={r["R"]}, M={r["M"]}\nn={r["n"]}\nδ={r["delta"]:g}' for r in rr],fontsize=12)
     last=rr[-1];a.annotate(f'selects the good candidate:\n{last["gain"]:+.3f}',xy=(x[-1],last['gain']),xytext=(.30,.90),textcoords='axes fraction',arrowprops=dict(arrowstyle='->',color=GRAY))
-    replicas={r['replicas'] for r in rr};require(len(replicas)==1,'N15 differing training replica counts')
+    replicas={r['replicas'] for r in rr};require(len(replicas)==1,'Theorem 8.3 differing training replica counts')
     a.set_ylabel('measured gain or guarantee');title(a,f'C16: gain ≥ −δ and ≥ E ΣB − 2δ ({rr[0]["replicas"]//1000}k runs each)');legend(a,y=-.39)
     e7=d.g('E7'); h=e7['Hoeffding']; eb=e7['empirical_Bernstein'];M,delta=h['M'],h['delta'];variance=eb['max_pilot_sample_variance']
-    require(eb['formula']=='sqrt(2*S^2*log(4M/delta)/n)+14*log(4M/delta)/(3*(n-1))','N15 Bernstein formula changed; review solver before drawing')
+    require(eb['formula']=='sqrt(2*S^2*log(4M/delta)/n)+14*log(4M/delta)/(3*(n-1))','Theorem 8.3 Bernstein formula changed; review solver before drawing')
     radius=np.linspace(.05,.3,151);hoeffding=2*math.log(2*M/delta)/radius**2
     bernstein=[bernstein_n(v,variance,M,delta) for v in radius]
     hn=math.ceil(2*math.log(2*M/delta)/h['error']**2);bn=bernstein_n(h['error'],variance,M,delta)
-    require(hn==h['n'] and bn==eb['n_forecast'],'N15 committed audit-cost reproduction failed')
+    require(hn==h['n'] and bn==eb['n_forecast'],'Theorem 8.3 committed audit-cost reproduction failed')
     b.plot(radius,hoeffding,color=BLUE,label='Hoeffding (sufficient)')
     b.plot(radius,bernstein,color=ORANGE,ls='--',label='empirical Bernstein\n(forecast from pilot variance)')
     for value,col,offset in [(hn,BLUE,(16,18)),(bn,ORANGE,(16,-23))]:
@@ -900,12 +900,12 @@ def n15(d):
     for key,col in [('block',BLUE),('suffix',ORANGE),('deployment',GREEN)]:
         vals=array(variance_rows,key);containers.append(c.barh(yy,vals,left=left,color=col,label=key));left+=vals
     for y,r in zip(yy,variance_rows):
-        require(math.isclose(r['block']+r['suffix']+r['deployment'],r['total'],abs_tol=1e-12),'N15 variance decomposition mismatch')
+        require(math.isclose(r['block']+r['suffix']+r['deployment'],r['total'],abs_tol=1e-12),'Theorem 8.3 variance decomposition mismatch')
         c.text(r['total']+.002,y,f'{r["deployment"]/r["total"]:.0%}',va='center')
     c.set_yticks(yy,[str(r['candidate']) for r in variance_rows]);c.invert_yaxis();c.set_xlim(0,max(left)*1.24)
     labels(c,'paired-contrast variance','candidate');title(c,'Paired-contrast variance: deployment dominates (controlled network)');legend(c,ncol=3)
     pixel_gaps(fig,c,list(zip(*containers)))
-    d.captions['fig8_3']=(f'N15. (A) Adaptive actual-state auditing on a finite process (C16): the measured gain (±2 SE, {rr[0]["replicas"]:,} trainings per configuration) '
+    d.captions['fig8_3']=(f'(A) Adaptive actual-state auditing on a finite process (C16): the measured gain (±2 SE, {rr[0]["replicas"]:,} trainings per configuration) '
         f'never falls below −δ or E ΣB − 2δ. (B) Replicas per candidate needed for radius e. Hoeffding’s {hn} at e = {h["error"]:g} is sufficient; '
         'the empirical-Bernstein curve is a forecast from pilot variance. (C) Exact variance decomposition of paired contrasts in the controlled network (E7). '
         'Finite computations and a controlled small network; not a real-model result.')
@@ -937,10 +937,10 @@ def n16(d):
     b.plot([low,high],[0,0],color=ORANGE,lw=2,marker='|',ms=12)
     b.text(j['additive_width']+.02,1,f'width {j["additive_width"]:g}\n(position schematic)',va='center')
     b.text((low+high)/2,.12,f'width {j["quadratic_pair_width"]:g}',ha='center')
-    c17=d.claims['C17'];note(b,f'C17: {c17["n_instances"]} random tables;\n(46) slack median {c17["details"]["median_inequality_slack"]:.2f},\nmax {c17["details"]["maximum_slack"]:.2f}',x=.47,y=.94)
+    c17=d.claims['C17'];note(b,f'C17: {c17["n_instances"]} random tables;\nProp. 9.1(b) slack median {c17["details"]["median_inequality_slack"]:.2f},\nmax {c17["details"]["maximum_slack"]:.2f}',x=.47,y=.94)
     b.set_yticks([0,1],['quadratic pair H','additive H']);b.set_ylim(-.45,1.6);b.set_xlim(-.03,.6)
     b.set_xlabel('expected packet response ⟨Γ, H⟩');title(b,'Coupling width: 0 iff additive')
-    d.captions['fig9_1']=('N16. (A) In a controlled network (C23(e)), grouping the same four labels as {(0,0),(1,1)} versus {(0,1),(0,1)} changes the final return. '
+    d.captions['fig9_1']=('(A) In a controlled network (C23(e)), grouping the same four labels as {(0,0),(1,1)} versus {(0,1),(0,1)} changes the final return. '
         'The gap is exactly zero for one common-state step and grows with step size and horizon under SGD; under Adam it has the opposite sign and other dynamics. '
         '(B) The range of expected packet response over the coupling polytope: a single point for an additive table, positive width for a non-additive one. '
         'Only the additive width is stored, so its single point has schematic position. Exact finite computations and a controlled small network; not a real-model result.')
@@ -998,7 +998,7 @@ def n17(d):
     legend(right,[handle(GRAY,f'W={W}',MARKERS[j],'') for j,W in enumerate((5,20))],ncol=2,y=-.43)
     cheap=d.g('E9')['cheap_proxy_results'];count=sum(r['all_three_improve'] for r in cheap)
     random_rows=[r for r in summary if r['proxy']=='random'];improved={r['metrics']['selection_regret']['n_splits_improved'] for r in random_rows};nsplit={r['metrics']['selection_regret']['n_splits'] for r in random_rows}
-    require(len(improved)==len(nsplit)==1,'N17 random split improvements differ by W; annotation needs separate counts')
+    require(len(improved)==len(nsplit)==1,'Algorithm 9.2 random split improvements differ by W; annotation needs separate counts')
     note(left,f'random regret falls {next(iter(improved))}/{next(iter(nsplit))} splits\n⇒ providers closer after warm-up\n{count}/{len(cheap)} static proxy/W pairs\nimprove all three metrics',x=-.1,y=-.43)
     group_title(fig,left,right,'E9: warm-up compresses differences,\ntested static proxies remain unreliable')
     gap=2/300/fig.get_figheight()/b.get_position().height*abs(np.diff(b.get_ylim())[0])
@@ -1006,7 +1006,7 @@ def n17(d):
         for bar in bars:
             center=bar.get_y()+bar.get_height()/2
             bar.set_height(.38-gap);bar.set_y(center-bar.get_height()/2)
-    d.captions['fig9_2']=('N17. Controlled-learner evidence for CED’s selection rules. (A) Wrong-sign rate of frozen proxies on held-out learner states, warmth shift, ε and learning-rate shifts (E6); '
+    d.captions['fig9_2']=('Controlled-learner evidence for CED’s selection rules. (A) Wrong-sign rate of frozen proxies on held-out learner states, warmth shift, ε and learning-rate shifts (E6); '
         'static update statistics are at the random level, measured short-tail responses are near zero. (B) Selection regret: short tails select near-optimally on held-out states but worse than random '
         'on the held-out threshold task; only the full tail is exact everywhere. (C) Effect of an lr = 0 moment warm-up (E9): the spread between providers shrinks (random regret falls) while static '
         'proxies do not improve all metrics. Exact finite-history computations in a controlled small network; not a real-model result.')
@@ -1046,12 +1046,12 @@ def n18(d):
     for opt in OPTIMIZERS:
         values=[float(r['ratio']) for r in only(cells,optimizer=opt)
                 if r['R'] in (1,4) and finite(r['ratio'])]
-        require(values,f'N18 no numeric exact ratios for {opt}')
+        require(values,f'Proposition 5.1 no numeric exact ratios for {opt}')
         maximum=max(values); expected=one(data['optimizer_summary'],optimizer=opt)['max_exact_ratio']
         require(math.isclose(maximum,expected,rel_tol=0,abs_tol=1e-12),
-                f'N18 reproduction failed for {opt}: {maximum} != {expected}; refusing to draw')
+                f'Proposition 5.1 reproduction failed for {opt}: {maximum} != {expected}; refusing to draw')
         maxima.append(maximum)
-    print('N18 reproduction PASS: all 11 exact-cell maxima match within 1e-12',flush=True)
+    print('Proposition 5.1 reproduction PASS: all 11 exact-cell maxima match within 1e-12',flush=True)
     fig,(a,b,c)=figure(3,(17,5.5),'Controlled small network; not a real-model result. Bounds use empirical curvature estimates; S1 is not certified.')
     endpoints=[]; selected=('SGD','Adam_cold','Adam_warm20','signSGD')
     for opt in selected:
@@ -1059,11 +1059,11 @@ def n18(d):
         for R,ls in [(1,'-'),(4,'--')]:
             rr=sorted([r for r in only(cells,task='moment',N=3,optimizer=opt,R=R)
                        if finite(r['remainder']) and float(r['remainder'])>1e-15],key=lambda r:r['eta'])
-            require(rr,f'N18 no remainder points for {opt}, R={R}')
+            require(rr,f'Proposition 5.1 no remainder points for {opt}, R={R}')
             a.loglog(array(rr,'eta'),array(rr,'remainder'),color=col,ls=ls,marker='o' if R==1 else 's',
                      mfc=col if R==1 else 'white')
             slope=one(one(data['optimizer_summary'],optimizer=opt)['slopes'],task='moment',N=3,R=R)['remainder_slope']
-            require(finite(slope),f'N18 missing selected slope: {opt}, {R}')
+            require(finite(slope),f'Proposition 5.1 missing selected slope: {opt}, {R}')
             endpoints.append((rr[-1]['eta'],rr[-1]['remainder'],col,f'{name} R={R}: {slope:.2f}'))
             guide={('Adam_cold',4):1,('signSGD',1):2,('SGD',1):3}.get((opt,R))
             if guide:slope_guide(a,rr[-1]['eta'],rr[-1]['remainder'],guide)
@@ -1080,7 +1080,7 @@ def n18(d):
     names=['measured gap','first order\n(increment)','first order\n(raw mean gradient)',
            'remainder\n|gap − first order|','remainder bound']
     for i,(key,col) in enumerate(zip(keys,(BLUE,GREEN,ORANGE,PURPLE,GRAY))):
-        v=abs(pred[key]); require(v>0,f'N18 zero C23 {key} on log axis')
+        v=abs(pred[key]); require(v>0,f'Proposition 5.1 zero C23 {key} on log axis')
         b.barh(i,v-1e-12,left=1e-12,color=col,height=.6)
         b.annotate(f'{pred[key]:.2g}'.replace('-', '−'),xy=(v,i),xytext=(4,0),
                    textcoords='offset points',va='center',fontsize=12)
@@ -1119,7 +1119,7 @@ def n19(d):
     a.set_ylim(top=max(array(rr,'gap'))*30)
     labels(a,r'step size $\eta$','absolute gap / remainder');title(a,'(a) Clipped SGD: the clipped mean decides');legend(a,ncol=3)
     block=data['always_active'];rr=block['rows'];x=array(rr,'eta')
-    require(all(r['first_order']==0 for r in rr),'N19 always-active first order is not identically zero')
+    require(all(r['first_order']==0 for r in rr),'Theorem 5.10 always-active first order is not identically zero')
     b.loglog(x,array(rr,'gap'),'-o',color=BLUE);slope_guide(b,x[-1],rr[-1]['gap'],2)
     note(b,'first-order term = 0 at every '+r'$\eta$'+f'\ngap slope {block["slope"]:.5f}')
     b.set_ylim(top=max(array(rr,'gap'))*10)
@@ -1172,7 +1172,7 @@ def n19(d):
         '(A) Equal raw means, different clipped means: first-order gap under clipping. '
         '(B) Always-active clipping: equal mean directions give an O(eta²) gap. '
         '(C) Warm Adam: with equal gradient means, the first-order term is carried entirely by the v block; '
-        'the W1 bound covers this linear contribution, not the entire measured gap. '
+        'the Proposition 5.6 bound covers this linear contribution, not the entire measured gap. '
         '(D) Momentum-dominated Lion: the parameter increment does not depend on the message. '
         '(E) LoRA at initialization: null-space differences are second order, range differences first order. '
         'Controlled small networks; not a real-model result.')
@@ -1197,7 +1197,7 @@ def outside_oracle(d):
 def n20(d):
     concentration=d.g('V9');rows=concentration['rows'];data=d.g('E12');bins=data['bins']
     summary=one(data['summary'],split='overall');check=outside_oracle(d)
-    print(f'N20 reproduction {"PASS" if check["valid"] else "DISCREPANCY"}: weighted oracle {check["combined"]:.10f}, '
+    print(f'Proposition 8.4 reproduction {"PASS" if check["valid"] else "DISCREPANCY"}: weighted oracle {check["combined"]:.10f}, '
           f'stored {summary["oracle_wrong_sign_eligible"]:.10f}, difference {check["error"]:.10f} (tolerance 0.02)',flush=True)
     fig,(a,b,c)=figure(3,(16,4.8),'E12 uses the oracle continuation gradient. Controlled network and finite-vector Monte Carlo.')
     for law,col,name in [('sign',BLUE,'sign'),('clipped_Gaussian',ORANGE,'clipped Gaussian'),('sparse_spikes',GREEN,'sparse spikes')]:
@@ -1205,7 +1205,7 @@ def n20(d):
         vals=[max(r['quantile_over_bound'] for r in only(rows,law=law,p=p)) for p in ps]
         a.semilogx(ps,vals,'-o',color=col,label=name)
     maximum=max(r['quantile_over_bound'] for r in rows)
-    require(math.isclose(maximum,concentration['max_quantile_over_bound'],rel_tol=0,abs_tol=1e-12),'N20 V9 maximum does not reproduce')
+    require(math.isclose(maximum,concentration['max_quantile_over_bound'],rel_tol=0,abs_tol=1e-12),'Proposition 8.4 V9 maximum does not reproduce')
     a.axhline(1,color=GRAY,ls='--',label='C5 bound');a.set_xlim(1,1e5);a.set_ylim(0,1.1)
     note(a,'worst failure rate:\n'+ '\n'.join(rf'$\delta={delta:g}$: {max(r["failure_rate"] for r in only(rows,delta=delta)):.5f}' for delta in (.05,.2))+
          f'\nmax quantile / bound: {maximum:.3f}',y=.37)
@@ -1470,7 +1470,7 @@ FIGURES = (
 )
 BASENAMES = tuple(name for name, _ in FIGURES)
 
-DESCRIPTIONS = {'fig2_1_decomposition': ('exact Fraction instance in N01; P:robust_ambiguity_minimax', 'Regret decomposition, garbling, and minimax duality.'), 'fig2_2_queries': ('I:claims[id=C2].details.configurations; specified passive formula', 'Query counts, bound ratios, and passive impossibility.'), 'fig2_3_floor': ('V:groups[id=E5].data.{curves,actual_learners}; T:checks.T11_adaptive_query_KL_enumeration.rows', 'Hidden-bit information floors, learners, and additive KL budgets.'), 'fig3_1_static_vs_learning': ('specified analytic formulas; I:controlled_neural.details.configurations', 'Static equivalence versus different trained students.'), 'fig3_2_response': ('exact Fraction instances in N05; I:claims[id=C4].details.cancellation_absolute_drift', 'Telescoping, response equivalence, and cancellation.'), 'fig4_1_duality': ('exact Fraction instance in N06; I:claims[id=C19].details.families; I:claims[id=C5]', 'Worst matched-pair discrepancy equals twice approximation error.'), 'fig4_2_moment_order': ('I:claims[id=C8].details.scalar; I:claims[id=C9].details.{grid_ranks,binary_barriers}; P:constant_gap_parity', 'Necessary moment orders, exact ranks, and the binary barrier.'), 'fig4_3_rates': ('I:claims[id=C18].details.curves; I:claims[id=C11].details.cumulant_cases; I:claims[id=C10]', 'Independent-evidence rates, cumulant coefficients, and a bound uniform in rounds.'), 'fig4_4_approximation': ('specified exact Chebyshev coefficients; P:scalar_approximation; I:claims[id=C12]; I:claims[id=C19].details.families', 'Approximation complexity versus exact polynomial degree.'), 'fig4_5_regime': ('I:controlled_neural.details.configurations; I:claims[id=C13]; V:groups[id=V7].data.linear_failure', 'Local SGD regime, remainder bounds, and geometric error accumulation.'), 'fig5_1_linear_response': ('V:groups[id=E10].data.{cells,optimizer_summary,C23_prediction}', 'First-order representation as a tool; remainder and empirical bound checks.'), 'fig5_2_cold_adam': ('V:groups[id=E2].data.comparisons; V:groups[id=E1].data.ablations; V:groups[id=V4].data', 'Cold Adam, ablations, and magnitude-bearing optimizer memory.'), 'fig5_3_warmth': ('V:groups[id=E8].data.{gaps,W3.per_step,W1.panels}; U:checks[claim_id=C1.exact].data; authenticated raw /checks/C1.exact/{0,1,3,4}', 'Warm-up gaps, exact warmth bounds and nonzero plateaus, affine residuals.'), 'fig5_4_learner_statistics': ('V:groups[id=E11].data', 'Exact mean Adam increment; gradient moments only under frozen denominators; clipping, Lion, LoRA.'), 'fig6_1_information_bound': ('U:checks[claim_id=C2.risk,C2.design,C2.aliasing].data', 'Plug-in risk, design duality, and aliasing floors.'), 'fig6_2_learner_weights': ('U:checks[claim_id=C3.sensitivity,C3.allocation,C3.separation].data', 'Learner sensitivities, allocation error and ratios, and scale separation.'), 'fig7_1_amplitude_law': ('U:checks[claim_id=C4.amplitude].{data,failures}', 'Finite response, mean-field and quadratic laws; all 33 crossing settings including one FAIL.'), 'fig7_2_rankers': ('U:checks[claim_id=C5,C5b].data[0].{overall,v_share_bins,v_share_unavailable}', 'Misranking, denominators, and ties for six rankers.'), 'fig8_1_stability': ('I:claims[id=C22].details.configurations; P:noisy_feature_duality.explicit_example; I:claims[id=C14]', 'Tolerant duality and the cost of small feature scale.'), 'fig8_2_transport': ('theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed C23 dependency); V:groups[id=V1].data; V:groups[id=E4].data', 'Reproduced transport certificates, reached-state diagnostics, and uncovered states.'), 'fig8_3_adaptive_audit': ('I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition}', 'Adaptive audit gains, replica cost, and variance sources.'), 'fig8_4_first_order_audit': ('V:groups[id=V9].data; V:groups[id=E12].data.{bins,summary}', 'Concentration at fixed b (which can grow with dimension); E12 uses the oracle continuation gradient.'), 'fig8_5_certificate': ('U:checks[claim_id=C6,C6b].data; authenticated raw /checks/C6/1/raw_replicates/pairs and /checks/C6b/{1,3,5,7}/raw_replicates/pairs', 'Zero first-order coverage, strict vs diagnostic finite certificates, variance, and full measurement cost.'), 'fig9_1_coupling': ('I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17]', 'Sequential regrouping effects and additive coupling width.'), 'fig9_2_selection': ('V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results}', 'Held-out proxy selection, threshold failures, and warm-up transfer.')}
+DESCRIPTIONS = {'fig2_1_decomposition': ('exact Fraction instance specified in specs/fig2_1.md; P:robust_ambiguity_minimax', 'Regret decomposition, garbling, and minimax duality.'), 'fig2_2_queries': ('I:claims[id=C2].details.configurations; specified passive formula', 'Query counts, bound ratios, and passive impossibility.'), 'fig2_3_floor': ('V:groups[id=E5].data.{curves,actual_learners}; T:checks.T11_adaptive_query_KL_enumeration.rows', 'Hidden-bit information floors, learners, and additive KL budgets.'), 'fig3_1_static_vs_learning': ('specified analytic formulas; I:controlled_neural.details.configurations', 'Static equivalence versus different trained students.'), 'fig3_2_response': ('exact Fraction instances specified in specs/fig3_2.md; I:claims[id=C4].details.cancellation_absolute_drift', 'Telescoping, response equivalence, and cancellation.'), 'fig4_1_duality': ('exact Fraction instance specified in specs/fig4_1.md; I:claims[id=C19].details.families; I:claims[id=C5]', 'Worst matched-pair discrepancy equals twice approximation error.'), 'fig4_2_moment_order': ('I:claims[id=C8].details.scalar; I:claims[id=C9].details.{grid_ranks,binary_barriers}; P:constant_gap_parity', 'Necessary moment orders, exact ranks, and the binary barrier.'), 'fig4_3_rates': ('I:claims[id=C18].details.curves; I:claims[id=C11].details.cumulant_cases; I:claims[id=C10]', 'Independent-evidence rates, cumulant coefficients, and a bound uniform in rounds.'), 'fig4_4_approximation': ('specified exact Chebyshev coefficients; P:scalar_approximation; I:claims[id=C12]; I:claims[id=C19].details.families', 'Approximation complexity versus exact polynomial degree.'), 'fig4_5_regime': ('I:controlled_neural.details.configurations; I:claims[id=C13]; V:groups[id=V7].data.linear_failure', 'Local SGD regime, remainder bounds, and geometric error accumulation.'), 'fig5_1_linear_response': ('V:groups[id=E10].data.{cells,optimizer_summary,C23_prediction}', 'First-order representation as a tool; remainder and empirical bound checks.'), 'fig5_2_cold_adam': ('V:groups[id=E2].data.comparisons; V:groups[id=E1].data.ablations; V:groups[id=V4].data', 'Cold Adam, ablations, and magnitude-bearing optimizer memory.'), 'fig5_3_warmth': ('V:groups[id=E8].data.{gaps,W3.per_step,W1.panels}; U:checks[claim_id=C1.exact].data; authenticated raw /checks/C1.exact/{0,1,3,4}', 'Warm-up gaps, exact warmth bounds and nonzero plateaus, affine residuals.'), 'fig5_4_learner_statistics': ('V:groups[id=E11].data', 'Exact mean Adam increment; gradient moments only under frozen denominators; clipping, Lion, LoRA.'), 'fig6_1_information_bound': ('U:checks[claim_id=C2.risk,C2.design,C2.aliasing].data', 'Plug-in risk, design duality, and aliasing floors.'), 'fig6_2_learner_weights': ('U:checks[claim_id=C3.sensitivity,C3.allocation,C3.separation].data', 'Learner sensitivities, allocation error and ratios, and scale separation.'), 'fig7_1_amplitude_law': ('U:checks[claim_id=C4.amplitude].{data,failures}', 'Finite response, mean-field and quadratic laws; all 33 crossing settings including one FAIL.'), 'fig7_2_rankers': ('U:checks[claim_id=C5,C5b].data[0].{overall,v_share_bins,v_share_unavailable}', 'Misranking, denominators, and ties for six rankers.'), 'fig8_1_stability': ('I:claims[id=C22].details.configurations; P:noisy_feature_duality.explicit_example; I:claims[id=C14]', 'Tolerant duality and the cost of small feature scale.'), 'fig8_2_transport': ('theory/v015_checks/{mathematics,common}.py (read-only, with common’s committed C23 dependency); V:groups[id=V1].data; V:groups[id=E4].data', 'Reproduced transport certificates, reached-state diagnostics, and uncovered states.'), 'fig8_3_adaptive_audit': ('I:claims[id=C16].details.configurations; V:groups[id=E7].data.{Hoeffding,empirical_Bernstein,variance_decomposition}', 'Adaptive audit gains, replica cost, and variance sources.'), 'fig8_4_first_order_audit': ('V:groups[id=V9].data; V:groups[id=E12].data.{bins,summary}', 'Concentration at fixed b (which can grow with dimension); E12 uses the oracle continuation gradient.'), 'fig8_5_certificate': ('U:checks[claim_id=C6,C6b].data; authenticated raw /checks/C6/1/raw_replicates/pairs and /checks/C6b/{1,3,5,7}/raw_replicates/pairs', 'Zero first-order coverage, strict vs diagnostic finite certificates, variance, and full measurement cost.'), 'fig9_1_coupling': ('I:controlled_neural.details.{regrouping,additive_null_parameter_residual}; P:coupling_and_additive_null; I:claims[id=C17]', 'Sequential regrouping effects and additive coupling width.'), 'fig9_2_selection': ('V:groups[id=E6].data.reports; V:groups[id=E9].data.{summary,cheap_proxy_results}', 'Held-out proxy selection, threshold failures, and warm-up transfer.')}
 
 
 def strip_png_timestamps(path):

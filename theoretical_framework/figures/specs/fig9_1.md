@@ -21,7 +21,7 @@
 - **Plot:** two horizontal range bars [min, max] of ⟨Γ, H⟩ over the coupling polytope, the feasible set of a transportation problem ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)).
   - "additive H": a degenerate bar with a point marker; draw a single point if min/max are absent. Width 0.
   - "quadratic pair H": the bar from 0.25 to 0.50. Width 0.25.
-- **Text box:** "C17: 320 random tables; (46) slack median 0.23, max 0.71".
+- **Text box:** "C17: 320 random tables; Prop. 9.1(b) slack median 0.23, max 0.71".
 - **Title:** "Coupling width: 0 iff additive".
 
 **Caption.** (A) In a controlled network (C23(e)), grouping the same four labels as {(0,0),(1,1)} versus {(0,1),(0,1)} changes the final return. The gap is exactly zero for one common-state step and grows with step size and horizon under SGD; under Adam it has the opposite sign and other dynamics. (B) The range of expected packet response over the coupling polytope: a single point for an additive table, positive width for a non-additive one. Only the additive width is stored, so its single point has schematic position. Exact finite computations and a controlled small network; not a real-model result.
