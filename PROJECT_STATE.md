@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:02 CDT 10-12: hpg Qwen + garbage/cache deletion DONE** (user, tc channel 21:46 CDT: "tc上面所有和qwen相关的全部删掉，垃圾缓存全部删掉").
+  305 items deleted (290 Qwen3.5-4B items ≈1,705 GiB; _trash dirs incl. this project's 47.5 GiB; vllm/uv/triton/inductor/envs caches).
+  dept /blue 17,615 → 15,751 GiB used (of 20,480). Record before deletion: tc_code notes/hpg_qwen_deletion_20261012.{tsv,md}
+  (b10ec9d3); log tc-alignment/logs/hpg_qwen_deletion_20261012.log. After: ENV/TRAIN/VLLM pythons import OK; ALFWorld data present.
+  rai not touched (asked the user). Supersedes the "FROZEN until the user decides" note below.
 - **23:05 CDT 10-12: R2 continuation protocol fixed BEFORE any R2 training** (prereg R2 + addendum B; details the prereg left open):
   start z10 = pilot-warm-1010 cold checkpoint-tokens-104070; target p40 = 416,280 supervised tokens (continue_from_state default);
   fraction 0.25 of the remaining updates replaced by batches from the arm's labels (same rule as R1), --seed 1202 for every
