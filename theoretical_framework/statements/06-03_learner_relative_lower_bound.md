@@ -83,6 +83,11 @@
 
 **Status.** proved; (b) and (c) in the local asymptotic minimax sense.
 
+## Related work
+
+- The two-point method is Le Cam's ([Le Cam, 1973](#ref-lecam1973convergence)); Pinsker's inequality and the chain rule for KL divergence are standard ([Cover & Thomas, 2006](#ref-cover2006elements)); the local form under differentiability in quadratic mean follows local asymptotic minimax theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
+- What is specific here is the functional: it is fixed by the learner's increment map and the declared task, so two learners given the same data can face different bounds.
+
 ## References
 
 - [Le Cam, 1973](../references.md#lecam1973convergence)

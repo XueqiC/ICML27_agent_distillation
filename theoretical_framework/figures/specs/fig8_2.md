@@ -1,6 +1,6 @@
 # Figure spec — fig8_2 · Frozen audit with transport
 
-**Output:** `theoretical_framework/figures/fig8_2_transport.pdf` (vector) and `fig8_2_transport.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig8_2_transport.pdf` (vector) and `fig8_2_transport.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
 **Message:** the transport-aware certificate (39a) is never below the exact gap. Transport at reached neural states is nonzero, and measuring it makes the local bound valid. An uncovered state must be charged.
 

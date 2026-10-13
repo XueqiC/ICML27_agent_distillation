@@ -46,7 +46,7 @@ w(H_z)=\max_{\Gamma\in\mathcal C(\mu,\nu)}\langle\Gamma,H_z\rangle-\min_{\Gamma\
 *(a)，"必要性".*
 
 - $`\Gamma_0=\mu\nu^\top`$ 属于 $`\mathcal C(\mu,\nu)`$，且严格为正。
-- 取行 $`i\ne i'`$、列 $`j\ne j'`$，令 $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$。$`E`$ 的行和与列和都为零，所以当 $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$ 时 $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$。
+- 取行 $`i\ne i'`$、列 $`j\ne j'`$，令 $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$。$`E`$ 的行和与列和都为零，所以当 $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$ 时 $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$。这些矩形移动就是运输多面体的基本环路方向（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）。
 - 宽度为零意味着 $`\langle\Gamma,H\rangle`$ 在 $`\mathcal C(\mu,\nu)`$ 上为常数。于是 $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$，即 $`\langle E,H\rangle=0`$：
 
 ```math

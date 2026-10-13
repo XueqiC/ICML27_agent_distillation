@@ -123,5 +123,5 @@ m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,
 
 ## Related work
 
-- Finite differences, the independence of parity from proper coordinate subsets, and the linear independence of monomials on a grid are classical tools; they are credited as such and not claimed as new.
+- Finite differences ([Graham et al., 1994](#ref-graham1994concrete)), the independence of parity from proper coordinate subsets ([O'Donnell, 2014](#ref-odonnell2014analysis)), and the linear independence of monomials on a grid are classical tools; they are credited as such and not claimed as new. The backward induction in (a) evaluates a behaviour strategy in a tree with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)).
 - What is added is their use to compute, for convex-affine learners and deployments with at most $`N`$ decisions, the exact information a feedback source must carry.

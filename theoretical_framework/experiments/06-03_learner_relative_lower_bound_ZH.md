@@ -47,7 +47,7 @@
 ### [Check 6.2](../experiments/06-05_achievability_ZH.md#c6-2) · 实际风险介于 𝔫/4 与 𝔫 之间
 
 - **对 Theorem 6.3 检验什么.** 下界常数 $`1/4`$ 是否正是两点论证给出的值，以及是否有蒸馏器能低于它。
-- **设置.** 192 个可辨识的高斯线性实例（$`p\in\lbrace2,3,5,8\rbrace`$，$`K\in\lbrace1,10,100\rbrace`$，$`n\in\lbrace0,10,100\rbrace`$）；整数舍入后的 c-optimal design 下的有效 plug-in 估计量，每个实例 30,000 次重复；(a) 的 Pinsker 两点界与精确的高斯 TV 两点界，都取在位移 $`\tau=\mathbb I^{-1/2}`$ 处。
+- **设置.** 192 个可辨识的高斯线性实例（$`p\in\lbrace2,3,5,8\rbrace`$，$`K\in\lbrace1,10,100\rbrace`$，$`n\in\lbrace0,10,100\rbrace`$）；整数舍入后的 c-optimal design 下的有效 plug-in 估计量，每个实例 30,000 次重复；(a) 的 Pinsker 两点界（Le Cam 方法，[Le Cam, 1973](#ref-lecam1973convergence)，配合 Pinsker 不等式，[Cover & Thomas, 2006](#ref-cover2006elements)）与精确的高斯 TV 两点界，都取在位移 $`\tau=\mathbb I^{-1/2}`$ 处。
 - **关键数字.** Pinsker 界在每个实例上都等于 $`0.2500\,\mathfrak n`$；精确 TV 界等于 $`0.3085\,\mathfrak n=(1-\Phi(1/2))\,\mathfrak n`$；实际风险至少是 Pinsker 界的 $`3.15`$ 倍；实际风险$`/\mathfrak n`$ 落在 $`[0.789,0.850]`$ 之内。
 - **结论.** PASS。检验中没有蒸馏器接近下界；常数 $`1/4`$ 正是证明在所取位移处给出的值，同一点上的精确界略大。
 
@@ -60,7 +60,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

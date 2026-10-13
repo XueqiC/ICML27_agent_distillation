@@ -51,13 +51,13 @@
 - 500 random instances: 3–6 environments with a random rational prior; 2–5 policies in $`\Pi`$ plus two extra policies in $`\Pi_{\rm ref}`$.
 - Values $`J_E(\pi)\in[0,1]`$ are random rationals with denominator 12. The transcript alphabet has size $`\lvert\mathcal D\rvert=4`$, with a random channel $`P(D\mid E)`$ and a random learner kernel $`\lambda(\cdot\mid D)`$.
 - One instance in four is forced to have a common optimum with ties ($`J_E(\pi_1)=J_E(\pi_2)=1`$ for all $`E`$); one in four is forced to have environment-specific optima.
-- Exact arithmetic (`fractions.Fraction`). LPs are solved with HiGHS at tolerance $`10^{-8}`$. Seed `SeedSequence([20261010, 1])`.
+- Exact arithmetic (`fractions.Fraction`). LPs are solved with HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)) at tolerance $`10^{-8}`$. Seed `SeedSequence([20261010, 1])`.
 
 **Procedure.** For each instance:
 
 1. Compute $`\mathcal R_{\rm rep},\mathcal R_{\rm info},\mathcal R_{\rm alg}`$; assert that they sum exactly to the total regret and are each $`\ge0`$.
 2. Decide whether a common posterior-optimal policy exists for every $`D`$; assert that this holds exactly when $`\mathcal R_{\rm info}=0`$.
-3. Garble $`D`$ through 3-symbol channels: one random randomized channel, and on the first 30 instances all $`3^4=81`$ deterministic channels, which are the extreme points of the convex objective. Assert $`B(D')\le B(D)`$.
+3. Garble $`D`$ through 3-symbol channels, the post-processings of Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)): one random randomized channel, and on the first 30 instances all $`3^4=81`$ deterministic channels, which are the extreme points of the convex objective. Assert $`B(D')\le B(D)`$.
 4. Augment $`D`$ by an independent $`Z`$ and assert $`B(D,Z)=B(D)`$ exactly.
 5. On 220 instances, solve the primal min-over-mixtures LP (2.3) and the dual max-over-priors LP (2.4) separately; assert that they are equal and that the value is $`0`$ exactly when a common optimum exists.
 
@@ -86,11 +86,13 @@
 ### [Check 2.6](../experiments/02-10_few_shot_information_floor.md#c2-6) · Demonstration-count curves, replay and an actual learner
 
 - *What it tests for this theorem.* The algorithm term $`\mathcal R_{\rm alg}`$ of (2.1): with the information term known exactly, an actual learner's extra risk is the algorithm error.
-- *Setup.* Hidden-bit model with $`m\in\lbrace4,8,16\rbrace`$ contexts; a tabular learner (one logit per context) trained for 12 updates with Adam or SGD on the revealed bits; 5,664 learner rows.
+- *Setup.* Hidden-bit model with $`m\in\lbrace4,8,16\rbrace`$ contexts; a tabular learner (one logit per context) trained for 12 updates with Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) or SGD on the revealed bits; 5,664 learner rows.
 - *Result.* The learner risk minus the exact information floor is never negative (minimum 0.0). The mean error on already revealed bits after 12 updates is 0.239 (Adam) and 0.372 (SGD): that excess is $`\mathcal R_{\rm alg}`$, visible separately from $`\mathcal R_{\rm info}`$.
 - *Verdict.* PASS.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C1 --output theory/independent_checks/subset.json

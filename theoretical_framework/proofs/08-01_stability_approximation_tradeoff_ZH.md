@@ -57,7 +57,7 @@ W_{\mathbf{\epsilon}}(g)=\min_{b\in\mathbb R^d,\ c\in\mathbb R}\Big[2\big\lVert 
 W_{\mathbf{\epsilon}}(g)=\sup\big\lbrace\lvert g^\top v\rvert:\ v\in\mathcal D,\ -\mathbf{\epsilon}\le\Phi^\top v\le\mathbf{\epsilon}\big\rbrace .
 ```
 
-可行集 $`\mathcal F`$ 在 $`v\mapsto-v`$ 下不变，所以可以去掉绝对值。$`\mathcal F`$ 是非空多面体（含 $`0`$ 且有界），上确界是最大值。
+可行集 $`\mathcal F`$ 在 $`v\mapsto-v`$ 下不变，所以可以去掉绝对值。$`\mathcal F`$ 是非空多面体（含 $`0`$ 且有界），上确界是最大值。Step 2–3 对这个规划建立弱对偶与强对偶；对线性规划而言，这就是经典的对偶定理（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）。
 
 *Step 2（弱对偶）.* 固定 $`b\in\mathbb R^d`$。对每个 $`v\in\mathcal F`$，由 Claim 2 与特征约束，
 

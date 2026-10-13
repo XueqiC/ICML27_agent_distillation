@@ -85,3 +85,8 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2): learner-relative allocation in CED.
 
 **Status.** proved to leading order in each stated regime.
+
+## Related work
+
+- Adam, with momentum, second-moment decay and bias correction, is as defined in [Kingma & Ba, 2015](#ref-kingma2015adam).
+- In the isolated regime each visit moves the coordinate by a fixed multiple of the gradient's sign: the sign-descent aspect of Adam analysed by [Balles & Hennig, 2018](#ref-balles2018dissecting), related to signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd)).

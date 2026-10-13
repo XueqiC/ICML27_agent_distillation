@@ -83,9 +83,9 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 - **What it tests for Remark 8.11.** Whether surrogate-alignment constants fitted on calibration states transfer to held-out states.
 - **Setup.** The short surrogate (one reference update) is calibrated before any held-out measurement on eight separate calibration cells (288 pairs) that share no complete learner state with the held-out cells: a positive zero-intercept least-squares fit gives $`\alpha`$, and $`\varepsilon_{\rm sur}`$ is the largest calibration residual divided by $`\alpha`$. The constants are then applied to 1,728 held-out pairs.
-- **Key numbers.** $`\alpha=0.881`$ and $`\varepsilon_{\rm sur}=0.0083`$ at $`r=64`$ ($`0.886`$, $`0.0083`$ at $`r=256`$). With the observed range in place of the a-priori range, a diagnostic only, the calibrated surrogate certifies 23–28% of held-out pairs with 22–28 wrong certificates; half of them fall in the held-out learning-rate split.
+- **Key numbers.** $`\alpha=0.881`$ and $`\varepsilon_{\rm sur}=0.0083`$ at $`r=64`$ ($`0.886`$, $`0.0083`$ at $`r=256`$). With the observed range in place of the a-priori range of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)), a diagnostic only, the calibrated surrogate certifies 23–28% of held-out pairs with 22–28 wrong certificates; half of them fall in the held-out learning-rate split.
 - **Verdict.** Calibration transfer can fail, so it must be treated as an assumption to be tested, as the remark states.
 
 ## Reproduce
 
-Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md).
+Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).

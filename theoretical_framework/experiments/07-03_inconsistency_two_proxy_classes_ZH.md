@@ -14,7 +14,7 @@
 
 - warm、不做 bias correction 的 Adam 的单个坐标（$`\epsilon=0`$），尾段梯度独立同分布，均值 $`\bar g`$、平方的均值 $`\bar v`$，得分关于参数仿射；$`\rho=\lvert\bar g\rvert/\sqrt{\bar v}`$ 是信噪比。
 - 幅度为 $`\lambda`$ 的消息是沿 $`\bar g`$ 方向的 $`g=\lambda\sqrt{v}`$；$`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho\,\omega_T)`$ 是 [Corollary 7.2](../statements/07-02_stationary_amplitude_law_ZH.md#s7-2) 二次律的最优幅度，$`\lambda_{\rm PO}=(1-\beta_1)\beta_2/(\beta_1\rho(1-\beta_2))`$ 是只看参数的分数关于 $`\lambda`$ 递增的上界。
-- *只看参数的分数*：限制在参数上的 continuation 梯度与消息自己的 Adam 步的配对。*余弦分数*：消息方向的函数（LESS 式）。*精确一阶价值* $`\mathrm{Val}`$：[Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的全部三个通道。*有限 response*：用 common random numbers 测得的、相对零梯度消息的得分变化。
+- *只看参数的分数*：限制在参数上的 continuation 梯度与消息自己的 Adam 步的配对。*余弦分数*：消息方向的函数（LESS 式，[Xia et al., 2024](#ref-xia2024less)）。*精确一阶价值* $`\mathrm{Val}`$：[Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的全部三个通道。*有限 response*：用 common random numbers（[Glasserman, 2004](#ref-glasserman2004monte)）测得的、相对零梯度消息的得分变化。
 - 排序器在一对候选上*判错*，指它的分数差与 gold 差符号相反。
 
 **被检验的陈述（[Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)）.** (a) 只依赖于状态与反馈律、不依赖于任务的统计量，会在某个任务上把某一对排错或分不开。(b) 在 Corollary 7.2 的设定下取 $`\alpha>0`$、$`0<\lambda_1<\lambda_2`$：只看参数的分数 $`\alpha\eta\,(\beta_1\rho+(1-\beta_1)\lambda)/\sqrt{\beta_2+(1-\beta_2)\lambda^2}`$ 在 $`\lambda<\lambda_{\rm PO}`$ 时递增，所以偏好 $`\lambda_2`$；任何余弦分数都给两者打平；只要 $`\Delta F(\lambda_2)<\Delta F(\lambda_1)`$，真实价值就偏好 $`\lambda_1`$，在 Corollary 7.2(b) 的误差内，$`\lambda_1+\lambda_2>2\lambda^\star`$ 时这一点成立。
@@ -69,6 +69,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 ```
 
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
+
+这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
 

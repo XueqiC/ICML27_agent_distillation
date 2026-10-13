@@ -51,3 +51,8 @@
 - [Theorem 4.4](04-04_affine_learners_moment_order_ZH.md#s4-4) — 仿射 learner 的精确计数。
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity_ZH.md#s4-6) — 近似阶与精确阶。
 - [Theorem 8.1](08-01_stability_approximation_tradeoff_ZH.md#s8-1) — 带误差地测量特征的代价。
+
+## Related work
+
+- 未分辨差距是一种 integral probability metric（[Müller, 1997](#ref-muller1997integral)），即 $`\lvert(P-Q)g\rvert`$ 在一个函数类上的上确界，只是限制在特征均值相等的分布对上。若 $`\mathcal G`$ 包含所有事件的示性函数，内层上确界就是 total variation 距离（[Theorem 4.2(d)](04-02_sufficiency_duality_transfer_ZH.md#s4-2)）。
+- 近似维数是 sup 范数下的 Kolmogorov width 计数（[Pinkus, 1985](#ref-pinkus1985nwidths)）：由 [Theorem 4.2(b)](04-02_sufficiency_duality_transfer_ZH.md#s4-2)，$`d_\varepsilon(\mathcal G)`$ 是使某个包含 $`\mathbf 1`$、维数不超过 $`d+1`$ 的子空间 $`H`$ 以一致误差 $`\varepsilon/2`$ 逼近每个 $`g\in\mathcal G`$ 的最小 $`d`$。

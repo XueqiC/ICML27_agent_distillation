@@ -47,3 +47,8 @@
 - [Example 6.13](../statements/06-13_long_tail_example.md#s6-13): long-tail example.
 
 **Status.** assumption.
+
+## Related work
+
+- Influence functions of Hadamard-differentiable functionals, and the delta method that turns them into asymptotic variances, are standard ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); here they are applied state by state.
+- The gap between the teacher's state distribution, which demonstrations cover, and the student's, at which training and deployment happen, is the distribution shift that motivates interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)).

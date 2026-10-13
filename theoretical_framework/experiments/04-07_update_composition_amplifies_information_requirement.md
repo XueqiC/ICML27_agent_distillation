@@ -158,6 +158,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 
 `--only` preserves each claim's random stream (`SeedSequence([20261010, claim number])`), so a subset run reproduces the full-run numbers.
 
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)), SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)) for the exact symbolic pullback, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
+
 ## Artifacts
 
 - Results: `theory/independent_checks/results_independent_v014.json` (entry `v014:C13`; `controlled_neural` for `v014:C23`); `theory/v015_checks/results_v015_independent.json` (entry `v015:V7`).

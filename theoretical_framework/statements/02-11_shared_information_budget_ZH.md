@@ -66,3 +66,8 @@ K\kappa_D^{(v)}+\kappa_X^{(v)}\,\mathbb E_vN\ge\mathrm{kl}(1-\delta,\delta). \qq
 **被用于.**
 
 - [Corollary 6.8](../statements/06-08_exchange_rate_between_demonstrations_queries_ZH.md#s6-8): 学习器相对的兑换率.
+
+## 相关工作
+
+- best-arm identification 中的 change of measure 不等式用某个事件概率的二元 KL 从下方界住停时之前收集的期望 KL 信息 ([Kaufmann et al., 2016](#ref-kaufmann2016complexity))；(2.11) 在它上面加了示范项 $`K\kappa_D^{(v)}`$。
+- 下界 $`\mathrm{kl}(1-\delta,\delta)`$ 来自对最终决策应用 KL 散度的 data-processing 不等式 ([Cover & Thomas, 2006](#ref-cover2006elements))。

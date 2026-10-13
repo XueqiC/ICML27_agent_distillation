@@ -58,3 +58,7 @@
 **被用于.**
 
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2): 获取与编译分开记账.
+
+## 相关工作
+
+- 识别与编译两步都由有界独立变量的 Hoeffding 不等式控制 ([Hoeffding, 1963](#ref-hoeffding1963probability))。编译只需要固定精度 $`\tfrac18`$ 下的双边形式，所以标签数与 $`\Delta`$ 无关。

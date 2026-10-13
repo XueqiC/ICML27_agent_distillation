@@ -74,7 +74,7 @@
 
 - 线性 logit 的 sigmoid，$`\theta=0.4`$。
 - $`P(G=4)=\tfrac14`$，$`P(G=-\tfrac43)=\tfrac34`$；$`Q=\delta_0`$。
-- 在 $`c=1`$ 处裁剪；clipped SGD。
+- 在 $`c=1`$ 处裁剪；clipped SGD，即带全局范数裁剪的 SGD（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）。
 - $`\eta\in\lbrace 10^{-3},3\cdot10^{-3},10^{-2},3\cdot10^{-2},10^{-1}\rbrace`$。
 - 梯度 $`4`$ 与 $`-4/3`$ 在固定网络的初始化处不会出现，所以改用线性 logit 模型来实现。
 
@@ -148,6 +148,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+这些检查使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。`v015:V2` 与 `v015:V8` 中的线性规划由 `scipy.optimize.linprog` 调用 HiGHS solver（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）求解。
 
 ## 产物
 

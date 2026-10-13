@@ -128,3 +128,7 @@ d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,z}\big)
 - [Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) — 状态通道分解
 - [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4) — 在实际状态上测量平均增量
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) — 一阶版本、它的 margin 判据与上限
+
+## 相关工作
+
+- Proposition 5.1 与 stochastic modified equations（[Li, Tai & E, 2019](#ref-li2019stochastic)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、influence functions（[Koh & Liang, 2017](#ref-koh2017understanding)）和 metagradients（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）属于同一类一阶计算。[Remark 5.2](05-02_relation_to_prior_work_ZH.md#s5-2) 说明它对完整学习器状态的记账多给出了什么。

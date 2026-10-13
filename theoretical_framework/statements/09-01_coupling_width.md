@@ -62,3 +62,8 @@
 
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2), step 3: candidates are packet laws.
 - [Remark 9.3](09-03_derivation_design_rules.md#s9-3), Rule 2: packet organization is part of the candidate.
+
+## Related work
+
+- The coupling polytope $`\mathcal C(\mu,\nu)`$ is the feasible set of the transportation problem of linear programming ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)); (a)–(c) are linear algebra on that polytope.
+- The cross term $`\eta^2H_{P_2}g_{P_1}`$ in (d) is the second-order effect of evaluating a gradient after an earlier update, the same term that produces the drift correction in stochastic modified equations for SGD ([Li et al., 2019](#ref-li2019stochastic)).

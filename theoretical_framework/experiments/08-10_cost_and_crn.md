@@ -83,9 +83,9 @@ With independent tails $`\omega,\omega'`$ for the two arms (and independent mess
 
 - **What it tests for Proposition 8.10.** The size of the range term of the radius at affordable replica counts, the variance reduction from common random numbers, and the cost relative to a full-tail paired audit.
 - **Setup.** The frozen controlled panel of 1,728 candidate pairs ($`M=8`$ candidates per state, $`\delta=0.05`$, so $`\log(4M^2/\delta)=8.54`$), $`r\in\lbrace64,256\rbrace`$ replicas, an aligned and a calibrated short surrogate, and separately executed independent tails as the variance comparator.
-- **Key numbers.** With the a-priori range $`B=2`$ the range term is 0.633 at $`r=64`$ and 0.156 at $`r=256`$, against a median true gap of 0.0037. Common random numbers reduce the summed variance of the paired difference to 0.12–0.15 of independent tails (median pair ratio 0.0035 for the aligned surrogate). The measurement uses 7.0% ($`r=64`$, aligned) to 36.4% ($`r=256`$, calibrated, including calibration) of the trajectories of the full-tail paired audit.
+- **Key numbers.** With the a-priori range $`B=2`$ the range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is 0.633 at $`r=64`$ and 0.156 at $`r=256`$, against a median true gap of 0.0037. Common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)) reduce the summed variance of the paired difference to 0.12–0.15 of independent tails (median pair ratio 0.0035 for the aligned surrogate). The measurement uses 7.0% ($`r=64`$, aligned) to 36.4% ($`r=256`$, calibrated, including calibration) of the trajectories of the full-tail paired audit.
 - **Verdict.** The counting and the variance statement are confirmed; the range term, not the variance, is what keeps the strict certificate empty.
 
 ## Reproduce
 
-Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md).
+Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).

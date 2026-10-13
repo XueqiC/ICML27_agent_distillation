@@ -4,7 +4,7 @@
 
 [← Framework](../README.md) · [Statement](../statements/05-09_partially_active_clipping.md) · [Proof](../proofs/05-09_partially_active_clipping.md) · [Experiments](../experiments/05-09_partially_active_clipping.md) · [中文](05-09_partially_active_clipping_ZH.md)
 
-**In one paragraph.** Global-norm clipping rescales every consumed gradient whose norm exceeds $`c`$ to norm $`c`$. This proposition gives the exact mean of the clipped gradient at any activation rate, and bounds by $`c(1-p_{\rm act})`$ the error of the common simplification that only the mean gradient direction matters, where $`p_{\rm act}`$ is the probability that clipping is active.
+**In one paragraph.** Global-norm clipping ([Pascanu et al., 2013](#ref-pascanu2013difficulty)) rescales every consumed gradient whose norm exceeds $`c`$ to norm $`c`$. This proposition gives the exact mean of the clipped gradient at any activation rate, and bounds by $`c(1-p_{\rm act})`$ the error of the common simplification that only the mean gradient direction matters, where $`p_{\rm act}`$ is the probability that clipping is active.
 
 **Setting used on this page.**
 

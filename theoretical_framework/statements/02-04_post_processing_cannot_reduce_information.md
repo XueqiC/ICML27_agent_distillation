@@ -60,3 +60,8 @@ that is, $`\mathcal R_{\rm info}(D')\ge\mathcal R_{\rm info}(D)`$. If $`Z\perp E
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor.md#s2-10): replay adds nothing to the information floor.
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7): learner-relative version for every distiller.
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): generated data cannot replace acquisition.
+
+## Related work
+
+- That an environment-independent garbling of the transcript cannot raise the Bayes value of any decision problem is the easy direction of Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)).
+- (2.5) is the decision-theoretic counterpart of the data-processing inequality for the Markov chain $`E\to D\to D'`$ ([Cover & Thomas, 2006](#ref-cover2006elements)).

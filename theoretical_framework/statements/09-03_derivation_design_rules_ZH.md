@@ -67,3 +67,9 @@
 
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)：每一步都实现这些规则。
 - [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)：计划中的真实模型检验。
+
+## Related work
+
+- Rule 1 依据的是 Blackwell 实验比较理论中容易的那个方向：对 transcript 做 garbling 不能增加信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）。在学生自己的状态上获取标签，是 DAgger 的做法（[Ross et al., 2011](#ref-ross2011reduction)）。
+- Rule 2 与 Rule 3 针对的是一阶数据分数：influence functions（[Koh & Liang, 2017](#ref-koh2017understanding)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）与 LESS（[Xia et al., 2024](#ref-xia2024less)）都按梯度统计量给训练数据排序，而不是按在 complete learner state 上实测的后果。
+- Rule 6 把调方法的数据与检验方法的数据分开，与 high-confidence policy improvement 的留出安全检验相同（[Thomas et al., 2015](#ref-thomas2015high)）。

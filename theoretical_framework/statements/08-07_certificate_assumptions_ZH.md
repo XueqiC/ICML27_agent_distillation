@@ -76,3 +76,8 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) — 一阶变体
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer_ZH.md#s8-11) — 对齐如何校准
 - [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 关于范围与对齐的未解决问题
+
+## Related work
+
+- (I) 与 (B) 正是 empirical Bernstein 界的前提：独立同分布、取值范围已知的分数（[Maurer & Pontil, 2009](#ref-maurer2009empirical)；[Audibert et al., 2009](#ref-audibert2009exploration)）。
+- 用一个小验证集给训练数据打分的数据选择方法，例如 LESS（[Xia et al., 2024](#ref-xia2024less)），隐含地假设 proxy 的差距跟随任务的差距。(A) 把这个假设明确写出来，带一个尺度 $`\alpha`$ 和一个误差 $`\varepsilon_{\rm sur}`$。

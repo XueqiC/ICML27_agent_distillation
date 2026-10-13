@@ -30,7 +30,7 @@ For a law $`P`$ at $`(t,z)`$, the message-level mean increment is $`D_t(z,y)=\ma
 - **Continuation.** $`V^P_{t+1}:\mathcal Z\to[0,1]`$ is the continuation value of protocol $`P`$: the later updates run under $`P`$, then the student is deployed and scored by $`F_E`$ ([Definition 1.4](../README.md#s1-4)). $`L(P)=\mathbb E\,F_E(Z_R^P)`$, and $`d_t^Q`$ is the law of $`Z_t`$ under protocol $`Q`$.
 - **Norm.** A norm $`\lVert\cdot\rVert`$ on $`\mathbb R^{p+q}`$ is fixed, with dual norm $`\lVert\cdot\rVert_*`$.
 
-**Adam and AdamW.** Adam is bias-corrected, with $`\epsilon`$ outside the square root, optional decoupled weight decay (AdamW) and no AMSGrad. An update with counter $`t\ge1`$ acts on $`z=(\theta,m,v,t-1)`$ and a consumed gradient $`G\in\mathbb R^p`$. Coordinatewise,
+**Adam and AdamW.** Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) is bias-corrected, with $`\epsilon`$ outside the square root, optional decoupled weight decay (AdamW; [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)) and no AMSGrad. An update with counter $`t\ge1`$ acts on $`z=(\theta,m,v,t-1)`$ and a consumed gradient $`G\in\mathbb R^p`$. Coordinatewise,
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -99,3 +99,7 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 - [Proposition 5.8](../statements/05-08_evolution_warmth.md#s5-8) — Evolution of warmth
 - [Theorem 5.10](../statements/05-10_first_order_statistic_by_learner.md#s5-10) — The first-order statistic by learner
 - [Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam.md#s6-11) — Learner weights of SGD and warm Adam
+
+## Related work
+
+- [Balles & Hennig, 2018](#ref-balles2018dissecting) read Adam's direction as the sign of the mean gradient scaled by a variance adaptation factor, so that it depends on the gradient law through $`\mathbb E\,G`$ and $`\mathbb E\,G^{\odot2}`$. Proposition 5.5 shows that this description of a warm step rests on two separate approximations, the first-order expansion and the frozen denominator, and bounds the second by the warmth.

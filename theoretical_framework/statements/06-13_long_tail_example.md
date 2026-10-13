@@ -46,3 +46,8 @@
 - [Corollary 6.12](../statements/06-12_learner_separations.md#s6-12): illustrates part (b).
 
 **Status.** example (an exact computation from Propositions 6.10 and 6.11).
+
+## Related work
+
+- $`\beta_2=0.999`$, used for the frequent-regime count, is the default recommended for Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)).
+- The water-filling rule that turns the amplification into a query allocation reduces, without teacher coverage, to Neyman's allocation $`n_s\propto\sqrt{W_s}`$ ([Neyman, 1934](#ref-neyman1934two)).

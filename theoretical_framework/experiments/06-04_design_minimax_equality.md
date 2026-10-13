@@ -42,7 +42,7 @@ and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** f
 - Gaussian linear model: $`\theta\in\mathbb R^p`$ with $`p\in\lbrace2,3,5,8\rbrace`$; a demonstration observes $`A_D\theta+N(0,I)`$, so $`I_D=A_D^\top A_D`$; a query at $`x`$ observes $`f_x^\top\theta+N(0,1)`$, so $`I_Q(x)=f_xf_x^\top`$, with $`\lvert\mathcal X_Q\rvert\in\lbrace4,16\rbrace`$.
 - Three demonstration families for each $`(p,\lvert\mathcal X_Q\rvert)`$: full rank; an exact null column with a nonzero component of $`c`$ along it (aliased); an exact null column with $`c`$ in the identifiable range (singular but estimable).
 - $`K\in\lbrace1,10,100\rbrace`$, $`n\in\lbrace0,10,100\rbrace`$: 216 instances, 864 assertions.
-- Primal: minimize $`c^\top M(w)^{-1}c`$ over the simplex of design weights $`w`$ by SLSQP with analytic gradients, plus a check of the simplex KKT (Elfving) condition.
+- Primal: minimize $`c^\top M(w)^{-1}c`$ over the simplex of design weights $`w`$ by SLSQP with analytic gradients, plus a check of the simplex KKT (Elfving) condition ([Elfving, 1952](#ref-elfving1952optimum)).
 - Dual: minimize $`K\,h^\top I_Dh+n\,t^2`$ subject to $`c^\top h=1`$ and $`t\ge\pm f_x^\top h`$, a convex quadratic program. Where SLSQP reports a status failure, an independent trust-constr solve with the exact Hessian and an active-face KKT linear solve must certify stationarity, feasibility and nonnegative multipliers to $`10^{-9}`$.
 - $`n=0`$: spectral range tests; a non-identifiable $`c`$ gives $`+\infty`$ on both sides, an identifiable singular $`c`$ uses the pseudo-inverse.
 
@@ -73,7 +73,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

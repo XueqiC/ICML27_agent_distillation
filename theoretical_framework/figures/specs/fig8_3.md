@@ -1,6 +1,6 @@
 # Figure spec — fig8_3 · Actual-state adaptive auditing
 
-**Output:** `theoretical_framework/figures/fig8_3_adaptive_audit.pdf` (vector) and `fig8_3_adaptive_audit.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig8_3_adaptive_audit.pdf` (vector) and `fig8_3_adaptive_audit.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
 **Message:** the measured adaptive-audit gain is above both guarantees in every configuration. The cost of the guarantee is large. In the controlled network, deployment noise dominates the paired variance.
 
@@ -18,8 +18,8 @@
 ## Panel B — Replicas per candidate vs radius
 
 - **Data (analytic plus committed):**
-  - Hoeffding curve n(e) = 2·log(2M/δ)/e², with M=4, δ=0.05, for e ∈ [0.05, 0.3].
-  - Empirical-Bernstein curve: solve for the smallest n with sqrt(2·S²·log(4M/δ)/n) + 14·log(4M/δ)/(3·(n−1)) ≤ e. Take S² = 0.12925 from `groups[id=E7].data.empirical_Bernstein.max_pilot_sample_variance` in `theory/v015_checks/results_v015_independent.json`; take the formula string from `...empirical_Bernstein.formula`.
+  - Hoeffding curve ([Hoeffding, 1963](#ref-hoeffding1963probability)) n(e) = 2·log(2M/δ)/e², with M=4, δ=0.05, for e ∈ [0.05, 0.3].
+  - Empirical-Bernstein curve ([Maurer & Pontil, 2009](#ref-maurer2009empirical)): solve for the smallest n with sqrt(2·S²·log(4M/δ)/n) + 14·log(4M/δ)/(3·(n−1)) ≤ e. Take S² = 0.12925 from `groups[id=E7].data.empirical_Bernstein.max_pilot_sample_variance` in `theory/v015_checks/results_v015_independent.json`; take the formula string from `...empirical_Bernstein.formula`.
 - **Plot:** log-y n against e. Mark the points (0.1, 1016) as "Hoeffding (sufficient)" and (0.1, 559) as "empirical Bernstein (forecast from pilot variance)". Use a dashed line for the forecast curve.
 - **Title:** "Audit cost at one state, M = 4, δ = 0.05".
 

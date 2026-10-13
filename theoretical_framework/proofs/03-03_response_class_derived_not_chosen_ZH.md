@@ -26,3 +26,7 @@
 **证明.**
 
 由 $`V^0`$ 与 $`g_{t,z}`$ 的定义，每个 $`g\in\mathcal G`$ 都有这种形式；反过来，每个这种形式的函数都是对应快照的 response。若 $`\mathcal I\subseteq\mathcal I'`$，则 $`\mathcal G(\mathcal I)\subseteq\mathcal G(\mathcal I')`$，所以对 $`\mathcal G(\mathcal I')`$ 满足 (3.4) 的每一对分布也对 $`\mathcal G(\mathcal I)`$ 满足。扩大声明的任务、学习器、后缀或快照族，只会让等价关系 (3.4) 更细。response 类由学习器与任务确定，不是为了建模方便的选择。
+
+## 相关工作
+
+- 这里的包含关系论证，与 model-based 强化学习中 value-equivalence 类的单调性背后的论证相同 ([Grimm et al., 2020](#ref-grimm2020value), Property 3)。

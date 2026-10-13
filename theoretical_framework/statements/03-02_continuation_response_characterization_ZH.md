@@ -88,3 +88,8 @@ L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\
 - [Theorem 8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3): 实际状态上的自适应 audit.
 - [Proposition 9.1](../statements/09-01_coupling_width_ZH.md#s9-1): coupling width.
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3): 按实测后果选择.
+
+## 相关工作
+
+- 伸缩恒等式 (3.2) 与强化学习中的 performance-difference lemma 形式相同 ([Kakade & Langford, 2002](#ref-kakade2002approximately))，只是 MDP 换成了训练过程：占据分布来自备选过程，advantage 的角色由参照 continuation 下的单轮替换效应担任。
+- Comments 中允许的"在分支之间耦合随机种子"，就是 common random numbers 方法 ([Glasserman, 2004](#ref-glasserman2004monte))。

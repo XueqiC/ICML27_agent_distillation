@@ -38,3 +38,8 @@ Use the objects of [Proposition 5.1](../statements/05-01_optimizer_transformed_e
 
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) — first-order certificate
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) — measurement that needs no increment bound
+
+## Related work
+
+- The Hilbert-norm bound being qualified combines Jensen's inequality with McDiarmid's bounded-difference inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)); the inner product enters only through the vanishing cross terms.
+- The growth of $`b`$ with dimension under cold-start Adam reflects the sign-like first step of Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)); the sign view of Adam is studied by [Balles & Hennig, 2018](#ref-balles2018dissecting).

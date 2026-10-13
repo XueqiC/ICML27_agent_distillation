@@ -69,7 +69,7 @@ For a law $`P`$ at $`(t,z)`$, the message-level mean increment is $`D_t(z,y)=\ma
 
 - A sigmoid with a linear logit at $`\theta=0.4`$.
 - $`P(G=4)=\tfrac14`$ and $`P(G=-\tfrac43)=\tfrac34`$; $`Q=\delta_0`$.
-- Clip at $`c=1`$; clipped SGD.
+- Clip at $`c=1`$; clipped SGD, i.e. SGD with global-norm clipping ([Pascanu et al., 2013](#ref-pascanu2013difficulty)).
 - $`\eta\in\lbrace 10^{-3},3\cdot10^{-3},10^{-2},3\cdot10^{-2},10^{-1}\rbrace`$.
 - The gradients $`4`$ and $`-4/3`$ cannot occur in the fixed network at its initialization, so a linear-logit model realizes them.
 
@@ -142,6 +142,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)). The linear programs of `v015:V2` and `v015:V8` are solved by `scipy.optimize.linprog` with the HiGHS solver ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
 
 ## Artifacts
 

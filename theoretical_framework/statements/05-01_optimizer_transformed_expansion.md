@@ -128,3 +128,7 @@ d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,z}\big)
 - [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1) — State-channel decomposition
 - [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4) — Measuring the mean increment at the actual states
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) — The first-order version, its margin criterion, and its cap
+
+## Related work
+
+- Proposition 5.1 is the same kind of first-order calculation as stochastic modified equations ([Li, Tai & E, 2019](#ref-li2019stochastic)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)), influence functions ([Koh & Liang, 2017](#ref-koh2017understanding)) and metagradients ([Engstrom et al., 2025](#ref-engstrom2025optimizing)). [Remark 5.2](05-02_relation_to_prior_work.md#s5-2) states what its bookkeeping over the complete learner state adds.

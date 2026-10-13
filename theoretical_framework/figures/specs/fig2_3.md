@@ -2,6 +2,8 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
+**Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
+
 **Message.** The information floor decays as $`(1-q)^K`$. Targeted queries buy far more than extra passive demonstrations, and replay buys nothing. A real learner cannot beat the floor. Demonstration KL and query KL add to cover $`\mathrm{kl}(1-\delta,\delta)`$.
 
 **Data.**
@@ -24,7 +26,7 @@
 **Panel (b): actual learner risk against the information floor.**
 
 - Scatter of all `data.actual_learners` rows: x = `information_floor`, y = `risk`.
-- Colour by optimizer (Adam blue, SGD orange) and use the marker shape for `access` (active, passive, replay).
+- Colour by optimizer (Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) blue, SGD orange) and use the marker shape for `access` (active, passive, replay).
 - Diagonal $`y=x`$, labelled "information floor".
 - Annotation: "no point below the diagonal (min risk − floor = 0)".
 - Axes: "information floor", "actual learner risk (12 updates)".

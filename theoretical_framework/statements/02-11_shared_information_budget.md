@@ -66,3 +66,8 @@ If $`\kappa_X^{(v)}=0`$ and $`K\kappa_D^{(v)}<\mathrm{kl}(1-\delta,\delta)`$, no
 **Used by.**
 
 - [Corollary 6.8](../statements/06-08_exchange_rate_between_demonstrations_queries.md#s6-8): learner-relative exchange rate.
+
+## Related work
+
+- (2.11) extends the change-of-measure inequality of best-arm identification, which bounds the expected KL information collected up to a stopping time from below by the binary KL of the probabilities of an event ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)), by the demonstration term $`K\kappa_D^{(v)}`$.
+- The lower bound $`\mathrm{kl}(1-\delta,\delta)`$ comes from the data-processing inequality for KL divergence, applied to the final decision ([Cover & Thomas, 2006](#ref-cover2006elements)).

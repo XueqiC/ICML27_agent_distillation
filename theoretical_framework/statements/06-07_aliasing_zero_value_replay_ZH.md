@@ -55,3 +55,8 @@
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3)：设计规则：先获取、再编译。
 
 **状态.** 已证明。
+
+## 相关工作
+
+- replay、改写与合成都是 transcript 的 garbling，而 garbling 不会比它所来自的实验更有信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）；本推论是这一事实在混叠环境下的定量、学习器相对的形式。
+- 补救办法是在学习器所到之处查询 teacher，而不是 replay 示范，这正是交互式模仿学习的想法（[Ross et al., 2011](#ref-ross2011reduction)）；本推论补充的是：一个方向是否需要查询，取决于学习器的 $`c`$。

@@ -89,6 +89,11 @@
 - [Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)：各步骤实现的设计规则。
 - [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)：计划中的真实模型检验。
 
+## Related work
+
+- 第 2 步在学生自己的状态上查询 teacher，与 DAgger 相同（[Ross et al., 2011](#ref-ross2011reduction)）；这里的查询按学习器相对权重分配。
+- LESS（[Xia et al., 2024](#ref-xia2024less)）与 GRACE（[Panigrahi et al., 2025](#ref-panigrahi2025good)）这类数据选择与 teacher 选择分数，用梯度的某个统计量给候选排序；CED 则按候选对学习器的实测后果排序。
+
 ## 参考文献
 
 - [Ross et al., 2011](../references_ZH.md#ross2011reduction)：DAgger，在学生的状态上查询（第 2 步按学习器相对权重分配这类查询）。

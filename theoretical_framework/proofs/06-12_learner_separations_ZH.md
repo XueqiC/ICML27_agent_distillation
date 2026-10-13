@@ -38,4 +38,6 @@
 - [Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11)：学习器权重。
 - [Proposition 5.9](../statements/05-09_partially_active_clipping_ZH.md#s5-9)：裁剪均值与只看方向的均值相差不超过 $`c_{\rm clip}(1-p_{\rm act})`$。
 
+**用到的经典工具.** 范数裁剪（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）：激活时它返回 $`c_{\rm clip}G/\lVert G\rVert`$，所以步长与梯度的尺度无关；normalized SGD（[Hazan et al., 2015](#ref-hazan2015beyond)）也有这个性质。
+
 **证明.** (a) 裁剪始终激活时，$`\mathrm{clip}_{c_{\rm clip}}(bG)=c_{\rm clip}\,G/\lVert G\rVert`$ 与 $`b>0`$ 无关，所以 $`\partial_b\mu^*_t=0`$；其余由 [Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5) 与 [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7) 得出：$`\theta_0=(\alpha,b)`$ 与 $`\theta_1=(\alpha,b')`$ 的示范分布相同，而对 SGD，$`\Psi(\theta_1)-\Psi(\theta_0)=-\eta(b'-b)\sum_t\langle g_t,\mathbb E\,G_\alpha\rangle\neq0`$。(b) 把 [Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10)(a)–(b) 与 [Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11) 的权重结合。$`\square`$

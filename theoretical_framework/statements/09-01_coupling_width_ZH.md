@@ -62,3 +62,8 @@
 
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 3 步：候选是 packet 律。
 - [Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)，Rule 2：packet 的组织方式是候选的一部分。
+
+## Related work
+
+- coupling 多面体 $`\mathcal C(\mu,\nu)`$ 就是线性规划中运输问题的可行集（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）；(a)–(c) 是这个多面体上的线性代数。
+- (d) 中的交叉项 $`\eta^2H_{P_2}g_{P_1}`$，是在前一次更新之后再计算梯度带来的二阶效应，也正是 SGD 的 stochastic modified equations 里漂移修正项的来源（[Li et al., 2019](#ref-li2019stochastic)）。

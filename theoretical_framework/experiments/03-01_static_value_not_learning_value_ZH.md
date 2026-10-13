@@ -60,7 +60,7 @@ p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2 
 
 **设置.**
 
-- 关于 $`p`$ 与 $`\eta`$ 的 SymPy 符号计算。
+- 关于 $`p`$ 与 $`\eta`$ 的 SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)) 符号计算。
 - 频率学习器的精确二项期望，用 `fractions.Fraction`，$`m=1,\dots,30`$，两个来源都算。
 - 在全部四个状态上逐个核对 teacher 的最优性。
 - 种子 `SeedSequence([20261010, 3])`；检验是确定性的。
@@ -94,7 +94,7 @@ p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2 
 **设置.**
 
 - 网络：one-hot 上下文 → 4 个 tanh 单元 → sigmoid 动作概率，固定初始化，在标签块上用交叉熵。
-- 优化器：SGD，$`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$；Adam（$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，bias correction），$`\eta\in\lbrace 0.01,0.1\rbrace`$。
+- 优化器：SGD，$`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$；Adam ([Kingma & Ba, 2015](#ref-kingma2015adam))（$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，bias correction），$`\eta\in\lbrace 0.01,0.1\rbrace`$。
 - $`R\in\lbrace 1,4,40\rbrace`$ 次更新，来源分布取自构造 (a) 与 (b)。
 - $`R\le4`$ 时精确枚举所有训练历史。$`R=40`$ 时每个来源跑 2,400 次独立训练；SE 按训练次数计。
 - 种子 `SeedSequence([20261010, 23])`。
@@ -128,6 +128,8 @@ p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2 
 - 差距的大小依赖于 optimizer：$`\eta`$ 相同时，Adam 的差距大于 SGD。§5 解释这种依赖（[Proposition 5.3](../statements/05-03_cold_start_adam_sign_quotient_ZH.md#s5-3)，cold-start Adam）。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array)) 与 SymPy ([Meurer et al., 2017](#ref-meurer2017sympy))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C3,C23 --output theory/independent_checks/subset.json

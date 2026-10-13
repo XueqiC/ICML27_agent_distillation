@@ -9,7 +9,7 @@
 **Setting used on this page.**
 
 - Unknown bits $`\Theta_1,\dots,\Theta_d`$, independent and fair. Context $`j`$ occurs at deployment with weight $`w_j`$ ($`\sum_jw_j=1`$) and its correct decision is $`\Theta_j`$; the student can learn any context-to-action table, so there is no representation error.
-- Each of the $`K`$ demonstrations reveals a random set $`S_k`$ of bits with their values; the sets are IID, independent of the bits, and $`q_j=\Pr(j\in S)`$ is the chance that one demonstration reveals bit $`j`$.
+- Each of the $`K`$ demonstrations reveals a random set $`S_k`$ of bits with their values; the sets are IID and independent of the bits, so the unrevealed labels are missing completely at random ([Rubin, 1976](#ref-rubin1976inference)), and $`q_j=\Pr(j\in S)`$ is the chance that one demonstration reveals bit $`j`$.
 - After the demonstrations a hard budget allows $`n`$ queries, each revealing one chosen bit; choices may depend on everything seen so far.
 - $`U_K`$ is the set of bits revealed by no demonstration and $`M_K=\lvert U_K\rvert`$. $`R_{\rm info}`$ denotes the minimum achievable expected regret (the information term of [Theorem 2.2](../statements/02-02_regret_decomposition_decision_ambiguity.md#s2-2)).
 - Full definition: [Definition 2.8](../statements/02-08_hidden_bit_model.md#s2-8).

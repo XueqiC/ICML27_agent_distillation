@@ -102,7 +102,7 @@ L_E(\mathrm{adaptive})-L_E(0)\ge-\delta,\qquad L_E(\mathrm{adaptive})-L_E(0)\ge\
 
 ## Related work
 
-- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3) 与 [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4) 用到 Hoeffding 不等式、union bound 与 McDiarmid 不等式。按置信下界选择以保证不退化，是 high-confidence policy improvement（[Thomas et al., 2015](../references_ZH.md#thomas2015high)）的思路。
+- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3) 与 [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4) 用到 Hoeffding 不等式（[Hoeffding, 1963](#ref-hoeffding1963probability)）、union bound 与 McDiarmid 不等式（[McDiarmid, 1989](#ref-mcdiarmid1989method)）。按置信下界选择以保证不退化，是 high-confidence policy improvement（[Thomas et al., 2015](../references_ZH.md#thomas2015high)）的思路。
 
 ## 参考文献
 

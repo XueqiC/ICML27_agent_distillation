@@ -9,7 +9,7 @@
 **本页用到的设定与记号.**
 
 - *complete learner state.* $`z=(\theta,o)`$，参数为 $`\theta`$，optimizer state 为 $`o=(m,v,s)`$：Adam 的一阶矩 $`m`$、二阶矩 $`v`$（都按坐标）与绝对步数计数器 $`s`$（[Definition 1.3](../README_ZH.md#s1-3)）。
-- *AdamW 更新.* 超参数 $`\beta_1\in[0,1)`$、$`\beta_2\in(0,1)`$、学习率 $`\eta>0`$、$`\epsilon\ge0`$，decoupled weight decay 系数 $`\lambda_{\rm wd}\ge0`$。第 $`s`$ 步的 consumed gradient $`g`$ 给出
+- *AdamW 更新*（[Kingma & Ba, 2015](#ref-kingma2015adam) 的 Adam，加上 [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled) 的 decoupled weight decay）。超参数 $`\beta_1\in[0,1)`$、$`\beta_2\in(0,1)`$、学习率 $`\eta>0`$、$`\epsilon\ge0`$，decoupled weight decay 系数 $`\lambda_{\rm wd}\ge0`$。第 $`s`$ 步的 consumed gradient $`g`$ 给出
 
 ```math
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
@@ -17,7 +17,7 @@ m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'
 
 - $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$ 与 $`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$ 是 bias correction 因子（不做 bias correction 时 $`q_{1,s}=q_{2,s}=1`$）。向量运算都按坐标进行。
 - *增量.* $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$，即 [Proposition 5.5](05-05_exact_first_order_statistic_adam_ZH.md#s5-5) 的 Adam 增量映射。计数器加一，求导时不对它求导。
-- *消息与参考尾段.* 第 $`t`$ 轮学习器处在 $`z_t=(\theta_t,m_t,v_t,s_t)`$。consumed gradient 为 $`g`$ 的消息把它移到 $`z_t+\Delta_t(z_t,g)`$。之后参考尾段执行第 $`k=t+1,\dots,R-1`$ 次更新；第 $`k`$ 次更新用它自己数据上的 consumed gradient $`g_k(\theta)`$，即损失梯度 $`\nabla\ell_k(\theta)`$ 或其全局范数裁剪 $`\mathrm{clip}_c(\nabla\ell_k(\theta))`$。最终得分为 $`F(\theta_R)`$。
+- *消息与参考尾段.* 第 $`t`$ 轮学习器处在 $`z_t=(\theta_t,m_t,v_t,s_t)`$。consumed gradient 为 $`g`$ 的消息把它移到 $`z_t+\Delta_t(z_t,g)`$。之后参考尾段执行第 $`k=t+1,\dots,R-1`$ 次更新；第 $`k`$ 次更新用它自己数据上的 consumed gradient $`g_k(\theta)`$，即损失梯度 $`\nabla\ell_k(\theta)`$ 或其全局范数裁剪 $`\mathrm{clip}_c(\nabla\ell_k(\theta))`$（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）。最终得分为 $`F(\theta_R)`$。
 - *continuation value.* $`V_{t+1}(z)`$ 是尾段从 $`z`$ 出发所得的最终得分（[Definition 1.4](../README_ZH.md#s1-4)）。尾段带随机性 $`\omega`$（数据顺序、采样）时，$`V_{t+1}=\mathbb E_\omega V_{t+1,\omega}`$。
 - *消息的一阶价值.* $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$，即 [Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1) 展开中 $`V_{t+1}(z_t+\Delta_t(z_t,g))-V_{t+1}(z_t)`$ 的一阶项。对消息律 $`P`$，$`\mathrm{Val}(P)=\mathbb E_P\mathrm{Val}(G)=\langle\nabla V_{t+1}(z_t),\mu^P_t(z_t)\rangle`$，$`\mu^P_t`$ 为平均增量。
 
@@ -106,6 +106,10 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 - [Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)：两类 proxy 的不一致性。
 - [Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5)：一阶排序器在哪里失效。
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 与 [Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)：方法中的幅度控制。
+
+## Related work
+
+- costate 递推就是贯穿训练的反向模式求导，这里对 Adam 的状态写成了闭式。同一原理也用于对带动量的 SGD 求精确梯度（[Maclaurin et al., 2015](#ref-maclaurin2015gradient)），以及在大规模训练中求 metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)），求导对象是超参数或数据权重。
 
 ## 参考文献
 

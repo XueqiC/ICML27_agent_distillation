@@ -58,6 +58,10 @@
 
 **Status.** proved, with the factor $`4d^{3/2}`$.
 
+## Related work
+
+- John's theorem: every symmetric convex body in $`\mathbb R^d`$ contains an ellipsoid whose $`\sqrt d`$-dilate contains the body ([John, 1948](#ref-john1948extremum)). It reduces the class seminorm to $`d`$ c-optimal design problems, one per axis of the ellipsoid ([Elfving, 1952](#ref-elfving1952optimum)).
+
 ## References
 
 - [John, 1948](../references.md#john1948extremum)

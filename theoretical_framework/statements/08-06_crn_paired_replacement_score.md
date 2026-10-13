@@ -64,3 +64,9 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) — the certificate built on it
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) — first-order variant
 - [Proposition 8.10](../statements/08-10_cost_and_crn.md#s8-10) — cost and variance
+
+## Related work
+
+- Sharing the tail randomness $`\omega_\ell`$ across candidates is the method of common random numbers, a classical variance-reduction device for comparing simulated systems ([Glasserman, 2004](#ref-glasserman2004monte)).
+- The task-side contrast $`A_t(z,j)`$ is a one-round replacement contrast; summed over the reached states it gives the telescoping decomposition behind the performance-difference lemma of [Kakade & Langford, 2002](#ref-kakade2002approximately).
+- Measuring the effect of a change in the training data by actually retraining, rather than by a gradient approximation, is also the approach of datamodels ([Ilyas et al., 2022](#ref-ilyas2022datamodels)). Here the change is one round of feedback at an actual learner state, and the tail is shared across candidates.

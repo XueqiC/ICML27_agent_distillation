@@ -85,3 +85,8 @@ R_{\rm info}(K,n)=\frac{\mathbb E[(M_K-n)_+]}{2d},\qquad R_{\rm info}(K,0)=\frac
 
 - [Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10): 学习器相对的 coverage 模型.
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2): 先分配查询再编译.
+
+## 相关工作
+
+- 均匀情形下每条示范揭示一个按部署分布抽出的上下文，$`2R_{\rm info}(K,0)=(1-1/d)^K`$ 就是抽 $`K`$ 次后该分布的期望 missing mass，即 Good–Turing 估计量从样本估计的那个量 ([Good, 1953](#ref-good1953population))。
+- (b) 中两个正部表达式的比较，是凸映射 $`x\mapsto(x-n)_+`$ 上的 Jensen 不等式 ([Jensen, 1906](#ref-jensen1906fonctions))。

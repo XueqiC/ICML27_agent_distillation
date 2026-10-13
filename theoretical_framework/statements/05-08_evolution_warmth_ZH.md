@@ -10,7 +10,7 @@
 
 下面重述本页用到的对象，以便单独阅读本页；一般记号见 [Definition 1.3–1.4](../README_ZH.md#s1-3)。
 
-**Adam 与 AdamW.** Adam 带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
+**Adam 与 AdamW.** Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW；[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -105,3 +105,8 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 - [Theorem 5.10](../statements/05-10_first_order_statistic_by_learner_ZH.md#s5-10) — 各学习器的一阶统计量
 - [Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11) — 在真实模型上检验 warm 状态的条件
+
+## 相关工作
+
+- bias correction 来自 [Kingma & Ba, 2015](#ref-kingma2015adam)；Proposition 5.8 说明它不改变 warmth。
+- Adam 的学习率 warm-up，以及促使人们使用 warm-up 的自适应学习率大方差问题，由 [Liu et al., 2020](#ref-liu2020variance) 分析。Proposition 5.8 补充的是：学习率为零的 warm-up 推进二阶矩的方式与真实更新完全相同；并且在固定的 $`\beta_2`$ 下，warmth 停在 $`(1-\beta_2)/\beta_2`$，不会趋于零。

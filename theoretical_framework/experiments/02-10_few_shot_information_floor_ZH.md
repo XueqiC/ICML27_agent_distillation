@@ -66,7 +66,7 @@ R_{\rm info}(K,n)=\frac{\mathbb E[(M_K-n)_+]}{2d},\qquad R_{\rm info}(K,0)=\frac
 - 100 个情形：$`d=1,\dots,5`$（各 20 个）、$`K=0,\dots,4`$、$`n=0,\dots,3`$，随机有理权重 $`w`$，随机的位掩码揭示集合分布。
 - 穷举全部 $`2^d`$ 个比特世界与每一种有序揭示历史；最大的情形有 2,321 条 transcript。按后验取 Bayes 动作。按标签的查询决策树精确最小化；最大的有 271 个查询节点。
 - 均匀占据下 $`M_K`$ 的分布用两种独立方法计算（子集递推与容斥），$`d=2,\dots,5`$、$`K\le4`$。
-- 对抗爬山搜索（8 次重启 × 20 步）寻找违反 Jensen 不等式或贪心最优性的实例。
+- 对抗爬山搜索（8 次重启 × 20 步）寻找违反 Jensen 不等式 ([Jensen, 1906](#ref-jensen1906fonctions)) 或贪心最优性的实例。
 - 种子 `SeedSequence([150150, 5])`；全程 `fractions.Fraction`。
 
 **结果.**
@@ -104,7 +104,7 @@ R_{\rm info}(K,n)=\frac{\mathbb E[(M_K-n)_+]}{2d},\qquad R_{\rm info}(K,0)=\frac
 
 - $`R_{\rm info}(K,\cdot)`$ 的精确曲线：$`m\in\lbrace 4,8,16\rbrace`$ 个上下文，均匀与非均匀的 $`q`$ 和 $`w`$，$`K=0,\dots,32`$，查询预算 $`0,1,2,4`$；用整数子集 Möbius 反演计算，风险为有理数。
 - 预算相同的三种访问方式：*主动*（查询指向未见上下文）、*被动*（同样的预算用于额外的随机示范）、*replay*（重新展示已见标签）。
-- 一个实际的表格学习器（每个上下文一个 logit），在已揭示的比特上用可分的求和交叉熵、Adam 或 SGD 训练 12 次更新；未见上下文的 logit 保持为 0，部署时按 Bernoulli 采样动作。
+- 一个实际的表格学习器（每个上下文一个 logit），在已揭示的比特上用可分的求和交叉熵、Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) 或 SGD 训练 12 次更新；未见上下文的 logit 保持为 0，部署时按 Bernoulli 采样动作。
 - 种子 `SeedSequence([150150, 105])`。
 
 **结果.**
@@ -149,6 +149,8 @@ R_{\rm info}(K,n)=\frac{\mathbb E[(M_K-n)_+]}{2d},\qquad R_{\rm info}(K,0)=\frac
 **为什么支持这些陈述.** 又有三个构造（非均匀权重、多比特揭示集合、基于得分的停止）与 Theorem 2.10 和 [Proposition 2.11](../statements/02-11_shared_information_budget_ZH.md#s2-11) 一致。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V5,E5 --output theory/v015_checks/quick/sec2.json

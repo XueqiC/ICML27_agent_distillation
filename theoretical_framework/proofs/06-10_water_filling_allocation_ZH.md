@@ -52,7 +52,7 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{其中 }\lambda>0\text
 - [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)：两点论证，用在一维 tilting 子模型上。
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7)：用于 (d)。
 
-**用到的经典工具.** Cauchy–Schwarz 不等式与凸规划的 KKT 条件。
+**用到的经典工具.** Cauchy–Schwarz 不等式、凸规划的 KKT 条件，以及沿 influence function 的一维子模型；后者是给泛函求信息界的标准手段（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
 
 **证明.** (a) 固定 $`h\in\mathbb R^{\mathcal S}`$，取 tilting 子模型 $`P_{s,\tau}=(1+\tau h_sf_s)\,P^*_s`$。$`f_s`$ 在有限字母表上有界且均值为零，所以 $`\lvert\tau\rvert`$ 足够小时它是概率分布。
 
@@ -76,6 +76,7 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{其中 }\lambda>0\text
 ## 相关工作
 
 - **模仿学习中的主动获取.** DAgger（[Ross, Gordon & Bagnell, 2011](../references_ZH.md#ross2011reduction)）在学生访问的状态上查询 teacher；用本命题的语言，它按学生的访问频率分配查询。信息意义下的最优分配是按学习器相对权重做 water-filling，而这些权重随 optimizer 改变（[Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11)）。
+- **分配规则.** 没有 teacher 覆盖时，最优解 $`n_s\propto\sqrt{W_s}`$ 就是分层抽样中的 Neyman 分配（[Neyman, 1934](#ref-neyman1934two)）；有覆盖 $`k_s`$ 时它是 water-filling，与并行 Gaussian 信道上功率分配的解形状相同（[Cover & Thomas, 2006](#ref-cover2006elements)）。
 
 ## 参考文献
 

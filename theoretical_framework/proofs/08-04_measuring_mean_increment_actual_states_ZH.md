@@ -78,7 +78,7 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 - *偏离.* 把 $`X_i`$ 换成 $`X_i'`$，$`f`$ 的变化不超过 $`\lVert X_i-X_i'\rVert/n\le2b/n`$。对 $`c_i=2b/n`$ 用 McDiarmid 不等式 ([McDiarmid, 1989](../references_ZH.md#mcdiarmid1989method))，$`\Pr\lbrace f-\mathbb Ef\ge s\rbrace\le\exp(-2s^2/\sum_ic_i^2)=\exp(-ns^2/(2b^2))`$。令它等于 $`\delta`$，得 $`s=b\sqrt{2\log(1/\delta)/n}`$。
 - *两个样本.* 对每个样本以 $`\delta/2`$ 用单样本的界，再用 $`\lVert(\bar X_P-\bar X_Q)-(\mu^P-\mu^Q)\rVert\le\lVert\bar X_P-\mu^P\rVert+\lVert\bar X_Q-\mu^Q\rVert`$ 并取 union bound。
 
-**(b)** 把 $`\delta/2`$ 分给 (a) 的两样本界，由 $`\log(2/(\delta/2))=\log(4/\delta)`$ 得到 $`e_1`$。把 $`\delta/4`$ 分别分给两个二阶矩：$`\lVert X\rVert^2\in[0,b^2]`$，单侧 Hoeffding 给出以至少 $`1-\delta/4`$ 的概率 $`m^P_2\le\hat m^P_2+b^2\sqrt{\log(4/\delta)/(2n_P)}`$，$`Q`$ 同理。在三个事件的交上，$`\lVert\mu^P-\mu^Q\rVert\le\lVert\bar X_P-\bar X_Q\rVert+e_1`$，且 $`m^P_2+m^Q_2\le\hat m^P_2+\hat m^Q_2+e_2`$。
+**(b)** 把 $`\delta/2`$ 分给 (a) 的两样本界，由 $`\log(2/(\delta/2))=\log(4/\delta)`$ 得到 $`e_1`$。把 $`\delta/4`$ 分别分给两个二阶矩：$`\lVert X\rVert^2\in[0,b^2]`$，单侧 Hoeffding（[Hoeffding, 1963](#ref-hoeffding1963probability)）给出以至少 $`1-\delta/4`$ 的概率 $`m^P_2\le\hat m^P_2+b^2\sqrt{\log(4/\delta)/(2n_P)}`$，$`Q`$ 同理。在三个事件的交上，$`\lVert\mu^P-\mu^Q\rVert\le\lVert\bar X_P-\bar X_Q\rVert+e_1`$，且 $`m^P_2+m^Q_2\le\hat m^P_2+\hat m^Q_2+e_2`$。
 
 - 由 (S) 与带积分余项的 Taylor 定理，$`V(z+\Delta)=V(z)+\langle\nabla V(z),\Delta\rangle+\rho(\Delta)`$，$`\lvert\rho(\Delta)\rvert\le\tfrac{M_2}2\lVert\Delta\rVert^2`$。由于 $`(K^P_tV)(z)=\mathbb E_PV(z+\Delta)`$，这就是 [Proposition 5.1](../statements/05-01_optimizer_transformed_expansion_ZH.md#s5-1) 的单边界情形：
 

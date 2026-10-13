@@ -88,3 +88,8 @@ Consequently, if $`\lvert(K_t^0-K_t^S)V_{t+1}^0(z)\rvert\le\varepsilon_t(z)`$ fo
 - [Theorem 8.3](../statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3): adaptive audit at actual states.
 - [Proposition 9.1](../statements/09-01_coupling_width.md#s9-1): coupling width.
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): select by measured consequence.
+
+## Related work
+
+- The telescoping identity (3.2) has the form of the performance-difference lemma of reinforcement learning ([Kakade & Langford, 2002](#ref-kakade2002approximately)), with the training process in place of the MDP: the occupancy is that of the alternative process, and the role of the advantage is played by the one-round replacement effect under the reference continuation.
+- Coupling the random seeds of the branches, which the comments allow, is the method of common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)).

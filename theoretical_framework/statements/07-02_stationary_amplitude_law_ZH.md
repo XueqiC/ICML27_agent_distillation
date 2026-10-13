@@ -8,7 +8,7 @@
 
 **本页用到的设定与记号.**
 
-- *不做 bias correction 的 Adam，单个坐标 $`i`$.* 矩 $`m,v`$，$`\beta_1\in[0,1)`$，$`\beta_2\in(0,1)`$，学习率 $`\eta`$，$`\epsilon=0`$，无 weight decay。consumed gradient $`g`$ 使 $`m'=\beta_1m+(1-\beta_1)g`$、$`v'=\beta_2v+(1-\beta_2)g^2`$，参数移动 $`-\eta m'/\sqrt{v'}`$。
+- *不做 bias correction 的 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)），单个坐标 $`i`$.* 矩 $`m,v`$，$`\beta_1\in[0,1)`$，$`\beta_2\in(0,1)`$，学习率 $`\eta`$，$`\epsilon=0`$，无 weight decay。consumed gradient $`g`$ 使 $`m'=\beta_1m+(1-\beta_1)g`$、$`v'=\beta_2v+(1-\beta_2)g^2`$，参数移动 $`-\eta m'/\sqrt{v'}`$。
 - *消息与尾段.* 第 $`t`$ 轮施加一条 consumed gradient 为 $`g_i`$ 的消息，之后有 $`T=R-1-t`$ 次尾段更新。最终得分为 $`F`$，$`(\nabla F)_i`$ 是它在坐标 $`i`$ 上的导数。
 - *平稳线性 response 区间.* 尾段梯度 $`g_{k,i}`$ 与 $`\theta`$ 无关，平稳，均值 $`\bar g_i\ne0`$、平方的均值 $`\bar v_i>0`$；$`F`$ 关于 $`\theta_i`$ 仿射。
 - *warm 状态.* 消息到达时 $`m_{t,i}=\bar g_i`$，$`v_{t,i}=\bar v_i`$。
@@ -102,3 +102,7 @@ mean-field 一阶价值之差 $`\mathrm{Val}_i(\lambda)-\mathrm{Val}_i(0)`$ 满�
 - [Remark 7.4](07-04_relation_prior_work_role_clipping_ZH.md#s7-4)：裁剪作为 $`\lambda`$ 的上限。
 - [Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5)：一阶排序器失效的饱和区域。
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)：幅度控制（第 4 步）。
+
+## Related work
+
+- Adam 在单个坐标上的步长由该坐标的信噪比决定；把 Adam 看作"符号步乘以方差自适应因子"的解读正基于此（[Balles & Hennig, 2018](#ref-balles2018dissecting)）。这里同一个比值 $`\rho_i`$ 决定大消息对此后各步是有利还是有害。

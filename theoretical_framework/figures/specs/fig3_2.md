@@ -2,7 +2,9 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
-**Message.** The learning gap is exactly the sum, over rounds, of response discrepancies weighted by the alternative process's occupancy. One-boundary values differ by $`(P-Q)g`$. Per-round drifts can cancel.
+**Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
+
+**Message.** The learning gap is exactly the sum, over rounds, of response discrepancies weighted by the alternative process's occupancy, an identity of performance-difference type ([Kakade & Langford, 2002](#ref-kakade2002approximately)). One-boundary values differ by $`(P-Q)g`$. Per-round drifts can cancel.
 
 **Data.** All three panels are exact recomputations on fully specified tiny instances; C4 stores only aggregates. Use `fractions.Fraction`.
 

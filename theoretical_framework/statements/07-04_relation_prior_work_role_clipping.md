@@ -11,7 +11,7 @@
 - *Amplitude.* For one coordinate of warm Adam, the amplitude $`\lambda`$ of a message is its gradient in units of the running RMS $`\sqrt{v}`$, in the direction of the mean gradient ([Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2)).
 - *Second-moment channel.* The part of a message's first-order value that acts through the second moment $`v`$, i.e. through all later step sizes ([Theorem 7.1](07-01_state_channel_decomposition.md#s7-1)).
 - *Parameter-only and cosine scores.* The two classes of influence scores shown to be inconsistent rankers in [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3)(b): a score that pairs the continuation gradient with the message's own parameter step, and a score that depends only on the direction of the message gradient.
-- *Global-norm clipping* at threshold $`c`$ rescales a gradient $`g`$ to $`c\,g/\lVert g\rVert`$ whenever $`\lVert g\rVert>c`$.
+- *Global-norm clipping* ([Pascanu et al., 2013](#ref-pascanu2013difficulty)) at threshold $`c`$ rescales a gradient $`g`$ to $`c\,g/\lVert g\rVert`$ whenever $`\lVert g\rVert>c`$.
 
 <a id="s7-4"></a>
 

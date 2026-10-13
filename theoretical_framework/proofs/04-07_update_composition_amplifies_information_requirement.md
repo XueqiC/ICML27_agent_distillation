@@ -80,5 +80,5 @@ By (T3) $`\lvert\varphi'''\rvert\le M_3\eta^3\lVert g\rVert^3`$, and $`\int_0^1(
 
 ## Related work
 
-- Taylor expansion with integral remainder and the geometric accumulation of per-step errors are classical; they are credited as such and not claimed as new.
+- Taylor expansion with integral remainder and the geometric accumulation of per-step errors are classical; they are credited as such and not claimed as new. The same one-step moment expansion, followed by the accumulation of one-step errors, underlies the weak approximation of SGD by stochastic modified equations ([Li et al., 2019](#ref-li2019stochastic)).
 - What is added is their use to show that the information a feedback source must carry is set by the learner composed with the deployment, not by the data alone.

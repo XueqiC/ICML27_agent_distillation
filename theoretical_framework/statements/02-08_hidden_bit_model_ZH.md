@@ -41,3 +41,7 @@
 
 - [Lemma 2.9](../statements/02-09_no_leakage_about_unrevealed_bits_ZH.md#s2-9): 未揭示比特保持均匀.
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor_ZH.md#s2-10): 信息下限与最优查询.
+
+## 相关工作
+
+- 揭示集合与比特独立，所以未揭示的标签在 [Rubin, 1976](#ref-rubin1976inference) 的意义下是 *missing completely at random*。[Lemma 2.9](../statements/02-09_no_leakage_about_unrevealed_bits_ZH.md#s2-9) 把这一假设变成"不泄露"；若揭示集合依据比特来选，缺失本身就会携带信息。

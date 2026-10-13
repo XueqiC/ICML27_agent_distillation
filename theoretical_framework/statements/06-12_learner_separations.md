@@ -62,3 +62,8 @@
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): design rule: match the learner.
 
 **Status.** proved; (b) to leading order in the stated regime.
+
+## Related work
+
+- Norm clipping is the gradient-clipping rule of [Pascanu et al., 2013](#ref-pascanu2013difficulty), and normalized SGD is the method studied by [Hazan et al., 2015](#ref-hazan2015beyond). Both make the step independent of the gradient's scale, which is what removes $`b`$ from the clipped learner's functional in (a).
+- Warm Adam in (b) is Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) after its moment estimates have warmed up.

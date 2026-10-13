@@ -67,3 +67,9 @@
 - [Proposition 2.11](../statements/02-11_shared_information_budget.md#s2-11): the same change-of-measure argument.
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7): learner-relative aliasing bound.
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): acquire before compiling.
+
+## Related work
+
+- Part (a) is an exact instance of the imitation gap: the teacher uses information hidden from the student, and imitation must marginalize it ([Weihs et al., 2021](#ref-weihs2021bridging)). Weihs et al. close the gap by mixing in reward-based reinforcement learning; here the student's own experiments are reset queries, and their number is pinned down up to a constant.
+- Part (b) is the change-of-measure argument of best-arm identification ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)), with Wald's identity for the stopping time ([Wald, 1944](#ref-wald1944cumulative)). The sequential probability ratio test that attains (2.6) in some configurations is Wald's ([Wald, 1945](#ref-wald1945sequential)).
+- Part (c) is Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](#ref-hoeffding1963probability)).

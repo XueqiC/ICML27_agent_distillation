@@ -77,6 +77,11 @@
 
 **状态.** 已证明（局部渐近 minimax）；常数比较在 (G) 下成立。
 
+## 相关工作
+
+- c-optimal design 常常是奇异的，所以这里用一个非退化分量对 design 做正则化；奇异的 c-optimal design 以及 $`c^\top\theta`$ 的可估性见 [Pukelsheim, 1993](#ref-pukelsheim1993optimal)。
+- (E) 要求一个有效估计量，例如从一致的 pilot 估计出发的 one-step 估计量；plug-in 输出就是 $`\Psi`$ 的代入估计量，与局部渐近理论中的做法相同（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
+
 ## 参考文献
 
 - [Pukelsheim, 1993](../references_ZH.md#pukelsheim1993optimal)

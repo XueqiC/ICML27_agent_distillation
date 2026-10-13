@@ -13,8 +13,8 @@
 - *Adam regime of Corollary 7.2.* One coordinate $`i`$ of warm Adam without bias correction, $`\epsilon=0`$, no decay, tail gradients independent of $`\theta`$ with mean $`\bar g_i\ne0`$ and mean square $`\bar v_i`$, score affine in $`\theta_i`$, and $`T`$ tail updates after the message.
   - $`\alpha_i=-(\nabla F)_i\,\mathrm{sign}(\bar g_i)`$; $`\lambda=g_i\,\mathrm{sign}(\bar g_i)/\sqrt{\bar v_i}`$ is the message amplitude in units of the running RMS; $`\rho_i=\lvert\bar g_i\rvert/\sqrt{\bar v_i}`$ is the signal-to-noise ratio.
   - $`\Delta F_i(\lambda)`$ is the mean-field response of Corollary 7.2(a); $`Q_i`$, $`S_i`$, $`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho_i\omega_T)`$ and the error bound are those of Corollary 7.2(b), with $`\omega_T=1-\beta_2^{\,T+1}`$.
-- *Parameter-only score.* $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$, the parameter channel of [Theorem 7.1](07-01_state_channel_decomposition.md#s7-1) alone: the continuation gradient restricted to the parameters, paired with the message's own Adam step.
-- *Cosine score.* Any score that is a function of the direction of the message gradient only (or, in one coordinate, of the direction of the parameter step).
+- *Parameter-only score.* $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$, the parameter channel of [Theorem 7.1](07-01_state_channel_decomposition.md#s7-1) alone: the continuation gradient restricted to the parameters, paired with the message's own Adam step. TracIn-style scores ([Pruthi et al., 2020](#ref-pruthi2020estimating)) computed with Adam steps and the fixed-state In-Run Data Shapley for Adam ([Ding et al., 2026](#ref-ding2026inrun)) belong to this class.
+- *Cosine score.* Any score that is a function of the direction of the message gradient only (or, in one coordinate, of the direction of the parameter step). LESS ([Xia et al., 2024](#ref-xia2024less)) belongs to this class.
 
 <a id="s7-3"></a>
 

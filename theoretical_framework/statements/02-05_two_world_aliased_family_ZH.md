@@ -63,3 +63,8 @@ J_v(p)=\tfrac12\big[p+(1-p)(\tfrac12-2v\Delta)\big]+\tfrac12\big[p(\tfrac12+2v\D
 
 - [Theorem 2.6](../statements/02-06_passive_impossibility_active_attainability_ZH.md#s2-6): 被动不可能与查询复杂度.
 - [Proposition 2.7](../statements/02-07_compilation_cost_ZH.md#s2-7): 编译所获事实的代价.
+
+## 相关工作
+
+- 这个族是 Le Cam 方法意义下的两点构造：被动数据分不开的两个世界，最优决策却不同 ([Le Cam, 1973](#ref-lecam1973convergence))。
+- teacher 依据学生观察不到的信息行动，模仿时这部分信息被边缘化，这就是 [Weihs et al., 2021](#ref-weihs2021bridging) 所说的 *imitation gap*。这个族是它的一个最小实例，缺失的事实只是一个符号。

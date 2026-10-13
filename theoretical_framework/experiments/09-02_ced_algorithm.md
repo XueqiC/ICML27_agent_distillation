@@ -12,7 +12,7 @@
 
 **Setting used on this page.**
 
-- *Learner.* A controlled network: one-hot context, 4 tanh units, sigmoid output, mean cross-entropy, float64. Its complete states (parameters plus Adam moments $`m,v`$ and step counter) are `fresh`, `warm2`, `warm5`, `warm9`; recipes are Adam with $`\eta\in\lbrace0.01,0.1\rbrace`$ and SGD with $`\eta\in\lbrace0.1,1\rbrace`$, each with $`\epsilon\in\lbrace10^{-8},10^{-3}\rbrace`$.
+- *Learner.* A controlled network: one-hot context, 4 tanh units, sigmoid output, mean cross-entropy, float64. Its complete states (parameters plus Adam moments $`m,v`$ and step counter) are `fresh`, `warm2`, `warm5`, `warm9`; recipes are Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) with $`\eta\in\lbrace0.01,0.1\rbrace`$ and SGD with $`\eta\in\lbrace0.1,1\rbrace`$, each with $`\epsilon\in\lbrace10^{-8},10^{-3}\rbrace`$.
 - *Candidates.* Nine label laws on ten two-label packets, one of which (`reference_even`) is the reference $`P^0`$.
 - *Gold.* The exact learning value of a candidate: one candidate boundary followed by 7 reference updates (8 updates in total), enumerated over all finite histories, minus the same quantity for the reference. This is the advantage $`A_t(z,j)`$ of [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2) at state $`z`$.
 - *Proxies.* Static statistics (input-moment error, mean gradient, sign only, first-step $`\Delta\theta`$, $`\Delta\theta`$ with $`(m,v)`$); measured short-tail responses after 1 and after 4 updates (surrogates in the sense of [Definition 8.6](../statements/08-06_crn_paired_replacement_score.md#s8-6)); controls (random score, full tail). Each proxy is fitted by ridge regression on a pilot only and frozen.
@@ -69,6 +69,8 @@ Related checks on other pages: the comparison of first-order rankers with the CR
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E6,E9 --output theory/v015_checks/quick/s9.json
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

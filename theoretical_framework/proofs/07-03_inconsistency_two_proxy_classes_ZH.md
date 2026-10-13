@@ -13,7 +13,7 @@
 - *Adam 区间.* warm、不做 bias correction 的 Adam 的单个坐标 $`i`$（$`\epsilon=0`$，无 decay）；尾段梯度与 $`\theta`$ 无关，平稳，均值 $`\bar g_i\ne0`$、平方的均值 $`\bar v_i`$；得分关于 $`\theta_i`$ 仿射；消息之后有 $`T`$ 次尾段更新；warm 状态 $`m_t=\bar g_i`$，$`v_t=\bar v_i`$。
 - $`\alpha_i=-(\nabla F)_i\,\mathrm{sign}(\bar g_i)`$，$`\lambda=g_i\,\mathrm{sign}(\bar g_i)/\sqrt{\bar v_i}`$，$`\rho_i=\lvert\bar g_i\rvert/\sqrt{\bar v_i}`$，$`\omega_T=1-\beta_2^{\,T+1}`$，$`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho_i\omega_T)`$。
 - $`\Delta F_i(\lambda)`$、$`Q_i(\lambda)=(1-\beta_1^{\,T+1})\lambda-\tfrac12\rho_i\omega_T\lambda^2`$、$`S_i(\lambda)=\lvert\lambda\rvert(1-\beta_1^{\,T+1})+\tfrac12\rho_i\omega_T\lambda^2`$，以及界 $`\lvert\Delta F_i-\alpha_i\eta Q_i\rvert\le11(1-\beta_2)\max\lbrace1,\lambda^2\rbrace\lvert\alpha_i\rvert\eta S_i`$，都取自 [Corollary 7.2](../statements/07-02_stationary_amplitude_law_ZH.md#s7-2)。
-- $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$ 是 [Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的参数通道；余弦分数是消息梯度方向（在单个坐标上，参数步方向）的函数。
+- $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$ 是 [Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的参数通道；用 Adam 步计算的 TracIn 式分数（[Pruthi et al., 2020](#ref-pruthi2020estimating)）与固定状态的 In-Run Data Shapley for Adam（[Ding et al., 2026](#ref-ding2026inrun)）都是这种形式。余弦分数是消息梯度方向（在单个坐标上，参数步方向）的函数，LESS（[Xia et al., 2024](#ref-xia2024less)）即属此类。
 
 **陈述（[Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)）.**
 

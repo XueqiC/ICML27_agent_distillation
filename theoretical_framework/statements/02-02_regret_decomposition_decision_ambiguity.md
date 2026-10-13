@@ -71,3 +71,7 @@
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor.md#s2-10): the information term after K demonstrations.
 - [Proposition 3.1](../statements/03-01_static_value_not_learning_value.md#s3-1): learning gaps beyond representation.
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): acquire before compiling.
+
+## Related work
+
+- The bracket $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ in the derivation of (b) is the expected value of perfect information about $`E`$ given $`D`$ ([Howard, 1966](#ref-howard1966information)). Part (b) says that this value is zero for every transcript exactly when the environments the transcript cannot rule out share an optimal policy.

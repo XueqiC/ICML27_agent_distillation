@@ -88,3 +88,7 @@ e_R\le C\eta^2\sum_{s=0}^{R-1}(1+\eta L)^s=\frac{C\eta}{L}\big((1+\eta L)^R-1\bi
 
 - [Proposition 5.1](05-01_optimizer_transformed_expansion.md#s5-1) — the expansion for any stateful optimizer.
 - [Proposition 5.3](05-03_cold_start_adam_sign_quotient.md#s5-3) — cold-start Adam, where the update is not affine.
+
+## Related work
+
+- Part (d) is the one-step moment expansion on which weak approximations of SGD by stochastic modified equations are built ([Li et al., 2019](#ref-li2019stochastic)): the mean and the second moment of the stochastic gradient fix the expected effect of one step up to a remainder of third order in $`\eta`$. Part (e) is the step that turns such one-step errors into a bound over many steps.

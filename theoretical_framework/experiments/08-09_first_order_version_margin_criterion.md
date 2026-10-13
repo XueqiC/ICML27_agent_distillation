@@ -142,7 +142,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 - **The margin criterion holds.** Wherever the first-order margin exceeds the remainder bound, the oracle score never ranks wrongly, in each of the four splits that contain margin rows. It is never wrong once the ratio passes 0.25, so the empirical remainder bound is conservative.
 - **Inside the margin, static proxies fail for lack of the continuation gradient.** On the 48 rows with ratio ≥ 2, where first order decides, the static proxies are wrong 41.7% of the time and the oracle 0%. They use the same update statistics without the state- and task-specific continuation gradient, so they violate condition (i) of Corollary 8.9(d).
 - **Outside the margin the tail decides.** On the 316 rows with ratio below 0.25 even the oracle is wrong 37.1% of the time, while measured four-update tails are wrong 3.3% of the time; condition (ii) fails there.
-- **The margin is rare.** Only 14% of eligible rows meet it, and none in the held-out learning-rate splits, whose step sizes are ten times those of the pilot recipes (Adam $`\eta=0.1`$, SGD $`\eta=1`$; `theory/v015_checks/proxy_split_freeze.json`, `recipe_shift_axes`). This is the remainder scaling of [Proposition 5.1](../statements/05-01_optimizer_transformed_expansion.md#s5-1).
+- **The margin is rare.** Only 14% of eligible rows meet it, and none in the held-out learning-rate splits, whose step sizes are ten times those of the pilot recipes (Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) $`\eta=0.1`$, SGD $`\eta=1`$; `theory/v015_checks/proxy_split_freeze.json`, `recipe_shift_axes`). This is the remainder scaling of [Proposition 5.1](../statements/05-01_optimizer_transformed_expansion.md#s5-1).
 - **Limit of the evidence.** The score uses the oracle gradient, so the check shows what a first-order score can achieve at best; as Corollary 8.9(d) states, it is not a measurable certificate.
 
 ![Figure 8.4: First-order measurement and the first-order margin](../figures/fig8_4_first_order_audit.png)
@@ -168,7 +168,7 @@ The measurement also costs 8.3 times the full-tail paired audit, 95% of it in cu
 - Each provider has one or two support atoms, so the mean increment is integrated exactly; $`G=8`$ groups, each with one fresh seven-update reference tail shared by all candidates (CRN).
 - Group score $`Z_g=[\tilde F(T_\omega(z+h\mu_j))-\tilde F(T_\omega(z+h\mu_k))]/h`$ for $`h\in\lbrace10^{-3},3\times10^{-3},10^{-2}\rbrace`$, with the $`h`$ of smallest task-unit radius chosen per pair without consulting gold.
 - Radius $`e_{\rm stat}+e_{\rm fd}+\varepsilon_{\rm sur}+e_2/\alpha`$:
-  - $`e_{\rm stat}`$ by empirical Bernstein with $`\log(4M^2/\delta)=8.5409`$ and the observed range of the eight group scores (this observed range is not a proven support bound);
+  - $`e_{\rm stat}`$ by empirical Bernstein ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) with $`\log(4M^2/\delta)=8.5409`$ and the observed range of the eight group scores (this observed range is not a proven support bound);
   - $`e_{\rm fd}`$ from measured ray curvature of the CRN continuation (five-point stencil with Richardson extrapolation);
   - $`e_2=\tfrac12M_2(m_2^j+m_2^k)`$ from measured curvature search along the actual increment rays.
 - Surrogates as in [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate.md#c8-14). Short-surrogate calibration: $`\alpha=0.902`$ and $`\varepsilon_{\rm sur}=0.0078`$ at every $`h`$.
@@ -223,6 +223,8 @@ The chosen $`h`$ is $`10^{-3}`$ for 1,501 aligned pairs and $`10^{-2}`$ for 83.
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E12 --output theory/v015_checks/quick/s8.json
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6 --output theory/v016_checks/subset.json
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

@@ -46,3 +46,8 @@
 - [Corollary 6.12](../statements/06-12_learner_separations_ZH.md#s6-12)：说明 (b)。
 
 **状态.** 例子（由 Proposition 6.10 与 6.11 精确算出）。
+
+## 相关工作
+
+- 用于计算频繁区间的 $`\beta_2=0.999`$ 是 Adam 推荐的默认值（[Kingma & Ba, 2015](#ref-kingma2015adam)）。
+- 把放大效应转成查询分配的 water-filling 规则，在没有 teacher 覆盖时退化为 Neyman 分配 $`n_s\propto\sqrt{W_s}`$（[Neyman, 1934](#ref-neyman1934two)）。

@@ -77,6 +77,11 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 
 **Status.** proved, local asymptotic minimax; the constant comparison under (G).
 
+## Related work
+
+- c-optimal designs are often singular, so the design is regularized by a nondegenerate component; singular c-optimal designs and the estimability of $`c^\top\theta`$ are treated in [Pukelsheim, 1993](#ref-pukelsheim1993optimal).
+- (E) asks for an efficient estimator, for example a one-step estimator started at the consistent pilot; the plug-in output is then the substitution estimator of $`\Psi`$, as in local asymptotic theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
+
 ## References
 
 - [Pukelsheim, 1993](../references.md#pukelsheim1993optimal)

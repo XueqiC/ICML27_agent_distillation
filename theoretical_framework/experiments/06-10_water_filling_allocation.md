@@ -58,7 +58,7 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{with }\lambda>0\text{ 
 
 - 16 random profiles with 6–10 states: log-spaced student visitation $`d`$ (shuffled), Dirichlet teacher visitation $`d_T`$, Bernoulli laws with $`\pi\in[0.15,0.85]`$, and learner-relative weights $`W_s=d(s)\,e^{N(0,1.44)}`$ (linear in $`d`$, as for frequent-regime Adam).
 - 800 teacher visits and $`n=4{,}000`$ queries. The plug-in functional is exactly linear in the state probabilities, with coefficient $`\sqrt{W_s/(\pi_s(1-\pi_s))}`$, so its variance formula is exact.
-- Water-filling by a scalar root for $`\lambda`$, then discretized by marginal-gain exchanges. Competitors: uniform; proportional to $`d`$; water-filling with SGD-type weights $`W_s\,d(s)`$ (the weights one would use for the wrong learner); gradient norm ($`\propto d\sqrt{0.04+0.6\pi}`$); uncertainty ($`\propto\pi(1-\pi)`$).
+- Water-filling by a scalar root for $`\lambda`$, then discretized by marginal-gain exchanges. Competitors: uniform; proportional to $`d`$ (querying where the student goes, as DAgger does, [Ross et al., 2011](#ref-ross2011reduction)); water-filling with SGD-type weights $`W_s\,d(s)`$ (the weights one would use for the wrong learner); gradient norm ($`\propto d\sqrt{0.04+0.6\pi}`$); uncertainty ($`\propto\pi(1-\pi)`$).
 - Binomial sufficient statistics model the integer visits: 60,000 replicates per arm. Ratio intervals are familywise 95% (Bonferroni over both ratios, all profiles and all five comparisons).
 - One extra case: a state with $`W>0`$ and no teacher or query visits.
 
@@ -96,7 +96,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

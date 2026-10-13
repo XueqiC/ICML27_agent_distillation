@@ -58,7 +58,7 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{其中 }\lambda>0\text
 
 - 16 个随机 profile，每个 6–10 个状态：学生访问频率 $`d`$ 对数等距后打乱，teacher 访问频率 $`d_T`$ 取 Dirichlet，Bernoulli 分布的 $`\pi\in[0.15,0.85]`$，学习器相对权重 $`W_s=d(s)\,e^{N(0,1.44)}`$（关于 $`d`$ 线性，与频繁访问区间的 Adam 一样）。
 - teacher 访问 800 次，查询 $`n=4{,}000`$ 次。plug-in 泛函关于各状态的概率精确线性，系数为 $`\sqrt{W_s/(\pi_s(1-\pi_s))}`$，所以它的方差公式是精确的。
-- water-filling 先对 $`\lambda`$ 求标量根，再用边际增益交换做整数化。对照：均匀；正比于 $`d`$；用 SGD 型权重 $`W_s\,d(s)`$ 做 water-filling（相当于用了另一个学习器的权重）；按梯度范数（$`\propto d\sqrt{0.04+0.6\pi}`$）；按不确定性（$`\propto\pi(1-\pi)`$）。
+- water-filling 先对 $`\lambda`$ 求标量根，再用边际增益交换做整数化。对照：均匀；正比于 $`d`$（像 DAgger 那样在学生所到之处查询，[Ross et al., 2011](#ref-ross2011reduction)）；用 SGD 型权重 $`W_s\,d(s)`$ 做 water-filling（相当于用了另一个学习器的权重）；按梯度范数（$`\propto d\sqrt{0.04+0.6\pi}`$）；按不确定性（$`\propto\pi(1-\pi)`$）。
 - 用二项分布的充分统计量模拟整数次访问：每种分配 60,000 次重复。比值区间是 familywise 95%（对两种比值、所有 profile、五种对照做 Bonferroni 校正）。
 - 另加一个情形：某个状态 $`W>0`$，却既没有 teacher 访问也没有查询。
 
@@ -96,7 +96,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

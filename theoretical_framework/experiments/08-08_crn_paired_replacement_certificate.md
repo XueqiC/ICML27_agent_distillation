@@ -89,10 +89,10 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 **Verdict.**
 
 - **No wrong strict certificate** at either replica count: the assertion of [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) passes.
-- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.12](../statements/08-12_open_problems.md#s8-12).
+- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.12](../statements/08-12_open_problems.md#s8-12).
 - **As a ranker the measurement works.** The aligned point estimate $`\hat S`$ has the wrong sign on 48 of 1,687 nonzero-gold pairs (2.8%) at $`r=256`$, and on 65 (3.9%) at $`r=64`$.
 - **It is cheap.** Measurement takes 7.0% ($`r=64`$) and 28.0% ($`r=256`$) of the trajectories of a full-tail paired audit of the same panel.
-- **CRN pays.** Common random numbers reduce the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances); the median pair ratio is 0.0035.
+- **CRN pays.** Common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)) reduce the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances); the median pair ratio is 0.0035.
 - **Calibration transfer can fail.** With the observed range in place of $`B`$, which is a diagnostic only, the aligned surrogate certifies 45–57% of pairs with no error, but the calibrated surrogate certifies 23–28% with 22–28 wrong certificates.
 
 **Why.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) replaces the oracle continuation gradient by a measurable quantity: the effect of one finite replacement at the audited state, estimated with common random numbers. Its estimand is exact in expectation and needs no smoothness, so its only error terms are statistical ($`e_{\rm stat}`$) and surrogate calibration ($`\varepsilon_{\rm sur}`$). The check asks three questions:
@@ -117,7 +117,7 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 ```
 
 - **Range.** All utilities lie in $`[0,1]`$, so every difference lies in $`[-1,1]`$: the a-priori range $`B=2`$ holds for every draw, state and pair. As a diagnostic only, the same formula is also evaluated with the observed range $`B=\max Z-\min Z`$, which is not a bound on the population support.
-- **Comparators.** Separately executed independent tails per candidate, for the CRN variance ratio. For cost, the full-tail paired audit at the Hoeffding rate of 1,016 replicas per candidate ($`M=4`$, $`\delta=0.05`$, $`e=0.1`$), scaled to all executed panel candidates: $`40\times9\times1016=365{,}760`$ trajectories. The panel actually has $`M=8`$, whose Hoeffding rate is 1,154, so this comparison favours the audit.
+- **Comparators.** Separately executed independent tails per candidate, for the CRN variance ratio. For cost, the full-tail paired audit at the Hoeffding ([Hoeffding, 1963](#ref-hoeffding1963probability)) rate of 1,016 replicas per candidate ($`M=4`$, $`\delta=0.05`$, $`e=0.1`$), scaled to all executed panel candidates: $`40\times9\times1016=365{,}760`$ trajectories. The panel actually has $`M=8`$, whose Hoeffding rate is 1,154, so this comparison favours the audit.
 - **Eligibility.** All pairs are eligible, including the 144 threshold-task pairs with discontinuous return, because Theorem 8.8 needs no smoothness.
 
 **Result — calibration** (`theory/v016_checks/results_v016.json`, check `v016:C6b`, `data[0].calibration_by_r`):
@@ -151,7 +151,7 @@ For comparison, the oracle first-order margin of [Check 8.15](../experiments/08-
 | 64 | short | 0.0037 | 0.0038 | 0.00035 | 0.633 | 0.00043 | 0.0083 |
 | 256 | short | 0.0037 | 0.0037 | 0.00017 | 0.156 | 0.00011 | 0.0083 |
 
-**Result — ranking by the point estimate** (check `v016:C5b`, `data[0].overall.paired_replacement`, aligned, $`r=256`$): 48 wrong signs among 1,687 nonzero-gold pairs (2.8%) and no ties. On the same pairs the first-order rankers are wrong 11.4%–16.4% of the time and the LESS-style cosine 28.8%; the breakdown by optimizer configuration and by second-moment-channel share is in [§7 Experiments](../statements/07-05_where_first_order_rankers_fail.md). The short surrogate's point estimate is wrong on 192 (11.4%, $`r=64`$) and 182 (10.8%, $`r=256`$) of the 1,687 pairs.
+**Result — ranking by the point estimate** (check `v016:C5b`, `data[0].overall.paired_replacement`, aligned, $`r=256`$): 48 wrong signs among 1,687 nonzero-gold pairs (2.8%) and no ties. On the same pairs the first-order rankers are wrong 11.4%–16.4% of the time and the LESS-style cosine ([Xia et al., 2024](#ref-xia2024less)) 28.8%; the breakdown by optimizer configuration and by second-moment-channel share is in [§7 Experiments](../statements/07-05_where_first_order_rankers_fail.md). The short surrogate's point estimate is wrong on 192 (11.4%, $`r=64`$) and 182 (10.8%, $`r=256`$) of the 1,687 pairs.
 
 **Result — variance reduction by CRN** (`variance`):
 
@@ -196,6 +196,8 @@ The certificate results are panels B–D of [Figure 8.5](../experiments/08-09_fi
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6b,C5b --output theory/v016_checks/subset.json
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

@@ -50,3 +50,8 @@
 - [Assumption 6.9](../statements/06-09_state_coverage_model.md#s6-9): state-coverage specialization.
 
 **Status.** definition.
+
+## Related work
+
+- A distiller is a measurable map of the transcript and independent randomness, so its output is a garbling of the data experiment in Blackwell's sense; a garbling is never more informative than the experiment for any decision problem ([Blackwell, 1953](#ref-blackwell1953equivalent)).
+- Counting a new teacher call at a new state as a query, rather than as free synthesis, matches interactive imitation learning, in which the expert labels the states the learner visits ([Ross et al., 2011](#ref-ross2011reduction)).

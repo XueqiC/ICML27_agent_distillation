@@ -51,7 +51,7 @@ Consequently, if $`\lvert(K_t^0-K_t^S)V_{t+1}^0(z)\rvert\le\varepsilon_t(z)`$ fo
 
 **Why.**
 
-- (3.2) is an identity. A mistake in orientation (for instance using the reference occupancy instead of $`d_t^S`$) or in the continuation recursion would give a nonzero residual on random processes.
+- (3.2) is an identity of performance-difference type ([Kakade & Langford, 2002](#ref-kakade2002approximately)). A mistake in orientation (for instance using the reference occupancy instead of $`d_t^S`$) or in the continuation recursion would give a nonzero residual on random processes.
 - (3.5) claims that the exit penalty is $`\rho`$, not $`R\rho`$. A certified-set choice that makes $`\lvert\text{gap}\rvert`$ exceed the bound would falsify it.
 - (3.4) rests on one-boundary values differing exactly by $`(P-Q)g`$.
 
@@ -124,6 +124,8 @@ Consequently, if $`\lvert(K_t^0-K_t^S)V_{t+1}^0(z)\rvert\le\varepsilon_t(z)`$ fo
 **Why it supports the statement.** The stopped composition (3.5) stays valid and non-vacuous when the local discrepancies $`\varepsilon_t`$ are certified at an audited cell and transported to the visited states. This is the form on which the frozen-audit theorem ([Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)) builds.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C4 --output theory/independent_checks/subset.json

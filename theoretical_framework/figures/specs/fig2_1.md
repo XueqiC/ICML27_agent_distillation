@@ -2,7 +2,9 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
-**Message.** Total regret splits exactly into representation, information and algorithm terms. Garbling the transcript can only raise the information term. The robust ambiguity value is the same whether computed as a min over policy mixtures or as a max over priors.
+**Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
+
+**Message.** Total regret splits exactly into representation, information and algorithm terms. Garbling the transcript can only raise the information term, the easy direction of Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)). The robust ambiguity value is the same whether computed as a min over policy mixtures or as a max over priors, by von Neumann's minimax theorem ([von Neumann, 1928](#ref-vonneumann1928zur)).
 
 **Data.** Recompute a small exact instance, defined below. Committed JSON stores only aggregates for C1. Panel (c) uses committed data: `theory/v014_repro/results_v014_rerun.json` → `robust_ambiguity_minimax`. Use `fractions.Fraction` and convert to float only for plotting.
 

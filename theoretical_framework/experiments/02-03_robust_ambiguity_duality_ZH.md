@@ -39,9 +39,9 @@ r(C)=\max_{\mu\in\Delta(C)}\Big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_
 
 **结论.** 通过：原始值与对偶值都是 0.1，minimax 混合策略与最不利先验都是 $`(0.5,0.5)`$。
 
-**为什么做.** 一个可以手算的 Proposition 2.3 实例，最优混合有闭式。
+**为什么做.** 一个可以手算的 Proposition 2.3 实例，最优混合有闭式。由 von Neumann 的 minimax 定理，两个 LP 的值必须相等 ([von Neumann, 1928](#ref-vonneumann1928zur))。
 
-**设置.** 两个环境偏好相反的策略，regret 矩阵 $`M=\begin{pmatrix}0&0.2\cr 0.2&0\end{pmatrix}`$。原始与对偶 LP 由 v0.14 包的验证脚本用 SciPy HiGHS 求解，种子 2026101014。
+**设置.** 两个环境偏好相反的策略，regret 矩阵 $`M=\begin{pmatrix}0&0.2\cr 0.2&0\end{pmatrix}`$。原始与对偶 LP 由 v0.14 包的验证脚本用 SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) 中的 HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)) 求解，种子 2026101014。
 
 **结果.**
 
@@ -65,6 +65,8 @@ r(C)=\max_{\mu\in\Delta(C)}\Big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_
 - *结论.* 通过。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array)) 与 SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy))。
 
 ```bash
 theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py --output theory/v014_repro/results_v014_rerun.json

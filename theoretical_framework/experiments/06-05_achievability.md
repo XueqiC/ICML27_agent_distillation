@@ -52,7 +52,7 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 **Setup.**
 
 - The 216 instances of [Check 6.1](../experiments/06-04_design_minimax_equality.md#c6-1) minus the 24 non-identifiable ones: 192 instances, 960 assertions.
-- The approximate c-optimal design is rounded to integer counts by largest remainders without changing $`n`$; the rounding loss is the relative increase of the variance $`c^\top A^{-1}c`$.
+- The approximate c-optimal design ([Elfving, 1952](#ref-elfving1952optimum)) is rounded to integer counts by largest remainders without changing $`n`$; the rounding loss is the relative increase of the variance $`c^\top A^{-1}c`$.
 - Independent Gaussian noise is generated for the demonstration and query sufficient statistics, and the efficient linear estimator of $`c^\top\theta`$ is computed: 30,000 replicates per instance. This simulates observations rather than sampling the error from its predicted variance.
 - Recorded alongside: the exact Gaussian mean absolute error $`\sqrt{2/\pi}\sqrt{c^\top A_{\rm int}^{-1}c}`$; the Pinsker two-point bound of [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(a) at the least favourable displacement $`\tau=\mathbb I^{-1/2}`$; the exact Gaussian total-variation two-point bound at the same displacement.
 
@@ -88,7 +88,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

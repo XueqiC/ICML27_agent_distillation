@@ -27,10 +27,12 @@
 
 - *对本命题检验什么.* 对两个目标 $`q\in\lbrace\tfrac18,\tfrac78\rbrace`$，$`m=\lceil32\log(2/\delta_L)\rceil`$ 个编译标签以至少 $`1-\delta_L`$ 的概率给出 $`\lvert\widehat p-q\rvert\le\tfrac18`$，且每个落在容差内的结果 regret 至多为 $`\Delta/2`$。
 - *设置.* 对 $`\delta_L\in\lbrace0.01,0.05,0.1,0.25,0.4\rbrace`$ 计算精确的有理二项尾概率（整数分子求和，不用正态近似）。
-- *结果.* 所需标签数 $`m=170,119,96,67,52`$；精确失败概率 $`4.2\times10^{-6}`$、$`1.2\times10^{-4}`$、$`2.4\times10^{-4}`$、$`3.0\times10^{-3}`$、$`3.9\times10^{-3}`$，都远低于 $`\delta_L`$。标签数与 $`\Delta`$ 无关，而同一检查中识别的代价随 $`\Delta^{-2}`$ 增长。
+- *结果.* 所需标签数 $`m=170,119,96,67,52`$；精确失败概率 $`4.2\times10^{-6}`$、$`1.2\times10^{-4}`$、$`2.4\times10^{-4}`$、$`3.0\times10^{-3}`$、$`3.9\times10^{-3}`$，都远低于 $`\delta_L`$，这是 $`m=\lceil32\log(2/\delta_L)\rceil`$ 所依据的 Hoeffding 界 ([Hoeffding, 1963](#ref-hoeffding1963probability)) 的余量。标签数与 $`\Delta`$ 无关，而同一检查中识别的代价随 $`\Delta^{-2}`$ 增长。
 - *结论.* 通过。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array))、SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) 与 SymPy ([Meurer et al., 2017](#ref-meurer2017sympy))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C2 --output theory/independent_checks/subset.json

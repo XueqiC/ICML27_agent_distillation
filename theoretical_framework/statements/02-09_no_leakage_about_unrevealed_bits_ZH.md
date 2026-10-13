@@ -41,3 +41,7 @@
 **被用于.**
 
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor_ZH.md#s2-10): 精确下限与贪心最优.
+
+## 相关工作
+
+- 这个引理就是 missing completely at random 的缺失机制的 ignorability：未揭示比特的后验可以当作揭示机制不存在来计算，而这里它就等于先验 ([Rubin, 1976](#ref-rubin1976inference))。

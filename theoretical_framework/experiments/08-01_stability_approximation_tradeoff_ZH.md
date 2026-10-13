@@ -52,7 +52,7 @@ W_{\mathbf{\epsilon}}(g)=\min_{b\in\mathbb R^d,\ c\in\mathbb R}\Big[2\big\lVert 
 - 随机有限实例：消息数 $`m\in[3,12]`$，特征数 $`d\in[1,m-1]`$。
 - 随机 response $`g`$、随机特征 $`\phi`$、随机容差 $`\epsilon_j\ge0`$（包括恰好为零的情形）。
 - 种子 `SeedSequence([20261010, 14])`。
-- 用 HiGHS 独立求解三个线性规划：
+- 用 HiGHS（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）独立求解三个线性规划：
   - 直接写在概率变量上的、对 $`(P,Q)`$ 的原始最大化；
   - 振幅对偶 $`\min_b[\mathrm{osc}(g-\Phi b)+\sum_j\epsilon_j\lvert b_j\rvert]`$；
   - 中心化 sup 范数对偶 $`\min_{b,c}[2\lVert g-c-\Phi b\rVert_\infty+\sum_j\epsilon_j\lvert b_j\rvert]`$。
@@ -143,6 +143,8 @@ $`\epsilon=0`$ 时，对每个 $`\alpha`$ 差异都是 $`0`$。
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C14,C22 --output theory/independent_checks/subset.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # noisy_feature_duality
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）；线性规划通过 SciPy 的 `linprog` 以 HiGHS 方法求解。
 
 ## 产出文件
 

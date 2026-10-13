@@ -38,3 +38,8 @@
 
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) — 一阶证书
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) — 不需要增量界的测量
+
+## Related work
+
+- 这里被限定的 Hilbert 范数界由 Jensen 不等式与 McDiarmid 有界差分不等式（[McDiarmid, 1989](#ref-mcdiarmid1989method)）组合而来；内积只通过交叉项为零这一步进入。
+- cold-start Adam 下 $`b`$ 随维度增长，反映的是 Adam 第一步的类 sign 行为（[Kingma & Ba, 2015](#ref-kingma2015adam)）；Adam 的 sign 视角见 [Balles & Hennig, 2018](#ref-balles2018dissecting)。

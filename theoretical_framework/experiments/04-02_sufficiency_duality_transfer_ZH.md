@@ -98,6 +98,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python \
 
 `--only` 保留每个 claim 自己的随机流（`SeedSequence([20261010, claim number])`），所以只跑子集也能复现完整运行的数字。
 
+本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）、做精确有理数运算的 SymPy（[Meurer et al., 2017](#ref-meurer2017sympy)），以及 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）的 `linprog` 配合 HiGHS 求解器（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）求解线性规划。
+
 ## 产物
 
 - 结果：`theory/independent_checks/results_independent_v014.json`（条目 `v014:C5`、`v014:C19`）。

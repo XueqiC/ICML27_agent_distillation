@@ -25,9 +25,9 @@ Use the objects of [Proposition 5.1](../statements/05-01_optimizer_transformed_e
 
 - **What it tests for Remark 8.5.** Whether the concentration bound of Proposition 8.4(a) deteriorates with dimension at a fixed increment bound $`b`$, and how the caveat that $`b`$ itself can grow with dimension shows up.
 - **Setup.** Dimensions $`p\in\lbrace1,10,1000,100000\rbrace`$, sample sizes $`n\in\lbrace8,32,128\rbrace`$, $`\delta\in\lbrace0.05,0.2\rbrace`$, three bounded laws with $`b=1`$ (sign-type, clipped Gaussian, sparse spikes), 20,000 trials per cell, sampled exactly without forming $`p`$-vectors.
-- **Key numbers.** In all 144 cells the failure rate is far below $`\delta`$; the largest realized quantile over the bound is 0.615 at $`p=1`$ and 0.574 at $`p=100{,}000`$, so nothing grows with $`p`$ at fixed $`b`$. For unnormalized sign-type increments $`b=\eta\sqrt p`$, and the first-order differences have the same scale, so the relative accuracy is still set by $`1/\sqrt n`$.
+- **Key numbers.** In all 144 cells the failure rate is far below $`\delta`$; the largest realized quantile over the bound is 0.615 at $`p=1`$ and 0.574 at $`p=100{,}000`$, so nothing grows with $`p`$ at fixed $`b`$. For unnormalized sign-type increments, such as the first step of cold-start Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), $`b=\eta\sqrt p`$, and the first-order differences have the same scale, so the relative accuracy is still set by $`1/\sqrt n`$.
 - **Verdict.** PASS. The bound is free of explicit dimension in the Hilbert norm, as the remark states; the scale of $`b`$ is a separate question.
 
 ## Reproduce
 
-Reproduction commands and result files are listed on the pages of the primary checks: [Proposition 8.4](../experiments/08-04_measuring_mean_increment_actual_states.md).
+Reproduction commands and result files are listed on the pages of the primary checks: [Proposition 8.4](../experiments/08-04_measuring_mean_increment_actual_states.md). The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).

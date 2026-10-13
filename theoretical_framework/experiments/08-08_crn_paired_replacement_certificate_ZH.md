@@ -89,10 +89,10 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 **结论.**
 
 - **没有错误的严格证书.** 两个副本数下都没有：[Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的断言通过。
-- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) 的未解决问题。
+- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) 的未解决问题。
 - **作为排序器，测量是有效的.** 与任务一致的点估计 $`\hat S`$ 在 $`r=256`$ 时于 1,687 个 gold 非零的候选对中判错 48 个（2.8%），$`r=64`$ 时判错 65 个（3.9%）。
 - **它便宜.** 测量所用轨迹数是同一面板上全尾段配对 audit 的 7.0%（$`r=64`$）和 28.0%（$`r=256`$）。
-- **CRN 有效.** common random numbers 把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）；候选对比值的中位数为 0.0035。
+- **CRN 有效.** common random numbers（[Glasserman, 2004](#ref-glasserman2004monte)）把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）；候选对比值的中位数为 0.0035。
 - **校准的迁移可能失效.** 把 $`B`$ 换成观测区间（只是诊断）时，与任务一致的 surrogate 认证 45%–57% 的候选对、没有错误；需校准的 surrogate 认证 23%–28%，其中有 22–28 个认证错误。
 
 **动机.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 把 oracle 延续值梯度换成一个可测量的量：在被审计状态上一次有限替换的效应，用 common random numbers 估计。它的估计目标在期望上精确成立，也不需要光滑性，所以只有统计项（$`e_{\rm stat}`$）与 surrogate 校准项（$`\varepsilon_{\rm sur}`$）两类误差。这一检验回答三个问题：
@@ -117,7 +117,7 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 ```
 
 - **区间.** 所有效用都在 $`[0,1]`$ 内，所以每个差都在 $`[-1,1]`$ 内：先验区间 $`B=2`$ 对每次抽样、每个状态、每个候选对都成立。另外仅作诊断，用观测区间 $`B=\max Z-\min Z`$ 代入同一公式；观测区间不是总体支撑的界。
-- **对照.** 为每个候选单独执行的独立尾段，用来算 CRN 方差比。代价方面，对照是按 Hoeffding 速率每候选 1,016 个副本（$`M=4`$，$`\delta=0.05`$，$`e=0.1`$）的全尾段配对 audit，按面板上实际执行的全部候选折算：$`40\times9\times1016=365{,}760`$ 条轨迹。面板实际是 $`M=8`$，其 Hoeffding 速率为 1,154，所以这个比较对 audit 有利。
+- **对照.** 为每个候选单独执行的独立尾段，用来算 CRN 方差比。代价方面，对照是按 Hoeffding（[Hoeffding, 1963](#ref-hoeffding1963probability)）速率每候选 1,016 个副本（$`M=4`$，$`\delta=0.05`$，$`e=0.1`$）的全尾段配对 audit，按面板上实际执行的全部候选折算：$`40\times9\times1016=365{,}760`$ 条轨迹。面板实际是 $`M=8`$，其 Hoeffding 速率为 1,154，所以这个比较对 audit 有利。
 - **适用范围.** 所有候选对都适用，包括 144 个回报不连续的 threshold 任务候选对，因为 Theorem 8.8 不需要光滑性。
 
 **结果：校准**（`theory/v016_checks/results_v016.json`，检验 `v016:C6b`，`data[0].calibration_by_r`）：
@@ -151,7 +151,7 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 | 64 | short | 0.0037 | 0.0038 | 0.00035 | 0.633 | 0.00043 | 0.0083 |
 | 256 | short | 0.0037 | 0.0037 | 0.00017 | 0.156 | 0.00011 | 0.0083 |
 
-**结果：点估计作为排序器**（检验 `v016:C5b`，`data[0].overall.paired_replacement`，aligned，$`r=256`$）：1,687 个 gold 非零的候选对中判错 48 个（2.8%），没有平局。在同样的候选对上，一阶排序器的判错率为 11.4%–16.4%，LESS 式余弦为 28.8%；按 optimizer 配置和二阶矩通道占比的分组见 [§7 实验](../statements/07-05_where_first_order_rankers_fail_ZH.md)。short surrogate 的点估计在 1,687 对中判错 192 个（11.4%，$`r=64`$）和 182 个（10.8%，$`r=256`$）。
+**结果：点估计作为排序器**（检验 `v016:C5b`，`data[0].overall.paired_replacement`，aligned，$`r=256`$）：1,687 个 gold 非零的候选对中判错 48 个（2.8%），没有平局。在同样的候选对上，一阶排序器的判错率为 11.4%–16.4%，LESS 式余弦（[Xia et al., 2024](#ref-xia2024less)）为 28.8%；按 optimizer 配置和二阶矩通道占比的分组见 [§7 实验](../statements/07-05_where_first_order_rankers_fail_ZH.md)。short surrogate 的点估计在 1,687 对中判错 192 个（11.4%，$`r=64`$）和 182 个（10.8%，$`r=256`$）。
 
 **结果：CRN 的方差缩减**（`variance`）：
 
@@ -196,6 +196,8 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6b,C5b --output theory/v016_checks/subset.json
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产出文件
 

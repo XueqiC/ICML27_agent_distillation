@@ -8,7 +8,7 @@
 
 **Setting used on this page.**
 
-- *Adam without bias correction, one coordinate $`i`$.* Moments $`m,v`$, $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, learning rate $`\eta`$, $`\epsilon=0`$, no weight decay. A consumed gradient $`g`$ updates $`m'=\beta_1m+(1-\beta_1)g`$, $`v'=\beta_2v+(1-\beta_2)g^2`$ and moves the parameter by $`-\eta m'/\sqrt{v'}`$.
+- *Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) without bias correction, one coordinate $`i`$.* Moments $`m,v`$, $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, learning rate $`\eta`$, $`\epsilon=0`$, no weight decay. A consumed gradient $`g`$ updates $`m'=\beta_1m+(1-\beta_1)g`$, $`v'=\beta_2v+(1-\beta_2)g^2`$ and moves the parameter by $`-\eta m'/\sqrt{v'}`$.
 - *Message and tail.* At round $`t`$ a message with consumed gradient $`g_i`$ is applied; then $`T=R-1-t`$ tail updates follow. The final score is $`F`$, and $`(\nabla F)_i`$ is its derivative in coordinate $`i`$.
 - *Stationary linear-response regime.* The tail gradients $`g_{k,i}`$ do not depend on $`\theta`$, are stationary with mean $`\bar g_i\ne0`$ and mean square $`\bar v_i>0`$, and $`F`$ is affine in $`\theta_i`$.
 - *Warm state.* The message arrives at $`m_{t,i}=\bar g_i`$, $`v_{t,i}=\bar v_i`$.
@@ -102,3 +102,7 @@ The same bound holds for the mean-field first-order value difference $`\mathrm{V
 - [Remark 7.4](07-04_relation_prior_work_role_clipping.md#s7-4): clipping as a cap on $`\lambda`$.
 - [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5): the saturating regime where first-order rankers fail.
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2): magnitude control (step 4).
+
+## Related work
+
+- Adam's step in one coordinate is governed by that coordinate's signal-to-noise ratio; this is the basis of the reading of Adam as a sign step scaled by a variance-adaptation factor ([Balles & Hennig, 2018](#ref-balles2018dissecting)). Here the same ratio $`\rho_i`$ decides whether a large message helps or harms the later steps.

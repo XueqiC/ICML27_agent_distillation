@@ -149,7 +149,7 @@ g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_u+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\
 
 **动机.** 检验两件事：
 
-- 用 Monte Carlo 检验 [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)(a) 的同时 Hoeffding 事件与选择不等式；
+- 用 Monte Carlo 检验 [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)(a) 的同时 Hoeffding 事件（[Hoeffding, 1963](#ref-hoeffding1963probability)）与选择不等式；
 - 一个精确的、依赖状态的 provider：它在被 audit 的 cell 上与参考一致，在一个被访问的状态上却不一致。这是必要性陈述 (f) 背后最小的实例。
 
 **设置.**
@@ -211,7 +211,7 @@ g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_u+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\
 
 **设置.**
 
-- 网络：one-hot 上下文，4 个 tanh 单元，sigmoid 输出，平均交叉熵，float64，用 Adam 训练（即各实验页通用的受控网络）。
+- 网络：one-hot 上下文，4 个 tanh 单元，sigmoid 输出，平均交叉熵，float64，用 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）训练（即各实验页通用的受控网络）。
 - 锚点：三个实际参考状态，分别在 0、2、5 次更新之后，被 audit 的差异为 $`D_x=0.200, 0.169, 0.188`$。
 - 到达状态：40 个新状态，位于第 1 到第 13 次更新之间。每个状态上的消息都是同样的四个标量标签。
 - provider 规则 $`Q_z=(1-\lambda)Q_3+\lambda\delta_1`$，$`\lambda=0.1+0.6\,p(\theta_z)`$，所以候选律依赖于状态。
@@ -267,6 +267,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V1,E4 --output theory/v015_checks/quick/s8.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # T01, T02
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产出文件
 

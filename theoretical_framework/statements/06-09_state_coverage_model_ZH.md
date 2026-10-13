@@ -47,3 +47,8 @@
 - [Example 6.13](../statements/06-13_long_tail_example_ZH.md#s6-13)：长尾例子。
 
 **状态.** 假设。
+
+## 相关工作
+
+- Hadamard 可微泛函的 influence function，以及把它变成渐近方差的 delta method，都是标准工具（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）；这里逐个状态使用它们。
+- 示范所覆盖的 teacher 状态分布，与训练和部署所在的学生状态分布之间的差别，正是推动交互式模仿学习的分布偏移（[Ross et al., 2011](#ref-ross2011reduction)）。

@@ -2,7 +2,9 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
-**Message.** No strategy beats the query lower bound (8). An optimal SPRT sits essentially on it, the sufficient fixed $`n`$ of (9) lies above, and a passive learner is stuck at regret $`\Delta`$.
+**Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
+
+**Message.** No strategy beats the query lower bound (8), a change-of-measure bound ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)). An optimal SPRT ([Wald, 1945](#ref-wald1945sequential)) sits essentially on it, the sufficient fixed $`n`$ of (9) lies above, and a passive learner is stuck at regret $`\Delta`$.
 
 **Data.** `theory/independent_checks/results_independent_v014.json` → the entry of `claims` with `id == "C2"` → `details.configurations`. Each row has `Delta`, `delta` (rational strings), `bound8`, `min_fixed_n`, `sprt_expected_n`, `n9`, `fixed_ratio` and `sprt_ratio`.
 

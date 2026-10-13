@@ -70,7 +70,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 - **What it tests for Remark 8.12.** Whether the a-priori range is the bottleneck of the strict certificate, and whether calibration transfer is a real gap.
 - **Setup.** As in the primary check: 1,728 pairs, $`r\in\lbrace64,256\rbrace`$, aligned and calibrated short surrogates, the a-priori range $`B=2`$ (strict) and, as a diagnostic only, the observed range of the scores.
-- **Key numbers.** Strict certificate: 0 pairs certified with the aligned surrogate and at most 8 (0.46%) with the calibrated one, none wrong; the range term is 0.156 at $`r=256`$ against a median gap of 0.0037. Observed-range diagnostic: the aligned surrogate certifies 45–57% of pairs with no error, the calibrated surrogate 23–28% with 22–28 wrong certificates.
+- **Key numbers.** Strict certificate: 0 pairs certified with the aligned surrogate and at most 8 (0.46%) with the calibrated one, none wrong; the range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is 0.156 at $`r=256`$ against a median gap of 0.0037. Observed-range diagnostic: the aligned surrogate certifies 45–57% of pairs with no error, the calibrated surrogate 23–28% with 22–28 wrong certificates.
 - **Verdict.** Both open problems are real: a provable range of the size of the observed one would make the certificate decisive, and calibration does not transfer automatically.
 
 ### [Check 8.16](../experiments/08-09_first_order_version_margin_criterion.md#c8-16) · The measured first-order certificate and its cap (Corollary 8.9)
@@ -82,4 +82,4 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 ## Reproduce
 
-Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md), [Corollary 8.9](../experiments/08-09_first_order_version_margin_criterion.md).
+Reproduction commands and result files are listed on the pages of the primary checks: [Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate.md), [Corollary 8.9](../experiments/08-09_first_order_version_margin_criterion.md). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).

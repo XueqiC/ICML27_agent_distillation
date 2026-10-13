@@ -58,8 +58,8 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 **设置.**
 
 - 每个目标状态拥有一个标量坐标；每步访问一个状态；teacher 标签 $`y\sim\mathrm{Bernoulli}(\pi)`$，$`\pi=0.35`$；梯度 $`g=c_0-y`$，$`c_0=0.2`$；$`\zeta=1`$，$`\eta=0.01`$，$`\epsilon=10^{-12}`$。
-- 学习器：SGD；始终裁剪到 $`0.1`$ 的 SGD；$`\beta_1=0.9`$ 的 Adam。三者共用访问序列与标签的随机数。
-- 敏感度 $`\mathrm d\,\mathbb E\theta_{s,R}/\mathrm d\pi_s`$ 用 common random numbers 的中心差分测量（$`\delta=0.02`$；$`\delta=0.04`$ 作诊断），扰动在共同的 burn-in 之后才开始。
+- 学习器：SGD；始终裁剪到 $`0.1`$ 的 SGD（范数裁剪，[Pascanu et al., 2013](#ref-pascanu2013difficulty)）；$`\beta_1=0.9`$ 的 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）。三者共用访问序列与标签的随机数。
+- 敏感度 $`\mathrm d\,\mathbb E\theta_{s,R}/\mathrm d\pi_s`$ 用 common random numbers 的中心差分测量（[Glasserman, 2004](#ref-glasserman2004monte)；$`\delta=0.02`$；$`\delta=0.04`$ 作诊断），扰动在共同的 burn-in 之后才开始。
 
 | 区间 | $`\beta_2`$ | Bias correction | $`d(s)`$（对数等距） | $`d/(1-\beta_2)`$ | Burn-in | $`R`$ | 重复次数 |
 |---|---|---|---|---|---|---|---|
@@ -109,7 +109,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

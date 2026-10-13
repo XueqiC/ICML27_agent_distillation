@@ -43,7 +43,7 @@
 - Triangle inequality: 3,200 checks, worst residual $`5.6\times10^{-17}`$ (tolerance $`2\times10^{-14}`$).
 - Example: functional gap $`0.1866`$, minimax floor $`0.0933`$, attained by the midpoint at every $`K`$ (Figure 6.1(c)).
 
-**Why it supports Corollary 6.7.** The laws are identical, not merely close, so the floor is exact and independent of $`K`$; this is the mechanism by which replay or rewriting of demonstrations cannot help.
+**Why it supports Corollary 6.7.** The laws are identical, not merely close, so the floor is exact and independent of $`K`$; this is the mechanism by which replay or rewriting of demonstrations, garblings of the transcript in the sense of [Blackwell, 1953](#ref-blackwell1953equivalent), cannot help.
 
 ![Figure 6.1](../figures/fig6_1_information_bound.png)
 
@@ -58,7 +58,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

@@ -10,7 +10,7 @@
 
 下面重述本页用到的对象，以便单独阅读本页；一般记号见 [Definition 1.3–1.4](../README_ZH.md#s1-3)。
 
-**Adam 与 AdamW.** Adam 带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
+**Adam 与 AdamW.** Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW；[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -73,3 +73,7 @@ cold 步是 $`-\eta\,\mathrm{sign}(G)`$，所以 response 关于 $`\mathbb E\,\m
 **被用于.**
 
 - [Proposition 5.8](../statements/05-08_evolution_warmth_ZH.md#s5-8) — warmth 的演化
+
+## 相关工作
+
+- Adam 最初几步行为特殊，这一点以另一种形式已为人知：[Liu et al., 2020](#ref-liu2020variance) 把学习率 warm-up 的必要性归因于训练早期自适应学习率的方差过大。Proposition 5.7 是信息层面的对应结论：在 cold 状态，低阶矩相同的分布在学习率的一阶上就能分开。

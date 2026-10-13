@@ -83,6 +83,11 @@
 
 **状态.** 已证明；(b)、(c) 为局部渐近 minimax 意义。
 
+## 相关工作
+
+- 两点法来自 Le Cam（[Le Cam, 1973](#ref-lecam1973convergence)）；Pinsker 不等式与 KL 散度的链式法则是标准工具（[Cover & Thomas, 2006](#ref-cover2006elements)）；differentiability in quadratic mean 下的局部形式遵循局部渐近 minimax 理论（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
+- 这里特有的是泛函本身：它由学习器的增量映射与声明的任务决定，所以拿到同样数据的两个学习器可以面对不同的下界。
+
 ## 参考文献
 
 - [Le Cam, 1973](../references_ZH.md#lecam1973convergence)

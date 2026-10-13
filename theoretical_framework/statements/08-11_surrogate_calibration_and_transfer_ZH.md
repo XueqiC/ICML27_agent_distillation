@@ -98,3 +98,8 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 - [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 校准迁移这一未解决问题
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) — 方法中的校准步骤
+
+## Related work
+
+- 只通过改进量的高置信下界来接受候选，从而保住保证，这是 high-confidence policy improvement 的安全检验（[Thomas et al., 2015](#ref-thomas2015high)）。
+- 在重新训练的运行上拟合一个廉价的训练结果预测器，再在留出的运行上检验，也是 datamodels 的拟合与验证方式（[Ilyas et al., 2022](#ref-ilyas2022datamodels)）。这里的校准是在实际学习者状态上，把任务对比回归到 surrogate 分数上。

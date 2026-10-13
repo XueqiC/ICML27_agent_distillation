@@ -67,3 +67,9 @@
 
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2): each step implements these rules.
 - [Remark 9.4](09-04_scope_of_evidence.md#s9-4): the planned real-model tests.
+
+## Related work
+
+- Rule 1 rests on the easy direction of Blackwell's comparison of experiments: a garbling of the transcript cannot add information ([Blackwell, 1953](#ref-blackwell1953equivalent)). Acquiring labels at the student's own states is the move of DAgger ([Ross et al., 2011](#ref-ross2011reduction)).
+- Rule 2 and Rule 3 are stated against first-order data scores: influence functions ([Koh & Liang, 2017](#ref-koh2017understanding)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)) and LESS ([Xia et al., 2024](#ref-xia2024less)) rank training data by gradient statistics rather than by measured consequence at the complete learner state.
+- Rule 6 separates the data that tunes a method from the data that tests it, as the held-out safety test of high-confidence policy improvement does ([Thomas et al., 2015](#ref-thomas2015high)).

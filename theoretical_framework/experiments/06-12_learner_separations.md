@@ -40,7 +40,7 @@
 
 **Setup.**
 
-- $`\alpha=0.65`$; gradient support $`\lbrace0.2,-0.8\rbrace`$ scaled by $`b\in\lbrace1,3\rbrace`$; clipping threshold $`0.1`$, so clipping is always active; $`\eta R=1`$.
+- $`\alpha=0.65`$; gradient support $`\lbrace0.2,-0.8\rbrace`$ scaled by $`b\in\lbrace1,3\rbrace`$; clipping threshold $`0.1`$ (norm clipping as in [Pascanu et al., 2013](#ref-pascanu2013difficulty)), so clipping is always active; $`\eta R=1`$.
 - Demonstrations observe labels only, so their law is $`\mathrm{Binomial}(K,\alpha)`$ and does not depend on $`b`$.
 - $`K=1,10,\dots,10^5`$; 60,000 replicates. The clipped functional and a midpoint-scale SGD estimator are evaluated in both worlds.
 
@@ -67,7 +67,7 @@
 ### [Check 6.4](../experiments/06-11_learner_weights_sgd_warm_adam.md#c6-4) · Learner weights: SGD scales like d², warm Adam like d
 
 - **What it tests for Corollary 6.12(b).** The learner weights that make the long tail matter more to warm Adam than to SGD.
-- **Setup.** State-owned scalar coordinates, Bernoulli teacher labels, common-random-number sensitivities for SGD, always-clipped SGD and Adam ($`\beta_1=0.9`$) across frequent, isolated, transition and short-horizon regimes.
+- **Setup.** State-owned scalar coordinates, Bernoulli teacher labels, common-random-number sensitivities for SGD, always-clipped SGD and Adam ([Kingma & Ba, 2015](#ref-kingma2015adam); $`\beta_1=0.9`$) across frequent, isolated, transition and short-horizon regimes.
 - **Key numbers.** Sensitivity slope in $`d`$: SGD $`1.00`$ (weight slope $`2`$), frequent-regime Adam $`0.489`$ (weight slope $`0.98`$); the frequent-regime closed form is within 0.6–7.1%.
 - **Verdict.** PASS: the weights scale as part (b) requires.
 
@@ -87,7 +87,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

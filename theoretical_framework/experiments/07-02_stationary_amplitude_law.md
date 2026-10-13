@@ -12,7 +12,7 @@
 
 **Setting used on this page.**
 
-- One coordinate of Adam without bias correction, $`\epsilon=0`$, moments $`m,v`$, $`\beta_1,\beta_2`$, learning rate $`\eta`$; terminal score $`F`$ affine in the parameter.
+- One coordinate of Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) without bias correction, $`\epsilon=0`$, moments $`m,v`$, $`\beta_1,\beta_2`$, learning rate $`\eta`$; terminal score $`F`$ affine in the parameter.
 - Tail gradients are IID with mean $`\bar g`$ and mean square $`\bar v`$; the signal-to-noise ratio is $`\rho=\lvert\bar g\rvert/\sqrt{\bar v}`$, and $`\alpha=-(\nabla F)\,\mathrm{sign}(\bar g)`$ is positive when moving against $`\bar g`$ improves the score.
 - A message $`g=\lambda\sqrt{v}`$ (amplitude $`\lambda`$ in units of the running RMS) is injected at a warm state and followed by $`T`$ tail updates. The **measured finite response** is the change of $`F`$ against a zero-gradient message, averaged over replicates; the **formula** is the mean-field response $`\Delta F(\lambda)`$ of (a).
 - $`b_j=(1-\beta_1)\beta_1^{\,j}`$, $`c_j=(1-\beta_2)\beta_2^{\,j}`$, $`\omega_T=1-\beta_2^{\,T+1}`$, $`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho\,\omega_T)`$, $`\kappa_{\rm iso}(T)=\sum_jb_j/\sqrt{c_j}`$, $`\Lambda(T)=\sum_j(1-b_j)/\sqrt{1-c_j}`$.
@@ -161,6 +161,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 
 - The amplitude group (`v016:C4.amplitude`) takes about 29 s on rai.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
+
+The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

@@ -8,7 +8,7 @@
 
 **本页用到的设定与记号.**
 
-- $`z=(\theta,m,v,s)`$ 是完整 Adam 状态；超参数为 $`\beta_1,\beta_2,\eta,\epsilon`$、decoupled weight decay $`\lambda_{\rm wd}`$、bias correction 因子 $`q_{1,s},q_{2,s}`$ 的 AdamW 把 consumed gradient $`g`$ 映为增量 $`\Delta(z,g)`$（[Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam_ZH.md#s5-5)）。
+- $`z=(\theta,m,v,s)`$ 是完整 Adam 状态；超参数为 $`\beta_1,\beta_2,\eta,\epsilon`$、decoupled weight decay $`\lambda_{\rm wd}`$、bias correction 因子 $`q_{1,s},q_{2,s}`$ 的 AdamW（[Kingma & Ba, 2015](#ref-kingma2015adam)；[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)）把 consumed gradient $`g`$ 映为增量 $`\Delta(z,g)`$（[Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam_ZH.md#s5-5)）。
 - 第 $`t`$ 轮的消息之后，参考尾段用 consumed gradient $`g_k(\theta)`$（可能经全局范数裁剪）做 $`R-1-t`$ 次更新；$`V_{t+1}(z)`$ 是从 $`z`$ 出发得到的最终得分 $`F(\theta_R)`$。
 - costate $`\chi_{t+1}=(\chi^\theta_{t+1},\chi^m_{t+1},\chi^v_{t+1})`$ 是定理中反向递推的输出；下文的"adjoint 梯度"指 $`\chi_{t+1}`$。
 
@@ -64,6 +64,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 
 - costate 这一组（`v016:C4.costate`）在 rai 上约 16 秒；不加 `--only` 时整套约 104 秒。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
+
+本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
 

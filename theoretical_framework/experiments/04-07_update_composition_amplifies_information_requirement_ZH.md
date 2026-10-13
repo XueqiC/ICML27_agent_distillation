@@ -158,6 +158,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 
 `--only` 保留每个 claim 自己的随机流（`SeedSequence([20261010, claim number])`），所以只跑子集也能复现完整运行的数字。
 
+这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）、做精确符号回拉的 SymPy（[Meurer et al., 2017](#ref-meurer2017sympy)），以及 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
+
 ## 产物
 
 - 结果：`theory/independent_checks/results_independent_v014.json`（条目 `v014:C13`；`v014:C23` 对应 `controlled_neural`）；`theory/v015_checks/results_v015_independent.json`（条目 `v015:V7`）。

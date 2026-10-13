@@ -39,7 +39,7 @@ If $`\kappa_X^{(v)}=0`$ and $`K\kappa_D^{(v)}<\mathrm{kl}(1-\delta,\delta)`$, no
 
 **Verdict.** PASS: 297 instances, 2,969 assertions, worst residual $`2.7\times10^{-15}`$. The inequality (2.11) is never violated and is attained with equality (ratio 1.0) by a single informative query.
 
-**Why.** Proposition 2.11 must hold for *every* common history-dependent query-and-stop rule. A process with $`\mathrm{kl}(1-\delta,\delta)>K\kappa_D+\kappa_X\mathbb E_vN`$ would falsify it; a ratio far below 1 everywhere would mean the bound is loose.
+**Why.** Proposition 2.11, like the change-of-measure inequality of best-arm identification that it extends ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)), must hold for *every* common history-dependent query-and-stop rule. A process with $`\mathrm{kl}(1-\delta,\delta)>K\kappa_D+\kappa_X\mathbb E_vN`$ would falsify it; a ratio far below 1 everywhere would mean the bound is loose.
 
 **Setup.**
 
@@ -73,6 +73,8 @@ If $`\kappa_X^{(v)}=0`$ and $`K\kappa_D^{(v)}<\mathrm{kl}(1-\delta,\delta)`$, no
 - *Verdict.* PASS.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V6 --output theory/v015_checks/quick/sec2.json

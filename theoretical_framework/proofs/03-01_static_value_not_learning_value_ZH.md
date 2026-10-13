@@ -70,3 +70,7 @@ J_\rho(\pi_p)=\sum_s\rho(s)\big[p\,r_s(A)+(1-p)\tfrac12\big]=\tfrac12+p\Big(\sum
 - *一阶矩相同.* 两个来源下每个 $`Y_i`$ 都是 Bernoulli $`(\tfrac12)`$，边缘分布相同。$`p_0`$ 处的梯度为 $`p_0-(Y_1+Y_2)/2`$，在两个来源下均值都为 $`0`$。所以两者都有 $`\mathbb Ep^+=\tfrac12`$。
 - *方差.* $`\mathrm{Var}\,p^+=\eta^2\mathrm{Var}\frac{Y_1+Y_2}2`$。独立时为 $`\eta^2\cdot\tfrac14(\tfrac14+\tfrac14)=\eta^2/8`$；配对时 $`Y_1+Y_2\equiv1`$，方差为 $`0`$。
 - *值.* $`J(p)=p^2`$ 时 $`\mathbb EJ(p^+)=(\mathbb Ep^+)^2+\mathrm{Var}\,p^+`$，所以差为 $`\eta^2/8-0=\eta^2/8`$。$`J'=1-p^2`$ 时 $`\mathbb EJ'(p^+)=1-(\mathbb Ep^+)^2-\mathrm{Var}\,p^+`$，差为 $`-\eta^2/8`$。$`\square`$
+
+## 相关工作
+
+- (b) 只用到 packet 的前两阶矩。一阶 influence 估计 ([Koh & Liang, 2017](#ref-koh2017understanding)；[Pruthi et al., 2020](#ref-pruthi2020estimating)) 对训练梯度是线性的，所以上面证明的一阶矩相等使它们在两个来源上取值相同，而学习价值相差 $`\eta^2/8`$。

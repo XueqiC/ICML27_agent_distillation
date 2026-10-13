@@ -13,8 +13,8 @@
 - *Corollary 7.2 的 Adam 区间.* warm、不做 bias correction 的 Adam 的单个坐标 $`i`$，$`\epsilon=0`$，无 decay；尾段梯度与 $`\theta`$ 无关，均值 $`\bar g_i\ne0`$、平方的均值 $`\bar v_i`$；得分关于 $`\theta_i`$ 仿射；消息之后有 $`T`$ 次尾段更新。
   - $`\alpha_i=-(\nabla F)_i\,\mathrm{sign}(\bar g_i)`$；$`\lambda=g_i\,\mathrm{sign}(\bar g_i)/\sqrt{\bar v_i}`$ 是以 running RMS 为单位的消息幅度；$`\rho_i=\lvert\bar g_i\rvert/\sqrt{\bar v_i}`$ 是信噪比。
   - $`\Delta F_i(\lambda)`$ 是 Corollary 7.2(a) 的 mean-field response；$`Q_i`$、$`S_i`$、$`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho_i\omega_T)`$ 与误差界取自 Corollary 7.2(b)，$`\omega_T=1-\beta_2^{\,T+1}`$。
-- *只看参数的分数.* $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$，即 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 中单独的参数通道：限制在参数上的 continuation 梯度与消息自己的 Adam 步的配对。
-- *余弦分数.* 任何只依赖于消息梯度方向（在单个坐标上，也可以只依赖于参数步方向）的分数。
+- *只看参数的分数.* $`S_{\rm PO}(g)=\langle\chi^\theta,\Delta\theta(g)\rangle`$，即 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 中单独的参数通道：限制在参数上的 continuation 梯度与消息自己的 Adam 步的配对。用 Adam 步计算的 TracIn 式分数（[Pruthi et al., 2020](#ref-pruthi2020estimating)）与固定状态的 In-Run Data Shapley for Adam（[Ding et al., 2026](#ref-ding2026inrun)）都属于这一类。
+- *余弦分数.* 任何只依赖于消息梯度方向（在单个坐标上，也可以只依赖于参数步方向）的分数。LESS（[Xia et al., 2024](#ref-xia2024less)）属于这一类。
 
 <a id="s7-3"></a>
 

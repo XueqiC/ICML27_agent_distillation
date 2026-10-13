@@ -51,3 +51,8 @@
 - [Theorem 4.4](04-04_affine_learners_moment_order.md#s4-4) — exact counts for affine learners.
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity.md#s4-6) — approximate versus exact order.
 - [Theorem 8.1](08-01_stability_approximation_tradeoff.md#s8-1) — the cost of measuring features with error.
+
+## Related work
+
+- The unresolved discrepancy is an integral probability metric ([Müller, 1997](#ref-muller1997integral)), the supremum of $`\lvert(P-Q)g\rvert`$ over a class of functions, restricted to pairs of laws with equal feature means. If $`\mathcal G`$ contains the indicators of all events, the inner supremum is the total variation distance ([Theorem 4.2(d)](04-02_sufficiency_duality_transfer.md#s4-2)).
+- The approximate dimension is a Kolmogorov-width count in the sup norm ([Pinkus, 1985](#ref-pinkus1985nwidths)): by [Theorem 4.2(b)](04-02_sufficiency_duality_transfer.md#s4-2), $`d_\varepsilon(\mathcal G)`$ is the least $`d`$ for which some subspace $`H\ni\mathbf 1`$ of dimension at most $`d+1`$ approximates every $`g\in\mathcal G`$ uniformly to within $`\varepsilon/2`$.

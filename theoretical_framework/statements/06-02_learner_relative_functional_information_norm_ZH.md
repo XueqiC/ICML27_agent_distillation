@@ -73,3 +73,8 @@
 - [Assumption 6.9](../statements/06-09_state_coverage_model_ZH.md#s6-9)：状态覆盖模型。
 
 **状态.** 定义。
+
+## 相关工作
+
+- 当 $`n=0`$ 时，$`\mathfrak n_{K,0}^2=c^\top(K\,I_D)^{-1}c`$ 正是光滑泛函 $`\Psi`$ 的正则估计量方差的经典局部渐近 minimax 下界（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）；有查询时，最优 design 进入其中（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)）。
+- $`\Psi`$ 在被审计的检查点上累加任务梯度与学习器更新的内积，这与 TracIn 等沿梯度轨迹的影响估计结构相同（[Pruthi et al., 2020](#ref-pruthi2020estimating)）；在这里它是蒸馏器必须复现的量，而不是给数据排序的分数。

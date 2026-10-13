@@ -7,7 +7,7 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -B theoretical_framework/figures
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -B theoretical_framework/figures/verify_figures.py
 ```
 
-For a subset use `--only fig5_3,fig7_1`. There are 25 figures: 20 renamed figures (including the revised warmth figure) and the five explicitly specified new figures. Each basename produces a vector PDF with Type 42 fonts and a 300 dpi PNG. PDF Subject and PNG Description contain the caption. The matching specification is `specs/<short id>.md`.
+The figures are drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) from arrays prepared with NumPy ([Harris et al., 2020](#ref-harris2020array)). For a subset use `--only fig5_3,fig7_1`. There are 25 figures: 20 renamed figures (including the revised warmth figure) and the five explicitly specified new figures. Each basename produces a vector PDF with Type 42 fonts and a 300 dpi PNG. PDF Subject and PNG Description contain the caption. The matching specification is `specs/<short id>.md`.
 
 ## Font and layout policy
 

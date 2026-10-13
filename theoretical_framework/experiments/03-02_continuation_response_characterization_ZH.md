@@ -51,7 +51,7 @@ L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\
 
 **为什么做.**
 
-- (3.2) 是恒等式。方向上的错误（例如用参照过程的占据分布代替 $`d_t^S`$）或 continuation 递推的错误，都会在随机过程上产生非零残差。
+- (3.2) 是 performance-difference 型的恒等式 ([Kakade & Langford, 2002](#ref-kakade2002approximately))。方向上的错误（例如用参照过程的占据分布代替 $`d_t^S`$）或 continuation 递推的错误，都会在随机过程上产生非零残差。
 - (3.5) 断言离开的代价是 $`\rho`$ 而不是 $`R\rho`$。若某种认证集合的选法使 $`\lvert\text{差距}\rvert`$ 超过界，就否定了它。
 - (3.4) 依赖于单边界值之差恰为 $`(P-Q)g`$。
 
@@ -124,6 +124,8 @@ L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\
 **为什么支持这个陈述.** 当局部差距 $`\varepsilon_t`$ 在被审计的格子上认证、再 transport 到访问到的状态时，带停止的复合 (3.5) 依然有效且不空。冻结 audit 定理（[Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)）正是建立在这个形式之上。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C4 --output theory/independent_checks/subset.json

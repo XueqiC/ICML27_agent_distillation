@@ -2,6 +2,8 @@
 
 **Layout.** Full-width rows, 10 inches wide, at most two subpanels per row. Base/labels 14 pt, titles 15 pt, all other text at least 12 pt.
 
+**Rendering.** Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
+
 **Message.** Two sources look identical to every static evaluation, yet the students trained on them differ. The same holds for two packets with identical means. A real network shows the same separation.
 
 **Data.**
@@ -29,7 +31,7 @@
 **Panel (c): controlled neural network.**
 
 - Grouped bar chart, log y axis, of `neural_gap` for configurations with `updates` in {1, 4}.
-- Groups: (Prop5, Prop6) × optimizer and step size, i.e. SGD 0.01, SGD 0.1, SGD 1.0, Adam 0.01, Adam 0.1.
+- Groups: (Prop5, Prop6) × optimizer and step size, i.e. SGD 0.01, SGD 0.1, SGD 1.0, Adam 0.01, Adam 0.1 (Adam: [Kingma & Ba, 2015](#ref-kingma2015adam)).
 - Within each group, two bars for R=1 and R=4.
 - All values are positive.
 - Label the panel "controlled neural, not Gemma, not an external benchmark".

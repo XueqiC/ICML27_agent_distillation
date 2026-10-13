@@ -67,3 +67,9 @@
 - [Proposition 2.11](../statements/02-11_shared_information_budget_ZH.md#s2-11): 同样的 change of measure 论证.
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7): 学习器相对的混叠界.
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3): 先获取再编译.
+
+## 相关工作
+
+- (a) 是 imitation gap 的一个精确实例：teacher 用到学生看不到的信息，模仿只能把它边缘化 ([Weihs et al., 2021](#ref-weihs2021bridging))。Weihs et al. 通过混入基于奖励的强化学习来弥合这个 gap；这里学生自己的实验是 reset 查询，其次数在常数倍之内被确定。
+- (b) 是 best-arm identification 中的 change of measure 论证 ([Kaufmann et al., 2016](#ref-kaufmann2016complexity))，停时部分用 Wald 恒等式 ([Wald, 1944](#ref-wald1944cumulative))。在部分设定上达到 (2.6) 的序贯概率比检验（SPRT）来自 Wald ([Wald, 1945](#ref-wald1945sequential))。
+- (c) 是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability))。

@@ -39,7 +39,7 @@ K\kappa_D^{(v)}+\kappa_X^{(v)}\,\mathbb E_vN\ge\mathrm{kl}(1-\delta,\delta). \qq
 
 **结论.** 通过：297 个实例，2,969 条断言，最大残差 $`2.7\times10^{-15}`$。不等式 (2.11) 从未被违反，并且单个有信息的查询能使它取等（比值 1.0）。
 
-**为什么做.** Proposition 2.11 必须对*每个*共同的、依赖历史的查询–停止规则成立。出现 $`\mathrm{kl}(1-\delta,\delta)>K\kappa_D+\kappa_X\mathbb E_vN`$ 的过程就能否定它；若比值处处远小于 1，说明界是松的。
+**为什么做.** 与它所推广的 best-arm identification 中的 change of measure 不等式 ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)) 一样，Proposition 2.11 必须对*每个*共同的、依赖历史的查询–停止规则成立。出现 $`\mathrm{kl}(1-\delta,\delta)>K\kappa_D+\kappa_X\mathbb E_vN`$ 的过程就能否定它；若比值处处远小于 1，说明界是松的。
 
 **设置.**
 
@@ -73,6 +73,8 @@ K\kappa_D^{(v)}+\kappa_X^{(v)}\,\mathbb E_vN\ge\mathrm{kl}(1-\delta,\delta). \qq
 - *结论.* 通过。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V6 --output theory/v015_checks/quick/sec2.json

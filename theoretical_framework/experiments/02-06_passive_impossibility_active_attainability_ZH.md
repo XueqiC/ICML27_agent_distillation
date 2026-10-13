@@ -45,8 +45,8 @@
 **设置.**
 
 - 精确的有理二项尾概率，用整数分子求和，不用正态近似。
-- SPRT 的期望样本量与误差，通过对边界为 $`\pm h`$ 的吸收随机游走做精确三对角消元得到，$`h=\lceil\log\frac{1-\delta}{\delta}/\log\frac{1/2+2\Delta}{1/2-2\Delta}\rceil`$。
-- 回报 $`J_v(p)`$ 与被动 minimax 用 SymPy 计算。
+- SPRT ([Wald, 1945](#ref-wald1945sequential)) 的期望样本量与误差，通过对边界为 $`\pm h`$ 的吸收随机游走做精确三对角消元得到，$`h=\lceil\log\frac{1-\delta}{\delta}/\log\frac{1/2+2\Delta}{1/2-2\Delta}\rceil`$。
+- 回报 $`J_v(p)`$ 与被动 minimax 用 SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)) 计算。
 - KL 不等式在 $`(0,\tfrac14]`$ 上 20,001 个点的稠密网格上核对，另用有界标量优化器对抗地最大化比值。
 - 种子 `SeedSequence([20261010, 2])`；检验是确定性的。
 
@@ -89,11 +89,13 @@
 
 - *被动不可能（Theorem 2.6(a)）.* 符号计算得到的回报恰为 $`\tfrac34+v\Delta(2p-1)`$，两个被动 regret 恰好在值 $`\Delta`$ 处相交。
 - *下界（Theorem 2.6(b)）.* 没有精确计算的策略能打破这个界。SPRT 对这个问题接近最优，在两组设定上落在界上；在 $`\Delta=\tfrac1{64}`$、$`\delta\le0.25`$ 时与界相差不到 5%（比值 1.009–1.047）。所以这个界的常数也是对的，不只是阶对。$`\delta\le0.25`$ 时，除平凡的 $`n=1`$ 外，固定样本检验需要界的 1.6–2.4 倍，这对非序贯设计是预期之中的。
-- *上界（Theorem 2.6(c)）.* 在 $`n_{\rm query}`$ 处，每组设定的精确误差都远低于 $`\delta`$：Hoeffding 是保守的。
+- *上界（Theorem 2.6(c)）.* 在 $`n_{\rm query}`$ 处，每组设定的精确误差都远低于 $`\delta`$：Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability)) 是保守的。
 - *编译（[Proposition 2.7](../statements/02-07_compilation_cost_ZH.md#s2-7)）.* 编译标签数为 $`O(\log(1/\delta_L))`$，与 $`\Delta`$ 无关；精确尾概率比 $`\delta_L`$ 低两到四个数量级。
 - 两项代价，即 $`\Theta(\Delta^{-2}\log(1/\delta))`$ 次真实查询与 $`O(\log(1/\delta_L))`$ 个编译标签，因此分别得到了确认。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array))、SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) 与 SymPy ([Meurer et al., 2017](#ref-meurer2017sympy))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C2 --output theory/independent_checks/subset.json

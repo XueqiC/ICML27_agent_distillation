@@ -51,3 +51,5 @@ Plot:
 - Title: "(c) |gap| ≤ C_J δ_N, independent of R".
 
 **Caption.** Theorems 14–15 in exact arithmetic. (a) independent blocks shrink the gap as n¹⁻ᴺ; replaying one block or training on its descendants leaves it constant (C18). (b) the leading coefficient equals the first-unmatched-cumulant contraction in all 6 cases; a zero contraction removes the leading term (C11). (c) the round-independent bound holds for R up to 50 and is nearly tight (C10).
+
+**Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). Panel (b) evaluates the stored exact gap polynomials with SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)); their leading coefficient is the contraction with the first unmatched joint cumulant ([Leonov & Shiryaev, 1959](#ref-leonov1959method)) of [Theorem 4.5(b)](../../statements/04-05_round_independent_bound_averaging_rates.md#s4-5).

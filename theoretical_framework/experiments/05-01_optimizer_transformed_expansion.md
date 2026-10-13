@@ -198,12 +198,12 @@ This check measures all three. It also compares the result with the naive first-
 - *Optimizers (11).*
   - SGD;
   - heavy-ball and Nesterov ($`\beta=0.9`$);
-  - Adam cold ($`\beta=(0.9,0.999)`$, $`\epsilon=10^{-8}`$, bias correction);
+  - Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) cold ($`\beta=(0.9,0.999)`$, $`\epsilon=10^{-8}`$, bias correction);
   - Adam warm after $`W=5`$ and $`W=20`$ lr = 0 moment warm-up steps;
-  - AdamW ($`\lambda=0.01`$);
+  - AdamW ([Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled); $`\lambda=0.01`$);
   - clipped SGD and clipped Adam;
-  - signSGD;
-  - Lion ($`\beta_1=0.9`$, $`\beta_2=0.99`$).
+  - signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd));
+  - Lion ([Chen et al., 2023](#ref-chen2023symbolic); $`\beta_1=0.9`$, $`\beta_2=0.99`$).
 - *Clip threshold.*
   - Chosen per task to give the clipped mass closest to 50%.
   - Where gradient norms tie, the 30–70% band is not attainable; for moment $`N=3`$ and parity $`N=3`$ the mass is 25%.
@@ -309,6 +309,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)). The linear programs of `v015:V2` and `v015:V8` are solved by `scipy.optimize.linprog` with the HiGHS solver ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
 
 ## Artifacts
 

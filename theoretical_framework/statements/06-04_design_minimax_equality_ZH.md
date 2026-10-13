@@ -60,6 +60,11 @@
 
 **状态.** 已证明。
 
+## 相关工作
+
+- c-optimal design 及其几何刻画可追溯到 [Elfving, 1952](#ref-elfving1952optimum)；一般理论，包括带先验信息的 design（例如示范贡献的 $`K\,I_D`$ 项），见 [Pukelsheim, 1993](#ref-pukelsheim1993optimal)。两个优化的交换是 Sion 的 minimax 定理（[Sion, 1958](#ref-sion1958general)）。
+- 这里特有的是目标向量 $`c=\sum_tJ_t^*g_t`$：它由学习器与任务决定。
+
 ## 参考文献
 
 - [Elfving, 1952](../references_ZH.md#elfving1952optimum)

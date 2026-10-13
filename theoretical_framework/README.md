@@ -6,9 +6,9 @@
 
 **Central results.**
 
-- **Theorem A (§6, learner-relative information bound).** For any distiller (replay, rewriting and synthesis included), the smallest achievable first-order error is governed by the Fisher information that demonstrations and queries carry about one learner-dependent functional. Its gradient $`c=\sum_tJ_t^{*}g_t`$ combines the learner's Jacobian with the task's continuation gradients. Under identifiability and growth conditions, the bound is attained up to a constant factor by a regularized Elfving c-optimal query design. Hence the same demonstrations can be sufficient for one learner and insufficient for another.
-- **Theorem B (§7, Adam's second-moment channel).** Under warm Adam, the first-order value of a message splits exactly into a parameter channel, a momentum channel and a second-moment channel. In a stationary regime the response to a message of relative magnitude $`\lambda`$ has an exact mean-field form. For small increments it is a concave quadratic that peaks at an explicit $`\lambda^*`$ and turns negative near $`2\lambda^*`$. Scores that look only at the parameter step, or only at directions, are therefore inconsistent rankers.
-- **Theorem C (§8, auditable certificate).** A common-random-numbers (CRN) paired replacement of one training round measures the finite effect of a feedback law directly. The resulting certificate needs no continuation-value gradient and no curvature constant. Its radius has only a statistical term and a surrogate-calibration term.
+- **Theorem A (§6, learner-relative information bound).** For any distiller (replay, rewriting and synthesis included), the smallest achievable first-order error is governed by the Fisher information that demonstrations and queries carry about one learner-dependent functional. Its gradient $`c=\sum_tJ_t^{*}g_t`$ combines the learner's Jacobian with the task's continuation gradients. Under identifiability and growth conditions, the bound is attained up to a constant factor by a regularized Elfving c-optimal query design ([Elfving, 1952](#ref-elfving1952optimum)). Hence the same demonstrations can be sufficient for one learner and insufficient for another.
+- **Theorem B (§7, Adam's second-moment channel).** Under warm Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), the first-order value of a message splits exactly into a parameter channel, a momentum channel and a second-moment channel. In a stationary regime the response to a message of relative magnitude $`\lambda`$ has an exact mean-field form. For small increments it is a concave quadratic that peaks at an explicit $`\lambda^*`$ and turns negative near $`2\lambda^*`$. Scores that look only at the parameter step, or only at directions, are therefore inconsistent rankers.
+- **Theorem C (§8, auditable certificate).** A common-random-numbers (CRN) paired replacement of one training round (CRN is a classical variance-reduction device in simulation; [Glasserman, 2004](#ref-glasserman2004monte)) measures the finite effect of a feedback law directly. The resulting certificate needs no continuation-value gradient and no curvature constant. Its radius has only a statistical term and a surrogate-calibration term.
 
 These rest on foundations (§2–§5): an exact regret decomposition and the cost of acquiring missing information, the continuation response as the object of sufficiency, the complexity of sufficiency, and the statistic that each optimizer makes feedback carry. §9 derives the method, CED, from all of them.
 
@@ -22,9 +22,9 @@ These rest on foundations (§2–§5): an exact regret decomposition and the cos
 
 Notation is fixed in [§1](#1-setting-and-notation). Every numbered result has its own **statement** page (setting, exact statement, derivation outline) and, where applicable, a **proof** page with the complete derivation and an **experiments** page with the checks that test it: why each check is run, its setup, its result and why it supports the statement. Each of these pages can be read on its own; it restates the setting and the statement it needs. All measured results are on the experiments pages; this page contains statements and illustrative examples only.
 
-**References.** Every cited work, with authors, title, venue and DOI or arXiv ID checked against the primary source, is listed in [references.md](references.md).
+**References.** Every page ends with its own list of the works it cites. The complete list, with authors, title, venue and DOI or arXiv ID checked against the primary source and the pages that use each work, is [references.md](references.md).
 
-**Scope.** Every statement on this page is proved under the assumptions it states. A few are proved to leading order in an explicitly stated asymptotic regime, and the page says so where this happens. Proofs are finite-dimensional or carry explicit regularity assumptions. The checks on the experiments pages are exact finite computations or controlled small networks. Real-model tests of Theorems A–C are designed ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)) but have not been run.
+**Scope.** Every statement on this page is proved under the assumptions it states. A few are proved to leading order in an explicitly stated asymptotic regime, and the page says so where this happens. Proofs are finite-dimensional or carry explicit regularity assumptions. The checks on the experiments pages are exact finite computations or controlled small networks. Real-model tests of Theorems A–C are designed ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)); the first runs are under way and their results are not yet on these pages.
 
 ---
 
@@ -44,7 +44,7 @@ To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstr
    - Approximate complexity can be much smaller than the exact order, and nonlinear updates multiply the order.
 4. **What does the actual optimizer make feedback carry? (§5)**
    - To first order, what matters is the mean increment of the *complete learner state* (parameters and optimizer state). This first-order representation is a tool, not a claim of novelty.
-   - The statistic is explicit for SGD, momentum, cold and warm Adam, clipping, Lion and LoRA. For warm Adam the exact statistic is the mean Adam increment, and the familiar (mean, second moment) description holds only under a frozen-denominator approximation with an explicit error.
+   - The statistic is explicit for SGD, momentum, cold and warm Adam, clipping, Lion ([Chen et al., 2023](#ref-chen2023symbolic)) and LoRA ([Hu et al., 2022](#ref-hu2022lora)). For warm Adam the exact statistic is the mean Adam increment, and the familiar (mean, second moment) description holds only under a frozen-denominator approximation with an explicit error.
    - An Adam coordinate's warmth falls like $`1/(\beta_2s)`$ only early in training; it levels off at $`(1-\beta_2)/\beta_2`$.
 5. **How much information is needed, and in which direction? (Theorem A, §6)**
    - The learner decides the direction $`c`$ in which the data must be informative. The minimax error of any distiller is the learner-relative information norm, up to a constant.
@@ -156,7 +156,7 @@ Arrows show the main flow of the argument. Further dependencies:
 **Conclusion.**
 
 - Write any stateful first-order optimizer as a map from a consumed gradient to an increment of the complete learner state. To first order, the effect of a feedback law on the training outcome is the inner product between the continuation-value gradient and the mean complete-state increment.
-- Higher orders correspond to higher moments of the increment. This expansion is a standard Taylor-plus-telescoping computation, in the same family as stochastic modified equations, TracIn and metagradients, and it is used here as a tool.
+- Higher orders correspond to higher moments of the increment. This expansion is a standard Taylor-plus-telescoping computation, in the same family as stochastic modified equations ([Li, Tai & E, 2019](#ref-li2019stochastic)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)) and metagradients ([Engstrom et al., 2025](#ref-engstrom2025optimizing)), and it is used here as a tool.
 - What is specific to each optimizer is the increment:
   - Cold-start Adam looks only at gradient signs in its first step, while its state keeps the magnitudes.
   - For warm Adam, the exact first-order statistic is the mean Adam increment. Under a frozen-denominator approximation it reduces to the mean and second moment of the gradient, with an error controlled coordinatewise by the coordinate's warmth.
@@ -173,7 +173,7 @@ Arrows show the main flow of the argument. Further dependencies:
 
 - Let $`c=\sum_tJ_t^*g_t`$, which combines the learner's Jacobian $`J_t`$ (how the mean increment moves with the unknown environment parameter) with the task's continuation gradients $`g_t`$.
 - The minimax error of any distiller is, up to a factor between $`1/4`$ and $`1`$, the learner-relative information norm: the largest ratio of $`c^\top h`$ to the Fisher information that demonstrations and queries carry in direction $`h`$.
-- Asymptotically optimal queries follow an Elfving c-optimal design with target $`c`$, regularized so that every direction is eventually identified.
+- Asymptotically optimal queries follow an Elfving c-optimal design ([Elfving, 1952](#ref-elfving1952optimum); [Pukelsheim, 1993](#ref-pukelsheim1993optimal)) with target $`c`$, regularized so that every direction is eventually identified.
 - Consequences:
   - directions the demonstrations cannot see make every amount of replay worthless;
   - one demonstration is worth a learner-relative number of queries;
@@ -406,7 +406,7 @@ flowchart TB
 - *Role.* A tool, of the same kind as stochastic modified equations, TracIn and metagradients (Remark 5.2). Every later statement about what a learner makes the feedback carry, and Theorems A–C, are computed from it.
 
 **[Remark 5.2](statements/05-02_relation_to_prior_work.md#s5-2) · Relation to stochastic modified equations, TracIn, influence functions and metagradients** — [statement](statements/05-02_relation_to_prior_work.md)
-- *What it says.* Proposition 5.1 is a Taylor expansion inserted into a telescoping sum, the same kind of calculation as stochastic modified equations, TracIn, influence functions, metagradients and In-Run Data Shapley. What its bookkeeping adds is the complete state: Adam's second-moment block makes the remainder first order in the learning rate.
+- *What it says.* Proposition 5.1 is a Taylor expansion inserted into a telescoping sum, the same kind of calculation as stochastic modified equations ([Li, Tai & E, 2019](#ref-li2019stochastic)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)), influence functions ([Koh & Liang, 2017](#ref-koh2017understanding)), metagradients ([Engstrom et al., 2025](#ref-engstrom2025optimizing)) and In-Run Data Shapley ([Wang et al., 2025](#ref-wang2025data)). What its bookkeeping adds is the complete state: Adam's second-moment block makes the remainder first order in the learning rate.
 - *Role.* Fixes the novelty claim (none for Proposition 5.1) and explains when first-order detection needs a margin condition.
 
 **[Proposition 5.3](statements/05-03_cold_start_adam_sign_quotient.md#s5-3) · Cold-start Adam: sign quotient and optimizer memory** — [statement](statements/05-03_cold_start_adam_sign_quotient.md) · [proof](proofs/05-03_cold_start_adam_sign_quotient.md) · [experiments](experiments/05-03_cold_start_adam_sign_quotient.md)
@@ -675,7 +675,7 @@ flowchart LR
 - *Role.* It explains why Algorithm 9.2 has the steps it has; each rule closes one way a method can claim more than it knows, and an ablation of the method should remove one rule at a time.
 
 **[Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4) · What the controlled evidence covers, and the planned real-model tests** — [statement](statements/09-04_scope_of_evidence.md)
-- *What it says.* All evidence in the framework is exact finite computation or a controlled small network; no statement is supported by a real-model or benchmark result. The pre-registered real-model tests on ALFWorld are R0 (warm-state conditions and response non-additivity), R1 (Theorem C: same-state ranking of four feedback laws by the CRN score), R2 (Theorem A: learner-relative query allocation against uniform and SGD-weighted allocation) and R3 (Theorem B: one batch at several magnitudes, clipping off and on).
+- *What it says.* All evidence in the framework is exact finite computation or a controlled small network; no statement is supported by a real-model or benchmark result. The pre-registered real-model tests on ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)) are R0 (warm-state conditions and response non-additivity), R1 (Theorem C: same-state ranking of four feedback laws by the CRN score), R2 (Theorem A: learner-relative query allocation against uniform and SGD-weighted allocation) and R3 (Theorem B: one batch at several magnitudes, clipping off and on).
 - *Role.* It marks the boundary of the claims and ties each planned test to the statement it tests, so real-model results can be read against predictions written in advance.
 
 ---
@@ -781,7 +781,7 @@ Replaying one block $`n`$ times is not $`n`$ independent blocks.
 
 - **A tight provable range for Theorem C.** The certificate is valid with the a-priori range of the surrogate. To be decisive it needs a provable range much smaller than that, for example from a pathwise Lipschitz bound on the reference tail ([Remark 8.12](statements/08-12_open_problems.md#s8-12)).
 - **Transfer of the surrogate calibration.** Theorem C uses a calibration $`(\alpha,\varepsilon_{\rm sur})`$ fitted on some candidate pairs. Extending it to new pairs needs a testable exchangeability condition, which is not yet available ([Remarks 8.11–8.12](statements/08-11_surrogate_calibration_and_transfer.md#s8-11)).
-- **Real-model evidence.** The experiments pages contain exact finite computations and controlled small networks. Tests of Theorems A–C on a real agent-distillation recipe are designed in [Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4) and have not been run.
+- **Real-model evidence.** The experiments pages contain exact finite computations and controlled small networks. Tests of Theorems A–C on a real agent-distillation recipe are designed in [Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4); the first runs are under way and their results are not yet on these pages.
 
 **Checks.** Every experiments page opens with a verdict table. One check fails its pre-set tolerance: a boundary setting of Corollary 7.2(a), recorded on the [experiments page of Corollary 7.2](experiments/07-02_stationary_amplitude_law.md).
 

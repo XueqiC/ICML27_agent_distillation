@@ -8,7 +8,7 @@
 
 **本页用到的设定与记号.**
 
-- *单个坐标 $`i`$ 上不做 bias correction 的 Adam*：$`m'=\beta_1m+(1-\beta_1)g`$，$`v'=\beta_2v+(1-\beta_2)g^2`$，参数步为 $`-\eta m'/\sqrt{v'}`$，$`\epsilon=0`$，无 weight decay。
+- *单个坐标 $`i`$ 上不做 bias correction 的 Adam*（[Kingma & Ba, 2015](#ref-kingma2015adam)）：$`m'=\beta_1m+(1-\beta_1)g`$，$`v'=\beta_2v+(1-\beta_2)g^2`$，参数步为 $`-\eta m'/\sqrt{v'}`$，$`\epsilon=0`$，无 weight decay。
 - *消息与尾段.* 第 $`t`$ 轮有一条 consumed gradient 为 $`g_i`$ 的消息，之后是 $`T=R-1-t`$ 次尾段更新；尾段梯度 $`g_{k,i}`$ 与 $`\theta`$ 无关，平稳，均值 $`\bar g_i\ne0`$、平方的均值 $`\bar v_i>0`$。最终得分 $`F`$ 关于 $`\theta_i`$ 仿射，导数为 $`(\nabla F)_i`$。
 - *warm 状态.* 消息到达时 $`m_{t,i}=\bar g_i`$，$`v_{t,i}=\bar v_i`$。
 - *归一化的量.* $`\alpha_i=-(\nabla F)_i\,\mathrm{sign}(\bar g_i)`$；$`\lambda=g_i\,\mathrm{sign}(\bar g_i)/\sqrt{\bar v_i}`$；$`\rho_i=\lvert\bar g_i\rvert/\sqrt{\bar v_i}\in(0,1]`$；$`b_j=(1-\beta_1)\beta_1^{\,j}`$，$`c_j=(1-\beta_2)\beta_2^{\,j}`$，$`j=0,\dots,T`$；$`\omega_T=1-\beta_2^{\,T+1}=\sum_{j\le T}c_j`$。

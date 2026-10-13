@@ -26,3 +26,7 @@ Enlarging the declared task, learner, suffix or snapshot family can therefore on
 **Proof.**
 
 Every $`g\in\mathcal G`$ has this form by the definitions of $`V^0`$ and $`g_{t,z}`$, and every function of this form is the response of the corresponding snapshot. If $`\mathcal I\subseteq\mathcal I'`$ then $`\mathcal G(\mathcal I)\subseteq\mathcal G(\mathcal I')`$, so every law pair that satisfies (3.4) for $`\mathcal G(\mathcal I')`$ also satisfies it for $`\mathcal G(\mathcal I)`$. Enlarging the declared task, learner, suffix or snapshot family can therefore only refine the equivalence (3.4). The response class is fixed by the learner and the task; it is not a modelling convenience.
+
+## Related work
+
+- The inclusion argument is the one behind the monotonicity of value-equivalence classes in model-based reinforcement learning ([Grimm et al., 2020](#ref-grimm2020value), Property 3).

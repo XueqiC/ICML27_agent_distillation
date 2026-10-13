@@ -90,7 +90,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 
 - *有限差分的偏差.* 与 [Theorem 8.8(a)](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 相同，$`\mathbb EZ^{jk}_\ell(h)=\big(\mathbb E\tilde V(h\Delta^j)-\mathbb E\tilde V(h\Delta^k)\big)/h`$。对 $`u=\Delta^j`$ 与 $`u=\Delta^k`$ 的上式取期望并除以 $`h`$，得 $`\lvert\mathbb EZ^{jk}_\ell(h)-\tilde s^{jk}\rvert\le e^{jk}_{\rm fd}(h)`$。
 - *余项.* 取 $`h=1`$，得 $`\tilde L(P^j)-\tilde L(P^k)=\tilde s^{jk}+\tilde\rho`$，$`\lvert\tilde\rho\rvert\le\tilde e^{jk}_2`$。
-- *集中性.* 把 [Theorem 8.8(b)](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的论证用于取值范围为 $`B_h`$ 的 $`Z^{jk}_\ell(h)`$，得到概率至少为 $`1-\delta`$ 的事件，其上对所有有序对 $`\mathbb EZ^{jk}_\ell(h)\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)`$。
+- *集中性.* 把 [Theorem 8.8(b)](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的 empirical Bernstein 论证（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）用于取值范围为 $`B_h`$ 的 $`Z^{jk}_\ell(h)`$，得到概率至少为 $`1-\delta`$ 的事件，其上对所有有序对 $`\mathbb EZ^{jk}_\ell(h)\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)`$。
 - 在该事件上，$`\tilde L(P^j)-\tilde L(P^k)\ge\tilde s^{jk}-\tilde e^{jk}_2\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\rm fd}(h)-\tilde e^{jk}_2`$；再如 Theorem 8.8 一样用 (A) 转到任务。
 
 **(c)** 被 (b) 认证意味着 $`\hat S^{jk}(h)>e^{jk}_{\rm stat}(h)+e^{jk}_{\rm fd}(h)+\tilde e^{jk}_2+\varepsilon_{\rm sur}`$。在 (b) 的事件上，$`\tilde s^{jk}\ge\mathbb EZ^{jk}_\ell(h)-e^{jk}_{\rm fd}(h)\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\rm fd}(h)>\tilde e^{jk}_2+\varepsilon_{\rm sur}`$。若平均增量沿 $`\nabla\tilde V(0)`$ 一致，则 $`\tilde s^{jk}=0`$，不可能被认证。(c) 的最后一句就是 (b) 中的余项步骤。

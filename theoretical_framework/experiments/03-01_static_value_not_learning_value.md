@@ -60,7 +60,7 @@ and under $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
 
 **Setup.**
 
-- SymPy symbolic computation in $`p`$ and $`\eta`$.
+- SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)) symbolic computation in $`p`$ and $`\eta`$.
 - Exact binomial expectations of the frequency learner in `fractions.Fraction`, for $`m=1,\dots,30`$ and both sources.
 - Statewise teacher optimality is checked at all four states.
 - Seed `SeedSequence([20261010, 3])`; the check is deterministic.
@@ -94,7 +94,7 @@ and under $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
 **Setup.**
 
 - Network: one-hot context → 4 tanh units → sigmoid action probability, fixed initialization, cross-entropy on label blocks.
-- Optimizers: SGD with $`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$; Adam ($`\beta=(0.9,0.999)`$, $`\epsilon=10^{-8}`$, bias correction) with $`\eta\in\lbrace 0.01,0.1\rbrace`$.
+- Optimizers: SGD with $`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$; Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) with $`\beta=(0.9,0.999)`$, $`\epsilon=10^-8`$, bias correction and $`\eta\in\lbrace 0.01,0.1\rbrace`$.
 - $`R\in\lbrace 1,4,40\rbrace`$ updates, using the source laws of Constructions (a) and (b).
 - For $`R\le4`$ all training histories are enumerated exactly. For $`R=40`$, 2,400 independent training runs per source; SE counts training runs.
 - Seed `SeedSequence([20261010, 23])`.
@@ -128,6 +128,8 @@ Values are read from `controlled_neural.details.configurations[task∈{Prop5,Pro
 - The magnitude depends on the optimizer: at equal $`\eta`$ the Adam gaps exceed the SGD gaps. §5 explains this dependence ([Proposition 5.3](../statements/05-03_cold_start_adam_sign_quotient.md#s5-3), cold-start Adam).
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C3,C23 --output theory/independent_checks/subset.json

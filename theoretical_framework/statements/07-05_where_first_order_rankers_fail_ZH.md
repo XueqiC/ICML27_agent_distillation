@@ -11,7 +11,7 @@
 - *候选.* 两个反馈律 $`j,k`$ 作用在同一个完整 Adam 状态 $`z=(\theta,m,v,s)`$ 上（[Definition 1.3](../README_ZH.md#s1-3)），完整状态的平均增量为 $`\mu^j,\mu^k`$；它们的*增量对比*是 $`\mu^j-\mu^k`$。
 - *通道缩并.* 把对比与 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的 continuation 梯度 $`\nabla V=(\chi^\theta,\chi^m,\chi^v)`$ 配对，得到三个数：$`\theta`$、$`m`$、$`v`$ 通道的缩并 $`\langle\chi^\theta,\mu^j_\theta-\mu^k_\theta\rangle`$、$`\langle\chi^m,\mu^j_m-\mu^k_m\rangle`$、$`\langle\chi^v,\mu^j_v-\mu^k_v\rangle`$。三者之和就是一阶差。
 - *一阶分数.* 任何按这样的一阶差或其一部分给候选排序的排序器：只看参数的分数、用精确 continuation 梯度的完整状态分数，或沿平均增量测得的方向差。
-- *有限替换测量.* [Theorem 8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的 CRN 配对替换分数：把一轮训练分别替换成各候选，走共同的参考尾段，再比较结果。
+- *有限替换测量.* [Theorem 8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的 CRN 配对替换分数：把一轮训练分别替换成各候选，走共同的参考尾段，再比较结果。让各候选共用同一尾段，就是经典的方差缩减手段 common random numbers（[Glasserman, 2004](#ref-glasserman2004monte)）。
 - *饱和区域.* [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2)(a)、(c) 的大幅度区域，即消息相对于 running RMS $`\sqrt v`$ 很大的情形。
 
 <a id="s7-5"></a>

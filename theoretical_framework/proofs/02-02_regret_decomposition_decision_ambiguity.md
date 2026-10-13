@@ -59,3 +59,7 @@ a sum of nonnegative terms.
 
 - ($`\Leftarrow`$) If $`\pi^\circ`$ lies in the intersection (2.2), then $`\mathbb E[J_E(\pi^\circ)\mid D]=\mathbb E[J_E^\Pi\mid D]\ge B(D)\ge\mathbb E[J_E(\pi^\circ)\mid D]`$, so the bracket is zero.
 - ($`\Rightarrow`$) If the bracket is zero, every summand with $`\mu(E\mid D)>0`$ vanishes. Then $`\pi_D`$ is optimal in every environment of positive posterior mass, so it lies in the intersection. $`\square`$
+
+## Related work
+
+- The bracket $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ in (b) is the expected value of perfect information about $`E`$ given $`D`$ ([Howard, 1966](#ref-howard1966information)); the proof shows that it vanishes exactly when a posterior-optimal policy is optimal in every environment of positive posterior mass.

@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/05-09_partially_active_clipping_ZH.md) · [证明](../proofs/05-09_partially_active_clipping_ZH.md) · [实验](../experiments/05-09_partially_active_clipping_ZH.md) · [English](05-09_partially_active_clipping.md)
 
-**本页证明什么.** 在"裁剪不生效"的事件上拆分得到恒等式，再给出范数界；两个分布的情形由三角不等式得到。
+**本页证明什么.** 在"裁剪不生效"的事件上拆分得到恒等式，再给出范数界；两个分布的情形由三角不等式得到。这里的裁剪映射就是 [Pascanu et al., 2013](#ref-pascanu2013difficulty) 提出的全局范数裁剪。
 
 **本页用到的设定.**
 

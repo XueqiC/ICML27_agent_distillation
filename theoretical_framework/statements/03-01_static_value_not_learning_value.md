@@ -90,3 +90,8 @@ and under $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
 - [Theorem 3.2](../statements/03-02_continuation_response_characterization.md#s3-2): the right invariant: continuation response.
 - [Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes.md#s7-3): task-blind statistics cannot rank.
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): select by measured consequence.
+
+## Related work
+
+- First-order influence estimates score a training example by an inner product with its gradient: influence functions through an inverse-Hessian-weighted inner product ([Koh & Liang, 2017](#ref-koh2017understanding)), TracIn through a sum of inner products along the training run ([Pruthi et al., 2020](#ref-pruthi2020estimating)). Averaged over a source, such a score depends on the source only through its mean gradient, so it cannot separate the two packets of Construction (b), whose mean gradients at $`p_0`$ agree.
+- The comparison in (a) is value equivalence restricted to the aliased class. Value equivalence pins down the true model only as the sets of tested policies and functions grow ([Grimm et al., 2020](#ref-grimm2020value)), which is why (a) does not contradict full Bellman value equivalence.

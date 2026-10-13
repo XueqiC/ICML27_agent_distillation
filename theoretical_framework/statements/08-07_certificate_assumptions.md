@@ -76,3 +76,8 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) — first-order variant
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer.md#s8-11) — how the alignment is calibrated
 - [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — open problems about range and alignment
+
+## Related work
+
+- (I) and (B) are exactly the hypotheses of empirical Bernstein bounds: independent, identically distributed scores with a known range ([Maurer & Pontil, 2009](#ref-maurer2009empirical); [Audibert et al., 2009](#ref-audibert2009exploration)).
+- Data-selection methods that score training data against a small validation set, such as LESS ([Xia et al., 2024](#ref-xia2024less)), assume implicitly that proxy differences track task differences. (A) states that assumption explicitly, with a scale $`\alpha`$ and an error $`\varepsilon_{\rm sur}`$.

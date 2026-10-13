@@ -12,7 +12,7 @@
 
 **本页用到的设定与记号.**
 
-- *学习器.* 一个受控网络：one-hot 上下文、4 个 tanh 单元、sigmoid 输出、平均交叉熵、float64。它的完整状态（参数加 Adam 矩 $`m,v`$ 与步数计数器）为 `fresh`、`warm2`、`warm5`、`warm9`；配方为 Adam，$`\eta\in\lbrace0.01,0.1\rbrace`$，以及 SGD，$`\eta\in\lbrace0.1,1\rbrace`$，各配 $`\epsilon\in\lbrace10^{-8},10^{-3}\rbrace`$。
+- *学习器.* 一个受控网络：one-hot 上下文、4 个 tanh 单元、sigmoid 输出、平均交叉熵、float64。它的完整状态（参数加 Adam 矩 $`m,v`$ 与步数计数器）为 `fresh`、`warm2`、`warm5`、`warm9`；配方为 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)），$`\eta\in\lbrace0.01,0.1\rbrace`$，以及 SGD，$`\eta\in\lbrace0.1,1\rbrace`$，各配 $`\epsilon\in\lbrace10^{-8},10^{-3}\rbrace`$。
 - *候选.* 十个双标签 packet 上的九个标签律，其中 `reference_even` 是参考 $`P^0`$。
 - *gold.* 候选的精确学习价值：一次候选边界，之后 7 次参考更新（共 8 次），对全部有限历史精确枚举，再减去参考的同一量。这就是 [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) 中状态 $`z`$ 上的优势 $`A_t(z,j)`$。
 - *proxy.* 静态统计量（输入矩误差、平均梯度、只看符号、第一步的 $`\Delta\theta`$、带 $`(m,v)`$ 的 $`\Delta\theta`$）；1 次与 4 次更新之后的实测短尾段 response（[Definition 8.6](../statements/08-06_crn_paired_replacement_score_ZH.md#s8-6) 意义下的 surrogate）；对照（随机分数、全尾段）。每个 proxy 只在 pilot 上用 ridge 回归拟合，然后冻结。
@@ -69,6 +69,8 @@
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E6,E9 --output theory/v015_checks/quick/s9.json
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
 

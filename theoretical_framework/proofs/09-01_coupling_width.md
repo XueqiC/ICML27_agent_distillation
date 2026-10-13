@@ -46,7 +46,7 @@ which is the same for every $`\Gamma\in\mathcal C(\mu,\nu)`$.
 *(a), "only if".*
 
 - $`\Gamma_0=\mu\nu^\top`$ lies in $`\mathcal C(\mu,\nu)`$ and is strictly positive.
-- Fix rows $`i\ne i'`$ and columns $`j\ne j'`$, and let $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$. $`E`$ has zero row sums and zero column sums, so $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$ for $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$.
+- Fix rows $`i\ne i'`$ and columns $`j\ne j'`$, and let $`E=e_{ij}+e_{i'j'}-e_{ij'}-e_{i'j}`$. $`E`$ has zero row sums and zero column sums, so $`\Gamma_0\pm sE\in\mathcal C(\mu,\nu)`$ for $`0<s\le\min_{k,l}(\Gamma_0)_{kl}`$. These rectangle moves are the elementary cycle directions of the transportation polytope ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)).
 - Zero width means that $`\langle\Gamma,H\rangle`$ is constant on $`\mathcal C(\mu,\nu)`$. Hence $`\langle\Gamma_0+sE,H\rangle=\langle\Gamma_0-sE,H\rangle`$, that is $`\langle E,H\rangle=0`$:
 
 ```math

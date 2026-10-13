@@ -4,7 +4,7 @@ Run from the repository root with Python 3.11 or later:
 
 ```sh
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/tools/check_markdown.py
-CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -m unittest discover -s theoretical_framework/tools -p 'test_check_markdown.py'
+CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python -m unittest discover -s theoretical_framework/tools -p 'test_*.py'
 ```
 
 The default check and tests run offline, without credentials, network access or
@@ -15,8 +15,10 @@ excluded. The statement and label policy (S1) covers the framework's
 `README.md`, `README_ZH.md`, `references.md`, `references_ZH.md`, all Markdown
 files directly under `statements/`, `proofs/` and `experiments/`, and
 `figures/README.md`. Historical direction documents, figure specs, tool
-documentation and other pages receive rendering and link checks only. Citation
-links anywhere in the selected scope also receive the bilingual reference-key check.
+documentation and other pages receive rendering and link checks. All framework
+pages except the two global reference catalogs also receive the page bibliography
+rules below. Citation links anywhere in the selected scope receive the bilingual
+reference-key check; the direction documents retain their legacy citation syntax.
 
 Pass optional positional `PATH...` arguments to check exactly those files instead
 of the default scope. Paths are relative to the repository root (regardless of
@@ -28,8 +30,9 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/tools/chec
 
 The same selection applies to the offline check, `--online` and `--blob`, including
 when both flags are combined. Selected files in S1 keep its statement and label
-policy. Every other selected file receives rendering and link checks only,
+policy. Every other selected file receives rendering and link checks,
 including files outside the default scope, plus bilingual citation-key checks.
+Selected framework pages also receive page bibliography checks.
 Link targets are still checked even when unselected; this does not add those
 targets to the rendering scope. The declaration index reads all S1 pages to
 resolve references and duplicates. A selected result page brings its section's
@@ -83,11 +86,13 @@ and Algorithm. Both languages retain these English type words.
   `(type, K.J)` declarations and the same set of explicit `sK-J` / `cK-J`
   anchors. Check declarations must also match per page; identical section totals
   with different check placement do not satisfy parity.
-- Citation links target `references.md#key` or `references_ZH.md#key`, normally
-  via `../` from result pages. Each used key must have an explicit
-  anchor entry (an `a` element with `id="key"`) in **both** reference files. The target and fragment
-  must also pass ordinary link checks. A heading slug alone does not supply a
-  reference entry. URL-encoded fragments are decoded before validation.
+- Framework citation links target `#ref-key`, with the corresponding entry in
+  the page's final bibliography. Each key must have an explicit
+  anchor entry (an `a` element with `id="key"`) in **both** global reference files.
+  The target and fragment must also pass ordinary link checks. A heading slug
+  alone does not supply a reference entry. URL-encoded fragments are decoded
+  before validation. Legacy global citation links in direction documents still
+  receive the bilingual key check.
 - Mentions such as `Theorem 6.3`, `Theorems 6.3 and 6.5`,
   `Propositions 5.5–5.9`, `Corollaries 6.7–6.8` and `Definitions 1.3–1.4`
   must resolve to declarations of the stated type. Range endpoints must exist
@@ -126,6 +131,8 @@ documents remain exempt from statement, source-label, node-label and check-code
 policy.
 
 Display math uses `math` fences at column 0, with a blank line before and after.
+GitHub renders the math in Markdown with MathJax ([Cervone, 2012](#ref-cervone2012mathjax)), and its
+browser renderer stops rendering expressions past an undocumented per-page count.
 Every page in the validation scope may contain at most 600 math expressions:
 one per inline dollar/backtick expression and one per `math` block. Literal
 examples inside code spans or non-math code fences do not count. Exceeding the
@@ -137,6 +144,92 @@ list, including nested lists and indented continuations. It also rejects indente
 math fences outside lists. Inline math uses the dollar/backtick form, such as
 `` $`x`$ ``. When moving a display out of a list, convert sibling items into
 paragraphs too, retaining their labels and bolding any explicit item numbers.
+
+## Page bibliographies
+
+Every `*.md` under `theoretical_framework/` except `references.md` and
+`references_ZH.md` is a ref page, including figure specs and this tools README.
+Direction documents are outside this policy. Names ending in `_ZH.md` use
+Chinese bibliography headings and catalog entries; other pages use English.
+
+A citation is an inline Markdown link such as `[Author, year](#ref-key)`.
+The key comes from an explicit `<a id="key"></a>` in both global catalogs.
+Links inside code spans or fenced blocks, images, and reference-link definitions
+are not citations. `[References](../references.md)` is navigation, not a citation.
+Body citation keys must match between an English page and its `_ZH` counterpart
+when both exist. Each ref page needs at least one body citation.
+
+The final H2 must be exactly `## References` or `## 参考文献`, appear once, and
+contain exactly the generated introduction and entries. Each entry has an
+explicit `<a id="ref-key"></a>` anchor and the complete paragraph from the
+appropriate global catalog, in English catalog order. The generator rebases
+relative links, excludes global usage lines, and ends the file with one newline.
+Every entry must be cited in the body; every body citation must resolve in this
+section. The `ref-` anchor prefix is reserved for this section. A README's
+`Appendix · Sources` / `附录 · 出处` remains an appendix when References follows it;
+its label exemption ends at that next H2.
+
+Inspect the proposed synchronization without writing:
+
+```sh
+theory/.venv/bin/python theoretical_framework/tools/sync_references.py --check
+theory/.venv/bin/python theoretical_framework/tools/sync_references.py --check theoretical_framework/tools/README.md
+```
+
+Omitting `--check` writes the planned changes. Optional paths are repository-relative
+or absolute ref pages or directories within the framework. A selected run rewrites
+only those pages, but always recomputes both global usage indexes from all framework
+body citations. No arguments selects all ref pages. `--check` exits 1 if files would
+change or an error occurs, and 0 otherwise; it never writes. It also lists pages
+without citations even when the files are already synchronized. A clean sync check
+does not imply a clean validator run: the validator also rejects empty bibliographies
+and citation parity mismatches. The summary reports pages rewritten, files that would
+change, a distribution of body citation counts / distinct works, and uncited pages.
+
+The sync tool converts legacy targets such as `../references.md#key`,
+`../../references_ZH.md#key`, or any equivalent relative path to `#ref-key`.
+Unknown keys and mismatched catalog key sets are errors. A final old reference
+section may contain a generated bibliography or citation-led list items such as
+`- [Author, year](../references.md#key). Full bibliographic text.` Other paragraphs,
+bullets, headings, or math cause an error with a file and line number. The entire
+plan is checked before any write. A citation present only in the old section is
+excluded from body citations, and the tool warns for each key thereby removed.
+Pages with no body citations get no generated section and remain validator errors.
+
+Global `Used in:` / `引用于：` lines group statement, proof, and experiment citations
+by framework item, sorted numerically and linked to the statement page using its
+H1 item name. They then list citing overview pages, figure specs, tool documentation,
+and other non-item pages. Bilingual citations are combined by item or page, with
+links localized to available statement counterparts; non-item links always lead
+to a page citing the work. Thus English-only figure specs also appear in the Chinese
+index under localized labels. Entries with no citing page stay in the catalog with
+`Used in: none` / `引用于：无` and produce warnings rather than errors. The catalog
+header is preserved apart from its usage-description sentence.
+
+Validator diagnostic codes:
+
+| Code | Rule |
+| --- | --- |
+| `ref-section` | Exactly one correctly named final reference H2. |
+| `ref-content` | Section exactly matches the shared generator. |
+| `ref-key` | Every body citation key exists in the catalog. |
+| `ref-target` | Every on-page body citation has its own section anchor. |
+| `ref-padding` | No uncited entries. |
+| `ref-legacy` | No body citations targeting the global catalog. |
+| `ref-parity` | English and Chinese counterparts cite the same key set. |
+| `ref-empty` | Every ref page has a body citation. |
+| `ref-reserved` | No `ref-` anchors outside the section. |
+| `ref-catalog` | Both catalogs parse and have identical key sets. |
+| `ref-used-in` | Global usage lines match recomputed citations. |
+| `ref-unused` | Warning: a catalog entry has no citing page. |
+
+Selected-page validation reads the other framework pages for citation parity and
+usage computation, but checks global usage lines only when their catalogs are
+selected. All unit tests use temporary trees and fake network/credential clients.
+This README's syntax examples are deliberately literal; its own substantive body
+citation is still to be supplied by the documentation author.
+
+## GitHub rendering
 
 `--blob` is the authoritative pre-push rendering check:
 

@@ -34,6 +34,12 @@
 
 引用于：[Proposition 2.4](statements/02-04_post_processing_cannot_reduce_information_ZH.md)
 
+<a id="cervone2012mathjax"></a>
+
+**Davide Cervone (2012).** MathJax: A platform for mathematics on the Web. *Notices of the American Mathematical Society* 59, no. 2, 312–316. DOI [10.1090/noti794](https://doi.org/10.1090/noti794).
+
+引用于：无
+
 <a id="chen2023symbolic"></a>
 
 **Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
@@ -70,17 +76,77 @@
 
 引用于：[Theorem 8.8](statements/08-08_crn_paired_replacement_certificate_ZH.md)
 
+<a id="good1953population"></a>
+
+**I. J. Good (1953).** The population frequencies of species and the estimation of population parameters. *Biometrika* 40, no. 3–4, 237–264. DOI [10.1093/biomet/40.3-4.237](https://doi.org/10.1093/biomet/40.3-4.237).
+
+引用于：无
+
+<a id="graham1994concrete"></a>
+
+**Ronald L. Graham, Donald E. Knuth, Oren Patashnik (1994).** Concrete Mathematics: A Foundation for Computer Science. 2nd edition, Addison-Wesley, Reading, MA. ISBN 0-201-55802-5.
+
+引用于：无
+
+<a id="grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).
+
+引用于：无
+
+<a id="harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+引用于：无
+
+<a id="hazan2015beyond"></a>
+
+**Elad Hazan, Kfir Y. Levy, Shai Shalev-Shwartz (2015).** Beyond convexity: Stochastic quasi-convex optimization. *Advances in Neural Information Processing Systems 28 (NIPS)*. [proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5](https://proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5-Abstract.html); arXiv [1507.02030](https://arxiv.org/abs/1507.02030).
+
+引用于：无
+
 <a id="hoeffding1963probability"></a>
 
 **Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
 
 引用于：[Theorem 2.6](statements/02-06_passive_impossibility_active_attainability_ZH.md), [Proposition 2.7](statements/02-07_compilation_cost_ZH.md), [Proposition 4.6](statements/04-06_exact_order_not_approximate_complexity_ZH.md), [Theorem 8.2](statements/08-02_frozen_finite_interface_selection_transport_ZH.md), [Theorem 8.3](statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md)
 
+<a id="howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).
+
+引用于：无
+
+<a id="hu2022lora"></a>
+
+**Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen (2022).** LoRA: Low-rank adaptation of large language models. *The Tenth International Conference on Learning Representations (ICLR)*. [openreview.net/forum?id=nZeVKeeFYf9](https://openreview.net/forum?id=nZeVKeeFYf9); arXiv [2106.09685](https://arxiv.org/abs/2106.09685).
+
+引用于：无
+
+<a id="huangfu2018parallelizing"></a>
+
+**Qi Huangfu, J. A. Julian Hall (2018).** Parallelizing the dual revised simplex method. *Mathematical Programming Computation* 10, no. 1, 119–142. DOI [10.1007/s12532-017-0130-5](https://doi.org/10.1007/s12532-017-0130-5).
+
+引用于：无
+
+<a id="hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+引用于：无
+
 <a id="ilyas2022datamodels"></a>
 
 **Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
 
 引用于：[Corollary 8.9](statements/08-09_first_order_version_margin_criterion_ZH.md)
+
+<a id="jensen1906fonctions"></a>
+
+**J. L. W. V. Jensen (1906).** Sur les fonctions convexes et les inégalités entre les valeurs moyennes. *Acta Mathematica* 30, 175–193. DOI [10.1007/BF02418571](https://doi.org/10.1007/BF02418571).
+
+引用于：无
 
 <a id="john1948extremum"></a>
 
@@ -111,6 +177,12 @@
 **Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
 
 引用于：[Proposition 5.1](statements/05-01_optimizer_transformed_expansion_ZH.md), [Remark 5.2](statements/05-02_relation_to_prior_work_ZH.md), [Corollary 8.9](statements/08-09_first_order_version_margin_criterion_ZH.md), [Algorithm 9.2](statements/09-02_ced_algorithm_ZH.md), [Remark 9.3](statements/09-03_derivation_design_rules_ZH.md)
+
+<a id="kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).
+
+引用于：无
 
 <a id="lecam1973convergence"></a>
 
@@ -148,6 +220,12 @@
 
 引用于：[Proposition 5.3](statements/05-03_cold_start_adam_sign_quotient_ZH.md), [Theorem 7.1](statements/07-01_state_channel_decomposition_ZH.md)
 
+<a id="maclaurin2015gradient"></a>
+
+**Dougal Maclaurin, David Duvenaud, Ryan Adams (2015).** Gradient-based hyperparameter optimization through reversible learning. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2113–2122. [proceedings.mlr.press/v37/maclaurin15](https://proceedings.mlr.press/v37/maclaurin15.html).
+
+引用于：无
+
 <a id="maurer2009empirical"></a>
 
 **Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).
@@ -160,11 +238,47 @@
 
 引用于：[Proposition 8.4](statements/08-04_measuring_mean_increment_actual_states_ZH.md)
 
+<a id="meurer2017sympy"></a>
+
+**Aaron Meurer, Christopher P. Smith, Mateusz Paprocki, Ondřej Čertík, Sergey B. Kirpichev, Matthew Rocklin, AMiT Kumar, Sergiu Ivanov, Jason K. Moore, Sartaj Singh, Thilina Rathnayake, Sean Vig, Brian E. Granger, Richard P. Muller, Francesco Bonazzi, Harsh Gupta, Shivam Vats, Fredrik Johansson, Fabian Pedregosa, Matthew J. Curry, Andy R. Terrel, Štěpán Roučka, Ashutosh Saboo, Isuru Fernando, Sumith Kulal, Robert Cimrman, Anthony Scopatz (2017).** SymPy: Symbolic computing in Python. *PeerJ Computer Science* 3, e103. DOI [10.7717/peerj-cs.103](https://doi.org/10.7717/peerj-cs.103).
+
+引用于：无
+
+<a id="muller1997integral"></a>
+
+**Alfred Müller (1997).** Integral probability metrics and their generating classes of functions. *Advances in Applied Probability* 29, no. 2, 429–443. DOI [10.2307/1428011](https://doi.org/10.2307/1428011).
+
+引用于：无
+
+<a id="neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).
+
+引用于：无
+
+<a id="odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).
+
+引用于：无
+
 <a id="panigrahi2025good"></a>
 
 **Abhishek Panigrahi, Bingbin Liu, Sadhika Malladi, Sham Kakade, Surbhi Goel (2025).** In good GRACEs: Principled teacher selection for knowledge distillation. arXiv preprint. arXiv [2511.02833](https://arxiv.org/abs/2511.02833).
 
 引用于：[Theorem 6.3](statements/06-03_learner_relative_lower_bound_ZH.md), [Algorithm 9.2](statements/09-02_ced_algorithm_ZH.md), [Remark 9.3](statements/09-03_derivation_design_rules_ZH.md)
+
+<a id="pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28(3):1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).
+
+引用于：无
+
+<a id="pinkus1985nwidths"></a>
+
+**Allan Pinkus (1985).** n-Widths in Approximation Theory. Springer, Berlin (Ergebnisse der Mathematik und ihrer Grenzgebiete, 3. Folge, 7). DOI [10.1007/978-3-642-69894-1](https://doi.org/10.1007/978-3-642-69894-1).
+
+引用于：无
 
 <a id="pruthi2020estimating"></a>
 
@@ -190,6 +304,18 @@
 
 引用于：[Proposition 6.10](statements/06-10_water_filling_allocation_ZH.md), [Algorithm 9.2](statements/09-02_ced_algorithm_ZH.md)
 
+<a id="rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).
+
+引用于：无
+
+<a id="shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
+
+引用于：无
+
 <a id="sion1958general"></a>
 
 **Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).
@@ -208,6 +334,12 @@
 
 引用于：[Theorem 6.3](statements/06-03_learner_relative_lower_bound_ZH.md), [Theorem 6.5](statements/06-05_achievability_ZH.md)
 
+<a id="virtanen2020scipy"></a>
+
+**Pauli Virtanen, Ralf Gommers, Travis E. Oliphant, Matt Haberland, Tyler Reddy, David Cournapeau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, Stéfan J. van der Walt, Matthew Brett, Joshua Wilson, K. Jarrod Millman, Nikolay Mayorov, Andrew R. J. Nelson, Eric Jones, Robert Kern, Eric Larson, C J Carey, İlhan Polat, Yu Feng, Eric W. Moore, Jake VanderPlas, Denis Laxalde, Josef Perktold, Robert Cimrman, Ian Henriksen, E. A. Quintero, Charles R. Harris, Anne M. Archibald, Antônio H. Ribeiro, Fabian Pedregosa, Paul van Mulbregt, SciPy 1.0 Contributors (2020).** SciPy 1.0: Fundamental algorithms for scientific computing in Python. *Nature Methods* 17, no. 3, 261–272. DOI [10.1038/s41592-019-0686-2](https://doi.org/10.1038/s41592-019-0686-2).
+
+引用于：无
+
 <a id="vonneumann1928zur"></a>
 
 **John von Neumann (1928).** Zur Theorie der Gesellschaftsspiele. *Mathematische Annalen* 100, no. 1, 295–320. DOI [10.1007/BF01448847](https://doi.org/10.1007/BF01448847).
@@ -220,11 +352,23 @@
 
 引用于：[Theorem 2.6](statements/02-06_passive_impossibility_active_attainability_ZH.md)
 
+<a id="wald1945sequential"></a>
+
+**Abraham Wald (1945).** Sequential tests of statistical hypotheses. *The Annals of Mathematical Statistics* 16, no. 2, 117–186. DOI [10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118).
+
+引用于：无
+
 <a id="wang2025data"></a>
 
 **Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).
 
 引用于：[Proposition 5.1](statements/05-01_optimizer_transformed_expansion_ZH.md), [Remark 5.2](statements/05-02_relation_to_prior_work_ZH.md), [Corollary 8.9](statements/08-09_first_order_version_margin_criterion_ZH.md), [Algorithm 9.2](statements/09-02_ced_algorithm_ZH.md), [Remark 9.3](statements/09-03_derivation_design_rules_ZH.md)
+
+<a id="weihs2021bridging"></a>
+
+**Luca Weihs, Unnat Jain, Iou-Jen Liu, Jordi Salvador, Svetlana Lazebnik, Aniruddha Kembhavi, Alexander Schwing (2021).** Bridging the imitation gap by adaptive insubordination. *Advances in Neural Information Processing Systems 34 (NeurIPS)*, 19134–19146. arXiv [2007.12173](https://arxiv.org/abs/2007.12173).
+
+引用于：无
 
 <a id="xia2024less"></a>
 

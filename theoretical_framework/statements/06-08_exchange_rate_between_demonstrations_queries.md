@@ -58,3 +58,8 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): design rule: acquire before compiling.
 
 **Status.** proved.
+
+## Related work
+
+- Passive demonstrations and interactive expert queries are the two data sources of interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)); the corollary prices one against the other for a given learner.
+- The budget comes from the local two-point lower bound of [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3), that is, Le Cam's method ([Le Cam, 1973](#ref-lecam1973convergence)) applied direction by direction.

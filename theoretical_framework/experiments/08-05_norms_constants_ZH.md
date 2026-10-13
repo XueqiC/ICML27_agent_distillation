@@ -25,9 +25,9 @@
 
 - **它对 Remark 8.5 检验什么.** 在增量界 $`b`$ 固定时，Proposition 8.4(a) 的集中界是否随维数变差；以及“$`b`$ 本身可以随维数增长”这一点如何体现。
 - **设置.** 维数 $`p\in\lbrace1,10,1000,100000\rbrace`$，样本数 $`n\in\lbrace8,32,128\rbrace`$，$`\delta\in\lbrace0.05,0.2\rbrace`$；三个 $`b=1`$ 的有界律（sign 类、裁剪高斯、稀疏尖峰）；每个单元格 20,000 次试验，精确抽样，不构造 $`p`$ 维向量。
-- **关键数字.** 全部 144 个单元格的失败率都远低于 $`\delta`$；实测分位数与界之比的最大值在 $`p=1`$ 时为 0.615，在 $`p=100{,}000`$ 时为 0.574，$`b`$ 固定时没有任何量随 $`p`$ 增长。对未归一化的 sign 类增量，$`b=\eta\sqrt p`$，一阶差也是同一尺度，所以相对精度仍由 $`1/\sqrt n`$ 决定。
+- **关键数字.** 全部 144 个单元格的失败率都远低于 $`\delta`$；实测分位数与界之比的最大值在 $`p=1`$ 时为 0.615，在 $`p=100{,}000`$ 时为 0.574，$`b`$ 固定时没有任何量随 $`p`$ 增长。对未归一化的 sign 类增量（例如 cold-start Adam 的第一步，[Kingma & Ba, 2015](#ref-kingma2015adam)），$`b=\eta\sqrt p`$，一阶差也是同一尺度，所以相对精度仍由 $`1/\sqrt n`$ 决定。
 - **结论.** PASS。在 Hilbert 范数下界中不显含维数，与该 Remark 一致；$`b`$ 的尺度是另一个问题。
 
 ## 复现
 
-复现命令与结果文件见主检验所在的页面：[Proposition 8.4](../experiments/08-04_measuring_mean_increment_actual_states_ZH.md)。
+复现命令与结果文件见主检验所在的页面：[Proposition 8.4](../experiments/08-04_measuring_mean_increment_actual_states_ZH.md)。该检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。

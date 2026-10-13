@@ -82,3 +82,7 @@
 
 - [Theorem 2.10](02-10_few_shot_information_floor_ZH.md#s2-10) — 计数独立证据，而不是暴露量。
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) — 方法的计数规则。
+
+## Related work
+
+- (b) 背后的联合 cumulant 与矩–cumulant 公式是经典的（[Leonov & Shiryaev, 1959](#ref-leonov1959method)）。速率来自它们在平均下的标度：$`n`$ 个 IID block 的平均值，其 $`s`$ 阶 cumulant 等于 $`n^{1-s}\kappa_s`$。

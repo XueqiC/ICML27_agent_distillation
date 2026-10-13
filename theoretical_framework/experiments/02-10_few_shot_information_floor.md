@@ -66,7 +66,7 @@ In general $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$, and the inequality can
 - 100 cases: $`d=1,\dots,5`$ (20 each), $`K=0,\dots,4`$, $`n=0,\dots,3`$, random rational weights $`w`$ and random reveal-set laws over bitmasks.
 - Enumeration covers all $`2^d`$ bit worlds and every ordered reveal history; the largest case has 2,321 transcripts. Bayes actions are taken per posterior. Label-dependent query decision trees are minimized exactly; the largest has 271 query nodes.
 - The uniform-occupancy law of $`M_K`$ is computed by two independent methods, a subset recursion and inclusion–exclusion, for $`d=2,\dots,5`$ and $`K\le4`$.
-- An adversarial hill-climb (8 restarts × 20 steps) searches for a violation of Jensen's inequality or of greedy optimality.
+- An adversarial hill-climb (8 restarts × 20 steps) searches for a violation of Jensen's inequality ([Jensen, 1906](#ref-jensen1906fonctions)) or of greedy optimality.
 - Seed `SeedSequence([150150, 5])`; `fractions.Fraction` throughout.
 
 **Result.**
@@ -104,7 +104,7 @@ In general $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$, and the inequality can
 
 - Exact curves of $`R_{\rm info}(K,\cdot)`$ for $`m\in\lbrace 4,8,16\rbrace`$ contexts, uniform and nonuniform $`q`$ and $`w`$, $`K=0,\dots,32`$ and query budgets $`0,1,2,4`$, by integer subset Möbius inversion with rational risks.
 - Three access types at equal budget: *active* (queries target unseen contexts), *passive* (the same budget spent on extra random demonstrations) and *replay* (seen labels shown again).
-- An actual tabular learner (one logit per context) trained by 12 updates of separable summed cross-entropy with Adam or SGD on the revealed bits; unseen logits stay at 0, and deployment samples Bernoulli actions.
+- An actual tabular learner (one logit per context) trained by 12 updates of separable summed cross-entropy with Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) or SGD on the revealed bits; unseen logits stay at 0, and deployment samples Bernoulli actions.
 - Seed `SeedSequence([150150, 105])`.
 
 **Result.**
@@ -149,6 +149,8 @@ In general $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$, and the inequality can
 **Why it supports the statements.** Three further constructions, with nonuniform weights, multi-bit reveal sets and score-based stopping, agree with Theorem 2.10 and [Proposition 2.11](../statements/02-11_shared_information_budget.md#s2-11).
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V5,E5 --output theory/v015_checks/quick/sec2.json

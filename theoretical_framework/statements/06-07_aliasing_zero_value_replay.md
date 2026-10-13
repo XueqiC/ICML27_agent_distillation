@@ -55,3 +55,8 @@
 - [Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3): design rule: acquire before compiling.
 
 **Status.** proved.
+
+## Related work
+
+- Replay, rewriting and synthesis are garblings of the transcript, and a garbling is never more informative than the experiment it comes from ([Blackwell, 1953](#ref-blackwell1953equivalent)); the corollary is the quantitative, learner-relative form of this fact for aliased environments.
+- The remedy, querying the teacher where the learner goes instead of replaying demonstrations, is the idea of interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)); the corollary adds that whether a direction needs queries depends on the learner's $`c`$.

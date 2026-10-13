@@ -41,7 +41,7 @@ For a law $`P`$ at $`(t,z)`$, the message-level mean increment is $`D_t(z,y)=\ma
 - **Continuation.** $`V^P_{t+1}:\mathcal Z\to[0,1]`$ is the continuation value of protocol $`P`$: the later updates run under $`P`$, then the student is deployed and scored by $`F_E`$ ([Definition 1.4](../README.md#s1-4)). $`L(P)=\mathbb E\,F_E(Z_R^P)`$, and $`d_t^Q`$ is the law of $`Z_t`$ under protocol $`Q`$.
 - **Norm.** A norm $`\lVert\cdot\rVert`$ on $`\mathbb R^{p+q}`$ is fixed, with dual norm $`\lVert\cdot\rVert_*`$.
 
-**Adam and AdamW.** Adam is bias-corrected, with $`\epsilon`$ outside the square root, optional decoupled weight decay (AdamW) and no AMSGrad. An update with counter $`t\ge1`$ acts on $`z=(\theta,m,v,t-1)`$ and a consumed gradient $`G\in\mathbb R^p`$. Coordinatewise,
+**Adam and AdamW.** Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) is bias-corrected, with $`\epsilon`$ outside the square root, optional decoupled weight decay (AdamW; [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)) and no AMSGrad. An update with counter $`t\ge1`$ acts on $`z=(\theta,m,v,t-1)`$ and a consumed gradient $`G\in\mathbb R^p`$. Coordinatewise,
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -226,7 +226,7 @@ and $`\Delta^m=(1-\beta_2)(G-m)`$. The parameter block's statistic is the flip-p
 
 **Setup** (`v015:E11`, Lion).
 
-- The network, with Lion ($`\beta_1=0.9`$, $`\beta_2=0.99`$, $`\eta=0.03`$).
+- The network, with Lion ([Chen et al., 2023](#ref-chen2023symbolic); $`\beta_1=0.9`$, $`\beta_2=0.99`$, $`\eta=0.03`$).
 - Two messages with labels 0 and 1, whose gradients differ by $`\delta_1`$, with $`\max\lvert\delta_1\rvert=1`$.
 - Momentum-dominated state: $`m=0.2`$ in every coordinate, so that $`0.1\lvert G_i\rvert<0.9\cdot0.2`$ for every message.
 - Control: $`m=0.005`$.
@@ -267,7 +267,7 @@ and $`\Delta^m=(1-\beta_2)(G-m)`$. The parameter block's statistic is the flip-p
 
 **Setup** (`v015:E11`, LoRA).
 
-- A bilinear sigmoid model $`W=W_0+\alpha BA`$ with $`d=k=4`$, $`W_0=0.2`$, $`\alpha=1`$, $`r\in\lbrace1,2\rbrace`$, $`B_0=0`$ and a random $`A_0`$.
+- A bilinear sigmoid model $`W=W_0+\alpha BA`$ with $`d=k=4`$, $`W_0=0.2`$, $`\alpha=1`$, $`r\in\lbrace1,2\rbrace`$, $`B_0=0`$ and a random $`A_0`$. This is the LoRA parameterization and initialization ([Hu et al., 2022](#ref-hu2022lora)).
 - Messages are soft-label mean cross-entropy targets that realize prescribed full-weight gradients $`\Gamma`$ exactly.
 - Three law pairs:
   - *null:* the mean gradients differ by $`\Delta\Gamma`$ with $`\Delta\Gamma A_0^\top=0`$;
@@ -356,6 +356,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)). The linear programs of `v015:V2` and `v015:V8` are solved by `scipy.optimize.linprog` with the HiGHS solver ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
 
 ## Artifacts
 

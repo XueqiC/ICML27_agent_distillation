@@ -58,3 +58,8 @@ J_E^\Pi=\max_{\pi\in\Pi}J_E(\pi),\qquad J_E^{\rm ref}=\max_{\pi\in\Pi_{\rm ref}}
 - [Theorem 2.2](../statements/02-02_regret_decomposition_decision_ambiguity_ZH.md#s2-2): 精确的三项分解.
 - [Proposition 2.3](../statements/02-03_robust_ambiguity_duality_ZH.md#s2-3): 信息项的稳健版本.
 - [Proposition 2.4](../statements/02-04_post_processing_cannot_reduce_information_ZH.md#s2-4): 信息项的 data processing.
+
+## 相关工作
+
+- $`B(D)`$ 是产生 $`D`$ 的实验在决策问题 $`(\mathcal E,\mu,\Pi,J)`$ 中的 Bayes value。在所有决策问题上按这种值比较实验，就是 Blackwell 的 comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent))。
+- information regret 是已知 $`D`$ 之后、关于 $`E`$ 的完全信息的期望价值（expected value of perfect information），这是 information value theory 的核心量 ([Howard, 1966](#ref-howard1966information))。

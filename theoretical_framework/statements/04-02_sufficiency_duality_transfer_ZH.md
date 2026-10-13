@@ -82,3 +82,8 @@ d_0(\mathcal G)=\dim\mathrm{span}(\lbrace\mathbf 1\rbrace\cup\mathcal G)-1. \qqu
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity_ZH.md#s4-6) — 由 (b) 得到 parity 的逼近误差。
 - [Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1) — 一阶统计量的极小性。
 - [Theorem 8.1](08-01_stability_approximation_tradeoff_ZH.md#s8-1) — 带测量容差的对偶。
+
+## Related work
+
+- (b) 是一个线性规划对偶（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）。对所有包含 $`\mathbf 1`$、维数不超过 $`d+1`$ 的子空间 $`H`$ 取最小，(4.2) 右边就成为 $`\mathcal G`$ 在 sup 范数下的 Kolmogorov width（只取包含常数的子空间）的两倍（[Pinkus, 1985](#ref-pinkus1985nwidths)）。
+- $`\mathfrak D_\phi`$ 是限制在特征匹配分布对上的 integral probability metric（[Müller, 1997](#ref-muller1997integral)）。(d) 中的 total variation 距离，就是由事件示性函数生成的 integral probability metric。

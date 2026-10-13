@@ -6,9 +6,9 @@
 
 **中心结果.**
 
-- **Theorem A（§6，learner-relative information bound）.** 对任何蒸馏器（包括 replay、改写、合成），最小可达的一阶误差由示范与查询关于一个学习器相关泛函的 Fisher information 决定。这个泛函的梯度 $`c=\sum_tJ_t^{*}g_t`$ 把学习器的 Jacobian 与任务的 continuation 梯度合在一起。在可辨识性与增长条件下，这个界在常数因子内可以由正则化的 Elfving c-optimal 查询设计达到。因此，同一批示范可以对一个学习器充分、对另一个不充分。
-- **Theorem B（§7，Adam 的二阶矩通道）.** 在 warm Adam 下，一条消息的一阶价值精确分解为参数通道、动量通道与二阶矩通道。平稳情形下，相对幅度为 $`\lambda`$ 的消息的 response 有精确的 mean-field 形式：小增量时它是凹的二次函数，在显式的 $`\lambda^*`$ 处最大，在 $`2\lambda^*`$ 附近变负。只看参数步的分数和只看方向的分数因此都是不一致的排序器。
-- **Theorem C（§8，可审计的证书）.** 对一轮训练做 common random numbers（CRN）配对替换，可以直接测得一个反馈律的有限效应。由此得到的证书既不需要 continuation value 的梯度，也不需要曲率常数，半径只含统计项与 surrogate 校准项。
+- **Theorem A（§6，learner-relative information bound）.** 对任何蒸馏器（包括 replay、改写、合成），最小可达的一阶误差由示范与查询关于一个学习器相关泛函的 Fisher information 决定。这个泛函的梯度 $`c=\sum_tJ_t^{*}g_t`$ 把学习器的 Jacobian 与任务的 continuation 梯度合在一起。在可辨识性与增长条件下，这个界在常数因子内可以由正则化的 Elfving c-optimal 查询设计达到（[Elfving, 1952](#ref-elfving1952optimum)）。因此，同一批示范可以对一个学习器充分、对另一个不充分。
+- **Theorem B（§7，Adam 的二阶矩通道）.** 在 warm Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）下，一条消息的一阶价值精确分解为参数通道、动量通道与二阶矩通道。平稳情形下，相对幅度为 $`\lambda`$ 的消息的 response 有精确的 mean-field 形式：小增量时它是凹的二次函数，在显式的 $`\lambda^*`$ 处最大，在 $`2\lambda^*`$ 附近变负。只看参数步的分数和只看方向的分数因此都是不一致的排序器。
+- **Theorem C（§8，可审计的证书）.** 对一轮训练做 common random numbers（CRN）配对替换（CRN 是模拟中经典的方差缩减手段，[Glasserman, 2004](#ref-glasserman2004monte)），可以直接测得一个反馈律的有限效应。由此得到的证书既不需要 continuation value 的梯度，也不需要曲率常数，半径只含统计项与 surrogate 校准项。
 
 这三条建立在 §2–§5 的基础上：
 - regret 的精确分解，以及获取缺失信息的代价；
@@ -34,13 +34,13 @@
 
 所有测量结果都在实验页上；本页只有陈述和说明性的例子。
 
-**参考文献.** 全部引用的文献（逐条核对过作者、标题、出处与 arXiv/DOI）见 [references_ZH.md](references_ZH.md)。
+**参考文献.** 每页末尾都列出该页引用的文献。完整列表（逐条核对过作者、标题、出处与 arXiv/DOI，并注明每篇文献的使用位置）见 [references_ZH.md](references_ZH.md)。
 
 **范围.**
 - 本页每个陈述都在其所列假设下有证明。少数陈述只在明确给出的渐近区间内证明到首项，本页在相应位置注明。
 - 证明都是有限维的，或者带有明确的正则性假设。
 - 实验页上的检查是精确有限计算或受控小网络。
-- Theorem A–C 在真实模型上的检验已经设计好（[Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4)），尚未运行。
+- Theorem A–C 在真实模型上的检验已经设计好（[Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4)），第一批正在运行，结果尚未写入这些页面。
 
 ---
 
@@ -66,7 +66,7 @@
    - 近似复杂度可以远低于精确阶；非线性更新会把阶数相乘。
 4. **实际的 optimizer 让反馈必须携带什么（§5）.**
    - 在一阶意义下，起作用的是*完整学习器状态*（参数加 optimizer state）的平均增量。这个一阶表示是工具，不作为新结论。
-   - 对 SGD、momentum、cold 与 warm Adam、裁剪、Lion、LoRA，这个统计量都可以显式写出。warm Adam 的精确统计量是 Adam 增量的均值，常见的"均值加二阶矩"描述只在冻结分母近似下成立，误差显式。
+   - 对 SGD、momentum、cold 与 warm Adam、裁剪、Lion（[Chen et al., 2023](#ref-chen2023symbolic)）、LoRA（[Hu et al., 2022](#ref-hu2022lora)），这个统计量都可以显式写出。warm Adam 的精确统计量是 Adam 增量的均值，常见的"均值加二阶矩"描述只在冻结分母近似下成立，误差显式。
    - Adam 坐标的 warmth 只在训练早期按 $`1/(\beta_2s)`$ 下降，之后停在 $`(1-\beta_2)/\beta_2`$。
 5. **需要多少信息、投在哪个方向（Theorem A，§6）.**
    - 学习器决定数据必须在哪个方向 $`c`$ 上有信息。任何蒸馏器的 minimax 误差，在常数因子内等于 learner-relative information norm。
@@ -173,7 +173,7 @@ flowchart TB
 
 **结论.**
 - 把任何带状态的一阶 optimizer 写成从 consumed gradient 到完整学习器状态增量的映射。在一阶意义下，一个反馈律对训练结果的影响，等于 continuation value 的梯度与平均完整状态增量的内积。
-- 更高阶对应增量的更高阶矩。这个展开是标准的 Taylor 展开加 telescoping，与 stochastic modified equations、TracIn、metagradient 属于同一类计算，这里只当作工具。
+- 更高阶对应增量的更高阶矩。这个展开是标准的 Taylor 展开加 telescoping，与 stochastic modified equations（[Li, Tai & E, 2019](#ref-li2019stochastic)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）属于同一类计算，这里只当作工具。
 - 各 optimizer 的不同之处在于增量：
   - cold-start Adam 第一步只看梯度符号，而它的状态保留了幅度。
   - warm Adam 的精确一阶统计量是 Adam 增量的均值。在冻结分母近似下，它化为梯度的均值与二阶矩，误差逐坐标由该坐标的 warmth 控制。
@@ -189,7 +189,7 @@ flowchart TB
 **结论.**
 - 令 $`c=\sum_tJ_t^*g_t`$。它把学习器的 Jacobian $`J_t`$（平均增量随未知环境参数怎样变化）与任务的 continuation 梯度 $`g_t`$ 合在一起。
 - 任何蒸馏器的 minimax 误差，在 $`1/4`$ 到 $`1`$ 的常数因子内，等于 learner-relative information norm：$`c^\top h`$ 与示范、查询在方向 $`h`$ 上的 Fisher information 之比的最大值。
-- 渐近最优的查询服从以 $`c`$ 为目标的 Elfving c-optimal design，并加以正则化，使每个方向最终都可辨识。
+- 渐近最优的查询服从以 $`c`$ 为目标的 Elfving c-optimal design（[Elfving, 1952](#ref-elfving1952optimum)；[Pukelsheim, 1993](#ref-pukelsheim1993optimal)），并加以正则化，使每个方向最终都可辨识。
 - 推论：
   - 示范看不见的方向，使任何数量的 replay 都没有价值；
   - 一条示范值多少次查询，由学习器决定；
@@ -419,7 +419,7 @@ flowchart TB
 - *作用.* 一个工具，与 stochastic modified equations、TracIn、metagradient 是同类计算（Remark 5.2）。后面所有"学习器要求反馈携带什么"的结论，以及 Theorem A–C，都从它算出。
 
 **[Remark 5.2](statements/05-02_relation_to_prior_work_ZH.md#s5-2) · 与 stochastic modified equations、TracIn、influence function 和 metagradient 的关系** — [陈述](statements/05-02_relation_to_prior_work_ZH.md)
-- *说了什么.* Proposition 5.1 是代入 telescoping 求和的 Taylor 展开，与 stochastic modified equations、TracIn、influence functions、metagradient、In-Run Data Shapley 属于同一类计算。它在记账上多出来的是完整状态：Adam 的二阶矩块使余项在学习率上是一阶的。
+- *说了什么.* Proposition 5.1 是代入 telescoping 求和的 Taylor 展开，与 stochastic modified equations（[Li, Tai & E, 2019](#ref-li2019stochastic)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、influence functions（[Koh & Liang, 2017](#ref-koh2017understanding)）、metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）、In-Run Data Shapley（[Wang et al., 2025](#ref-wang2025data)）属于同一类计算。它在记账上多出来的是完整状态：Adam 的二阶矩块使余项在学习率上是一阶的。
 - *作用.* 确定新颖性的边界（Proposition 5.1 不主张新颖），并说明一阶检测什么时候需要 margin 条件。
 
 **[Proposition 5.3](statements/05-03_cold_start_adam_sign_quotient_ZH.md#s5-3) · Cold-start Adam：符号商与 optimizer 记忆** — [陈述](statements/05-03_cold_start_adam_sign_quotient_ZH.md) · [证明](proofs/05-03_cold_start_adam_sign_quotient_ZH.md) · [实验](experiments/05-03_cold_start_adam_sign_quotient_ZH.md)
@@ -688,7 +688,7 @@ flowchart LR
 - *作用.* 它解释了 Algorithm 9.2 为什么有这些步骤；每条规则堵住方法"声称多于所知"的一种途径，方法的消融实验也应当一次去掉一条规则。
 
 **[Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4) · 受控证据覆盖了什么，以及计划中的真实模型检验** — [陈述](statements/09-04_scope_of_evidence_ZH.md)
-- *说了什么.* 框架中的全部证据都是精确有限计算或受控小网络；没有任何陈述得到真实模型或 benchmark 结果的支持。在 ALFWorld 上预先注册的真实模型检验为 R0（warm 状态条件与 response 的不可加性）、R1（Theorem C：用 CRN 分数在同一状态上给四个 feedback law 排序）、R2（Theorem A：学习器相对的查询分配，对比均匀分配与按 SGD 权重分配）与 R3（Theorem B：同一个 batch 的多个幅度，裁剪关与开）。
+- *说了什么.* 框架中的全部证据都是精确有限计算或受控小网络；没有任何陈述得到真实模型或 benchmark 结果的支持。在 ALFWorld（[Shridhar et al., 2021](#ref-shridhar2021alfworld)）上预先注册的真实模型检验为 R0（warm 状态条件与 response 的不可加性）、R1（Theorem C：用 CRN 分数在同一状态上给四个 feedback law 排序）、R2（Theorem A：学习器相对的查询分配，对比均匀分配与按 SGD 权重分配）与 R3（Theorem B：同一个 batch 的多个幅度，裁剪关与开）。
 - *作用.* 它标出结论的边界，并把每项计划中的检验与它所检验的陈述联系起来，使真实模型的结果可以与事先写下的预测对照。
 
 ---
@@ -794,7 +794,7 @@ g_{t,z}(y)=\mathbb E_{\xi_t}\,V^0_{t+1}\big(U_t(z,y,\xi_t)\big).
 
 - **Theorem C 的紧的可证明区间界.** 用 surrogate 的先验区间，证书是成立的；要让它能下结论，需要一个远小于先验区间的可证明区间界，例如来自参考尾段的 pathwise Lipschitz 界（[Remark 8.12](statements/08-12_open_problems_ZH.md#s8-12)）。
 - **surrogate 校准的迁移.** Theorem C 用在部分候选对上拟合的校准 $`(\alpha,\varepsilon_{\rm sur})`$。把它推广到新的候选对，需要一个可检验的可交换性条件，目前还没有（[Remarks 8.11–8.12](statements/08-11_surrogate_calibration_and_transfer_ZH.md#s8-11)）。
-- **真实模型上的证据.** 实验页上是精确有限计算与受控小网络。Theorem A–C 在真实 agent 蒸馏配方上的检验已在 [Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4) 中设计，尚未运行。
+- **真实模型上的证据.** 实验页上是精确有限计算与受控小网络。Theorem A–C 在真实 agent 蒸馏配方上的检验已在 [Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4) 中设计，第一批正在运行，结果尚未写入这些页面。
 
 **检验.** 每个实验页开头都有结论表。有一项检验没有达到预设容差：Corollary 7.2(a) 的一组边界设定，记录在 [Corollary 7.2 的实验页](experiments/07-02_stationary_amplitude_law_ZH.md)。
 

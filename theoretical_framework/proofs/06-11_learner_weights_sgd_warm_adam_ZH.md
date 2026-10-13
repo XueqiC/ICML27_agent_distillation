@@ -52,7 +52,7 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 - [Assumption 6.9](../statements/06-09_state_coverage_model_ZH.md#s6-9)：逐状态独立的分布与 influence function。
 - [Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10)：(c)、(d)，用于结论。
 
-**用到的经典工具.** 大数定律与 delta method。
+**用到的经典工具.** 大数定律与 delta method（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。Adam 的递推（含 bias correction）按 [Kingma & Ba, 2015](#ref-kingma2015adam)。
 
 **证明.** 坐标之间没有相互作用，所以 $`\Psi=\sum_s\zeta_s\,\mathbb E[\theta_{s,R}-\theta_{s,0}]`$，只需对每个 $`s`$ 计算期望位移关于 $`P^*_s`$ 的 Gateaux 导数。记 $`\delta m_1(y)=g(y)-m_1`$，$`\delta m_2(y)=g(y)^2-m_2`$，它们是 $`m_1,m_2`$ 沿 $`\delta_y-P^*_s`$ 方向的导数。
 
@@ -79,3 +79,4 @@ $`\Phi`$ 是 $`(m_1,m_2)`$ 的光滑函数，由链式法则（delta method）�
 **附注.**
 
 - 两个区间在 $`d(s)\approx1-\beta_2`$ 附近相接：在那里一次访问对 $`v`$ 的影响既平均不掉，也衰减不完。两个闭式在那里都不适用。
+- 在孤立区间里，位移只通过 $`\mathrm{sign}(g)`$ 依赖于消息：这是 [Balles & Hennig, 2018](#ref-balles2018dissecting) 分析的 Adam 的 sign descent 一面。

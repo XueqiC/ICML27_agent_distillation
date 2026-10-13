@@ -84,6 +84,11 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{其中 }\lambda>0\text
 
 **状态.** 已证明。
 
+## 相关工作
+
+- 没有 teacher 覆盖（$`k_s=0`$）时，最优解 $`n_s\propto\sqrt{W_s}`$ 就是分层抽样中的 Neyman 分配（[Neyman, 1934](#ref-neyman1934two)）。有覆盖时它变成 water-filling，与并行 Gaussian 信道上功率分配的解形状相同（[Cover & Thomas, 2006](#ref-cover2006elements)）。
+- DAgger 在学生访问的状态上查询 teacher，查询量与学生的访问频率成正比（[Ross et al., 2011](#ref-ross2011reduction)）；信息意义下的最优分配则按学习器相对权重与已有覆盖来定。
+
 ## 参考文献
 
 - [Ross, Gordon & Bagnell, 2011](../references_ZH.md#ross2011reduction)

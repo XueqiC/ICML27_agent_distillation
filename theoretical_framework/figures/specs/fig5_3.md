@@ -1,8 +1,8 @@
 # Figure spec — warmth (output `fig5_3_warmth`)
 
-**Message.** Stationary mean-field warmth has an early reciprocal phase and a nonzero plateau. Warm-up and real updates both advance the second moment. The stored affine residuals satisfy their bound.
+**Message.** Stationary mean-field warmth of Adam's second moment ([Kingma & Ba, 2015](#ref-kingma2015adam)) has an early reciprocal phase and a nonzero plateau. Warm-up and real updates both advance the second moment. The stored affine residuals satisfy their bound.
 
-**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width).
+**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width). Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)).
 
 **Data.** Summary files are Git HEAD blobs: V = `theory/v015_checks/results_v015_independent.json`; U = `theory/v016_checks/results_v016.json`. Panel B reads the working-tree `theory/v016_checks/results_v016_raw.json.gz` only after verifying byte count, SHA-256 and schema against U:`raw_artifact`. No checks are rerun.
 

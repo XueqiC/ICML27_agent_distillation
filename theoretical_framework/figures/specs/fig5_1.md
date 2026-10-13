@@ -1,12 +1,12 @@
 # Figure spec — fig5_1 · Optimizer-transformed linear response
 
-**Output:** `theoretical_framework/figures/fig5_1_linear_response.pdf` (vector) and `fig5_1_linear_response.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig5_1_linear_response.pdf` (vector) and `fig5_1_linear_response.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)).
 
 **Message:** The first-order representation is a tool. The first-order term of the *optimizer increment* explains the gap between feedback laws: the C23 cold-Adam gap is first order while the raw mean gradient sees nothing. The remainder has the predicted order — $`\eta^2`$ (or $`\eta^3`$ when two moments match) for SGD and sign optimizers, $`\eta^1`$ for multi-round Adam — and stays below its bound in every smooth exact cell.
 
 All data come from `theory/v015_checks/results_v015_independent.json`, `groups[id=E10].data`. Values stored as strings (`"nan"`) are missing; skip them and never plot them as zero.
 
-**Optimizer colors** (fixed categorical order, all panels): SGD, heavy_ball, Nesterov, Adam_cold, Adam_warm5, Adam_warm20, AdamW, clipped_SGD, clipped_Adam, signSGD, Lion. Display names: "SGD", "heavy-ball", "Nesterov", "Adam cold", "Adam warm W=5", "Adam warm W=20", "AdamW", "clipped SGD", "clipped Adam", "signSGD", "Lion".
+**Optimizer colors** (fixed categorical order, all panels): SGD, heavy_ball, Nesterov, Adam_cold, Adam_warm5, Adam_warm20, AdamW, clipped_SGD, clipped_Adam, signSGD, Lion. Display names: "SGD", "heavy-ball", "Nesterov", "Adam cold", "Adam warm W=5", "Adam warm W=20", "AdamW", "clipped SGD", "clipped Adam", "signSGD", "Lion". The optimizers follow their sources: Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), AdamW ([Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)), signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd)) and Lion ([Chen et al., 2023](#ref-chen2023symbolic)); clipping is global-norm clipping ([Pascanu et al., 2013](#ref-pascanu2013difficulty)).
 
 ## Panel A — "Remainder order in η (moment N=3)"
 

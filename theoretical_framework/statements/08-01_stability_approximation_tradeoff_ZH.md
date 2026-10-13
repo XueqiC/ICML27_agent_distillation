@@ -71,4 +71,4 @@ W_{\mathbf{\epsilon}}(g)=\min_{b\in\mathbb R^d,\ c\in\mathbb R}\Big[2\big\lVert 
 
 ## Related work
 
-- [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff_ZH.md#s8-1) 是把线性规划与范数对偶用在可操作的差距上，不主张新的对偶原理。
+- [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff_ZH.md#s8-1) 是把线性规划对偶（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）与范数对偶用在可操作的差距上，等号来自 Sion minimax 定理（[Sion, 1958](#ref-sion1958general)），不主张新的对偶原理。

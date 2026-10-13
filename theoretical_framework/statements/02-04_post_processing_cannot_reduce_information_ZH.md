@@ -60,3 +60,8 @@
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor_ZH.md#s2-10): replay 不改变信息下限.
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7): 对每个蒸馏器的学习器相对版本.
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3): 生成数据代替不了获取.
+
+## 相关工作
+
+- 与环境无关的 garbling 不能提高任何决策问题的 Bayes value，这是 Blackwell 实验比较中容易的那个方向 ([Blackwell, 1953](#ref-blackwell1953equivalent))。
+- (2.5) 是 Markov 链 $`E\to D\to D'`$ 上 data-processing 不等式在决策论中的对应 ([Cover & Thomas, 2006](#ref-cover2006elements))。

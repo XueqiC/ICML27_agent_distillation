@@ -12,7 +12,7 @@
 
 **本页用到的设定与记号.**
 
-- 不做 bias correction 的 Adam 的单个坐标，$`\epsilon=0`$，矩 $`m,v`$，$`\beta_1,\beta_2`$，学习率 $`\eta`$；最终得分 $`F`$ 关于参数仿射。
+- 不做 bias correction 的 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）的单个坐标，$`\epsilon=0`$，矩 $`m,v`$，$`\beta_1,\beta_2`$，学习率 $`\eta`$；最终得分 $`F`$ 关于参数仿射。
 - 尾段梯度独立同分布，均值 $`\bar g`$，平方的均值 $`\bar v`$；信噪比 $`\rho=\lvert\bar g\rvert/\sqrt{\bar v}`$；$`\alpha=-(\nabla F)\,\mathrm{sign}(\bar g)`$ 在沿 $`-\bar g`$ 移动能提高得分时为正。
 - 在 warm 状态注入消息 $`g=\lambda\sqrt{v}`$（幅度 $`\lambda`$ 以 running RMS 为单位），之后走 $`T`$ 次尾段更新。**实测有限 response** 是相对零梯度消息的 $`F`$ 变化在各副本上的平均；**公式**是 (a) 的 mean-field response $`\Delta F(\lambda)`$。
 - $`b_j=(1-\beta_1)\beta_1^{\,j}`$，$`c_j=(1-\beta_2)\beta_2^{\,j}`$，$`\omega_T=1-\beta_2^{\,T+1}`$，$`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho\,\omega_T)`$，$`\kappa_{\rm iso}(T)=\sum_jb_j/\sqrt{c_j}`$，$`\Lambda(T)=\sum_j(1-b_j)/\sqrt{1-c_j}`$。
@@ -161,6 +161,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 
 - 幅度这一组（`v016:C4.amplitude`）在 rai 上约 29 秒。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
+
+本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
 

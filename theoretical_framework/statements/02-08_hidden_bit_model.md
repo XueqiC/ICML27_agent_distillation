@@ -41,3 +41,7 @@
 
 - [Lemma 2.9](../statements/02-09_no_leakage_about_unrevealed_bits.md#s2-9): unrevealed bits stay uniform.
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor.md#s2-10): information floor and optimal queries.
+
+## Related work
+
+- The reveal sets are independent of the bits, so the unrevealed labels are *missing completely at random* in the sense of [Rubin, 1976](#ref-rubin1976inference). [Lemma 2.9](../statements/02-09_no_leakage_about_unrevealed_bits.md#s2-9) turns this assumption into the absence of leakage; reveal sets chosen on the basis of the bits would make the missingness informative.

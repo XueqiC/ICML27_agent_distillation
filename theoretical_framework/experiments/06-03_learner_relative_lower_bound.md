@@ -47,7 +47,7 @@
 ### [Check 6.2](../experiments/06-05_achievability.md#c6-2) · The achieved risk lies between 𝔫/4 and 𝔫
 
 - **What it tests for Theorem 6.3.** Whether the lower-bound constant $`1/4`$ is what the two-point argument actually delivers, and whether any distiller beats it.
-- **Setup.** 192 identifiable Gaussian linear instances ($`p\in\lbrace2,3,5,8\rbrace`$, $`K\in\lbrace1,10,100\rbrace`$, $`n\in\lbrace0,10,100\rbrace`$); efficient plug-in estimator under the integer-rounded c-optimal design, 30,000 replicates per instance; the Pinsker two-point bound of part (a) and the exact Gaussian total-variation bound, both at the displacement $`\tau=\mathbb I^{-1/2}`$.
+- **Setup.** 192 identifiable Gaussian linear instances ($`p\in\lbrace2,3,5,8\rbrace`$, $`K\in\lbrace1,10,100\rbrace`$, $`n\in\lbrace0,10,100\rbrace`$); efficient plug-in estimator under the integer-rounded c-optimal design, 30,000 replicates per instance; the Pinsker two-point bound of part (a) (Le Cam's method, [Le Cam, 1973](#ref-lecam1973convergence), with Pinsker's inequality, [Cover & Thomas, 2006](#ref-cover2006elements)) and the exact Gaussian total-variation bound, both at the displacement $`\tau=\mathbb I^{-1/2}`$.
 - **Key numbers.** The Pinsker bound equals $`0.2500\,\mathfrak n`$ in every instance; the exact total-variation bound equals $`0.3085\,\mathfrak n=(1-\Phi(1/2))\,\mathfrak n`$; the achieved risk is at least $`3.15`$ times the Pinsker bound; achieved risk$`/\mathfrak n`$ lies in $`[0.789,0.850]`$.
 - **Verdict.** PASS. No distiller in the check comes close to the lower bound, and the constant $`1/4`$ is exactly what the proof gives at its displacement; the exact bound at the same point is somewhat larger.
 
@@ -60,7 +60,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

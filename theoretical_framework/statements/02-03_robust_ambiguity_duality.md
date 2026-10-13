@@ -67,3 +67,7 @@ Moreover:
 **Used by.**
 
 - [Theorem 2.6](../statements/02-06_passive_impossibility_active_attainability.md#s2-6): an instance with value Δ.
+
+## Related work
+
+- The equality of (2.3) and (2.4) is von Neumann's minimax theorem for the finite zero-sum game with payoff $`M_{E,\pi}=J_E^\Pi-J_E(\pi)`$ ([von Neumann, 1928](#ref-vonneumann1928zur)); the maximizing prior is the least favourable prior of that game.

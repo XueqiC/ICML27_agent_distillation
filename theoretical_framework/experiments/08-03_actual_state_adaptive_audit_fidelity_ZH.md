@@ -157,7 +157,7 @@ L_E(\mathrm{adaptive})-L_E(0)\ge-\delta,\qquad L_E(\mathrm{adaptive})-L_E(0)\ge\
 
 ## Check 8.12 · audit 的代价（Theorem 8.3(d)）
 
-**结论.** 每个候选 1,016 个配对副本的 Hoeffding 分配（$`M=4`$，$`\delta=0.05`$，$`e=0.1`$）给出半径 0.09995，与陈述一致；它是充分的，不是必要的。在受控网络中，部署噪声占配对方差的 77%–89%，empirical Bernstein 半径*预测*只需 559 个副本。
+**结论.** 每个候选 1,016 个配对副本的 Hoeffding 分配（[Hoeffding, 1963](#ref-hoeffding1963probability)；$`M=4`$，$`\delta=0.05`$，$`e=0.1`$）给出半径 0.09995，与陈述一致；它是充分的，不是必要的。在受控网络中，部署噪声占配对方差的 77%–89%，empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）*预测*只需 559 个副本。
 
 **动机.** 定理给出的分配有效但昂贵，在任何真实模型上使用之前都必须知道它的代价。这里在受控网络中测量配对对比的方差，看对方差敏感的半径能省多少。
 
@@ -203,6 +203,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # adaptive_gate_expectations
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # T13
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产出文件
 

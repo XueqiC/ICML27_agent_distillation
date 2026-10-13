@@ -67,3 +67,7 @@ r(C)=\max_{\mu\in\Delta(C)}\Big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_
 **被用于.**
 
 - [Theorem 2.6](../statements/02-06_passive_impossibility_active_attainability_ZH.md#s2-6): 一个值为 Δ 的实例.
+
+## 相关工作
+
+- (2.3) 与 (2.4) 相等，就是 von Neumann 关于有限零和博弈的 minimax 定理，博弈的支付为 $`M_{E,\pi}=J_E^\Pi-J_E(\pi)`$ ([von Neumann, 1928](#ref-vonneumann1928zur))；取到最大值的先验就是这个博弈的最不利先验。

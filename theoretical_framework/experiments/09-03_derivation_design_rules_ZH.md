@@ -43,7 +43,7 @@
 
 - **学习器.** `v014:C23` 的受控网络（one-hot 上下文，4 个 tanh 单元，sigmoid，平均交叉熵，float64）。
   - 状态：`fresh`、`warm2`、`warm5`、`warm9`（完整状态，含 Adam 矩）。
-  - 配方 8 种：Adam，$`\eta\in\lbrace 0.01,0.1\rbrace`$；SGD，$`\eta\in\lbrace 0.1,1\rbrace`$；每种再配 $`\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace`$。
+  - 配方 8 种：Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)），$`\eta\in\lbrace 0.01,0.1\rbrace`$；SGD，$`\eta\in\lbrace 0.1,1\rbrace`$；每种再配 $`\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace`$。
 - **候选.** 10 个双标签 packet 上的 9 个标签分布：`reference_even`，矩匹配的 `moment3_P`/`moment3_Q`，符号匹配的 `low_sign_A`/`B` 与 `high_sign_A`/`B`，`odd_parity` 与 `middle_mixture`。
 - **gold.** 一轮候选边界之后接 7 次 IID 参考更新（共 8 次更新），对全部有限历史精确枚举，取与参考候选的对比值。
 - **proxy**，只在 pilot 上用 ridge 回归拟合，并冻结在 `proxy_models_frozen.json`：
@@ -167,6 +167,8 @@
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E6,E9 --output theory/v015_checks/quick/s9.json
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
 

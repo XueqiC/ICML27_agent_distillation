@@ -59,3 +59,7 @@
 
 - ($`\Leftarrow`$) 若 $`\pi^\circ`$ 属于交集 (2.2)，则 $`\mathbb E[J_E(\pi^\circ)\mid D]=\mathbb E[J_E^\Pi\mid D]\ge B(D)\ge\mathbb E[J_E(\pi^\circ)\mid D]`$，括号为零。
 - ($`\Rightarrow`$) 若括号为零，则每个 $`\mu(E\mid D)>0`$ 的求和项都为零。于是 $`\pi_D`$ 在每个后验概率为正的环境中都最优，属于交集。$`\square`$
+
+## 相关工作
+
+- (b) 中的括号 $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ 是给定 $`D`$ 时关于 $`E`$ 的完全信息的期望价值 ([Howard, 1966](#ref-howard1966information))；证明表明，它为零当且仅当某个后验最优策略在每个后验概率为正的环境中都最优。

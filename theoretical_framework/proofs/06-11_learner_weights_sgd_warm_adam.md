@@ -52,7 +52,7 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 - [Assumption 6.9](../statements/06-09_state_coverage_model.md#s6-9): independent per-state laws and influence functions.
 - [Proposition 6.10](../statements/06-10_water_filling_allocation.md#s6-10): parts (c) and (d), for the consequence.
 
-**Classical tools.** The law of large numbers and the delta method.
+**Classical tools.** The law of large numbers and the delta method ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)). The Adam recursion, with bias correction, is that of [Kingma & Ba, 2015](#ref-kingma2015adam).
 
 **Proof.** Coordinates do not interact, so $`\Psi=\sum_s\zeta_s\,\mathbb E[\theta_{s,R}-\theta_{s,0}]`$, and it suffices to compute, for each $`s`$, the Gateaux derivative of the expected displacement with respect to $`P^*_s`$. Write $`\delta m_1(y)=g(y)-m_1`$ and $`\delta m_2(y)=g(y)^2-m_2`$ for the derivatives of $`m_1,m_2`$ along $`\delta_y-P^*_s`$.
 
@@ -79,3 +79,4 @@ The geometric series converges because $`\beta_1<\sqrt{\beta_2}`$, and its terms
 **Comments.**
 
 - The two regimes meet near $`d(s)\approx1-\beta_2`$, where a visit's effect on $`v`$ neither averages out nor decays completely. Neither closed form applies there.
+- In the isolated regime the displacement depends on the message only through $`\mathrm{sign}(g)`$: the sign-descent aspect of Adam analysed by [Balles & Hennig, 2018](#ref-balles2018dissecting).

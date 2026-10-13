@@ -39,3 +39,7 @@
 **Used by.**
 
 - none
+
+## Related work
+
+- Both learner-relative versions are lower bounds in Le Cam's framework: [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7) is a two-point bound ([Le Cam, 1973](#ref-lecam1973convergence)), and [Corollary 6.8](../statements/06-08_exchange_rate_between_demonstrations_queries.md#s6-8) is a local bound with Fisher informations in each direction $`h`$, as in local asymptotic minimax theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).

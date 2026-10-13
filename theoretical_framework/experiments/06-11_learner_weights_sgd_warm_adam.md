@@ -58,8 +58,8 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 **Setup.**
 
 - Each target state owns a scalar coordinate; one state is visited per step; teacher label $`y\sim\mathrm{Bernoulli}(\pi)`$ with $`\pi=0.35`$; gradient $`g=c_0-y`$ with $`c_0=0.2`$; $`\zeta=1`$, $`\eta=0.01`$, $`\epsilon=10^{-12}`$.
-- Learners: SGD; SGD always clipped to $`0.1`$; Adam with $`\beta_1=0.9`$. They share visits and label randomness.
-- Sensitivity $`\mathrm d\,\mathbb E\theta_{s,R}/\mathrm d\pi_s`$ by common-random-number central differences ($`\delta=0.02`$; $`\delta=0.04`$ as a diagnostic), with the perturbation applied after a common burn-in.
+- Learners: SGD; SGD always clipped to $`0.1`$ (norm clipping, [Pascanu et al., 2013](#ref-pascanu2013difficulty)); Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) with $`\beta_1=0.9`$. They share visits and label randomness.
+- Sensitivity $`\mathrm d\,\mathbb E\theta_{s,R}/\mathrm d\pi_s`$ by common-random-number central differences ([Glasserman, 2004](#ref-glasserman2004monte); $`\delta=0.02`$; $`\delta=0.04`$ as a diagnostic), with the perturbation applied after a common burn-in.
 
 | Regime | $`\beta_2`$ | Bias correction | $`d(s)`$ (log-spaced) | $`d/(1-\beta_2)`$ | Burn-in | $`R`$ | Replicates |
 |---|---|---|---|---|---|---|---|
@@ -109,7 +109,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64).
+The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 

@@ -157,7 +157,7 @@ Necessity witnesses (entry `v014:C16`, `details`):
 
 ## Check 8.12 · Audit cost (Theorem 8.3(d))
 
-**Verdict.** The Hoeffding allocation of 1,016 paired replicas per candidate ($`M=4`$, $`\delta=0.05`$, $`e=0.1`$) gives radius 0.09995, as stated; it is sufficient, not necessary. In the controlled network, deployment noise is 77–89% of the paired variance, and an empirical-Bernstein radius is *forecast* to need 559 replicas.
+**Verdict.** The Hoeffding allocation ([Hoeffding, 1963](#ref-hoeffding1963probability)) of 1,016 paired replicas per candidate ($`M=4`$, $`\delta=0.05`$, $`e=0.1`$) gives radius 0.09995, as stated; it is sufficient, not necessary. In the controlled network, deployment noise is 77–89% of the paired variance, and an empirical-Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is *forecast* to need 559 replicas.
 
 **Why.** The theorem fixes a valid but expensive allocation, and its cost must be known before any real-model use. The paired-contrast variance is measured in the controlled network to see how much a variance-sensitive radius could save.
 
@@ -203,6 +203,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # adaptive_gate_expectations
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # T13
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

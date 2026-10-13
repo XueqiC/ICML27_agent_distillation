@@ -88,3 +88,7 @@ e_R\le C\eta^2\sum_{s=0}^{R-1}(1+\eta L)^s=\frac{C\eta}{L}\big((1+\eta L)^R-1\bi
 
 - [Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1) — 任意带状态 optimizer 的展开。
 - [Proposition 5.3](05-03_cold_start_adam_sign_quotient_ZH.md#s5-3) — cold-start Adam，此时更新不是仿射的。
+
+## Related work
+
+- (d) 是用随机修正方程（stochastic modified equation）弱逼近 SGD 时所依据的单步矩展开（[Li et al., 2019](#ref-li2019stochastic)）：随机梯度的均值与二阶矩决定一步的期望效应，余项是 $`\eta`$ 的三阶。(e) 则是把这类单步误差累积成多步界的那一步。

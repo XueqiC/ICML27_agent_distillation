@@ -78,7 +78,7 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 **结论.** 在全部 144 个单元格中（每格 20,000 次试验，共 2,880,000 个实例），失败率都远低于 $`\delta`$，实测偏差分位数从不超过界的 0.615。增量界 $`b`$ 固定时，这个比值从 $`p=1`$ 到 $`p=100{,}000`$ 都不增长。
 
-**动机.** [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4)(a) 说，经验平均增量在 Hilbert 范数下以 $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$ 的速率集中，界中不显含维数。LoRA adapter 有上千万个参数。若存在隐含的维数依赖，会表现为失败率高于 $`\delta`$，或实测分位数随 $`p`$ 增长而逼近界。
+**动机.** [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4)(a) 说，经验平均增量在 Hilbert 范数下以 $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$ 的速率集中，界中不显含维数；其中偏差部分来自 McDiarmid 有界差分不等式（[McDiarmid, 1989](#ref-mcdiarmid1989method)）。LoRA adapter（[Hu et al., 2022](#ref-hu2022lora)）有上千万个参数。若存在隐含的维数依赖，会表现为失败率高于 $`\delta`$，或实测分位数随 $`p`$ 增长而逼近界。
 
 **设置.**
 
@@ -119,6 +119,8 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V9 --output theory/v015_checks/quick/s8.json
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产出文件
 

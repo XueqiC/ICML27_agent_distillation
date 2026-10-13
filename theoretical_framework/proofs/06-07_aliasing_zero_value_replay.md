@@ -28,4 +28,6 @@
 
 - [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3): part (a), the two-point bound, with total variation zero.
 
+**Classical tools.** Le Cam's two-point method ([Le Cam, 1973](#ref-lecam1973convergence)), through [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(a): when the two transcript laws coincide, no test separates the two worlds.
+
 **Proof.** The transcript laws coincide, so $`\mathrm{TV}=0`$ and [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(a) applies with the square-root term equal to zero. $`\square`$

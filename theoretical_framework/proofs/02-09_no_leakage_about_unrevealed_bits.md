@@ -25,3 +25,7 @@ The joint law factorizes as
 ```
 
 where $`X`$ is the additional transcript content. Fix the observed $`(S_{1:K},\Theta_{\cup S_k},X)`$. The only factor that depends on $`\Theta_{U_K}`$ is $`2^{-d}`$, which is constant. Hence $`\Theta_{U_K}`$ is uniform on $`\lbrace 0,1\rbrace ^{\lvert U_K\rvert}`$ given $`T`$. The learner's randomness is independent of everything else. $`\square`$
+
+## Related work
+
+- The factorization is the ignorability argument for data missing completely at random ([Rubin, 1976](#ref-rubin1976inference)): the reveal mechanism $`\prod_kL(S_k)`$ does not involve $`\Theta`$, so it drops out of the posterior.

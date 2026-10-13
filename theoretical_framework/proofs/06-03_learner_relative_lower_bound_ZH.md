@@ -48,7 +48,7 @@
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)：蒸馏器一项 $`\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$ 与 $`\theta`$ 无关；$`\mathbb I_{K,n}`$、$`\mathfrak n_{K,n}`$ 与 (G) 的定义。
 
-**用到的经典工具.** Le Cam 两点法、Pinsker 不等式与 KL 散度的链式法则（[Le Cam, 1973](../references_ZH.md#lecam1973convergence)；[van der Vaart, 1998](../references_ZH.md#vandervaart1998asymptotic)）。
+**用到的经典工具.** Le Cam 两点法（[Le Cam, 1973](../references_ZH.md#lecam1973convergence)）；Pinsker 不等式与 KL 散度的链式法则（[Cover & Thomas, 2006](#ref-cover2006elements)）；differentiability in quadratic mean 下的局部渐近理论（[van der Vaart, 1998](../references_ZH.md#vandervaart1998asymptotic)）。
 
 **证明.** (a) 记 $`s=\lvert\Psi(\theta_1)-\Psi(\theta_0)\rvert`$，$`a(Q)=\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$；后者与 $`\theta`$ 无关（[Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)）。由三角不等式，
 

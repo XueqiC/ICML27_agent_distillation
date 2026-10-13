@@ -64,3 +64,9 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) — 建立在它之上的证书
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) — 一阶变体
 - [Proposition 8.10](../statements/08-10_cost_and_crn_ZH.md#s8-10) — 代价与方差
+
+## Related work
+
+- 各候选共享尾段随机性 $`\omega_\ell`$，就是 common random numbers 方法：比较模拟系统时经典的方差缩减手段（[Glasserman, 2004](#ref-glasserman2004monte)）。
+- 任务一侧的对比 $`A_t(z,j)`$ 是一轮替换对比；对到达的状态求和，得到 [Kakade & Langford, 2002](#ref-kakade2002approximately) 的 performance-difference lemma 背后的 telescoping 分解。
+- 通过真正重新训练、而不是梯度近似，来测量训练数据变化的效果，也是 datamodels（[Ilyas et al., 2022](#ref-ilyas2022datamodels)）的做法。这里的变化是实际学习者状态上的一轮反馈，且各候选共享尾段。

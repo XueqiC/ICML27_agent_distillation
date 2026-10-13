@@ -73,5 +73,5 @@ V(U,b)=\min_{j\in U}\tfrac12\Big(\sum_{U\setminus\lbrace j\rbrace }w-\mathrm{top
 最大值等于 $`\mathrm{top}_b(U)`$，取权重最大的 $`j`$ 即可达到。归纳完成，并且贪心规则最优。对示范取 $`V(U_K,n)`$ 的平均即得 (2.9)。
 
 - *均匀情形.* 权重为 $`1/d`$ 时 $`\sum_{r>n}w_{(r)}=(M_K-n)_+/d`$，即 (2.10)；$`n=0`$ 时由 (a) 取 $`q_j=1/d`$ 得 $`R_{\rm info}(K,0)=\tfrac12(1-1/d)^K`$。
-- *Jensen.* $`x\mapsto(x-n)_+`$ 是凸函数，所以 $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$。
+- *Jensen.* $`x\mapsto(x-n)_+`$ 是凸函数，由 Jensen 不等式 ([Jensen, 1906](#ref-jensen1906fonctions))，$`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$。
 - *严格性.* 取 $`d=3`$、$`K=3`$、$`n=1`$。则 $`\Pr(M_3=0)=6/27`$，$`\Pr(M_3=1)=18/27`$，$`\Pr(M_3=2)=3/27`$，$`\mathbb EM_3=8/9<1`$。右端为 $`0`$，而 $`R_{\rm info}(3,1)=\Pr(M_3=2)/(2\cdot3)=1/54`$。$`\square`$

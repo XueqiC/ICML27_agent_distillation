@@ -101,3 +101,8 @@ Counting; rearranging the range term; the Lipschitz condition at the paired incr
 
 - [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — provable range as an open problem
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2) — replica budget of the method
+
+## Related work
+
+- The range term sized in (b) is the second term of the empirical Bernstein bound of [Maurer & Pontil, 2009](#ref-maurer2009empirical), $`7\log(\cdot)/(3(r-1))`$ times the range.
+- (c) is the standard argument for common random numbers: pairing helps when both arms respond to the shared randomness in the same way, as a Lipschitz or monotone response does ([Glasserman, 2004](#ref-glasserman2004monte)).

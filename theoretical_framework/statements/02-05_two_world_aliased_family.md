@@ -63,3 +63,8 @@ J_v(p)=\tfrac12\big[p+(1-p)(\tfrac12-2v\Delta)\big]+\tfrac12\big[p(\tfrac12+2v\D
 
 - [Theorem 2.6](../statements/02-06_passive_impossibility_active_attainability.md#s2-6): passive impossibility and query complexity.
 - [Proposition 2.7](../statements/02-07_compilation_cost.md#s2-7): the cost of compiling the acquired fact.
+
+## Related work
+
+- The family is a two-point construction in the sense of Le Cam's method: two worlds that the passive data cannot separate but whose optimal decisions differ ([Le Cam, 1973](#ref-lecam1973convergence)).
+- A teacher that acts on information the student cannot observe, so that imitation marginalizes that information, produces the *imitation gap* of [Weihs et al., 2021](#ref-weihs2021bridging). The family is a minimal instance in which the missing fact is a single sign.

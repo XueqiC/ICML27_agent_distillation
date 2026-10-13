@@ -43,7 +43,7 @@
 - 三角不等式：3,200 次检查，最大残差 $`5.6\times10^{-17}`$（容差 $`2\times10^{-14}`$）。
 - 例：泛函差距 $`0.1866`$，minimax 下限 $`0.0933`$，中点估计量在每个 $`K`$ 上都取到它（Figure 6.1(c)）。
 
-**为什么支持 Corollary 6.7.** 两个分布是完全相同，而不仅是接近，所以下限是精确的，且与 $`K`$ 无关；replay 或改写示范帮不上忙，正是这个机制。
+**为什么支持 Corollary 6.7.** 两个分布是完全相同，而不仅是接近，所以下限是精确的，且与 $`K`$ 无关；replay 或改写示范（即 [Blackwell, 1953](#ref-blackwell1953equivalent) 意义下 transcript 的 garbling）帮不上忙，正是这个机制。
 
 ![Figure 6.1](../figures/fig6_1_information_bound.png)
 
@@ -58,7 +58,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

@@ -58,6 +58,10 @@
 
 **状态.** 已证明（因子为 $`4d^{3/2}`$）。
 
+## 相关工作
+
+- John 定理：$`\mathbb R^d`$ 中每个对称凸体都包含一个椭球，该椭球放大 $`\sqrt d`$ 倍后包含这个凸体（[John, 1948](#ref-john1948extremum)）。它把类半范数归结为 $`d`$ 个 c-optimal design 问题，椭球的每条轴一个（[Elfving, 1952](#ref-elfving1952optimum)）。
+
 ## 参考文献
 
 - [John, 1948](../references_ZH.md#john1948extremum)

@@ -70,3 +70,7 @@ J_\rho(\pi_p)=\sum_s\rho(s)\big[p\,r_s(A)+(1-p)\tfrac12\big]=\tfrac12+p\Big(\sum
 - *Equal first moments.* Each $`Y_i`$ is Bernoulli $`(\tfrac12)`$ under both sources, so the marginals agree. The gradient at $`p_0`$ is $`p_0-(Y_1+Y_2)/2`$, which has mean $`0`$ under both sources. Hence $`\mathbb Ep^+=\tfrac12`$ for both.
 - *Variances.* $`\mathrm{Var}\,p^+=\eta^2\mathrm{Var}\frac{Y_1+Y_2}2`$. Under independence this is $`\eta^2\cdot\tfrac14(\tfrac14+\tfrac14)=\eta^2/8`$. Under pairing $`Y_1+Y_2\equiv1`$, so it is $`0`$.
 - *Values.* With $`J(p)=p^2`$, $`\mathbb EJ(p^+)=(\mathbb Ep^+)^2+\mathrm{Var}\,p^+`$, so the difference is $`\eta^2/8-0=\eta^2/8`$. For $`J'=1-p^2`$, $`\mathbb EJ'(p^+)=1-(\mathbb Ep^+)^2-\mathrm{Var}\,p^+`$, and the difference is $`-\eta^2/8`$. $`\square`$
+
+## Related work
+
+- Part (b) uses only the first two moments of the packet. First-order influence estimates ([Koh & Liang, 2017](#ref-koh2017understanding); [Pruthi et al., 2020](#ref-pruthi2020estimating)) are linear in the training gradient, so the equal first moments shown above make them equal for the two sources, while the learning values differ by $`\eta^2/8`$.

@@ -84,3 +84,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 **Used by.**
 
 - [Remark 9.4](../statements/09-04_scope_of_evidence.md#s9-4) — scope of the evidence
+
+## Related work
+
+- Variance-adaptive confidence bounds still pay for the a-priori range through a term of order $`B/r`$ ([Audibert et al., 2009](#ref-audibert2009exploration); [Maurer & Pontil, 2009](#ref-maurer2009empirical)). A smaller range therefore has to come from the training problem, for example a certified Lipschitz constant, not from a sharper estimator.

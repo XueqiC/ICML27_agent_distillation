@@ -89,6 +89,11 @@
 - [Remark 9.3](09-03_derivation_design_rules.md#s9-3): the design rules the steps implement.
 - [Remark 9.4](09-04_scope_of_evidence.md#s9-4): the planned real-model tests.
 
+## Related work
+
+- Step 2 queries the teacher at the student's own states, as DAgger does ([Ross et al., 2011](#ref-ross2011reduction)); here the queries are allocated by learner-relative weight.
+- Data-selection and teacher-selection scores such as LESS ([Xia et al., 2024](#ref-xia2024less)) and GRACE ([Panigrahi et al., 2025](#ref-panigrahi2025good)) rank candidates by a statistic of gradients; CED ranks them by their measured consequence for the learner.
+
 ## References
 
 - [Ross et al., 2011](../references.md#ross2011reduction): DAgger, queries at the student's states (step 2 allocates such queries by learner-relative weight).

@@ -27,7 +27,7 @@
 ### [Check 2.1](../experiments/02-02_regret_decomposition_decision_ambiguity_ZH.md#c2-1) · regret 分解、歧义判据、对偶与 data processing
 
 - *对本命题检验什么.* 不等式 (2.5)：与环境无关的后处理不能提高 Bayes 值；以及扩充条款 $`B(D,Z)=B(D)`$。
-- *设置.* 500 个随机有限决策问题，transcript 有 4 个符号。每条 transcript 经过一个随机的 3 符号信道 garbling；前 30 个实例还经过全部 $`3^4=81`$ 个确定性信道（凸目标的极点）。再附加一个独立的 $`Z`$ 检验扩充。精确有理数运算。
+- *设置.* 500 个随机有限决策问题，transcript 有 4 个符号。每条 transcript 经过一个随机的 3 符号信道 garbling（Blackwell 意义下的后处理，[Blackwell, 1953](#ref-blackwell1953equivalent)）；前 30 个实例还经过全部 $`3^4=81`$ 个确定性信道（凸目标的极点）。再附加一个独立的 $`Z`$ 检验扩充。精确有理数运算。
 - *结果.* 在所有 garbling（包括对抗选出的极点信道）中，最大的 $`B(D')-B(D)`$ 恰为 0；$`B(D,Z)=B(D)`$ 在每个实例上精确成立。
 - *结论.* 通过。
 
@@ -39,6 +39,8 @@
 - *结论.* 通过。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array)) 与 SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C1 --output theory/independent_checks/subset.json

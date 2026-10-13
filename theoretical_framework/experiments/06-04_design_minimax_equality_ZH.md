@@ -42,7 +42,7 @@
 - 高斯线性模型：$`\theta\in\mathbb R^p`$，$`p\in\lbrace2,3,5,8\rbrace`$；一条示范观测 $`A_D\theta+N(0,I)`$，所以 $`I_D=A_D^\top A_D`$；在 $`x`$ 处的查询观测 $`f_x^\top\theta+N(0,1)`$，所以 $`I_Q(x)=f_xf_x^\top`$，$`\lvert\mathcal X_Q\rvert\in\lbrace4,16\rbrace`$。
 - 每个 $`(p,\lvert\mathcal X_Q\rvert)`$ 有三类示范：满秩；含一个精确零列且 $`c`$ 在该列方向上有非零分量（混叠）；含精确零列但 $`c`$ 在可辨识的范围内（奇异但可估计）。
 - $`K\in\lbrace1,10,100\rbrace`$，$`n\in\lbrace0,10,100\rbrace`$：共 216 个实例、864 条断言。
-- 原问题：用带解析梯度的 SLSQP 在 design 权重 $`w`$ 的单纯形上最小化 $`c^\top M(w)^{-1}c`$，并检查单纯形上的 KKT（Elfving）条件。
+- 原问题：用带解析梯度的 SLSQP 在 design 权重 $`w`$ 的单纯形上最小化 $`c^\top M(w)^{-1}c`$，并检查单纯形上的 KKT（Elfving）条件（[Elfving, 1952](#ref-elfving1952optimum)）。
 - 对偶问题：在 $`c^\top h=1`$、$`t\ge\pm f_x^\top h`$ 约束下最小化 $`K\,h^\top I_Dh+n\,t^2`$，这是一个凸二次规划。若 SLSQP 报告状态失败，就用带精确 Hessian 的 trust-constr 独立求解，再用 active-face KKT 线性方程组验证：平稳性、可行性与乘子非负都要达到 $`10^{-9}`$。
 - $`n=0`$：用谱方法检查值域；不可辨识的 $`c`$ 两边都是 $`+\infty`$，可辨识的奇异 $`c`$ 用伪逆。
 
@@ -73,7 +73,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

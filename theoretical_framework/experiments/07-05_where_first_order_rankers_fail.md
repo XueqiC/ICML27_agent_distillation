@@ -15,7 +15,7 @@
 - *Candidates and gold.* Pairs of provider (feedback) laws applied at the same complete state of a small network trained by Adam or SGD; the *gold* difference of a pair is the exact difference of the eight-update outcomes (one candidate round followed by the reference tail).
 - *Wrong sign.* A ranker is wrong on a pair when (score difference) × (gold difference) < 0; exact ties are counted separately and are not errors.
 - *Channel contractions and second-moment share.* With the exact continuation gradient $`(\chi^\theta,\chi^m,\chi^v)`$ of [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1), the $`\theta`$-, $`m`$- and $`v`$-channel contractions of a pair's increment contrast sum to its first-order difference; the second-moment share is $`\lvert v\text{-contraction}\rvert/(\lvert\theta\rvert+\lvert m\rvert+\lvert v\rvert\text{ contractions})`$.
-- *Rankers.* First-order scores (parameter-only, full-state with the exact gradient, CRN-measured directional differences), LESS-style cosine scores, and the finite paired-replacement score $`\hat S`$ (one round replaced by each candidate, a common reference tail, $`r`$ CRN replicas).
+- *Rankers.* First-order scores (parameter-only, full-state with the exact gradient, CRN-measured directional differences), LESS-style cosine scores ([Xia et al., 2024](#ref-xia2024less)), and the finite paired-replacement score $`\hat S`$ (one round replaced by each candidate, a common reference tail, $`r`$ CRN replicas; common random numbers as in [Glasserman, 2004](#ref-glasserman2004monte)).
 
 **Statement under test ([Remark 7.5](../statements/07-05_where_first_order_rankers_fail.md#s7-5)).** A high second-moment share means the increment is large relative to $`v`$, the saturating regime of [Corollary 7.2](../statements/07-02_stationary_amplitude_law.md#s7-2)(a),(c), where the linearization overstates the $`v`$-channel harm. So any first-order score, including the full-state score with the exact continuation gradient, is unreliable there, and ranking there should use the finite-replacement measurement of Theorem 8.8 or the nonlinear formula.
 
@@ -127,6 +127,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - The groups take about 22 s (`v016:C5`) and 3 s (`v016:C5b`) on rai.
 - `v016:C5` and `v016:C5b` import the frozen controlled-network panel read-only. The pinned files are hashed before and after.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
+
+The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)).
 
 ## Artifacts
 

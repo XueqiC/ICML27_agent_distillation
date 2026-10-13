@@ -52,7 +52,7 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{with }\lambda>0\text{ 
 - [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3): the two-point argument, applied along a one-dimensional tilting submodel.
 - [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7): for part (d).
 
-**Classical tools.** Cauchy–Schwarz and the KKT conditions of a convex program.
+**Classical tools.** Cauchy–Schwarz, the KKT conditions of a convex program, and one-dimensional submodels through the influence function, the standard device for information bounds on functionals ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
 
 **Proof.** (a) Fix $`h\in\mathbb R^{\mathcal S}`$ and use the tilting submodel $`P_{s,\tau}=(1+\tau h_sf_s)\,P^*_s`$, a probability law for $`\lvert\tau\rvert`$ small because $`f_s`$ is bounded on a finite alphabet and has mean zero.
 
@@ -76,6 +76,7 @@ with equality at $`h_s=1/N_s`$, which gives (a).
 ## Related work
 
 - **Active acquisition in imitation learning.** DAgger ([Ross, Gordon & Bagnell, 2011](../references.md#ross2011reduction)) queries the teacher at the states the student visits; in the terms of this proposition it allocates queries in proportion to student visitation. The information-optimal allocation is water-filling in the learner-relative weights, and these weights change with the optimizer ([Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam.md#s6-11)).
+- **Allocation rule.** Without teacher coverage the optimum $`n_s\propto\sqrt{W_s}`$ is Neyman's allocation for stratified sampling ([Neyman, 1934](#ref-neyman1934two)); with coverage $`k_s`$ it is water-filling, the solution shape of power allocation over parallel Gaussian channels ([Cover & Thomas, 2006](#ref-cover2006elements)).
 
 ## References
 

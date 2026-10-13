@@ -34,4 +34,6 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 
 - [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)：(b)，局部下界。
 
+**用到的经典工具.** 与 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(b) 相同：Le Cam 两点法（[Le Cam, 1973](#ref-lecam1973convergence)）与 differentiability in quadratic mean 下的局部渐近理论（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
+
 **证明.** 由 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(b)，$`\varepsilon\ge\lvert c^\top h\rvert/(4\sqrt{\mathbb I_{K,n}(\theta_0;h)})\,(1-o(1))`$，其中 $`\mathbb I_{K,n}(\theta_0;h)=K\,e_D(h)+n\,e_Q(h)`$。移项即得；$`c^\top h=0`$ 的方向不产生约束。$`\square`$

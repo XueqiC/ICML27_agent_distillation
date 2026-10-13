@@ -60,6 +60,11 @@ and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** f
 
 **Status.** proved.
 
+## Related work
+
+- c-optimal designs and their geometric characterization go back to [Elfving, 1952](#ref-elfving1952optimum); the general theory, including designs with prior information such as the demonstrations' term $`K\,I_D`$, is in [Pukelsheim, 1993](#ref-pukelsheim1993optimal). The exchange of the two optimizations is Sion's minimax theorem ([Sion, 1958](#ref-sion1958general)).
+- What is specific here is the target vector $`c=\sum_tJ_t^*g_t`$: it is set by the learner and the task.
+
 ## References
 
 - [Elfving, 1952](../references.md#elfving1952optimum)

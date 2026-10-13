@@ -85,3 +85,8 @@ In general $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$, and the inequality can
 
 - [Proposition 6.10](../statements/06-10_water_filling_allocation.md#s6-10): learner-relative coverage model.
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2): allocate queries before compiling.
+
+## Related work
+
+- In the uniform case each demonstration reveals one context drawn from the deployment distribution, and $`2R_{\rm info}(K,0)=(1-1/d)^K`$ is the expected missing mass of that distribution after $`K`$ draws, the quantity that the Good–Turing estimator estimates from a sample ([Good, 1953](#ref-good1953population)).
+- The comparison of the two positive-part expressions in (b) is Jensen's inequality for the convex map $`x\mapsto(x-n)_+`$ ([Jensen, 1906](#ref-jensen1906fonctions)).

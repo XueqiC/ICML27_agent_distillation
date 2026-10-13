@@ -78,7 +78,7 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 **Verdict.** In all 144 cells (20,000 trials each, 2,880,000 instances) the failure rate is far below $`\delta`$, and the realized deviation quantile never exceeds 0.615 of the bound. The ratio does not grow from $`p=1`$ to $`p=100{,}000`$ at a fixed increment bound $`b`$.
 
-**Why.** [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4)(a) states that the empirical mean increment concentrates in the Hilbert norm at rate $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$, with no explicit dimension. LoRA adapters have tens of millions of parameters. An implicit dimension dependence would show as a failure rate above $`\delta`$, or as a realized quantile that rises toward the bound as $`p`$ grows.
+**Why.** [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4)(a) states that the empirical mean increment concentrates in the Hilbert norm at rate $`b(1+\sqrt{2\log(1/\delta)})/\sqrt n`$, with no explicit dimension; the deviation part is McDiarmid's bounded-difference inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)). LoRA adapters ([Hu et al., 2022](#ref-hu2022lora)) have tens of millions of parameters. An implicit dimension dependence would show as a failure rate above $`\delta`$, or as a realized quantile that rises toward the bound as $`p`$ grows.
 
 **Setup.**
 
@@ -119,6 +119,8 @@ The concentration result is panel A of [Figure 8.4](../experiments/08-09_first_o
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V9 --output theory/v015_checks/quick/s8.json
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

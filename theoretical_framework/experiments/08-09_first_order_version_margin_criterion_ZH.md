@@ -142,7 +142,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 - **margin 判据成立.** 只要一阶 margin 超过余项界，oracle 分数就从不排错，在含 margin 行的四个 split 中都是如此。比值超过 0.25 后它就再没错过，说明经验余项界是保守的。
 - **在 margin 内，静态 proxy 失败是因为缺少延续值梯度.** 在比值 ≥ 2、由一阶决定的 48 行上，静态 proxy 判错 41.7%，oracle 为 0%。它们用的是同样的更新统计量，却没有依赖状态与任务的延续值梯度，因而违反 Corollary 8.9(d) 的条件 (i)。
 - **在 margin 外，由尾段决定.** 在比值低于 0.25 的 316 行上，即使 oracle 也判错 37.1%，而实测四步尾段只判错 3.3%；那里条件 (ii) 不成立。
-- **margin 很少见.** 只有 14% 的适用行满足它；held-out 学习率的 split 里一行也没有，那里的步长是 pilot 配方的十倍（Adam $`\eta=0.1`$，SGD $`\eta=1`$；`theory/v015_checks/proxy_split_freeze.json`，`recipe_shift_axes`）。这与 [Proposition 5.1](../statements/05-01_optimizer_transformed_expansion_ZH.md#s5-1) 的余项标度一致。
+- **margin 很少见.** 只有 14% 的适用行满足它；held-out 学习率的 split 里一行也没有，那里的步长是 pilot 配方的十倍（Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）$`\eta=0.1`$，SGD $`\eta=1`$；`theory/v015_checks/proxy_split_freeze.json`，`recipe_shift_axes`）。这与 [Proposition 5.1](../statements/05-01_optimizer_transformed_expansion_ZH.md#s5-1) 的余项标度一致。
 - **证据的边界.** 分数用的是 oracle 梯度，所以这一检验展示的是一阶分数最多能做到什么；如 Corollary 8.9(d) 所说，它不是可测量的证书。
 
 ![Figure 8.4：一阶测量与一阶 margin](../figures/fig8_4_first_order_audit.png)
@@ -168,7 +168,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 - 每个 provider 只有一个或两个支撑点，所以平均增量可以精确积分；$`G=8`$ 个组，每组抽一条新的七步参考尾段，所有候选共用（CRN）。
 - 组分数 $`Z_g=[\tilde F(T_\omega(z+h\mu_j))-\tilde F(T_\omega(z+h\mu_k))]/h`$，$`h\in\lbrace10^{-3},3\times10^{-3},10^{-2}\rbrace`$；每个候选对选任务单位半径最小的 $`h`$，选择时不看 gold。
 - 半径为 $`e_{\rm stat}+e_{\rm fd}+\varepsilon_{\rm sur}+e_2/\alpha`$：
-  - $`e_{\rm stat}`$ 用 empirical Bernstein，$`\log(4M^2/\delta)=8.5409`$，区间取八个组分数的观测区间（这个观测区间不是被证明的支撑界）；
+  - $`e_{\rm stat}`$ 用 empirical Bernstein（[Maurer & Pontil, 2009](#ref-maurer2009empirical)），$`\log(4M^2/\delta)=8.5409`$，区间取八个组分数的观测区间（这个观测区间不是被证明的支撑界）；
   - $`e_{\rm fd}`$ 来自 CRN 延续沿射线实测的曲率（五点模板加 Richardson 外推）；
   - $`e_2=\tfrac12M_2(m_2^j+m_2^k)`$ 来自沿实际增量射线的实测曲率搜索。
 - surrogate 同 [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14)。short surrogate 的校准：每个 $`h`$ 下都是 $`\alpha=0.902`$、$`\varepsilon_{\rm sur}=0.0078`$。
@@ -223,6 +223,8 @@ aligned surrogate 选中的 $`h`$：1,501 对为 $`10^{-3}`$，83 对为 $`10^{-
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E12 --output theory/v015_checks/quick/s8.json
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6 --output theory/v016_checks/subset.json
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产出文件
 

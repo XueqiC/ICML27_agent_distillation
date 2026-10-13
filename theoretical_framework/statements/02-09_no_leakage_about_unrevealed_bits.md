@@ -41,3 +41,7 @@
 **Used by.**
 
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor.md#s2-10): exact floor and greedy optimality.
+
+## Related work
+
+- The lemma is the ignorability of a missing-data mechanism that is missing completely at random: the posterior of the unrevealed bits can be computed as if the reveal mechanism were absent, and here it equals the prior ([Rubin, 1976](#ref-rubin1976inference)).

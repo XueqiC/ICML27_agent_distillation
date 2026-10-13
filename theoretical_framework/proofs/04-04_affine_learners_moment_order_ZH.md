@@ -123,5 +123,5 @@ m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,
 
 ## 相关工作
 
-- 有限差分、parity 与真坐标子集的独立性、网格上单项式的线性无关性都是经典工具，在此注明，不作为新结果。
+- 有限差分（[Graham et al., 1994](#ref-graham1994concrete)）、parity 与真坐标子集的独立性（[O'Donnell, 2014](#ref-odonnell2014analysis)）、网格上单项式的线性无关性都是经典工具，在此注明，不作为新结果。(a) 中的逆向归纳，是在带机会节点的树上计算一个 behaviour strategy 的期望值（[Kuhn, 1953](#ref-kuhn1953extensive)）。
 - 本页新增的是用它们计算：对凸仿射 learner 与至多 $`N`$ 次决策的部署，一个反馈来源必须携带的精确信息。

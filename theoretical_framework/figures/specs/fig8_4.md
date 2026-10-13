@@ -1,6 +1,6 @@
 # Figure spec — fig8_4 · Measuring the first-order statistic at the actual states
 
-**Output:** `theoretical_framework/figures/fig8_4_first_order_audit.pdf` (vector) and `fig8_4_first_order_audit.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig8_4_first_order_audit.pdf` (vector) and `fig8_4_first_order_audit.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
 **Message:** E12 uses the oracle continuation gradient. The mean increment can be estimated cheaply and at fixed norm bound b (which can grow with dimension). Where the first-order margin exceeds the remainder, the oracle first-order score never ranks wrongly, while static proxies, which lack $`\nabla V`$, are still wrong. Outside the margin, measured tails are more reliable here but retain nonzero error.
 
@@ -9,7 +9,7 @@ All data come from `theory/v015_checks/results_v015_independent.json`.
 ## Panel A — "Concentration at fixed b; b can grow with dimension"
 
 - **Data:** `groups[id=V9].data.rows[*]`, fields `p`, `law`, `n`, `delta`, `sample`, `quantile_over_bound`.
-- **Plot:** for each law (`sign`, `clipped_Gaussian`, `sparse_spikes`; fixed colors), plot the maximum of `quantile_over_bound` over `n`, `delta` and `sample` against `p` on a log x-axis (1 to 1e5). Draw a horizontal line at 1 labelled "concentration bound".
+- **Plot:** for each law (`sign`, `clipped_Gaussian`, `sparse_spikes`; fixed colors), plot the maximum of `quantile_over_bound` over `n`, `delta` and `sample` against `p` on a log x-axis (1 to 1e5). Draw a horizontal line at 1 labelled "concentration bound" (the bound of Proposition 8.4(a), whose deviation part is McDiarmid's inequality: [McDiarmid, 1989](#ref-mcdiarmid1989method)).
 - **Annotation:** "worst failure rate: " + max `failure_rate` at δ=0.05 and at δ=0.2. Report `max_quantile_over_bound` (0.615).
 - **Title:** "Concentration at fixed b; b can grow with dimension".
 

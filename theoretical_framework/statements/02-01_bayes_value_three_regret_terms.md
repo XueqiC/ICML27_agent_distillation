@@ -58,3 +58,8 @@ All maxima are attained because the classes are finite. $`B(D)`$ is the Bayes va
 - [Theorem 2.2](../statements/02-02_regret_decomposition_decision_ambiguity.md#s2-2): exact three-term decomposition.
 - [Proposition 2.3](../statements/02-03_robust_ambiguity_duality.md#s2-3): robust version of the information term.
 - [Proposition 2.4](../statements/02-04_post_processing_cannot_reduce_information.md#s2-4): data processing of the information term.
+
+## Related work
+
+- $`B(D)`$ is the Bayes value of the experiment that produces $`D`$ in the decision problem $`(\mathcal E,\mu,\Pi,J)`$. Ordering experiments by such values over all decision problems is Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)).
+- The information regret is the expected value of perfect information about $`E`$ once $`D`$ is known, the central quantity of information value theory ([Howard, 1966](#ref-howard1966information)).

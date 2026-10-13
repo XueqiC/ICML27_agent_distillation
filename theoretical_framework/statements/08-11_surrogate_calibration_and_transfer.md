@@ -98,3 +98,8 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 - [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — calibration transfer as an open problem
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2) — calibration step of the method
+
+## Related work
+
+- Accepting a candidate only through a high-confidence lower bound on its improvement, so that the guarantee survives, is the safety test of high-confidence policy improvement ([Thomas et al., 2015](#ref-thomas2015high)).
+- Fitting a cheap predictor of what training would produce on retrained runs, and judging it on held-out runs, is also how datamodels are fitted and validated ([Ilyas et al., 2022](#ref-ilyas2022datamodels)). The calibration here regresses task contrasts on surrogate scores at actual learner states.

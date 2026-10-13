@@ -90,3 +90,8 @@ p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2 
 - [Theorem 3.2](../statements/03-02_continuation_response_characterization_ZH.md#s3-2): 正确的不变量：continuation response.
 - [Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3): 与任务无关的统计量排不了序.
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3): 按实测后果选择.
+
+## 相关工作
+
+- 一阶 influence 估计用训练样本梯度的内积给样本打分：influence function 用逆 Hessian 加权的内积 ([Koh & Liang, 2017](#ref-koh2017understanding))，TracIn 用沿训练过程的内积之和 ([Pruthi et al., 2020](#ref-pruthi2020estimating))。对一个来源取平均后，这类分数只通过平均梯度依赖于来源，因此分不开构造 (b) 中的两种 packet：它们在 $`p_0`$ 处的平均梯度相同。
+- (a) 中的比较是限制在 aliased class 上的 value equivalence。只有当被检验的策略集与函数集足够大时，value equivalence 才能确定真实模型 ([Grimm et al., 2020](#ref-grimm2020value))，所以 (a) 与完整的 Bellman value equivalence 并不矛盾。

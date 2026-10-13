@@ -1,6 +1,6 @@
 # Figure spec — fig9_2 · Which measurements select feedback correctly
 
-**Output:** `theoretical_framework/figures/fig9_2_selection.pdf` (vector) and `fig9_2_selection.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig9_2_selection.pdf` (vector) and `fig9_2_selection.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
 **Message:** the tested static proxies did not reliably select; measured responses are more reliable on the tested held-out states. The threshold task needs the full tail. Warm-up shrinks the spread between providers but does not rescue static statistics.
 
@@ -32,6 +32,8 @@ Display names: "input moment", "mean grad", "sign", "Δθ", "Δθ+m,v", "short t
 - **Title:** "Short tails fail on the tested threshold task".
 
 ## Panel C — E9: warm-up minus cold (mean over 5 splits)
+
+The warm-up advances only the Adam moments ([Kingma & Ba, 2015](#ref-kingma2015adam)), at learning rate 0.
 
 - **Data:** `groups[id=E9].data.summary`. For each entry, read `proxy`, `W` and `metrics.selection_regret.mean_warm_minus_cold`, plus `metrics.wrong_sign_rate.mean_warm_minus_cold`.
 - **Plot:** two side-by-side dot plots sharing the y-axis.

@@ -57,7 +57,7 @@ In particular $`W_{\mathbf{\epsilon}}(g)\le\mathrm{osc}(g)`$, which is at most $
 W_{\mathbf{\epsilon}}(g)=\sup\big\lbrace\lvert g^\top v\rvert:\ v\in\mathcal D,\ -\mathbf{\epsilon}\le\Phi^\top v\le\mathbf{\epsilon}\big\rbrace .
 ```
 
-The feasible set $`\mathcal F`$ is invariant under $`v\mapsto-v`$, so the absolute value can be dropped. $`\mathcal F`$ is a nonempty polytope (it contains $`0`$ and is bounded), so the supremum is a maximum.
+The feasible set $`\mathcal F`$ is invariant under $`v\mapsto-v`$, so the absolute value can be dropped. $`\mathcal F`$ is a nonempty polytope (it contains $`0`$ and is bounded), so the supremum is a maximum. Steps 2–3 establish weak and strong duality for this program; for linear programs these are the classical duality theorems ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)).
 
 *Step 2 (weak duality).* Fix $`b\in\mathbb R^d`$. For every $`v\in\mathcal F`$, by Claim 2 and the feature constraints,
 

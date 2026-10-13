@@ -85,3 +85,8 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2)：CED 中的学习器相对分配。
 
 **状态.** 在所述各区间内首项意义下已证明。
+
+## 相关工作
+
+- 带动量、二阶矩衰减与 bias correction 的 Adam 按 [Kingma & Ba, 2015](#ref-kingma2015adam) 的定义。
+- 在孤立区间里，每次访问把坐标移动梯度符号的一个固定倍数：这是 [Balles & Hennig, 2018](#ref-balles2018dissecting) 分析的 Adam 的 sign descent 一面，与 signSGD 相关（[Bernstein et al., 2018](#ref-bernstein2018signsgd)）。

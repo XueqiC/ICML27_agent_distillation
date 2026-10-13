@@ -25,3 +25,7 @@
 ```
 
 其中 $`X`$ 是 transcript 的其余内容。固定观察到的 $`(S_{1:K},\Theta_{\cup S_k},X)`$，唯一依赖于 $`\Theta_{U_K}`$ 的因子是常数 $`2^{-d}`$。所以给定 $`T`$ 时 $`\Theta_{U_K}`$ 在 $`\lbrace 0,1\rbrace ^{\lvert U_K\rvert}`$ 上均匀。学习器的随机性与其余一切独立。$`\square`$
+
+## 相关工作
+
+- 这个分解就是 missing completely at random 数据的 ignorability 论证 ([Rubin, 1976](#ref-rubin1976inference))：揭示机制 $`\prod_kL(S_k)`$ 不含 $`\Theta`$，所以在后验中消掉。

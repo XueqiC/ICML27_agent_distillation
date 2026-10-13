@@ -9,7 +9,7 @@
 **Setting used on this page.**
 
 - *Complete learner state.* $`z=(\theta,o)`$ with parameters $`\theta`$ and optimizer state $`o=(m,v,s)`$: Adam's first moment $`m`$, second moment $`v`$ (both coordinatewise) and the absolute step counter $`s`$ ([Definition 1.3](../README.md#s1-3)).
-- *AdamW update.* Hyperparameters $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, learning rate $`\eta>0`$, $`\epsilon\ge0`$ and decoupled weight decay $`\lambda_{\rm wd}\ge0`$. A consumed gradient $`g`$ at step $`s`$ produces
+- *AdamW update* (Adam of [Kingma & Ba, 2015](#ref-kingma2015adam) with the decoupled weight decay of [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)). Hyperparameters $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, learning rate $`\eta>0`$, $`\epsilon\ge0`$ and decoupled weight decay $`\lambda_{\rm wd}\ge0`$. A consumed gradient $`g`$ at step $`s`$ produces
 
 ```math
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
@@ -17,7 +17,7 @@ m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'
 
 - $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$ and $`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$ are the bias-correction factors ($`q_{1,s}=q_{2,s}=1`$ without bias correction). Vector operations are coordinatewise.
 - *Increment.* $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$, the Adam increment map of [Proposition 5.5](05-05_exact_first_order_statistic_adam.md#s5-5). The step counter advances by one and is never differentiated.
-- *Message and reference tail.* At round $`t`$ the learner is at $`z_t=(\theta_t,m_t,v_t,s_t)`$. A message with consumed gradient $`g`$ moves it to $`z_t+\Delta_t(z_t,g)`$. The reference tail then runs updates $`k=t+1,\dots,R-1`$; update $`k`$ uses the consumed gradient $`g_k(\theta)`$ of its own data, which is the loss gradient $`\nabla\ell_k(\theta)`$ or its global-norm clipped version $`\mathrm{clip}_c(\nabla\ell_k(\theta))`$. The final score is $`F(\theta_R)`$.
+- *Message and reference tail.* At round $`t`$ the learner is at $`z_t=(\theta_t,m_t,v_t,s_t)`$. A message with consumed gradient $`g`$ moves it to $`z_t+\Delta_t(z_t,g)`$. The reference tail then runs updates $`k=t+1,\dots,R-1`$; update $`k`$ uses the consumed gradient $`g_k(\theta)`$ of its own data, which is the loss gradient $`\nabla\ell_k(\theta)`$ or its global-norm clipped version $`\mathrm{clip}_c(\nabla\ell_k(\theta))`$ ([Pascanu et al., 2013](#ref-pascanu2013difficulty)). The final score is $`F(\theta_R)`$.
 - *Continuation value.* $`V_{t+1}(z)`$ is the final score reached when the tail starts from $`z`$ ([Definition 1.4](../README.md#s1-4)). With tail randomness $`\omega`$ (data order, sampling), $`V_{t+1}=\mathbb E_\omega V_{t+1,\omega}`$.
 - *First-order value of a message.* $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$, the first-order term of $`V_{t+1}(z_t+\Delta_t(z_t,g))-V_{t+1}(z_t)`$ in the expansion of [Proposition 5.1](05-01_optimizer_transformed_expansion.md#s5-1). For a message law $`P`$, $`\mathrm{Val}(P)=\mathbb E_P\mathrm{Val}(G)=\langle\nabla V_{t+1}(z_t),\mu^P_t(z_t)\rangle`$, with $`\mu^P_t`$ the mean increment.
 
@@ -106,6 +106,10 @@ Then:
 - [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3): inconsistency of two proxy classes.
 - [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5): where first-order rankers fail.
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) and [Remark 9.3](09-03_derivation_design_rules.md#s9-3): magnitude control in the method.
+
+## Related work
+
+- The costate recursion is reverse-mode differentiation through training, written out in closed form for the Adam state. The same principle computes exact gradients through SGD with momentum ([Maclaurin et al., 2015](#ref-maclaurin2015gradient)) and metagradients through large-scale training ([Engstrom et al., 2025](#ref-engstrom2025optimizing)), with respect to hyperparameters or data weights.
 
 ## References
 

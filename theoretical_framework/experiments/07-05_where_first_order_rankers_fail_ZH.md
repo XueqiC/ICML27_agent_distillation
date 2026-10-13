@@ -15,7 +15,7 @@
 - *候选与 gold.* 在一个由 Adam 或 SGD 训练的小网络的同一 complete state 上作用的 provider（反馈）律对；一对的 *gold* 差是八次更新后结果的精确差（一轮候选，之后走参考尾段）。
 - *判错.* （分数差）×（gold 差）< 0 时，排序器在这一对上判错；完全打平单独计数，不算错。
 - *通道缩并与二阶矩占比.* 用 [Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的精确 continuation 梯度 $`(\chi^\theta,\chi^m,\chi^v)`$，一对候选增量对比的 $`\theta`$、$`m`$、$`v`$ 通道缩并之和就是它的一阶差；二阶矩占比为 $`\lvert v\text{ 缩并}\rvert/(\lvert\theta\rvert+\lvert m\rvert+\lvert v\rvert\text{ 缩并})`$。
-- *排序器.* 一阶分数（只看参数、用精确梯度的完整状态分数、CRN 测得的方向差）、LESS 式余弦分数，以及有限配对替换分数 $`\hat S`$（把一轮分别替换成各候选，走共同的参考尾段，$`r`$ 个 CRN 副本）。
+- *排序器.* 一阶分数（只看参数、用精确梯度的完整状态分数、CRN 测得的方向差）、LESS 式余弦分数（[Xia et al., 2024](#ref-xia2024less)），以及有限配对替换分数 $`\hat S`$（把一轮分别替换成各候选，走共同的参考尾段，$`r`$ 个 CRN 副本；common random numbers 见 [Glasserman, 2004](#ref-glasserman2004monte)）。
 
 **被检验的陈述（[Remark 7.5](../statements/07-05_where_first_order_rankers_fail_ZH.md#s7-5)）.** 二阶矩占比高意味着增量相对于 $`v`$ 很大，即 [Corollary 7.2](../statements/07-02_stationary_amplitude_law_ZH.md#s7-2)(a)、(c) 的饱和区域，线性化在那里高估了 $`v`$ 通道的伤害。所以任何一阶分数，包括用精确 continuation 梯度的完整状态分数，在那里都不可靠；那里的排序应当用 Theorem 8.8 的有限替换测量或非线性公式。
 
@@ -127,6 +127,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - 这两组在 rai 上分别约 22 秒（`v016:C5`）和 3 秒（`v016:C5b`）。
 - `v016:C5` 与 `v016:C5b` 以只读方式导入冻结的受控网络面板，运行前后都对 pin 住的文件做哈希核对。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
+
+本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）。
 
 ## 产物
 

@@ -84,6 +84,11 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{with }\lambda>0\text{ 
 
 **Status.** proved.
 
+## Related work
+
+- Without teacher coverage ($`k_s=0`$) the optimum $`n_s\propto\sqrt{W_s}`$ is Neyman's allocation for stratified sampling ([Neyman, 1934](#ref-neyman1934two)). With coverage it becomes water-filling, the solution shape of power allocation over parallel Gaussian channels ([Cover & Thomas, 2006](#ref-cover2006elements)).
+- DAgger queries the teacher at the states the student visits, in proportion to student visitation ([Ross et al., 2011](#ref-ross2011reduction)); the information-optimal allocation follows the learner-relative weights and the existing coverage instead.
+
 ## References
 
 - [Ross, Gordon & Bagnell, 2011](../references.md#ross2011reduction)

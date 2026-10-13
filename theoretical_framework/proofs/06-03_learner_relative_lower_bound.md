@@ -48,7 +48,7 @@
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2): the distiller's term $`\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$ does not depend on $`\theta`$; definition of $`\mathbb I_{K,n}`$, of $`\mathfrak n_{K,n}`$ and of (G).
 
-**Classical tools.** Le Cam's two-point method, Pinsker's inequality and the chain rule for KL divergence ([Le Cam, 1973](../references.md#lecam1973convergence); [van der Vaart, 1998](../references.md#vandervaart1998asymptotic)).
+**Classical tools.** Le Cam's two-point method ([Le Cam, 1973](../references.md#lecam1973convergence)); Pinsker's inequality and the chain rule for KL divergence ([Cover & Thomas, 2006](#ref-cover2006elements)); local asymptotics under differentiability in quadratic mean ([van der Vaart, 1998](../references.md#vandervaart1998asymptotic)).
 
 **Proof.** (a) Write $`s=\lvert\Psi(\theta_1)-\Psi(\theta_0)\rvert`$ and $`a(Q)=\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$, which does not depend on $`\theta`$ ([Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2)). By the triangle inequality,
 

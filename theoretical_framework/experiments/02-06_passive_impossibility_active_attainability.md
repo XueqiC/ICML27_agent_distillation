@@ -45,8 +45,8 @@
 **Setup.**
 
 - Exact rational binomial tails by integer-numerator summation, not a normal approximation.
-- The SPRT expected sample size and error are computed by exact tridiagonal elimination of the absorbing random walk with boundaries $`\pm h`$, $`h=\lceil\log\frac{1-\delta}{\delta}/\log\frac{1/2+2\Delta}{1/2-2\Delta}\rceil`$.
-- The payoff $`J_v(p)`$ and the passive minimax are computed in SymPy.
+- The expected sample size and error of the SPRT ([Wald, 1945](#ref-wald1945sequential)) are computed by exact tridiagonal elimination of the absorbing random walk with boundaries $`\pm h`$, $`h=\lceil\log\frac{1-\delta}{\delta}/\log\frac{1/2+2\Delta}{1/2-2\Delta}\rceil`$.
+- The payoff $`J_v(p)`$ and the passive minimax are computed in SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)).
 - The KL inequality is checked on a dense grid of 20,001 points on $`(0,\tfrac14]`$ and by a bounded scalar optimizer that maximizes the ratio adversarially.
 - Seed `SeedSequence([20261010, 2])`; the check is deterministic.
 
@@ -89,11 +89,13 @@
 
 - *Passive impossibility (Theorem 2.6(a)).* The symbolic payoff is exactly $`\tfrac34+v\Delta(2p-1)`$, and the two passive regrets intersect at value exactly $`\Delta`$.
 - *Lower bound (Theorem 2.6(b)).* No exactly computed strategy beats the bound. The SPRT, which is near-optimal for this problem, sits on it at two configurations; at $`\Delta=\tfrac1{64}`$ and $`\delta\le0.25`$ it is within 5% of it (ratios 1.009–1.047). The bound therefore has the right constant, not only the right order. For $`\delta\le0.25`$, fixed-sample tests need 1.6–2.4 times the bound apart from the trivial case $`n=1`$, as expected for non-sequential designs.
-- *Upper bound (Theorem 2.6(c)).* At $`n_{\rm query}`$ the exact error is far below $`\delta`$ in every configuration: Hoeffding is conservative.
+- *Upper bound (Theorem 2.6(c)).* At $`n_{\rm query}`$ the exact error is far below $`\delta`$ in every configuration: Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)) is conservative.
 - *Compilation ([Proposition 2.7](../statements/02-07_compilation_cost.md#s2-7)).* The number of compiled labels is $`O(\log(1/\delta_L))`$, independent of $`\Delta`$, and the exact tail is two to four orders of magnitude below $`\delta_L`$.
 - The two costs, $`\Theta(\Delta^{-2}\log(1/\delta))`$ authentic queries and $`O(\log(1/\delta_L))`$ compiled labels, are thus confirmed separately.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)), SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) and SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C2 --output theory/independent_checks/subset.json

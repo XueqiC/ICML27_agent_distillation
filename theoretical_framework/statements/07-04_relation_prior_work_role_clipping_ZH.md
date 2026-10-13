@@ -11,7 +11,7 @@
 - *幅度.* 对 warm Adam 的单个坐标，消息的幅度 $`\lambda`$ 是它沿平均梯度方向、以 running RMS $`\sqrt{v}`$ 为单位的梯度（[Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2)）。
 - *二阶矩通道.* 消息一阶价值中经由二阶矩 $`v`$、即经由此后所有步长起作用的那一部分（[Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1)）。
 - *只看参数的分数与余弦分数.* [Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)(b) 中被证明为不一致排序器的两类影响分数：把 continuation 梯度与消息自己的参数步配对的分数，以及只依赖于消息梯度方向的分数。
-- *全局范数裁剪*以阈值 $`c`$ 在 $`\lVert g\rVert>c`$ 时把梯度 $`g`$ 缩放为 $`c\,g/\lVert g\rVert`$。
+- *全局范数裁剪*（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）以阈值 $`c`$ 在 $`\lVert g\rVert>c`$ 时把梯度 $`g`$ 缩放为 $`c\,g/\lVert g\rVert`$。
 
 <a id="s7-4"></a>
 

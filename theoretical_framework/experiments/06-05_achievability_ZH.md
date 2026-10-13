@@ -52,7 +52,7 @@
 **设置.**
 
 - [Check 6.1](../experiments/06-04_design_minimax_equality_ZH.md#c6-1) 的 216 个实例去掉 24 个不可辨识的：192 个实例、960 条断言。
-- 把 approximate c-optimal design 按最大余数法舍入成整数次数，不改变 $`n`$；rounding loss 定义为方差 $`c^\top A^{-1}c`$ 的相对增量。
+- 把 approximate c-optimal design（[Elfving, 1952](#ref-elfving1952optimum)）按最大余数法舍入成整数次数，不改变 $`n`$；rounding loss 定义为方差 $`c^\top A^{-1}c`$ 的相对增量。
 - 为示范与查询的充分统计量独立生成高斯噪声，计算 $`c^\top\theta`$ 的有效线性估计量：每个实例 30,000 次重复。这是在模拟观测，而不是从预测的方差里直接抽误差。
 - 同时记录：精确的高斯平均绝对误差 $`\sqrt{2/\pi}\sqrt{c^\top A_{\rm int}^{-1}c}`$；[Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(a) 在最不利位移 $`\tau=\mathbb I^{-1/2}`$ 处的 Pinsker 两点界；同一位移处精确的高斯总变差两点界。
 
@@ -88,7 +88,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

@@ -62,3 +62,8 @@
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3)：设计规则：匹配学习器。
 
 **状态.** 已证明；(b) 在所述区间内首项意义下成立。
+
+## 相关工作
+
+- 范数裁剪就是 [Pascanu et al., 2013](#ref-pascanu2013difficulty) 的梯度裁剪规则，normalized SGD 是 [Hazan et al., 2015](#ref-hazan2015beyond) 研究的方法。两者都让步长与梯度的尺度无关，这正是 (a) 中裁剪学习器的泛函里没有 $`b`$ 的原因。
+- (b) 中的 warm Adam 是矩估计已经热身之后的 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）。

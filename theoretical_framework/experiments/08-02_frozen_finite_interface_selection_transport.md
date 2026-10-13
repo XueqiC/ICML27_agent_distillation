@@ -149,7 +149,7 @@ Witnesses: each shows that one term of the bound cannot be removed.
 
 **Why.** Two things are tested:
 
-- the simultaneous Hoeffding event and the selection inequality of [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)(a), by Monte Carlo;
+- the simultaneous Hoeffding event ([Hoeffding, 1963](#ref-hoeffding1963probability)) and the selection inequality of [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)(a), by Monte Carlo;
 - an exact state-dependent provider that matches the reference at the audited cell but not at a visited state. This is the minimal instance behind the necessity statement (f).
 
 **Setup.**
@@ -211,7 +211,7 @@ Coverage probe (`details.coverage_probe`): audited empirical discrepancy $`0`$, 
 
 **Setup.**
 
-- Network: one-hot context, 4 tanh units, sigmoid output, mean cross-entropy, float64, trained with Adam (the controlled network used throughout these pages).
+- Network: one-hot context, 4 tanh units, sigmoid output, mean cross-entropy, float64, trained with Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) (the controlled network used throughout these pages).
 - Anchors: three actual reference states, after 0, 2 and 5 updates, with audited discrepancies $`D_x=0.200, 0.169, 0.188`$.
 - Reached states: 40 fresh states between 1 and 13 updates. Messages: the same four scalar labels at every state.
 - Provider rule $`Q_z=(1-\lambda)Q_3+\lambda\delta_1`$ with $`\lambda=0.1+0.6\,p(\theta_z)`$, so the candidate law depends on the state.
@@ -267,6 +267,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only V1,E4 --output theory/v015_checks/quick/s8.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # T01, T02
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

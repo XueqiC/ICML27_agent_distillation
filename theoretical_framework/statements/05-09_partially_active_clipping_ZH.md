@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/05-09_partially_active_clipping_ZH.md) · [证明](../proofs/05-09_partially_active_clipping_ZH.md) · [实验](../experiments/05-09_partially_active_clipping_ZH.md) · [English](05-09_partially_active_clipping.md)
 
-**一段话.** 全局范数裁剪把范数超过 $`c`$ 的 consumed gradient 缩放到范数 $`c`$。这个命题给出任意激活率下裁剪后梯度的精确均值，并把"只有平均梯度方向起作用"这一常见简化的误差界定为 $`c(1-p_{\rm act})`$，其中 $`p_{\rm act}`$ 是裁剪生效的概率。
+**一段话.** 全局范数裁剪（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）把范数超过 $`c`$ 的 consumed gradient 缩放到范数 $`c`$。这个命题给出任意激活率下裁剪后梯度的精确均值，并把"只有平均梯度方向起作用"这一常见简化的误差界定为 $`c(1-p_{\rm act})`$，其中 $`p_{\rm act}`$ 是裁剪生效的概率。
 
 **本页用到的设定.**
 

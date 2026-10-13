@@ -51,13 +51,13 @@
 - 500 个随机实例：3–6 个环境，随机有理先验；$`\Pi`$ 中 2–5 个策略，$`\Pi_{\rm ref}`$ 再多两个策略。
 - 值 $`J_E(\pi)\in[0,1]`$ 是分母为 12 的随机有理数。transcript 字母表大小 $`\lvert\mathcal D\rvert=4`$，信道 $`P(D\mid E)`$ 与学习器 kernel $`\lambda(\cdot\mid D)`$ 随机。
 - 四分之一的实例强制带平局的共同最优（对所有 $`E`$ 有 $`J_E(\pi_1)=J_E(\pi_2)=1`$）；四分之一强制各环境最优策略不同。
-- 精确运算（`fractions.Fraction`）。LP 用 HiGHS 求解，容差 $`10^{-8}`$。种子 `SeedSequence([20261010, 1])`。
+- 精确运算（`fractions.Fraction`）。LP 用 HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)) 求解，容差 $`10^{-8}`$。种子 `SeedSequence([20261010, 1])`。
 
 **做法.** 对每个实例：
 
 1. 计算 $`\mathcal R_{\rm rep},\mathcal R_{\rm info},\mathcal R_{\rm alg}`$；断言三者之和恰为总 regret，且各自 $`\ge0`$。
 2. 判断是否对每个 $`D`$ 都存在共同的后验最优策略；断言这恰好在 $`\mathcal R_{\rm info}=0`$ 时成立。
-3. 让 $`D`$ 经过 3 符号信道 garbling：一个随机的随机化信道；在前 30 个实例上还用全部 $`3^4=81`$ 个确定性信道（凸目标的极点）。断言 $`B(D')\le B(D)`$。
+3. 让 $`D`$ 经过 3 符号信道 garbling（即 Blackwell 实验比较中的后处理，[Blackwell, 1953](#ref-blackwell1953equivalent)）：一个随机的随机化信道；在前 30 个实例上还用全部 $`3^4=81`$ 个确定性信道（凸目标的极点）。断言 $`B(D')\le B(D)`$。
 4. 用独立的 $`Z`$ 扩充 $`D`$，断言 $`B(D,Z)=B(D)`$ 精确成立。
 5. 在 220 个实例上分别求解原始的"对混合策略取最小" LP (2.3) 与对偶的"对先验取最大" LP (2.4)；断言两者相等，且值为 $`0`$ 恰好在存在共同最优时成立。
 
@@ -86,11 +86,13 @@
 ### [Check 2.6](../experiments/02-10_few_shot_information_floor_ZH.md#c2-6) · 示范数曲线、replay 与实际学习器
 
 - *对本定理检验什么.* (2.1) 中的算法项 $`\mathcal R_{\rm alg}`$：信息项精确已知时，实际学习器多出的风险就是算法误差。
-- *设置.* 隐藏比特模型，$`m\in\lbrace4,8,16\rbrace`$ 个上下文；表格学习器（每个上下文一个 logit）在已揭示的比特上用 Adam 或 SGD 训练 12 次更新；共 5,664 行学习器结果。
+- *设置.* 隐藏比特模型，$`m\in\lbrace4,8,16\rbrace`$ 个上下文；表格学习器（每个上下文一个 logit）在已揭示的比特上用 Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) 或 SGD 训练 12 次更新；共 5,664 行学习器结果。
 - *结果.* 学习器风险减去精确信息下限从不为负（最小值 0.0）。12 次更新后在已揭示比特上的平均错误率为 0.239（Adam）与 0.372（SGD）：这部分超出就是 $`\mathcal R_{\rm alg}`$，与 $`\mathcal R_{\rm info}`$ 分开可见。
 - *结论.* 通过。
 
 ## 复现
+
+脚本用到 NumPy ([Harris et al., 2020](#ref-harris2020array)) 与 SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy))。
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C1 --output theory/independent_checks/subset.json

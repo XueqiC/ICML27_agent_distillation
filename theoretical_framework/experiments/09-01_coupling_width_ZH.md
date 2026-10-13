@@ -44,7 +44,7 @@
 
 **步骤.**
 
-1. 用两个线性规划计算宽度：$`\langle\Gamma,H\rangle`$ 在耦合多面体上的最大值与最小值。
+1. 用两个线性规划计算宽度：$`\langle\Gamma,H\rangle`$ 在耦合多面体上的最大值与最小值；耦合多面体就是运输问题的可行集（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）。
 2. 用第三个线性规划计算 $`\inf_{a,b}\lVert H-a-b\rVert_\infty`$，核对界 (b)。
 3. 构造 (c) 部分的禁止配对例子。
 4. 在有理数算术中精确核对零假设：线性模型在同一参数处走一步，同样的样本换一种分组；再做两步连续更新并重组。
@@ -104,7 +104,7 @@
 
 - 网络：one-hot 上下文，4 个 tanh 单元，sigmoid 输出，float64。这是受控小网络，不是 Gemma，也不是外部 benchmark。
 - 数据源 A 的 packet 为 $`\lbrace (0,0),(1,1)\rbrace`$，数据源 B 为 $`\lbrace (0,1),(0,1)\rbrace`$。两者含同样四个标签，边缘分布相同。
-- optimizer：SGD，$`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$；Adam，$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，$`\eta\in\lbrace 0.01,0.1\rbrace`$。
+- optimizer：SGD，$`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$；Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)），$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，$`\eta\in\lbrace 0.01,0.1\rbrace`$。
 - 1、4 或 40 个循环，即 2、8 或 80 次更新。
 - 精确枚举全部确定性历史。
 
@@ -139,6 +139,8 @@
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C17,C23 --output theory/independent_checks/subset.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # package check
 ```
+
+这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）；线性规划通过 SciPy 调用 HiGHS 求解（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）。
 
 ## 产物
 

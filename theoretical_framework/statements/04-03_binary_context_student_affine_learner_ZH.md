@@ -54,3 +54,7 @@ p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1 .
 - [Theorem 4.5](04-05_round_independent_bound_averaging_rates_ZH.md#s4-5) — 与轮数无关的界与速率。
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity_ZH.md#s4-6) — $`p^N`$ 与 parity 的近似阶。
 - [Theorem 4.7](04-07_update_composition_amplifies_information_requirement_ZH.md#s4-7) — 非线性与复合的更新。
+
+## Related work
+
+- 部署是一个带机会节点的单人 extensive-form 博弈（[Kuhn, 1953](#ref-kuhn1953extensive)），context 扮演 information set 的角色，$`p`$ 是 behaviour strategy：每个 context 一个动作概率，凡在该 context 下作决策都用它。由于同一个 context 可以在一条路径上重复出现，$`J_E`$ 在单个坐标 $`p_j`$ 上的次数可以大于 1。

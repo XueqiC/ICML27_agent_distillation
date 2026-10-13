@@ -4,7 +4,7 @@
 
 [← Framework](../README.md) · [Statement](../statements/05-09_partially_active_clipping.md) · [Proof](../proofs/05-09_partially_active_clipping.md) · [Experiments](../experiments/05-09_partially_active_clipping.md) · [中文](05-09_partially_active_clipping_ZH.md)
 
-**What is proved here.** The split identity on the event that clipping is inactive, the norm bound, and the two-law version by the triangle inequality.
+**What is proved here.** The split identity on the event that clipping is inactive, the norm bound, and the two-law version by the triangle inequality. The clipping map is global-norm clipping as introduced by [Pascanu et al., 2013](#ref-pascanu2013difficulty).
 
 **Setting used on this page.**
 

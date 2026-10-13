@@ -83,9 +83,9 @@ r\ \ge\ 1+\frac{7\log(4M^2/\delta)}{3\zeta}.
 
 - **它对 Proposition 8.10 检验什么.** 在负担得起的副本数下半径中范围项的大小、common random numbers 带来的方差缩减，以及相对完整尾段配对 audit 的代价。
 - **设置.** 冻结的受控面板，1,728 个候选对（每个状态 $`M=8`$ 个候选，$`\delta=0.05`$，$`\log(4M^2/\delta)=8.54`$）；副本数 $`r\in\lbrace64,256\rbrace`$；一个与任务一致的 surrogate 与一个需校准的短尾段 surrogate；另外单独运行独立尾段作为方差对照。
-- **关键数字.** 用先验区间 $`B=2`$ 时，范围项在 $`r=64`$ 时为 0.633，在 $`r=256`$ 时为 0.156，而真实差距的中位数是 0.0037。common random numbers 把配对差的方差之和降到独立尾段的 0.12–0.15 倍（与任务一致的 surrogate 的配对比值中位数为 0.0035）。测量所用轨迹数为完整尾段配对 audit 的 7.0%（$`r=64`$，与任务一致）到 36.4%（$`r=256`$，需校准，含校准）。
+- **关键数字.** 用先验区间 $`B=2`$ 时，empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）的范围项在 $`r=64`$ 时为 0.633，在 $`r=256`$ 时为 0.156，而真实差距的中位数是 0.0037。common random numbers（[Glasserman, 2004](#ref-glasserman2004monte)）把配对差的方差之和降到独立尾段的 0.12–0.15 倍（与任务一致的 surrogate 的配对比值中位数为 0.0035）。测量所用轨迹数为完整尾段配对 audit 的 7.0%（$`r=64`$，与任务一致）到 36.4%（$`r=256`$，需校准，含校准）。
 - **结论.** 计数与方差陈述都得到确认；让严格证书为空的是范围项，不是方差。
 
 ## 复现
 
-复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md)。
+复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md)。这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。

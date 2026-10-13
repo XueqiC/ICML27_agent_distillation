@@ -83,9 +83,9 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 - **它对 Remark 8.11 检验什么.** 在校准状态上拟合的 surrogate 对齐常数，能否迁移到留出状态。
 - **设置.** 短尾段 surrogate（一次参照更新）在任何留出测量之前，在 8 个单独的校准 cell 上校准（288 个候选对），这些 cell 与留出 cell 不共享任何 complete learner state：用过原点、系数为正的最小二乘拟合得到 $`\alpha`$，$`\varepsilon_{\rm sur}`$ 取最大校准残差除以 $`\alpha`$。然后把这些常数用到 1,728 个留出候选对上。
-- **关键数字.** $`r=64`$ 时 $`\alpha=0.881`$、$`\varepsilon_{\rm sur}=0.0083`$（$`r=256`$ 时为 $`0.886`$、$`0.0083`$）。用观测区间代替先验区间（只是诊断）时，需校准的 surrogate 认证了 23%–28% 的留出候选对，其中有 22–28 个认证错误，一半落在留出学习率那一组。
+- **关键数字.** $`r=64`$ 时 $`\alpha=0.881`$、$`\varepsilon_{\rm sur}=0.0083`$（$`r=256`$ 时为 $`0.886`$、$`0.0083`$）。用观测区间代替 empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）中的先验区间（只是诊断）时，需校准的 surrogate 认证了 23%–28% 的留出候选对，其中有 22–28 个认证错误，一半落在留出学习率那一组。
 - **结论.** 校准迁移可能失效，所以必须把它当作需要检验的假设，与该 Remark 一致。
 
 ## 复现
 
-复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md)。
+复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md)。这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。

@@ -4,19 +4,19 @@
 
 [← Framework](../README.md) · [Statement](../statements/07-01_state_channel_decomposition.md) · [Proof](07-01_state_channel_decomposition.md) · [Experiments](../experiments/07-01_state_channel_decomposition.md) · [中文](07-01_state_channel_decomposition_ZH.md)
 
-**What is proved here.** The gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$ equals a costate computed by a backward recursion along the reference tail. Pairing it with the Adam increment of a message splits the message's first-order value exactly into a parameter channel, a momentum channel and a second-moment channel. The proof is the chain rule applied to the composition of tail updates, with every Jacobian block written out.
+**What is proved here.** The gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$ equals a costate computed by a backward recursion along the reference tail. Pairing it with the Adam increment of a message splits the message's first-order value exactly into a parameter channel, a momentum channel and a second-moment channel. The proof is the chain rule applied to the composition of tail updates, with every Jacobian block written out: reverse-mode differentiation through training, as in exact backward passes through SGD with momentum ([Maclaurin et al., 2015](#ref-maclaurin2015gradient)).
 
 **Setting used on this page.**
 
 - *Complete learner state.* $`z=(\theta,o)`$ with optimizer state $`o=(m,v,s)`$: first moment $`m`$, second moment $`v`$, absolute step counter $`s`$ ([Definition 1.3](../README.md#s1-3)).
-- *AdamW update* with $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, $`\eta>0`$, $`\epsilon\ge0`$, decoupled weight decay $`\lambda_{\rm wd}\ge0`$, applied to a consumed gradient $`g`$ at step $`s`$:
+- *AdamW update* (Adam of [Kingma & Ba, 2015](#ref-kingma2015adam) with the decoupled weight decay of [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)) with $`\beta_1\in[0,1)`$, $`\beta_2\in(0,1)`$, $`\eta>0`$, $`\epsilon\ge0`$, decoupled weight decay $`\lambda_{\rm wd}\ge0`$, applied to a consumed gradient $`g`$ at step $`s`$:
 
 ```math
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
 ```
 
 - with bias-correction factors $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$, $`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$ (or both $`1`$), all operations coordinatewise. The increment is $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$ ([Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam.md#s5-5)); the counter advances and is not differentiated.
-- *Tail.* After a message at round $`t`$, updates $`k=t+1,\dots,R-1`$ use consumed gradients $`g_k(\theta)`$ (loss gradients $`\nabla\ell_k(\theta)`$, possibly global-norm clipped at threshold $`c`$). The score is $`F(\theta_R)`$, and $`V_{t+1}(z)`$ is the score reached when the tail starts from $`z`$ ([Definition 1.4](../README.md#s1-4)).
+- *Tail.* After a message at round $`t`$, updates $`k=t+1,\dots,R-1`$ use consumed gradients $`g_k(\theta)`$ (loss gradients $`\nabla\ell_k(\theta)`$, possibly global-norm clipped at threshold $`c`$, as in [Pascanu et al., 2013](#ref-pascanu2013difficulty)). The score is $`F(\theta_R)`$, and $`V_{t+1}(z)`$ is the score reached when the tail starts from $`z`$ ([Definition 1.4](../README.md#s1-4)).
 - *First-order value.* $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$ ([Proposition 5.1](../statements/05-01_optimizer_transformed_expansion.md#s5-1)).
 
 **Statement ([Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1)).** Fix a realization of the tail randomness and assume:

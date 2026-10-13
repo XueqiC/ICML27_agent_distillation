@@ -177,6 +177,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/veri
 
 `--only` 保留每个 claim 自己的随机流（`SeedSequence([20261010, claim number])`），所以只跑子集也能复现完整运行的数字。
 
+这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）、做精确有理数与符号计算的 SymPy（[Meurer et al., 2017](#ref-meurer2017sympy)），以及 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
+
 ## 产物
 
 - 结果：`theory/independent_checks/results_independent_v014.json`（条目 `v014:C10`、`v014:C11`、`v014:C18`）；`theory/v014_repro/results_v014_rerun.json`（`scalar_exact_decay`）。

@@ -27,10 +27,12 @@ If $`m\ge\lceil32\log(2/\delta_L)\rceil`$, then $`\lvert\widehat p-q\rvert\le1/8
 
 - *What it tests for this proposition.* That $`m=\lceil32\log(2/\delta_L)\rceil`$ compiled labels give $`\lvert\widehat p-q\rvert\le\tfrac18`$ with probability at least $`1-\delta_L`$ for both targets $`q\in\lbrace\tfrac18,\tfrac78\rbrace`$, and that every outcome within tolerance has regret at most $`\Delta/2`$.
 - *Setup.* Exact rational binomial tails (integer-numerator summation, no normal approximation) for $`\delta_L\in\lbrace0.01,0.05,0.1,0.25,0.4\rbrace`$.
-- *Result.* $`m=170,119,96,67,52`$ labels; exact failure probabilities $`4.2\times10^{-6}`$, $`1.2\times10^{-4}`$, $`2.4\times10^{-4}`$, $`3.0\times10^{-3}`$, $`3.9\times10^{-3}`$, all far below $`\delta_L`$. The label count does not involve $`\Delta`$, whereas the identification cost of the same check grows like $`\Delta^{-2}`$.
+- *Result.* $`m=170,119,96,67,52`$ labels; exact failure probabilities $`4.2\times10^{-6}`$, $`1.2\times10^{-4}`$, $`2.4\times10^{-4}`$, $`3.0\times10^{-3}`$, $`3.9\times10^{-3}`$, all far below $`\delta_L`$, the slack of the Hoeffding bound ([Hoeffding, 1963](#ref-hoeffding1963probability)) on which $`m=\lceil32\log(2/\delta_L)\rceil`$ rests. The label count does not involve $`\Delta`$, whereas the identification cost of the same check grows like $`\Delta^{-2}`$.
 - *Verdict.* PASS.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)), SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) and SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C2 --output theory/independent_checks/subset.json

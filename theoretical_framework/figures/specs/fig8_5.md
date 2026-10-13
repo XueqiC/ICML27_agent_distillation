@@ -2,7 +2,7 @@
 
 **Message.** The first-order certificate certifies no pairs. Finite replacement removes derivative/remainder costs, but strict range bounds remain conservative and surrogate transfer can fail.
 
-**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width).
+**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width).
 
 **Data.** Summary is Git HEAD `theory/v016_checks/results_v016.json`. Component and variance arrays require working-tree `theory/v016_checks/results_v016_raw.json.gz`. Verify its byte count, SHA-256 and schema against summary `raw_artifact` before decompression. Follow stored `raw_ref` pointers. Never rerun the checks.
 
@@ -10,7 +10,7 @@
 
 **Panels B/C — coverage and wrong certifications.** Summary `checks[claim_id=C6b].data[kind=certificate]`, crossing `surrogate=aligned,short`, `r=64,256`, and `range_variant=a_priori,observed`. Use `all_pairs.fraction_eligible`, labels `all_pairs.certified/all_pairs.eligible`, and `all_pairs.wrong_certified`. Strict a-priori B=2 and observed range are visibly separated; observed range is labeled “diagnostic only”. Calibration transfer for the short surrogate is an assumption even with strict B.
 
-**Panel D — CRN variance distribution.** Raw `/checks/C6b/{1,3,5,7}/raw_replicates/pairs[*].variance_ratio`, corresponding to `a_priori` rows for both surrogates and both r. Empirical CDF with a symlog x-axis preserves exact zero ratios. Undefined values from zero independent variance are excluded with defined denominators shown and checked against summary `variance.defined_ratios`. No histogram invented from quantiles.
+**Panel D — CRN variance distribution.** Common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)) against independent tails. Raw `/checks/C6b/{1,3,5,7}/raw_replicates/pairs[*].variance_ratio`, corresponding to `a_priori` rows for both surrogates and both r. Empirical CDF with a symlog x-axis preserves exact zero ratios. Undefined values from zero independent variance are excluded with defined denominators shown and checked against summary `variance.defined_ratios`. No histogram invented from quantiles.
 
 **Panel E — full measurement cost.** First-order: `checks[claim_id=C6].data[kind=protocol].costs.by_surrogate.<surrogate>.measurement_over_full_audit`. Finite replacement: `checks[claim_id=C6b].data[kind=certificate,range_variant=a_priori].costs.measurement_over_full_audit`. Horizontal bars on log scale with 1× reference. Includes first-order curvature and short-surrogate calibration; excludes held-out validation gold and independent-variance diagnostics. Reference is 40×9×1016 tail evaluations (prescribed M=4 rate); actual M=8 rate is 1154. Different accuracy criteria must be disclosed.
 

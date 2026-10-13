@@ -14,7 +14,7 @@
 
 - One coordinate of warm Adam without bias correction ($`\epsilon=0`$), tail gradients IID with mean $`\bar g`$ and mean square $`\bar v`$, score affine in the parameter; $`\rho=\lvert\bar g\rvert/\sqrt{\bar v}`$ is the signal-to-noise ratio.
 - A message of amplitude $`\lambda`$ is $`g=\lambda\sqrt{v}`$ in the direction of $`\bar g`$; $`\lambda^\star=(1-\beta_1^{\,T+1})/(\rho\,\omega_T)`$ is the optimum of the quadratic law of [Corollary 7.2](../statements/07-02_stationary_amplitude_law.md#s7-2), and $`\lambda_{\rm PO}=(1-\beta_1)\beta_2/(\beta_1\rho(1-\beta_2))`$ the amplitude below which the parameter-only score increases with $`\lambda`$.
-- *Parameter-only score*: the continuation gradient restricted to the parameters, paired with the message's own Adam step. *Cosine score*: a function of the direction of the message (LESS-type). *Exact first-order value* $`\mathrm{Val}`$: all three channels of [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1). *Finite response*: the measured change of the score against a zero-gradient message, with common random numbers.
+- *Parameter-only score*: the continuation gradient restricted to the parameters, paired with the message's own Adam step. *Cosine score*: a function of the direction of the message (LESS-type, [Xia et al., 2024](#ref-xia2024less)). *Exact first-order value* $`\mathrm{Val}`$: all three channels of [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1). *Finite response*: the measured change of the score against a zero-gradient message, with common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)).
 - A ranker is *wrong* on a pair when the sign of its score difference is opposite to the sign of the gold difference.
 
 **Statement under test ([Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes.md#s7-3)).** (a) A statistic that depends only on the state and the feedback law, not on the task, ranks some pair wrongly, or fails to separate it, on some task. (b) In the setting of Corollary 7.2 with $`\alpha>0`$ and $`0<\lambda_1<\lambda_2`$: the parameter-only score $`\alpha\eta\,(\beta_1\rho+(1-\beta_1)\lambda)/\sqrt{\beta_2+(1-\beta_2)\lambda^2}`$ increases for $`\lambda<\lambda_{\rm PO}`$, so it prefers $`\lambda_2`$; every cosine score ties the two; the exact value prefers $`\lambda_1`$ whenever $`\Delta F(\lambda_2)<\Delta F(\lambda_1)`$, which holds for $`\lambda_1+\lambda_2>2\lambda^\star`$ up to the error of Corollary 7.2(b).
@@ -69,6 +69,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 ```
 
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
+
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

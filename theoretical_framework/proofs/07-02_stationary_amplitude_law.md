@@ -8,7 +8,7 @@
 
 **Setting used on this page.**
 
-- *Adam without bias correction in one coordinate $`i`$*: $`m'=\beta_1m+(1-\beta_1)g`$, $`v'=\beta_2v+(1-\beta_2)g^2`$, parameter step $`-\eta m'/\sqrt{v'}`$, with $`\epsilon=0`$ and no weight decay.
+- *Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) without bias correction in one coordinate $`i`$*: $`m'=\beta_1m+(1-\beta_1)g`$, $`v'=\beta_2v+(1-\beta_2)g^2`$, parameter step $`-\eta m'/\sqrt{v'}`$, with $`\epsilon=0`$ and no weight decay.
 - *Message and tail.* A message with consumed gradient $`g_i`$ at round $`t`$, followed by $`T=R-1-t`$ tail updates with gradients $`g_{k,i}`$ that do not depend on $`\theta`$, are stationary with mean $`\bar g_i\ne0`$ and mean square $`\bar v_i>0`$. The final score $`F`$ is affine in $`\theta_i`$, with derivative $`(\nabla F)_i`$.
 - *Warm state.* $`m_{t,i}=\bar g_i`$, $`v_{t,i}=\bar v_i`$ when the message arrives.
 - *Normalized quantities.* $`\alpha_i=-(\nabla F)_i\,\mathrm{sign}(\bar g_i)`$; $`\lambda=g_i\,\mathrm{sign}(\bar g_i)/\sqrt{\bar v_i}`$; $`\rho_i=\lvert\bar g_i\rvert/\sqrt{\bar v_i}\in(0,1]`$; $`b_j=(1-\beta_1)\beta_1^{\,j}`$, $`c_j=(1-\beta_2)\beta_2^{\,j}`$ for $`j=0,\dots,T`$; $`\omega_T=1-\beta_2^{\,T+1}=\sum_{j\le T}c_j`$.

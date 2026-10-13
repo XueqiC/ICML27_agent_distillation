@@ -84,3 +84,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 **被用于.**
 
 - [Remark 9.4](../statements/09-04_scope_of_evidence_ZH.md#s9-4) — 证据的范围
+
+## Related work
+
+- 自适应于方差的置信界，仍要通过一个量级为 $`B/r`$ 的项为先验取值范围付出代价（[Audibert et al., 2009](#ref-audibert2009exploration)；[Maurer & Pontil, 2009](#ref-maurer2009empirical)）。所以更小的取值范围只能来自训练问题本身，例如经过认证的 Lipschitz 常数，而不是更精细的估计量。

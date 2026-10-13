@@ -34,4 +34,6 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 
 - [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3): part (b), the local lower bound.
 
+**Classical tools.** Those of [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(b): Le Cam's two-point method ([Le Cam, 1973](#ref-lecam1973convergence)) and local asymptotics under differentiability in quadratic mean ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
+
 **Proof.** By [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(b), $`\varepsilon\ge\lvert c^\top h\rvert/(4\sqrt{\mathbb I_{K,n}(\theta_0;h)})\,(1-o(1))`$ with $`\mathbb I_{K,n}(\theta_0;h)=K\,e_D(h)+n\,e_Q(h)`$. Rearrange; directions with $`c^\top h=0`$ give no constraint. $`\square`$

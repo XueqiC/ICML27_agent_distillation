@@ -203,12 +203,12 @@ d_0^{(1)}=\dim\mathrm{span}\big(\lbrace 1\rbrace \cup\mathcal G^{(1)}_{t,z}\big)
 - *11 种 optimizer.*
   - SGD；
   - heavy-ball 与 Nesterov（$`\beta=0.9`$）；
-  - cold Adam（$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，带 bias correction）；
+  - cold Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)；$`\beta=(0.9,0.999)`$，$`\epsilon=10^{-8}`$，带 bias correction）；
   - 先做 $`W=5`$ 和 $`W=20`$ 步 lr = 0 moment warm-up 之后的 warm Adam；
-  - AdamW（$`\lambda=0.01`$）；
+  - AdamW（[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)；$`\lambda=0.01`$）；
   - clipped SGD 与 clipped Adam；
-  - signSGD；
-  - Lion（$`\beta_1=0.9`$，$`\beta_2=0.99`$）。
+  - signSGD（[Bernstein et al., 2018](#ref-bernstein2018signsgd)）；
+  - Lion（[Chen et al., 2023](#ref-chen2023symbolic)；$`\beta_1=0.9`$，$`\beta_2=0.99`$）。
 - *裁剪阈值.*
   - 按任务选取，使被裁剪的概率质量最接近 50%。
   - 梯度范数相同时达不到 30%–70% 的区间：moment $`N=3`$、parity $`N=3`$ 为 25%。
@@ -315,6 +315,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+这些检查使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。`v015:V2` 与 `v015:V8` 中的线性规划由 `scipy.optimize.linprog` 调用 HiGHS solver（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）求解。
 
 ## 产物
 

@@ -101,3 +101,8 @@ r\ \ge\ 1+\frac{7\log(4M^2/\delta)}{3\zeta}.
 
 - [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 可证明范围这一未解决问题
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) — 方法的副本预算
+
+## Related work
+
+- (b) 所确定的 range 项，就是 [Maurer & Pontil, 2009](#ref-maurer2009empirical) 的 empirical Bernstein 界的第二项：$`7\log(\cdot)/(3(r-1))`$ 乘以取值范围。
+- (c) 是 common random numbers 的标准论证：当两个臂对共享随机性的响应方向一致时（例如 Lipschitz 或单调的响应），配对才有帮助（[Glasserman, 2004](#ref-glasserman2004monte)）。

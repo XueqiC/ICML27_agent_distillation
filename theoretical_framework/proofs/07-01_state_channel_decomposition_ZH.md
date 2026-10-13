@@ -4,19 +4,19 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/07-01_state_channel_decomposition_ZH.md) · [证明](07-01_state_channel_decomposition_ZH.md) · [实验](../experiments/07-01_state_channel_decomposition_ZH.md) · [English](07-01_state_channel_decomposition.md)
 
-**本页证明什么.** continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的梯度，等于沿参考尾段反向递推得到的 costate。把它与一条消息的 Adam 增量配对，消息的一阶价值就精确地分成参数通道、动量通道与二阶矩通道。证明就是对各尾段更新的复合用链式法则，并把每个 Jacobian 块都写出来。
+**本页证明什么.** continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的梯度，等于沿参考尾段反向递推得到的 costate。把它与一条消息的 Adam 增量配对，消息的一阶价值就精确地分成参数通道、动量通道与二阶矩通道。证明就是对各尾段更新的复合用链式法则，并把每个 Jacobian 块都写出来：这是贯穿训练的反向模式求导，与对带动量 SGD 的精确反向传播（[Maclaurin et al., 2015](#ref-maclaurin2015gradient)）同理。
 
 **本页用到的设定与记号.**
 
 - *complete learner state.* $`z=(\theta,o)`$，optimizer state $`o=(m,v,s)`$：一阶矩 $`m`$、二阶矩 $`v`$、绝对步数计数器 $`s`$（[Definition 1.3](../README_ZH.md#s1-3)）。
-- *AdamW 更新*，超参数 $`\beta_1\in[0,1)`$、$`\beta_2\in(0,1)`$、$`\eta>0`$、$`\epsilon\ge0`$，decoupled weight decay $`\lambda_{\rm wd}\ge0`$，作用于第 $`s`$ 步的 consumed gradient $`g`$：
+- *AdamW 更新*（[Kingma & Ba, 2015](#ref-kingma2015adam) 的 Adam，加上 [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled) 的 decoupled weight decay），超参数 $`\beta_1\in[0,1)`$、$`\beta_2\in(0,1)`$、$`\eta>0`$、$`\epsilon\ge0`$，decoupled weight decay $`\lambda_{\rm wd}\ge0`$，作用于第 $`s`$ 步的 consumed gradient $`g`$：
 
 ```math
 m'=\beta_1m+(1-\beta_1)g,\qquad v'=\beta_2v+(1-\beta_2)\,g\odot g,\qquad \theta'=(1-\eta\lambda_{\rm wd})\,\theta-\eta\,q_{1,s}\,\frac{m'}{\sqrt{q_{2,s}v'}+\epsilon},
 ```
 
 - bias correction 因子为 $`q_{1,s}=(1-\beta_1^{\,s})^{-1}`$、$`q_{2,s}=(1-\beta_2^{\,s})^{-1}`$（或都取 $`1`$），所有运算按坐标进行。增量为 $`\Delta(z,g)=(\theta'-\theta,\;m'-m,\;v'-v)`$（[Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam_ZH.md#s5-5)）；计数器加一，不对它求导。
-- *尾段.* 第 $`t`$ 轮的消息之后，第 $`k=t+1,\dots,R-1`$ 次更新用 consumed gradient $`g_k(\theta)`$（损失梯度 $`\nabla\ell_k(\theta)`$，可能以阈值 $`c`$ 做全局范数裁剪）。得分为 $`F(\theta_R)`$，$`V_{t+1}(z)`$ 是尾段从 $`z`$ 出发所得的得分（[Definition 1.4](../README_ZH.md#s1-4)）。
+- *尾段.* 第 $`t`$ 轮的消息之后，第 $`k=t+1,\dots,R-1`$ 次更新用 consumed gradient $`g_k(\theta)`$（损失梯度 $`\nabla\ell_k(\theta)`$，可能以阈值 $`c`$ 做全局范数裁剪，见 [Pascanu et al., 2013](#ref-pascanu2013difficulty)）。得分为 $`F(\theta_R)`$，$`V_{t+1}(z)`$ 是尾段从 $`z`$ 出发所得的得分（[Definition 1.4](../README_ZH.md#s1-4)）。
 - *一阶价值.* $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$（[Proposition 5.1](../statements/05-01_optimizer_transformed_expansion_ZH.md#s5-1)）。
 
 **陈述（[Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1)）.** 固定尾段随机性的一个实现，并假设：

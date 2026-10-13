@@ -123,7 +123,7 @@ Let $`\sigma=\inf\lbrace t<R:Z_t\notin\mathcal C_t\rbrace`$ ($`\sigma=\infty`$ i
 
 ## Related work
 
-- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3) and [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4) use Hoeffding's inequality, union bounds and McDiarmid's inequality. Selecting by a lower confidence bound to guarantee no degradation is the logic of high-confidence policy improvement ([Thomas et al., 2015](../references.md#thomas2015high)).
+- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3) and [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4) use Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)), union bounds and McDiarmid's inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)). Selecting by a lower confidence bound to guarantee no degradation is the logic of high-confidence policy improvement ([Thomas et al., 2015](../references.md#thomas2015high)).
 
 ## References
 

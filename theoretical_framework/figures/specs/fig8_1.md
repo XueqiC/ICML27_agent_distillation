@@ -1,12 +1,12 @@
 # Figure spec — fig8_1 · Stability–approximation tradeoff
 
-**Output:** `theoretical_framework/figures/fig8_1_stability.pdf` (vector) and `fig8_1_stability.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig8_1_stability.pdf` (vector) and `fig8_1_stability.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)) by `figures/make_figures.py`.
 
 **Message:** the tolerant discrepancy equals the dual formula (36). A perfectly representing but small-scale feature certifies only $`\epsilon/\alpha`$.
 
 ## Panel A — C22 stability control
 
-- **Data:** `theory/independent_checks/results_independent_v014.json`, entry of `claims` with `id == "C22"`, field `details.configurations`. There are 28 rows with fields `alpha`, `epsilon` (rational strings such as `"1/1000"`; parse with `fractions.Fraction`), `discrepancy` (the LP value, a float) and `formula` (a rational string).
+- **Data:** `theory/independent_checks/results_independent_v014.json`, entry of `claims` with `id == "C22"`, field `details.configurations`. There are 28 rows with fields `alpha`, `epsilon` (rational strings such as `"1/1000"`; parse with `fractions.Fraction`), `discrepancy` (the LP value, a float, solved with HiGHS: [Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)) and `formula` (a rational string).
 - **Plot:** x = $`\epsilon`$ on a symlog axis, with linear threshold $`10^{-4}`$ so that $`\epsilon=0`$ is shown. y = $`W_\epsilon(g)`$, linear from 0 to 1.05.
   - One series per $`\alpha\in\lbrace 1,1/2,1/10,1/100\rbrace`$.
   - LP values (`discrepancy`) as markers of size 8 or more.

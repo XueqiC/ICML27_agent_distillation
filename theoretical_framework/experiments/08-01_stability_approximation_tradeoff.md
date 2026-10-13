@@ -52,7 +52,7 @@ In particular $`W_{\mathbf{\epsilon}}(g)\le\mathrm{osc}(g)`$, which is at most $
 - Random finite instances with $`m\in[3,12]`$ messages and $`d\in[1,m-1]`$ features.
 - Random responses $`g`$, random features $`\phi`$, and random tolerances $`\epsilon_j\ge0`$, including exact zeros.
 - Seed `SeedSequence([20261010, 14])`.
-- Three independent linear programs, solved with HiGHS:
+- Three independent linear programs, solved with HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)):
   - the primal maximum over $`(P,Q)`$, written directly in probability variables;
   - the oscillation dual $`\min_b[\mathrm{osc}(g-\Phi b)+\sum_j\epsilon_j\lvert b_j\rvert]`$;
   - the centered sup-norm dual $`\min_{b,c}[2\lVert g-c-\Phi b\rVert_\infty+\sum_j\epsilon_j\lvert b_j\rvert]`$.
@@ -143,6 +143,8 @@ At $`\epsilon=0`$ the discrepancy is $`0`$ for every $`\alpha`$.
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C14,C22 --output theory/independent_checks/subset.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # noisy_feature_duality
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)); the linear programs go through SciPy's `linprog` with the HiGHS method.
 
 ## Artifacts
 

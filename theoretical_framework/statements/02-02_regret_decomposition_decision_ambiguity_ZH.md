@@ -71,3 +71,7 @@
 - [Theorem 2.10](../statements/02-10_few_shot_information_floor_ZH.md#s2-10): K 条示范之后的信息项.
 - [Proposition 3.1](../statements/03-01_static_value_not_learning_value_ZH.md#s3-1): 表示之外的学习差距.
 - [Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3): 先获取再编译.
+
+## 相关工作
+
+- (b) 推导中的括号 $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ 是给定 $`D`$ 时关于 $`E`$ 的完全信息的期望价值（expected value of perfect information）([Howard, 1966](#ref-howard1966information))。(b) 说的是：这一价值对每条 transcript 都为零，当且仅当 transcript 无法排除的环境有共同的最优策略。

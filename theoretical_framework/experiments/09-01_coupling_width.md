@@ -42,7 +42,7 @@
 - Random additive tables $`H=a+b`$ and random non-additive tables.
 - Seed `SeedSequence([20261010, 17])`.
 - Procedure:
-  1. Compute the width with two linear programs: the maximum and the minimum of $`\langle\Gamma,H\rangle`$ over the coupling polytope.
+  1. Compute the width with two linear programs: the maximum and the minimum of $`\langle\Gamma,H\rangle`$ over the coupling polytope, the feasible set of a transportation problem ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)).
   2. Compute $`\inf_{a,b}\lVert H-a-b\rVert_\infty`$ with a third linear program and check the bound (b).
   3. Construct the forbidden-pairing example of part (c).
   4. Check the null exactly in rational arithmetic: one SGD step of a linear model at a common parameter, with the same examples regrouped. Then run two sequential updates with regrouping.
@@ -102,7 +102,7 @@
 
 - Network: one-hot context, 4 tanh units, sigmoid output, float64. This is a controlled small network, not Gemma and not an external benchmark.
 - Source A packets are $`\lbrace (0,0),(1,1)\rbrace`$ and source B packets are $`\lbrace (0,1),(0,1)\rbrace`$. Both contain the same four labels, so the marginals are identical.
-- Optimizers: SGD with $`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$; Adam with $`\beta=(0.9,0.999)`$, $`\epsilon=10^{-8}`$ and $`\eta\in\lbrace 0.01,0.1\rbrace`$.
+- Optimizers: SGD with $`\eta\in\lbrace 0.01,0.1,1,3\rbrace`$; Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) with $`\beta=(0.9,0.999)`$, $`\epsilon=10^{-8}`$ and $`\eta\in\lbrace 0.01,0.1\rbrace`$.
 - 1, 4 or 40 cycles, giving 2, 8 or 80 updates.
 - Exact enumeration of all deterministic histories.
 - Procedure: compute the final expected-return gap between the two groupings. Separately, compute the parameter difference after one common-state step with identical weights, and check the manual gradients against central differences.
@@ -137,6 +137,8 @@ Return gap A − B (`regrouping`):
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C17,C23 --output theory/independent_checks/subset.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py   # package check
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)); linear programs are solved with SciPy's interface to HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
 
 ## Artifacts
 

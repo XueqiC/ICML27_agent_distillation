@@ -79,3 +79,8 @@ J_E(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c
 - [Theorem 4.5](04-05_round_independent_bound_averaging_rates_ZH.md#s4-5) — 由 (a)–(c) 得到定量界与速率。
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity_ZH.md#s4-6) — 标量见证与 parity 见证。
 - [Theorem 4.7](04-07_update_composition_amplifies_information_requirement_ZH.md#s4-7) — 次数复合的基本情形。
+
+## Related work
+
+- (a) 用逆向归纳计算一个 behaviour strategy 在带机会节点的有限树中的期望值（[Kuhn, 1953](#ref-kuhn1953extensive)）。
+- parity witness 与 (d) 的二值壁垒都是 Boolean cube 上的 Fourier 事实（[O'Donnell, 2014](#ref-odonnell2014analysis)）：偶 parity 律与奇 parity 律只在最高阶 Fourier 系数上不同，而 $`2^k`$ 个 parity 函数构成 $`\lbrace0,1\rbrace^k`$ 上全体函数的一组基。

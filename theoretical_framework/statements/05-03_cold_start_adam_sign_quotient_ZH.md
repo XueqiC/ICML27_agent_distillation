@@ -30,7 +30,7 @@
 - **Continuation value.** $`V^P_{t+1}:\mathcal Z\to[0,1]`$ 是协议 $`P`$ 的 continuation value：之后的更新都按 $`P`$ 进行，然后部署学生并用 $`F_E`$ 打分（[Definition 1.4](../README_ZH.md#s1-4)）。$`L(P)=\mathbb E\,F_E(Z_R^P)`$，$`d_t^Q`$ 是协议 $`Q`$ 下 $`Z_t`$ 的分布。
 - **范数.** 在 $`\mathbb R^{p+q}`$ 上固定一个范数 $`\lVert\cdot\rVert`$，其对偶范数记为 $`\lVert\cdot\rVert_*`$。
 
-**Adam 与 AdamW.** Adam 带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
+**Adam 与 AdamW.** Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW；[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -99,3 +99,8 @@ h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h
 
 - [Proposition 5.7](../statements/05-07_cold_steps_separate_equal_mean_ZH.md#s5-7) — cold 步在一阶就分开均值相同的反馈
 - [Theorem 5.10](../statements/05-10_first_order_statistic_by_learner_ZH.md#s5-10) — 各学习器的一阶统计量
+
+## 相关工作
+
+- Adam 的更新与 bias correction 来自 [Kingma & Ba, 2015](#ref-kingma2015adam)。把 Adam 看成带方差自适应的 sign descent 出自 [Balles & Hennig, 2018](#ref-balles2018dissecting)；基于符号的 optimizer 包括 signSGD（[Bernstein et al., 2018](#ref-bernstein2018signsgd)）和 Lion（[Chen et al., 2023](#ref-chen2023symbolic)）。Adam 自适应学习率在最初几步方差很大，这一点由 [Liu et al., 2020](#ref-liu2020variance) 分析。
+- Proposition 5.3 新给出的是 cold 步的精确信息需求：$`\epsilon=0`$ 时是联合符号分布，$`\epsilon>0`$ 时是整个分布；以及 optimizer 状态保留了这一步除掉的梯度大小。

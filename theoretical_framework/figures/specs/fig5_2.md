@@ -1,8 +1,8 @@
 # Figure spec — fig5_2 (`figures/fig5_2_cold_adam.pdf`, `figures/fig5_2_cold_adam.png`)
 
-**Message.** Two label laws with identical gradient moments through order 2 are separated by cold Adam, not by SGD. The separation is an optimizer effect, since it survives a frozen Jacobian. It disappears when sign disagreement is removed and nearly disappears with warm moments. Optimizer memory makes same-sign histories diverge.
+**Message.** Two label laws with identical gradient moments through order 2 are separated by cold Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), not by SGD. The separation is an optimizer effect, since it survives a frozen Jacobian. It disappears when sign disagreement is removed and nearly disappears with warm moments. Optimizer memory makes same-sign histories diverge.
 
-**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width).
+**Layout.** Full-width rows, at most two subpanels per row, 10 inches wide. PDF vector, PNG 300 dpi. Base/labels 14 pt; titles 15 pt; ticks, legends and annotations at least 12 pt (15 px at 900 px width). Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)).
 
 **Panel A — "Same moments, different Adam response".**
 - Data: `theory/v015_checks/results_v015_independent.json → groups[id=E2].data.comparisons`.

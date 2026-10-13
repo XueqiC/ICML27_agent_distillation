@@ -41,7 +41,7 @@
 - **Continuation value.** $`V^P_{t+1}:\mathcal Z\to[0,1]`$ 是协议 $`P`$ 的 continuation value：之后的更新都按 $`P`$ 进行，然后部署学生并用 $`F_E`$ 打分（[Definition 1.4](../README_ZH.md#s1-4)）。$`L(P)=\mathbb E\,F_E(Z_R^P)`$，$`d_t^Q`$ 是协议 $`Q`$ 下 $`Z_t`$ 的分布。
 - **范数.** 在 $`\mathbb R^{p+q}`$ 上固定一个范数 $`\lVert\cdot\rVert`$，其对偶范数记为 $`\lVert\cdot\rVert_*`$。
 
-**Adam 与 AdamW.** Adam 带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
+**Adam 与 AdamW.** Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）带 bias correction，$`\epsilon`$ 在根号外，可选 decoupled weight decay（AdamW；[Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)），不用 AMSGrad。计数器为 $`t\ge1`$ 的一次更新作用在 $`z=(\theta,m,v,t-1)`$ 与 consumed gradient $`G\in\mathbb R^p`$ 上。逐坐标地，
 
 ```math
 m^+=\beta_1m+(1-\beta_1)G,\qquad v^+=\beta_2v+(1-\beta_2)G^{\odot2},\qquad n=\frac{m^+}{1-\beta_1^{\,t}},\qquad d=\sqrt{\frac{v^+}{1-\beta_2^{\,t}}},
@@ -231,7 +231,7 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 **设置**（`v015:E11`，Lion）.
 
-- 网络配 Lion（$`\beta_1=0.9`$，$`\beta_2=0.99`$，$`\eta=0.03`$）。
+- 网络配 Lion（[Chen et al., 2023](#ref-chen2023symbolic)；$`\beta_1=0.9`$，$`\beta_2=0.99`$，$`\eta=0.03`$）。
 - 标签分别为 0 和 1 的两条消息，梯度相差 $`\delta_1`$，$`\max\lvert\delta_1\rvert=1`$。
 - momentum 占主导的状态：每个坐标 $`m=0.2`$，使每条消息都满足 $`0.1\lvert G_i\rvert<0.9\cdot0.2`$。
 - 对照：$`m=0.005`$。
@@ -272,7 +272,7 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 **设置**（`v015:E11`，LoRA）.
 
-- 双线性 sigmoid 模型 $`W=W_0+\alpha BA`$，$`d=k=4`$，$`W_0=0.2`$，$`\alpha=1`$，$`r\in\lbrace1,2\rbrace`$，$`B_0=0`$，$`A_0`$ 随机。
+- 双线性 sigmoid 模型 $`W=W_0+\alpha BA`$，$`d=k=4`$，$`W_0=0.2`$，$`\alpha=1`$，$`r\in\lbrace1,2\rbrace`$，$`B_0=0`$，$`A_0`$ 随机。这正是 LoRA 的参数化与初始化（[Hu et al., 2022](#ref-hu2022lora)）。
 - 消息是软标签的平均 cross-entropy 目标，精确实现指定的全权重梯度 $`\Gamma`$。
 - 三组分布对：
   - *零空间*：平均梯度相差 $`\Delta\Gamma`$，且 $`\Delta\Gamma A_0^\top=0`$；
@@ -361,6 +361,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
 ```
+
+这些检查使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。`v015:V2` 与 `v015:V8` 中的线性规划由 `scipy.optimize.linprog` 调用 HiGHS solver（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）求解。
 
 ## 产物
 

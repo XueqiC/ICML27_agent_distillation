@@ -27,7 +27,7 @@ that is, $`\mathcal R_{\rm info}(D')\ge\mathcal R_{\rm info}(D)`$. If $`Z\perp E
 ### [Check 2.1](../experiments/02-02_regret_decomposition_decision_ambiguity.md#c2-1) · Regret decomposition, ambiguity criterion, duality and data processing
 
 - *What it tests for this proposition.* Inequality (2.5): an environment-independent post-processing cannot raise the Bayes value; and the augmentation clause $`B(D,Z)=B(D)`$.
-- *Setup.* 500 random finite decision problems with a 4-symbol transcript. Each transcript is garbled through a random 3-symbol channel; on the first 30 instances also through all $`3^4=81`$ deterministic channels, which are the extreme points of the convex objective. An independent $`Z`$ is appended to test augmentation. Exact rational arithmetic.
+- *Setup.* 500 random finite decision problems with a 4-symbol transcript. Each transcript is garbled through a random 3-symbol channel, a post-processing in the sense of Blackwell ([Blackwell, 1953](#ref-blackwell1953equivalent)); on the first 30 instances also through all $`3^4=81`$ deterministic channels, which are the extreme points of the convex objective. An independent $`Z`$ is appended to test augmentation. Exact rational arithmetic.
 - *Result.* The largest $`B(D')-B(D)`$ over all garblings, including the adversarial extreme-point ones, is exactly 0, and $`B(D,Z)=B(D)`$ holds exactly on every instance.
 - *Verdict.* PASS.
 
@@ -39,6 +39,8 @@ that is, $`\mathcal R_{\rm info}(D')\ge\mathcal R_{\rm info}(D)`$. If $`Z\perp E
 - *Verdict.* PASS.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C1 --output theory/independent_checks/subset.json

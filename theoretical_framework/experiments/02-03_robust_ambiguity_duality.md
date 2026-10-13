@@ -39,9 +39,9 @@ Moreover:
 
 **Verdict.** PASS: primal and dual values are both 0.1, with minimax mixture and least-favourable prior both $`(0.5,0.5)`$.
 
-**Why.** A hand-checkable instance of Proposition 2.3 whose optimal mixtures are known in closed form.
+**Why.** A hand-checkable instance of Proposition 2.3 whose optimal mixtures are known in closed form. By von Neumann's minimax theorem the two LP values must coincide ([von Neumann, 1928](#ref-vonneumann1928zur)).
 
-**Setup.** Two environments prefer opposite policies, with regret matrix $`M=\begin{pmatrix}0&0.2\cr 0.2&0\end{pmatrix}`$. Primal and dual LPs are solved with SciPy HiGHS by the package v0.14 verifier, seed 2026101014.
+**Setup.** Two environments prefer opposite policies, with regret matrix $`M=\begin{pmatrix}0&0.2\cr 0.2&0\end{pmatrix}`$. Primal and dual LPs are solved with HiGHS ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)) through SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) by the package v0.14 verifier, seed 2026101014.
 
 **Result.**
 
@@ -65,6 +65,8 @@ Moreover:
 - *Verdict.* PASS.
 
 ## Reproduce
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ```bash
 theory/.venv/bin/python docs/direction/v014_handoff/verify_environment_information_v014.py --output theory/v014_repro/results_v014_rerun.json

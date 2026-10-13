@@ -79,3 +79,8 @@ J_E(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c
 - [Theorem 4.5](04-05_round_independent_bound_averaging_rates.md#s4-5) — quantitative bounds and rates from (a)–(c).
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity.md#s4-6) — the scalar and parity witnesses.
 - [Theorem 4.7](04-07_update_composition_amplifies_information_requirement.md#s4-7) — the base case of degree composition.
+
+## Related work
+
+- (a) evaluates a behaviour strategy in a finite tree with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)) by backward induction.
+- The parity witness and the binary barrier of (d) are Fourier facts on the Boolean cube ([O'Donnell, 2014](#ref-odonnell2014analysis)): the even- and odd-parity laws differ only in the top Fourier coefficient, and the $`2^k`$ parity functions form a basis of all functions on $`\lbrace0,1\rbrace^k`$.

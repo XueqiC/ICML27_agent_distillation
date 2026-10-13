@@ -58,3 +58,7 @@ If $`m\ge\lceil32\log(2/\delta_L)\rceil`$, then $`\lvert\widehat p-q\rvert\le1/8
 **Used by.**
 
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2): separate acquisition and compilation budgets.
+
+## Related work
+
+- Both the identification step and the compilation step are controlled by Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](#ref-hoeffding1963probability)). Compilation needs only the two-sided form at the fixed accuracy $`\tfrac18`$, which is why the number of labels does not depend on $`\Delta`$.

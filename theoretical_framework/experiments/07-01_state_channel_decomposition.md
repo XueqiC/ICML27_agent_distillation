@@ -8,7 +8,7 @@
 
 **Setting used on this page.**
 
-- $`z=(\theta,m,v,s)`$ is the complete Adam state; AdamW with $`\beta_1,\beta_2,\eta,\epsilon`$, decoupled weight decay $`\lambda_{\rm wd}`$ and bias-correction factors $`q_{1,s},q_{2,s}`$ maps a consumed gradient $`g`$ to the increment $`\Delta(z,g)`$ ([Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam.md#s5-5)).
+- $`z=(\theta,m,v,s)`$ is the complete Adam state; AdamW ([Kingma & Ba, 2015](#ref-kingma2015adam); [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)) with $`\beta_1,\beta_2,\eta,\epsilon`$, decoupled weight decay $`\lambda_{\rm wd}`$ and bias-correction factors $`q_{1,s},q_{2,s}`$ maps a consumed gradient $`g`$ to the increment $`\Delta(z,g)`$ ([Proposition 5.5](../statements/05-05_exact_first_order_statistic_adam.md#s5-5)).
 - After a message at round $`t`$, the reference tail runs $`R-1-t`$ updates with consumed gradients $`g_k(\theta)`$ (possibly global-norm clipped), and $`V_{t+1}(z)`$ is the final score $`F(\theta_R)`$ reached from $`z`$.
 - The costate $`\chi_{t+1}=(\chi^\theta_{t+1},\chi^m_{t+1},\chi^v_{t+1})`$ is the output of the backward recursion of the theorem; "adjoint gradient" below means $`\chi_{t+1}`$.
 
@@ -64,6 +64,8 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 
 - The costate group (`v016:C4.costate`) takes about 16 s on rai; the full suite without `--only` about 104 s.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
+
+The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

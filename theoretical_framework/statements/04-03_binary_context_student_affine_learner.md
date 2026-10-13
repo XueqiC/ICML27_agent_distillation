@@ -54,3 +54,7 @@ p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1 .
 - [Theorem 4.5](04-05_round_independent_bound_averaging_rates.md#s4-5) — round-independent bound and rates.
 - [Proposition 4.6](04-06_exact_order_not_approximate_complexity.md#s4-6) — approximate order of $`p^N`$ and parity.
 - [Theorem 4.7](04-07_update_composition_amplifies_information_requirement.md#s4-7) — nonlinear and composed updates.
+
+## Related work
+
+- The deployment is a one-player extensive-form game with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)), the contexts playing the role of information sets, and $`p`$ is a behaviour strategy: one action probability per context, used at every decision with that context. Because a context may recur along a path, $`J_E`$ can have degree above 1 in a single coordinate $`p_j`$.

@@ -177,6 +177,8 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v014_handoff/veri
 
 `--only` preserves each claim's random stream (`SeedSequence([20261010, claim number])`), so a subset run reproduces the full-run numbers.
 
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)), SymPy ([Meurer et al., 2017](#ref-meurer2017sympy)) for exact rational and symbolic computation, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
+
 ## Artifacts
 
 - Results: `theory/independent_checks/results_independent_v014.json` (entries `v014:C10`, `v014:C11`, `v014:C18`); `theory/v014_repro/results_v014_rerun.json` (`scalar_exact_decay`).

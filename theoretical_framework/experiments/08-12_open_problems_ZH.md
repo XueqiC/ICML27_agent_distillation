@@ -70,7 +70,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 - **它对 Remark 8.12 检验什么.** 先验区间是否就是严格证书的瓶颈，以及校准迁移是否确实是一个缺口。
 - **设置.** 与主检验相同：1,728 个候选对，$`r\in\lbrace64,256\rbrace`$，与任务一致的 surrogate 与需校准的短尾段 surrogate；严格版本用先验区间 $`B=2`$，诊断版本用分数的观测区间。
-- **关键数字.** 严格证书：与任务一致的 surrogate 认证 0 对，需校准的至多认证 8 对（0.46%），没有错误；$`r=256`$ 时范围项为 0.156，而差距的中位数是 0.0037。观测区间诊断：与任务一致的 surrogate 认证 45%–57% 的候选对、没有错误，需校准的认证 23%–28%、有 22–28 个错误。
+- **关键数字.** 严格证书：与任务一致的 surrogate 认证 0 对，需校准的至多认证 8 对（0.46%），没有错误；$`r=256`$ 时 empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）的范围项为 0.156，而差距的中位数是 0.0037。观测区间诊断：与任务一致的 surrogate 认证 45%–57% 的候选对、没有错误，需校准的认证 23%–28%、有 22–28 个错误。
 - **结论.** 两个未解决问题都是真实的：如果有一个与观测区间同样大小的可证明范围，证书就能下结论；而校准不会自动迁移。
 
 ### [Check 8.16](../experiments/08-09_first_order_version_margin_criterion_ZH.md#c8-16) · 实测的一阶证书及其上限（Corollary 8.9）
@@ -82,4 +82,4 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 ## 复现
 
-复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md), [Corollary 8.9](../experiments/08-09_first_order_version_margin_criterion_ZH.md)。
+复现命令与结果文件见主检验所在的页面：[Theorem 8.8](../experiments/08-08_crn_paired_replacement_certificate_ZH.md), [Corollary 8.9](../experiments/08-09_first_order_version_margin_criterion_ZH.md)。这些检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。

@@ -43,7 +43,7 @@ Related checks on other pages: the comparison of first-order rankers with the CR
 
 - **Learner.** The controlled network of `v014:C23` (one-hot context, 4 tanh units, sigmoid, mean cross-entropy, float64).
   - States: `fresh`, `warm2`, `warm5`, `warm9` (complete states, including Adam moments).
-  - Recipes: 8, namely Adam with $`\eta\in\lbrace 0.01,0.1\rbrace`$ and SGD with $`\eta\in\lbrace 0.1,1\rbrace`$, each with $`\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace`$.
+  - Recipes: 8, namely Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) with $`\eta\in\lbrace 0.01,0.1\rbrace`$ and SGD with $`\eta\in\lbrace 0.1,1\rbrace`$, each with $`\epsilon\in\lbrace 10^{-8},10^{-3}\rbrace`$.
 - **Candidates.** 9 label laws on 10 two-label packets: `reference_even`, moment-matched `moment3_P`/`moment3_Q`, sign-matched `low_sign_A`/`B` and `high_sign_A`/`B`, `odd_parity` and `middle_mixture`.
 - **Gold.** One candidate boundary followed by 7 IID reference updates (8 updates in total), enumerated exactly over all finite histories. Its value is the contrast with the reference candidate.
 - **Proxies**, fitted by ridge regression on the pilot only and frozen in `proxy_models_frozen.json`:
@@ -167,6 +167,8 @@ Random-selection regret by split, cold → $`W=5`$ / $`W=20`$ (`comparisons[prox
 ```bash
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --only E6,E9 --output theory/v015_checks/quick/s9.json
 ```
+
+The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
 

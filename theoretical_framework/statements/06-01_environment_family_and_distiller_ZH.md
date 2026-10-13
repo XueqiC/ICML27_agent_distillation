@@ -50,3 +50,8 @@
 - [Assumption 6.9](../statements/06-09_state_coverage_model_ZH.md#s6-9)：状态覆盖模型。
 
 **状态.** 定义。
+
+## 相关工作
+
+- 蒸馏器是 transcript 与独立随机性的可测映射，所以它的输出是数据实验在 Blackwell 意义下的 garbling；对任何决策问题，garbling 都不会比原实验更有信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）。
+- 把在新状态上新调用一次 teacher 算作查询、而不是免费的合成，与交互式模仿学习一致：在那里 expert 为学习器访问到的状态打标签（[Ross et al., 2011](#ref-ross2011reduction)）。

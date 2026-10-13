@@ -1,8 +1,8 @@
 # Figure spec — fig5_4 · What each learner makes the feedback carry
 
-**Output:** `theoretical_framework/figures/fig5_4_learner_statistics.pdf` (vector) and `fig5_4_learner_statistics.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels.
+**Output:** `theoretical_framework/figures/fig5_4_learner_statistics.pdf` (vector) and `fig5_4_learner_statistics.png` (300 dpi). Layout: full-width rows, at most two subpanels per row, 10 inches wide. English labels. Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)).
 
-**Message:** The exact Adam statistic is the mean Adam increment; first and second gradient moments suffice only under the frozen-denominator approximation. The optimizer decides what the feedback must carry. Clipping makes the clipped mean (or, when always active, only the direction) the statistic. Warm Adam adds the second moment through $`v`$. Momentum-dominated Lion makes the parameter step blind to the message. LoRA at initialization sees only a rank-$`r`$ sketch.
+**Message:** The exact Adam statistic is the mean Adam increment; first and second gradient moments suffice only under the frozen-denominator approximation. The optimizer decides what the feedback must carry. Clipping ([Pascanu et al., 2013](#ref-pascanu2013difficulty)) makes the clipped mean (or, when always active, only the direction) the statistic. Warm Adam adds the second moment through $`v`$. Momentum-dominated Lion ([Chen et al., 2023](#ref-chen2023symbolic)) makes the parameter step blind to the message. LoRA ([Hu et al., 2022](#ref-hu2022lora)) at initialization sees only a rank-$`r`$ sketch.
 
 All data come from `theory/v015_checks/results_v015_independent.json`, `groups[id=E11].data`.
 

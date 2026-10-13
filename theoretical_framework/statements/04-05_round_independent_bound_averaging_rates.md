@@ -82,3 +82,7 @@
 
 - [Theorem 2.10](02-10_few_shot_information_floor.md#s2-10) — counting independent evidence, not exposure.
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) — the method's counting discipline.
+
+## Related work
+
+- The joint cumulants and the moment–cumulant formula behind (b) are classical ([Leonov & Shiryaev, 1959](#ref-leonov1959method)). The rate comes from their scaling under averaging: the order-$`s`$ cumulant of the average of $`n`$ IID blocks is $`n^{1-s}\kappa_s`$.

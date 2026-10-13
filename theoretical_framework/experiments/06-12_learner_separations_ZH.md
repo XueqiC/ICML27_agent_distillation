@@ -40,7 +40,7 @@
 
 **设置.**
 
-- $`\alpha=0.65`$；梯度取值 $`\lbrace0.2,-0.8\rbrace`$，乘以 $`b\in\lbrace1,3\rbrace`$；裁剪阈值 $`0.1`$，所以裁剪始终激活；$`\eta R=1`$。
+- $`\alpha=0.65`$；梯度取值 $`\lbrace0.2,-0.8\rbrace`$，乘以 $`b\in\lbrace1,3\rbrace`$；裁剪阈值 $`0.1`$（范数裁剪，同 [Pascanu et al., 2013](#ref-pascanu2013difficulty)），所以裁剪始终激活；$`\eta R=1`$。
 - 示范只观测标签，其分布是 $`\mathrm{Binomial}(K,\alpha)`$，与 $`b`$ 无关。
 - $`K=1,10,\dots,10^5`$；60,000 次重复。在两个世界中分别计算裁剪学习器的泛函与一个取中点尺度的 SGD 估计量。
 
@@ -67,7 +67,7 @@
 ### [Check 6.4](../experiments/06-11_learner_weights_sgd_warm_adam_ZH.md#c6-4) · 学习器权重：SGD 按 d² 标度，warm Adam 按 d 标度
 
 - **对 Corollary 6.12(b) 检验什么.** 让长尾对 warm Adam 比对 SGD 更重要的那组学习器权重。
-- **设置.** state-owned 标量坐标、Bernoulli 的 teacher 标签；在频繁、孤立、过渡、短 horizon 四个区间中，用 common random numbers 测 SGD、始终裁剪的 SGD 与 Adam（$`\beta_1=0.9`$）的敏感度。
+- **设置.** state-owned 标量坐标、Bernoulli 的 teacher 标签；在频繁、孤立、过渡、短 horizon 四个区间中，用 common random numbers 测 SGD、始终裁剪的 SGD 与 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)；$`\beta_1=0.9`$）的敏感度。
 - **关键数字.** 敏感度关于 $`d`$ 的斜率：SGD 为 $`1.00`$（权重斜率 $`2`$），频繁区间 Adam 为 $`0.489`$（权重斜率 $`0.98`$）；频繁区间闭式的误差为 0.6–7.1%。
 - **结论.** PASS：权重的标度符合 (b) 的需要。
 
@@ -87,7 +87,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。
+第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 

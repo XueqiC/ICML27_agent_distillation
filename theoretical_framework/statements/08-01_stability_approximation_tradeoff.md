@@ -71,4 +71,4 @@ In particular $`W_{\mathbf{\epsilon}}(g)\le\mathrm{osc}(g)`$, which is at most $
 
 ## Related work
 
-- [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff.md#s8-1) is linear-programming and norm duality applied to the operational discrepancy; no new duality principle is claimed.
+- [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff.md#s8-1) is linear-programming duality ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)) and norm duality applied to the operational discrepancy, with equality from Sion's minimax theorem ([Sion, 1958](#ref-sion1958general)); no new duality principle is claimed.
