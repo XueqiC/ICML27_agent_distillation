@@ -9,11 +9,83 @@ import random
 import time
 
 from sed.seed_evidence import artifact_hashes
-from sed.storage import JsonlLedger, digest, fsync_dir, write_json
+from sed.storage import JsonlLedger, digest, file_hash, fsync_dir, write_json
 from tools.crn_tail import (Experiment, add_state_arguments, require_no_dropout, restore,
                             select_examples, trainables, validate_examples)
 from train.optimizer_state import capture_state, learning_rate_at, restore_rng, save_update_state
 from train.sft import checkpoint_metadata, token_mean_backward
+
+
+def filter_extra_states(examples, root, states_path):
+    """Select an in-memory arm view using explicit R03 metadata, never filenames."""
+    states_path, root = Path(states_path), Path(root)
+    selection = json.loads(states_path.read_text())
+    if isinstance(selection, dict):
+        states = selection.get("states")
+        if not isinstance(states, list) or any(not isinstance(s, dict) for s in states):
+            raise ValueError("Extra states object requires a states list of objects with state_hash")
+        hashes = [s.get("state_hash") for s in states]
+    elif isinstance(selection, list):
+        hashes = selection
+    else:
+        raise ValueError("Extra states must be an object with states or a list of state-hash strings")
+    if any(not isinstance(h, str) or not h.strip() for h in hashes):
+        raise ValueError("Extra state_hash values must be nonempty strings")
+    requested = set(hashes)
+    if len(requested) != len(hashes):
+        raise ValueError("Duplicate extra state hashes")
+
+    collection = json.loads((root / "manifest.json").read_text())
+    if collection.get("format") != "r03_episode_dataset_v1":
+        raise ValueError("Extra state filtering requires R03 episode metadata")
+    # load_r03_dataset retains task/event IDs but does not propagate entry.state_hash.
+    # Join on supervised event identities from the checked episode files. Include
+    # both turn and packed-episode keys, without assuming one example per entry.
+    by_events = {}
+    for entry in collection["episodes"]:
+        state_hash = entry.get("state_hash")
+        if not isinstance(state_hash, str) or not state_hash.strip():
+            raise ValueError("Extra dataset episode metadata requires state_hash")
+        episode = json.loads((root / entry["episode_file"]).read_text())
+        turns = entry["supervised_turns"]
+        indices = range(len(episode["steps"])) if turns is None else turns
+        events = tuple((i, episode["steps"][i]["event_id"]) for i in indices)
+        for key in [events, *((event,) for event in events)]:
+            by_events.setdefault((entry["task_id"], key), set()).add(state_hash)
+    filtered, matched = [], set()
+    for example in examples:
+        provenance = example["label_provenance"]
+        turns = provenance.get("turns", [provenance])
+        key = (provenance["task_id"], tuple((t["turn_index"], t["event_id"]) for t in turns))
+        candidates = by_events.get(key, set())
+        if len(candidates) != 1:
+            raise ValueError("Extra example state metadata is missing or ambiguous")
+        state_hash = next(iter(candidates))
+        if state_hash in requested:
+            filtered.append(example)
+            matched.add(state_hash)
+
+    rejected = set()
+    ledger = root / "collection.jsonl"
+    if ledger.is_file():
+        with ledger.open() as handle:
+            for line in handle:
+                if line.strip():
+                    row = json.loads(line)
+                    if row.get("accepted") is False:
+                        rejected.add(row["state_hash"])
+    # A successful retry takes precedence over an earlier rejected attempt.
+    rejected_labels = (requested - matched) & rejected
+    unknown = requested - matched - rejected_labels
+    counts = {"requested": len(requested), "matched": len(matched),
+              "rejected_labels": len(rejected_labels), "unknown": len(unknown)}
+    if unknown:
+        raise ValueError("Unknown extra state hashes: " + json.dumps(counts, sort_keys=True))
+    if not matched:
+        raise ValueError("Extra states matched zero states: " + json.dumps(counts, sort_keys=True))
+    return filtered, {"path": str(states_path), "sha256": file_hash(states_path), "counts": counts,
+                      "matched_hashes_sha256": digest(sorted(matched)), "examples": len(filtered),
+                      "supervised_tokens": sum(e["supervised_tokens"] for e in filtered)}
 
 
 def continuation_plan(reference, original_plan, state, extra=(), *, target_tokens=416280,
@@ -210,6 +282,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     add_state_arguments(parser, surrogate=False)
     parser.add_argument("--extra", help="Extra verified example dataset root")
+    parser.add_argument("--extra-states", default=argparse.SUPPRESS,
+                        help="JSON state-hash selection for --extra (object with states or string list)")
     parser.add_argument("--target-tokens", type=int, default=416280)
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument("--fraction", type=float, default=0.0)
@@ -217,15 +291,28 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--save-every-update", action="store_true")
     args = parser.parse_args(argv)
+    extra_states = getattr(args, "extra_states", None)
+    if extra_states is not None and not args.extra:
+        parser.error("--extra-states requires --extra")
     output = Path(args.output)
     if output.exists():
         raise ValueError("Continuation requires a new output directory")
     experiment = Experiment(args)
     extra = experiment.load_dataset(args.extra) if args.extra else []
+    selection_metadata = None
+    extra_inputs = [args.schedule] if args.schedule else []
+    if extra_states is not None:
+        extra, selection_metadata = filter_extra_states(extra, args.extra, extra_states)
+        extra_inputs.append(extra_states)
+        ledger = Path(args.extra) / "collection.jsonl"
+        if ledger.is_file():
+            extra_inputs.append(ledger)
     schedule = json.loads(Path(args.schedule).read_text()) if args.schedule else None
     examples, plan, accounting = continuation_plan(experiment.reference, experiment.plan, experiment.state, extra,
         target_tokens=args.target_tokens, fraction=args.fraction, seed=args.seed, schedule=schedule,
         token_budget=experiment.recipe["tokens_per_update"])
+    if selection_metadata is not None:
+        accounting["extra_states"] = selection_metadata
     # Provenance reflects the actual modified plan and combined example bank.
     recipe = {**experiment.recipe, "plan_sha256": digest(plan), "examples_sha256": digest(examples),
               "supervised_tokens": args.target_tokens, "output": str(output),
@@ -233,7 +320,7 @@ def main(argv=None):
                                "parent_checkpoint": str(experiment.checkpoint)}}
     config = {**experiment.provenance["config"], "sft": recipe, "continuation_tool": vars(args)}
     provenance = experiment.write_provenance(output, "continue_from_state", config=config,
-                                             extra_inputs=[args.schedule] if args.schedule else [])
+                                             extra_inputs=extra_inputs)
     output.mkdir(parents=True, exist_ok=False)
     # Same run layout as train/sft, not a new adapter export convention.
     write_json(output / "provenance.json", provenance, exclusive=True)
