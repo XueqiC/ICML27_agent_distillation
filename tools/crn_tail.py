@@ -1,6 +1,11 @@
 """Offline CRN paired replacements, shared state/gradient plumbing, and merge CLI.
 
 See docs/R0R3_TOOLS.md for the frozen estimand, input schemas and limitations.
+Merge accepts --items A.json [B.json ...]. Multiple files require disjoint
+candidates, identical sampling/replica tails, and comparable run provenance at
+<results>.provenance/provenance.json. Comparability reports hashes of recorded
+checkpoint, code, dependencies, surrogate examples, model snapshot and recipe;
+it does not certify base weight bytes beyond the recorded snapshot metadata.
 """
 import argparse
 from collections import defaultdict
@@ -337,7 +342,7 @@ def bernstein_radius(variance, replicas, candidates, delta, B):
     return math.sqrt(2 * variance * log / replicas) + 7 * B * log / (3 * (replicas - 1))
 
 
-def merge_results(rows, *, B=None, delta=0.05, metric="F_tilde_geo_prob", unions=(), expected_items=None):
+def _merge_bound(B, metric):
     bounded = metric == "F_tilde_geo_prob"
     if B is None:
         if not bounded:
@@ -345,10 +350,22 @@ def merge_results(rows, *, B=None, delta=0.05, metric="F_tilde_geo_prob", unions
         B = 2.0
     if not math.isfinite(B) or B < 0 or (bounded and B < 2):
         raise ValueError("Require finite nonnegative B, and B >= 2 for geometric probability")
+    return B
+
+
+def merge_results(rows, *, B=None, delta=0.05, metric="F_tilde_geo_prob", unions=(), expected_items=None):
+    B = _merge_bound(B, metric)
     if not rows:
         raise ValueError("No results")
     if len({r.get("experiment_sha256") for r in rows}) != 1:
         raise ValueError("Cannot merge different experiment identities")
+    return _paired_summary(rows, B=B, delta=delta, metric=metric, unions=unions,
+                           expected_items=expected_items)
+
+
+def _paired_summary(rows, *, B, delta, metric, unions, expected_items):
+    """Shared estimator; callers must first establish experiment comparability."""
+    bounded = metric == "F_tilde_geo_prob"
     if expected_items is not None:
         expected = {(i["item_id"], i["replica"]): digest(i) for i in expected_items}
         actual = {(r["item_id"], r["replica"]): r["item_sha256"] for r in rows}
@@ -566,6 +583,134 @@ def read_items(path):
     return items
 
 
+def _cross_run_items(paths):
+    runs, all_candidates = [], set()
+    common_sampling, common_tails = None, None
+    for path in paths:
+        items = read_items(path)
+        value = json.loads(Path(path).read_text())
+        sampling = value.get("sampling", {}) if isinstance(value, dict) else {}
+        for field in ("rule", "tail_seed_stream", "batch_size", "token_budget"):
+            if field not in sampling:
+                raise ValueError(f"Missing sampling.{field} in {path}")
+            if common_sampling is not None and sampling[field] != common_sampling[field]:
+                raise ValueError(f"Cross-run sampling.{field} differs in {path}")
+        common_sampling = sampling
+        candidates = {i["item_id"] for i in items}
+        if candidates & all_candidates:
+            raise ValueError(f"Overlapping candidates across items files: {sorted(candidates & all_candidates)}")
+        all_candidates.update(candidates)
+        tails = {}
+        for item in items:
+            replica = item["replica"]
+            tail = (item["tail_seed"], item["tail_updates"])
+            if replica in tails and tails[replica] != tail:
+                raise ValueError(f"Items tail_seed/tail_updates differ within replica {replica} in {path}")
+            tails[replica] = tail
+        if common_tails is not None:
+            if tails.keys() != common_tails.keys():
+                raise ValueError(f"Cross-run replica sets differ in {path}")
+            for replica, tail in tails.items():
+                for index, field in enumerate(("tail_seed", "tail_updates")):
+                    if tail[index] != common_tails[replica][index]:
+                        raise ValueError(f"Cross-run {field} differs for replica {replica} in {path}")
+        common_tails = tails
+        runs.append({"items": str(path), "items_sha256": file_hash(path),
+                     "candidates": sorted(candidates), "expected_items": items})
+    return runs
+
+
+def _cross_run_provenance(result_path):
+    path = Path(str(result_path) + ".provenance") / "provenance.json"
+    if not path.is_file():
+        raise ValueError(f"Missing cross-run provenance: {path}")
+    provenance = json.loads(path.read_text())
+
+    def recorded(*keys):
+        value = provenance
+        for key in keys:
+            if not isinstance(value, dict) or key not in value:
+                raise ValueError(f"Missing provenance field {'.'.join(keys)} in {path}")
+            value = value[key]
+        if value is None or value == "" or value == {}:
+            raise ValueError(f"Missing provenance field {'.'.join(keys)} in {path}")
+        return value
+
+    checkpoint = recorded("details", "checkpoint")
+    checkpoint_sha = recorded("inputs", str(Path(checkpoint) / "training_state.json"))
+    code = recorded("code_sha256")
+    dependencies = recorded("dependencies")
+    surrogate = recorded("config", "tool", "surrogate")
+    surrogate_sha = recorded("details", "dataset_sha256", surrogate)
+    snapshot = recorded("config", "sft", "base_snapshot")
+    recipe = recorded("config", "sft")
+    common = {"checkpoint_sha256": checkpoint_sha, "code_sha256": digest(code),
+              "dependencies_sha256": digest(dependencies), "surrogate_sha256": surrogate_sha,
+              "model_snapshot_sha256": digest(snapshot), "recipe_sha256": digest(recipe)}
+    items_sha = recorded("inputs", recorded("config", "tool", "items"))
+    # Reconstruct run's identity using recorded hashes, without requiring the
+    # checkpoint, datasets or model to remain available on the merge machine.
+    identity = digest({"checkpoint": checkpoint_sha, "items": items_sha,
+                       "datasets": recorded("details", "dataset_sha256"),
+                       "code": code, "dependencies": dependencies})
+    return provenance, common, items_sha, identity
+
+
+def merge_cross_runs(items_paths, results_paths, *, B=None, delta=0.05,
+                     metric="F_tilde_geo_prob", unions=()):
+    """Validate separately executed candidate sets before using the paired estimator."""
+    runs = _cross_run_items(items_paths)
+    files = [(p, [json.loads(line) for line in Path(p).read_text().splitlines()])
+             for p in results_paths]
+    groups = defaultdict(list)
+    for path, rows in files:
+        for row in rows:
+            if not row.get("experiment_sha256"):
+                raise ValueError(f"Missing experiment_sha256 in {path}")
+            groups[row["experiment_sha256"]].append(row)
+    expected = [{(i["item_id"], i["replica"]): digest(i) for i in run["expected_items"]}
+                for run in runs]
+    by_identity = {}
+    for identity, rows in groups.items():
+        actual = {(r["item_id"], r["replica"]): r.get("item_sha256") for r in rows}
+        matches = [n for n, items in enumerate(expected) if items == actual]
+        if len(actual) != len(rows) or len(matches) != 1:
+            raise ValueError(f"Results group {identity} must exactly cover one items file; "
+                             "no unique matching items file (or duplicate rows)")
+        run = runs[matches[0]]
+        if "experiment_sha256" in run:
+            raise ValueError(f"Items file {run['items']} is covered by more than one results group")
+        run["experiment_sha256"] = identity
+        by_identity[identity] = run
+    for run in runs:
+        if "experiment_sha256" not in run:
+            raise ValueError(f"Items file {run['items']} is not covered by a results group")
+
+    comparability = None
+    for path, rows in files:
+        provenance, common, items_sha, identity = _cross_run_provenance(path)
+        if comparability is not None:
+            for field, value in common.items():
+                if value != comparability[field]:
+                    raise ValueError(f"Cross-run comparability differs: {field} in {path}")
+        comparability = common
+        if identity not in by_identity or items_sha != by_identity[identity]["items_sha256"]:
+            raise ValueError(f"Provenance experiment_sha256/items_sha256 does not match an items run in {path}")
+        provenance_sha = digest(provenance)
+        for row in rows:
+            if row["experiment_sha256"] != identity:
+                raise ValueError(f"Result experiment_sha256 does not match provenance in {path}")
+            if row.get("provenance_sha256") != provenance_sha:
+                raise ValueError(f"Missing or mismatched result provenance_sha256 in {path}")
+
+    items = [i for run in runs for i in run.pop("expected_items")]
+    rows = [row for _, part in files for row in part]
+    summary = _paired_summary(rows, B=_merge_bound(B, metric), delta=delta,
+                              metric=metric, unions=unions, expected_items=items)
+    summary.update(cross_run=True, runs=runs, comparability=comparability)
+    return summary
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -585,7 +730,8 @@ def main(argv=None):
     run.add_argument("--num-shards", type=int, default=1)
     merge = sub.add_parser("merge")
     merge.add_argument("--results", nargs="+", required=True)
-    merge.add_argument("--items", required=True)
+    merge.add_argument("--items", nargs="+", required=True,
+                       help="One items file, or disjoint candidate files with matching CRN tails and run provenance")
     merge.add_argument("--output", required=True)
     merge.add_argument("--B", type=float, help="A-priori interval LENGTH for paired Z; default 2 for geo_prob, required for log metrics")
     merge.add_argument("--delta", type=float, default=0.05)
@@ -599,11 +745,14 @@ def main(argv=None):
             token_budget=args.tokens_per_update)
         write_json(args.output, value, exclusive=True)
     elif args.command == "merge":
-        rows = [json.loads(line) for p in args.results for line in Path(p).read_text().splitlines()]
-        summary = merge_results(rows, B=args.B, delta=args.delta, metric=args.metric,
-            unions=json.loads(Path(args.unions).read_text()) if args.unions else (),
-            expected_items=read_items(args.items))
-        summary["input_sha256"] = {p: file_hash(p) for p in [*args.results, args.items, *([args.unions] if args.unions else [])]}
+        options = {"B": args.B, "delta": args.delta, "metric": args.metric,
+                   "unions": json.loads(Path(args.unions).read_text()) if args.unions else ()}
+        if len(args.items) == 1:
+            rows = [json.loads(line) for p in args.results for line in Path(p).read_text().splitlines()]
+            summary = merge_results(rows, **options, expected_items=read_items(args.items[0]))
+        else:
+            summary = merge_cross_runs(args.items, args.results, **options)
+        summary["input_sha256"] = {p: file_hash(p) for p in [*args.results, *args.items, *([args.unions] if args.unions else [])]}
         write_json(args.output, summary, exclusive=True)
     else:
         if not 0 <= args.shard < args.num_shards:

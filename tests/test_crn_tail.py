@@ -1,14 +1,21 @@
 """Offline deterministic paired replacements on toy and actual tiny Gemma LoRA."""
 from copy import deepcopy
+from importlib.util import find_spec
 import json
 import math
+from pathlib import Path
 import random
 import struct
 
 import pytest
-torch = pytest.importorskip("torch")
 
-from test_adam_probe import (ToyModel, checkpoint_run, load_checkpoint, toy_rows, toy_plan, single_cpu_thread)
+# Merge/build tests do not need the optional model stack.
+has_model_stack = all(find_spec(name) is not None for name in ("torch", "transformers", "peft"))
+model_test = pytest.mark.skipif(not has_model_stack, reason="requires torch, transformers and peft")
+if has_model_stack:
+    import torch
+    from test_adam_probe import (ToyModel, checkpoint_run, load_checkpoint, toy_rows, single_cpu_thread)
+from sed.storage import canonical_bytes, digest, file_hash, write_json
 from tools.crn_tail import (batch_for, bernstein_radius, build_items, merge_results, message_backward,
                             require_no_dropout, restore, run_item, select_examples, step_message,
                             surrogate_score, tail_plan, validate_examples)
@@ -44,6 +51,7 @@ def assert_state_equal(a, b):
     assert a["python_rng"] == b["python_rng"]
 
 
+@model_test
 def test_tiny_gemma_item_twice_is_bitwise_and_restores_all_state(checkpoint_run):
     run = checkpoint_run
     state = load_checkpoint(run)
@@ -59,6 +67,7 @@ def test_tiny_gemma_item_twice_is_bitwise_and_restores_all_state(checkpoint_run)
     assert_state_equal(state, before)  # Snapshot never aliased by a branch.
 
 
+@model_test
 def test_item_timing_breakdown_includes_both_restores(warm_toy, monkeypatch):
     import tools.crn_tail as crn
     model, optimizer, state, rows = warm_toy
@@ -77,6 +86,7 @@ def test_item_timing_breakdown_includes_both_restores(warm_toy, monkeypatch):
     assert_state_equal(capture_state(model, optimizer), state)
 
 
+@model_test
 def test_cuda_timing_synchronizes_model_devices_before_clock(monkeypatch):
     from types import SimpleNamespace
     import tools.crn_tail as crn
@@ -92,6 +102,7 @@ def test_cuda_timing_synchronizes_model_devices_before_clock(monkeypatch):
     assert events == ["cuda:0", "cuda:1", "clock"]
 
 
+@model_test
 def test_zero_message_tail_equals_independent_native_step(warm_toy):
     model, optimizer, state, examples = warm_toy
     trial = item("zero", message="zero")
@@ -112,6 +123,7 @@ def test_zero_message_tail_equals_independent_native_step(warm_toy):
     assert measured["message"]["update_norm"] > 0
 
 
+@model_test
 def test_union_is_token_weighted_and_clipped_once(warm_toy):
     model, optimizer, state, examples = warm_toy
     ga, _ = message_backward(model, {"episodes": [0], "clip": False}, examples)
@@ -130,7 +142,7 @@ def test_union_is_token_weighted_and_clipped_once(warm_toy):
 
 def test_tail_prefix_and_common_random_stream():
     from train.sft import exposure_plan
-    rows = toy_rows()
+    rows = [{"supervised_tokens": 2}, {"supervised_tokens": 3}]
     expected = exposure_plan([2, 3], token_budget=3, passes=30, seed=19, packing="episode")
     actual = tail_plan(rows, 7, 19, token_budget=3)
     assert [b["indices"] for b in actual] == [b["indices"] for b in expected[:7]]
@@ -185,6 +197,7 @@ def test_merge_rejects_invalid_pairing(fault):
         merge_results(rows, B=B, metric="F_tilde_per_token")
 
 
+@model_test
 def test_surrogate_normalizations_and_input_guards(warm_toy):
     model, _, _, rows = warm_toy
     score = surrogate_score(model, rows)
@@ -199,6 +212,7 @@ def test_surrogate_normalizations_and_input_guards(warm_toy):
         select_examples([{**r, "example_id": "same"} for r in rows], ["same"])
 
 
+@model_test
 def test_geometric_probability_averages_trajectories_after_token_normalization(monkeypatch, warm_toy):
     import tools.crn_tail as crn
     model, _, _, rows = warm_toy
@@ -237,6 +251,7 @@ def test_bounded_merge_defaults_and_invalid_bounds():
             merge_results([{**r, "F_tilde_geo_prob": value} for r in rows])
 
 
+@model_test
 def test_tiny_model_all_diagnostics_and_timings(checkpoint_run, capsys):
     from tools.grad_stats import gradient_statistics
     from tools.warmth_dump import warmth_report
@@ -260,6 +275,7 @@ def test_tiny_model_all_diagnostics_and_timings(checkpoint_run, capsys):
             "amplitude": amplitude["wall_seconds"]}))
 
 
+@model_test
 def test_sharded_cli_build_run_merge(warm_toy, tmp_path, monkeypatch):
     import tools.crn_tail as crn
     model, optimizer, state, rows = warm_toy
@@ -356,3 +372,221 @@ def test_merge_refuses_missing_items_fixed_horizon_and_reused_seeds():
         r["tail_seed"] = 0
     with pytest.raises(ValueError, match="fresh tail"):
         merge_results(rows, B=4, metric="F_tilde_per_token")
+
+
+@pytest.fixture
+def cross_run_files(tmp_path):
+    """Only synthetic items/results and run-shaped provenance; no model loading."""
+    items_paths, results_paths = [], []
+    scores = {"P1": [.2, .3, .4], "P2": [.5, .5, .5],
+              "P3": [.4, .6, .5], "P4": [.8, .7, .9]}
+    for number, pools in enumerate((
+            {"P1": {"ids": [0, 1]}, "P3": {"ids": [10, 11, 12]}},
+            {"P2": {"ids": [20, 21, 22, 23]}, "P4": {"ids": [30]}})):
+        items_path = tmp_path / f"items-{number}.json"
+        document = build_items(pools, 3, seed=17, tail_updates=2)
+        write_json(items_path, document)
+        items_paths.append(str(items_path))
+        provenance = {
+            "code_sha256": {"tools/crn_tail.py": digest("common-code")},
+            "dependencies": {"torch": "fake", "numpy": None},
+            "config": {"tool": {"items": str(items_path), "surrogate": "surrogate.json"},
+                       "sft": {"base_snapshot": {"path": "/fake/snapshot",
+                               "metadata_sha256": {"config.json": digest("snapshot")}},
+                               "learning_rate": 1e-5, "tokens_per_update": 512}},
+            "inputs": {"/fake/checkpoint/training_state.json": digest("checkpoint"),
+                       "surrogate.json": digest("listing"), str(items_path): file_hash(items_path)},
+            "details": {"checkpoint": "/fake/checkpoint", "dataset_sha256": {
+                "reference": digest("reference"), "surrogate.json": digest("surrogate"),
+                f"pool-{number}": digest(pools)}}}
+        identity = digest({"checkpoint": provenance["inputs"]["/fake/checkpoint/training_state.json"],
+                           "items": file_hash(items_path), "datasets": provenance["details"]["dataset_sha256"],
+                           "code": provenance["code_sha256"], "dependencies": provenance["dependencies"]})
+        # Interleaved shards and an empty shard use independent provenance records.
+        for shard in range(3):
+            path = tmp_path / f"results-{number}-{shard}.jsonl"
+            provenance["config"]["tool"]["output"] = str(path)
+            write_json(path.with_name(path.name + ".provenance") / "provenance.json", provenance)
+            selected = document["items"][shard::2] if shard < 2 else []
+            rows = [{**item, "item_sha256": digest(item), "experiment_sha256": identity,
+                     "provenance_sha256": digest(provenance),
+                     "tail_sha256": digest([item["tail_seed"], item["tail_updates"]]),
+                     "F_tilde_geo_prob": scores[item["item_id"]][item["replica"]],
+                     "message": {"token_weights": [.4, .6] if item["item_id"] == "P4" else []}}
+                    for item in selected]
+            path.write_bytes(b"".join(canonical_bytes(row) + b"\n" for row in rows))
+            results_paths.append(str(path))
+    return items_paths, results_paths, scores
+
+
+def cross_merge(tmp_path, files, *extra):
+    from tools.crn_tail import main
+    items, results, _ = files
+    output = tmp_path / "merged.json"
+    main(["merge", "--items", *items, "--results", *results, "--output", str(output), *extra])
+    return json.loads(output.read_text())
+
+
+def test_cross_run_merge_matches_hand_computed_pairs_and_unions(tmp_path, cross_run_files):
+    items, results, scores = cross_run_files
+    documents = [json.loads(Path(p).read_text()) for p in items]
+    assert [i["tail_seed"] for i in documents[0]["items"]] == [i["tail_seed"] for i in documents[1]["items"]]
+    unions = tmp_path / "unions.json"
+    write_json(unions, [{"zero": "P1", "A": "P2", "B": "P3", "union": "P4"}])
+    summary = cross_merge(tmp_path, cross_run_files, "--unions", str(unions))
+    assert summary["cross_run"] is True
+    assert summary["M_theorem"] == 3 and summary["replicas"] == [0, 1, 2]
+    assert summary["candidates"] == ["P1", "P2", "P3", "P4"]
+    assert summary["ranking"] == ["P4", "P2", "P3", "P1"]
+    assert len(summary["pairs"]) == 12
+    log = math.log(4 * 3**2 / .05)
+    for pair in summary["pairs"]:
+        z = [a - b for a, b in zip(scores[pair["j"]], scores[pair["k"]])]
+        mean = sum(z) / 3
+        variance = sum((value - mean)**2 for value in z) / 2
+        radius = math.sqrt(2 * variance * log / 3) + 7 * 2 * log / 6
+        assert pair["Z"] == pytest.approx(z)
+        assert pair["S_hat"] == pytest.approx(mean)
+        assert pair["sample_variance"] == pytest.approx(variance)
+        assert pair["radius_a_priori"] == pytest.approx(radius)
+        assert pair["surrogate_lower_bound"] == pytest.approx(mean - radius)
+    response = summary["response_nonadditivity"][0]
+    for r, value in enumerate(response["replicas"]):
+        delta = scores["P4"][r] - scores["P1"][r]
+        residual = delta - .4 * (scores["P2"][r] - scores["P1"][r]) - .6 * (scores["P3"][r] - scores["P1"][r])
+        assert value["residual"] == pytest.approx(residual)
+        assert value["nu_resp"] == pytest.approx(abs(residual / delta))
+    assert summary["input_sha256"] == {p: file_hash(p) for p in [*items, *results, str(unions)]}
+    for run, path in zip(summary["runs"], items):
+        assert set(run) == {"items", "items_sha256", "experiment_sha256", "candidates"}
+        assert run["items"] == path and run["items_sha256"] == file_hash(path)
+        assert run["candidates"] == sorted({i["item_id"] for i in json.loads(Path(path).read_text())["items"]})
+    assert len({run["experiment_sha256"] for run in summary["runs"]}) == 2
+    common = summary["comparability"]
+    assert common["checkpoint_sha256"] == digest("checkpoint")
+    assert common["surrogate_sha256"] == digest("surrogate")
+    assert set(common) == {"checkpoint_sha256", "code_sha256", "dependencies_sha256",
+                           "surrogate_sha256", "model_snapshot_sha256", "recipe_sha256"}
+    assert all(len(value) == 64 and int(value, 16) >= 0 for value in common.values())
+
+
+@pytest.mark.parametrize("fault,match", [
+    ("overlap", "Overlapping candidates"), ("tail_seed", "tail_seed"),
+    ("tail_updates", "tail_updates"), ("replicas", "replica sets"),
+    ("rule", "sampling.rule"), ("tail_seed_stream", "sampling.tail_seed_stream"),
+    ("batch_size", "sampling.batch_size"), ("token_budget", "sampling.token_budget"),
+    ("sampling_missing", "Missing sampling.rule")])
+def test_cross_run_rejects_incomparable_items(tmp_path, cross_run_files, fault, match):
+    path = cross_run_files[0][1]
+    document = json.loads(Path(path).read_text())
+    if fault == "overlap":
+        for row in document["items"]:
+            if row["item_id"] == "P2":
+                row["item_id"] = "P1"
+    elif fault in {"tail_seed", "tail_updates"}:
+        for row in document["items"]:
+            row[fault] += 1
+    elif fault == "replicas":
+        document["items"] = [row for row in document["items"] if row["replica"] != 2]
+    elif fault == "sampling_missing":
+        del document["sampling"]["rule"]
+    else:
+        document["sampling"][fault] = "changed"
+    write_json(path, document)
+    with pytest.raises(ValueError, match=match):
+        cross_merge(tmp_path, cross_run_files)
+
+
+@pytest.mark.parametrize("fault,match", [
+    ("unmatched", "no unique matching items file"),
+    ("duplicate", "duplicate rows"), ("missing_group", "not covered"),
+    ("extra_group", "more than one results group"),
+    ("mixed_groups", "no unique matching items file")])
+def test_cross_run_requires_one_to_one_items_coverage(tmp_path, cross_run_files, fault, match):
+    items, results, scores = cross_run_files
+    path = Path(results[0])
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    if fault == "unmatched":
+        rows[0]["item_sha256"] = digest("wrong-item")
+    elif fault == "duplicate":
+        rows.append(rows[0])
+    elif fault == "missing_group":
+        results = results[:3]
+    elif fault == "extra_group":
+        all_rows = rows + [json.loads(line) for line in Path(results[1]).read_text().splitlines()]
+        rows += [{**row, "experiment_sha256": digest("another-run")} for row in all_rows]
+    else:
+        other = json.loads(Path(results[3]).read_text().splitlines()[0])
+        rows[0]["experiment_sha256"] = other["experiment_sha256"]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    with pytest.raises(ValueError, match=match):
+        cross_merge(tmp_path, (items, results, scores))
+
+
+@pytest.mark.parametrize("keys,field", [
+    (("code_sha256",), "code_sha256"),
+    (("inputs", "/fake/checkpoint/training_state.json"), "checkpoint_sha256"),
+    (("dependencies",), "dependencies_sha256"),
+    (("details", "dataset_sha256", "surrogate.json"), "surrogate_sha256"),
+    (("config", "sft", "base_snapshot"), "model_snapshot_sha256"),
+    (("config", "sft", "learning_rate"), "recipe_sha256")])
+def test_cross_run_rejects_differing_provenance(tmp_path, cross_run_files, keys, field):
+    path = Path(cross_run_files[1][3] + ".provenance") / "provenance.json"
+    provenance = json.loads(path.read_text())
+    parent = provenance
+    for key in keys[:-1]:
+        parent = parent[key]
+    parent[keys[-1]] = "changed"
+    write_json(path, provenance)
+    with pytest.raises(ValueError, match=f"comparability differs: {field}"):
+        cross_merge(tmp_path, cross_run_files)
+
+
+@pytest.mark.parametrize("keys", [
+    ("code_sha256",), ("dependencies",), ("inputs", "/fake/checkpoint/training_state.json"),
+    ("details", "checkpoint"), ("details", "dataset_sha256", "surrogate.json"),
+    ("config", "tool", "surrogate"), ("config", "sft"), ("config", "sft", "base_snapshot")])
+def test_cross_run_rejects_missing_provenance_fields(tmp_path, cross_run_files, keys):
+    path = Path(cross_run_files[1][3] + ".provenance") / "provenance.json"
+    provenance = json.loads(path.read_text())
+    parent = provenance
+    for key in keys[:-1]:
+        parent = parent[key]
+    del parent[keys[-1]]
+    write_json(path, provenance)
+    with pytest.raises(ValueError, match="Missing provenance field") as error:
+        cross_merge(tmp_path, cross_run_files)
+    assert ".".join(keys) in str(error.value)
+
+
+@pytest.mark.parametrize("fault", ["missing_file", "wrong_provenance", "wrong_identity"])
+def test_cross_run_binds_results_to_provenance(tmp_path, cross_run_files, fault):
+    path = Path(cross_run_files[1][3] + ".provenance") / "provenance.json"
+    if fault == "missing_file":
+        path.unlink()
+        match = "Missing cross-run provenance"
+    else:
+        provenance = json.loads(path.read_text())
+        if fault == "wrong_provenance":
+            provenance["timestamp"] = "changed"
+            match = "provenance_sha256"
+        else:
+            provenance["details"]["dataset_sha256"]["pool-1"] = digest("wrong-pool")
+            match = "experiment_sha256/items_sha256"
+        write_json(path, provenance)
+    with pytest.raises(ValueError, match=match):
+        cross_merge(tmp_path, cross_run_files)
+
+
+def test_single_items_cli_preserves_summary_bytes_without_provenance(tmp_path, cross_run_files):
+    from tools.crn_tail import main, read_items
+    items, results, _ = cross_run_files
+    rows = [json.loads(line) for path in results[:3] for line in Path(path).read_text().splitlines()]
+    expected = merge_results(rows, expected_items=read_items(items[0]))
+    expected["input_sha256"] = {p: file_hash(p) for p in [*results[:3], items[0]]}
+    for path in results[:3]:
+        (Path(path + ".provenance") / "provenance.json").unlink()
+    output = tmp_path / "single.json"
+    main(["merge", "--items", items[0], "--results", *results[:3], "--output", str(output)])
+    assert output.read_bytes() == canonical_bytes(expected) + b"\n"
+    assert "cross_run" not in expected and "runs" not in expected and "comparability" not in expected
