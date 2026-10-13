@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **23:05 CDT 10-12: R2 continuation protocol fixed BEFORE any R2 training** (prereg R2 + addendum B; details the prereg left open):
+  start z10 = pilot-warm-1010 cold checkpoint-tokens-104070; target p40 = 416,280 supervised tokens (continue_from_state default);
+  fraction 0.25 of the remaining updates replaced by batches from the arm's labels (same rule as R1), --seed 1202 for every
+  arm; arm label pools = r2_union filtered to the arm's states (allocations_scalefree/A{1,2,3}_n{100,400}.json; rejected
+  labels simply absent, counts recorded); A0 = the existing cold p40 (no queries, all-replay plan; dev300 241/242). 6 new arms,
+  dev300 eval each (r03_dev300, same serving setup as the noise reference). Criteria = addendum B. R1 arms (P2/P3/P4,
+  fraction 0.25, --seed 1201) only after the full 4-way certificate ranking is written here.
 - **22:45 CDT 10-12: hpg dept /blue full (18.24T/20T) — cleanup coordinated by hq (control plane); tc gave a list only.**
   Live dependencies (never delete): tc-alignment/envs/ (vllm-serve venv = VLLM_PYTHON, alfworld data), tc-alignment-vllm/,
   tools/hf-cache, tools/uv-pythons, ICML27_*; on yd24f: /blue/yd24f.fsu/xc25.fsu/hq/tc-alignment/.venv (TRAIN_PYTHON; the
