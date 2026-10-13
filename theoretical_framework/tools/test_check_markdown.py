@@ -292,6 +292,12 @@ class MarkdownTests(unittest.TestCase):
 
 class FrameworkPolicyTests(unittest.TestCase):
     def setUp(self):
+        # These minimal fixtures isolate the pre-existing declaration/rendering
+        # policy. ReferencePolicyTests below exercises the combined rules with
+        # full catalogs and real generated sections, without mocking this hook.
+        reference_patch = patch.object(check, "validate_references")
+        reference_patch.start()
+        self.addCleanup(reference_patch.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
@@ -815,6 +821,10 @@ class FrameworkPolicyTests(unittest.TestCase):
 
 class PathSelectionTests(unittest.TestCase):
     def setUp(self):
+        # Path-selection fixtures deliberately omit bibliographies.
+        reference_patch = patch.object(check, "validate_references")
+        reference_patch.start()
+        self.addCleanup(reference_patch.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
@@ -1281,6 +1291,193 @@ class BlobTests(unittest.TestCase):
             self.assertEqual(check.main(["--blob", "--cache", str(self.cache)]), 0)
         run.assert_called_once()
         self.assertIn("GitHub file view", self.out.getvalue())
+
+
+import test_sync_references as reference_fixtures
+
+
+class ReferencePolicyTests(reference_fixtures.ReferenceFixture, unittest.TestCase):
+    def validate(self, *paths, policy=False):
+        report, output = check.Report(), io.StringIO()
+        files = list(paths) if paths else sorted(self.framework.rglob('*.md'))
+        _, s1 = check.scope(self.root)
+        with contextlib.redirect_stdout(output):
+            check.offline(files, s1 if policy else set(), report)
+        self.assertEqual(report.errors, sum(report.counts.values()))
+        return report, output.getvalue()
+
+    def assert_rule(self, rule, *paths, present=True):
+        report, output = self.validate(*paths)
+        self.assertEqual(rule in report.counts, present, output)
+        return report, output
+
+    def test_complete_bilingual_pages_and_usage_pass_combined_validator(self):
+        for name in ('README.md', 'README_ZH.md', 'tools/README.md', 'figures/README.md'):
+            self.page(name, '# Overview\n\n[A](#ref-alpha) [B](#ref-beta)\n')
+        self.assertEqual(self.run_sync()[0], 0)
+        report, output = self.validate(policy=True)
+        self.assertEqual((report.errors, report.warnings), (0, 0), output)
+
+    def test_requires_one_last_correct_language_h2(self):
+        path = self.page()
+        original = path.read_text()
+        self.assert_rule('ref-section', path, present=False)
+        for text in (original.split('## References')[0], original + '\n## Later\n',
+                     original + '\n## References\n', original.replace('## References', '## 参考文献')):
+            with self.subTest(text=text):
+                path.write_text(text)
+                self.assert_rule('ref-section', path)
+        path.write_text(original.replace('## References', 'References\n----------'))
+        # Setext headings count as H2; exact generation still requires ATX form.
+        self.assert_rule('ref-section', path, present=False)
+        self.assert_rule('ref-content', path)
+
+    def test_section_content_is_exact_including_order_entry_text_and_newline(self):
+        path = self.page(text='# Tools\n\n[A](#ref-alpha) [B](#ref-beta)\n')
+        original = path.read_text()
+        self.assert_rule('ref-content', path, present=False)
+        for text in (original.replace('Works cited on this page.', 'Citations.'),
+                     original.replace('Second work.', 'Wrong entry.'), original + '\n',
+                     original.rstrip(), original.replace('\n\n**Beta', '\n**Beta')):
+            with self.subTest(text=text):
+                path.write_text(text)
+                self.assert_rule('ref-content', path)
+        path.write_text(original)
+        section = original[original.index('## References'):]
+        first = section.index('<a id="ref-beta"')
+        second = section.index('<a id="ref-alpha"')
+        reversed_section = section[:first] + section[second:].rstrip() + '\n\n' + section[first:second].rstrip() + '\n'
+        path.write_text(original[:original.index('## References')] + reversed_section)
+        self.assert_rule('ref-content', path)
+
+    def test_body_citations_require_known_key_and_own_section_anchor(self):
+        path = self.page()
+        original = path.read_text()
+        self.assert_rule('ref-key', path, present=False)
+        self.assert_rule('ref-target', path, present=False)
+        path.write_text(original.replace('<a id="ref-beta"></a>\n\n', ''))
+        self.assert_rule('ref-target', path)
+        # A body anchor cannot stand in for the anchor in the section.
+        path.write_text('<a id="ref-beta"></a>\n\n' + path.read_text())
+        self.assert_rule('ref-target', path)
+        self.assert_rule('ref-reserved', path)
+        path.write_text(original.replace('ref-beta', 'ref-missing'))
+        self.assert_rule('ref-key', path)
+        self.assert_rule('ref-target', path, present=False)
+
+    def test_padding_is_rejected_even_when_cited_from_old_reference_list(self):
+        path = self.page(text='# Tools\n\n[A](#ref-alpha) [B](#ref-beta)\n')
+        self.assert_rule('ref-padding', path, present=False)
+        path.write_text(path.read_text().replace('[A](#ref-alpha) ', ''))
+        self.assert_rule('ref-padding', path)
+        path.write_text(path.read_text() + '\n- [A](#ref-alpha)\n')
+        self.assert_rule('ref-padding', path)
+
+    def test_legacy_body_links_fail_navigation_and_code_examples_pass(self):
+        path = self.page(text='# Tools\n\n[B](#ref-beta) [all](../references.md)\n'
+                         '`[example](../references.md#unknown)`\n')
+        report, output = self.assert_rule('ref-legacy', path, present=False)
+        self.assertEqual(report.errors, 0, output)
+        path.write_text(path.read_text().replace('[B](#ref-beta)', '[B](../references_ZH.md#beta)'))
+        self.assert_rule('ref-legacy', path)
+
+    def test_parity_reads_unselected_counterpart_including_figure_specs(self):
+        en = self.page('figures/specs/fig2_1.md')
+        zh = self.page('figures/specs/fig2_1_ZH.md')
+        self.assert_rule('ref-parity', en, present=False)
+        self.page('figures/specs/fig2_1_ZH.md', '# Figure\n\n[A](#ref-alpha)\n')
+        self.assert_rule('ref-parity', en)
+        self.assert_rule('ref-parity', zh)
+        zh.unlink()
+        self.assert_rule('ref-parity', en, present=False)
+
+    def test_every_ref_page_needs_body_citation_but_direction_docs_do_not(self):
+        for name in ('README.md', 'tools/README.md', 'statements/item.md', 'proofs/item.md',
+                     'experiments/item.md', 'figures/README.md', 'figures/specs/fig2_1.md', 'extra/page.md'):
+            with self.subTest(name=name):
+                path = self.write(name, '# Empty\n')
+                self.assert_rule('ref-empty', path)
+                self.page(name)
+                self.assert_rule('ref-empty', path, present=False)
+        doc = self.root / 'docs/direction/extra.md'
+        doc.parent.mkdir(parents=True)
+        doc.write_text('# Direction\n')
+        report, output = self.validate(doc)
+        self.assertEqual(report.errors, 0, output)
+
+    def test_code_examples_never_create_citations_in_sync_or_validator(self):
+        path = self.page(text='# Tools\n\n[B](#ref-beta)\n\n'
+                         '`[bad](#ref-absent)`\n``[bad](../references.md#absent)``\n'
+                         '`multiline\n[bad](#ref-absent)\n`\n'
+                         '```md\n[bad](#ref-absent)\n<a id="ref-absent"></a>\n## References\n```\n'
+                         '`<a id="ref-example"></a>`\n')
+        report, output = self.validate(path)
+        self.assertEqual(report.errors, 0, output)
+        path.write_text(path.read_text().replace('[B](#ref-beta)', '`[B](#ref-beta)`'))
+        self.assert_rule('ref-empty', path)
+
+    def test_reserved_anchors_include_named_and_non_a_ids(self):
+        path = self.page()
+        original = path.read_text()
+        self.assert_rule('ref-reserved', path, present=False)
+        for anchor in ('<a id="ref-beta"></a>', "<a name='ref-beta'></a>", '<div id="ref-beta"></div>'):
+            path.write_text(anchor + '\n\n' + original)
+            self.assert_rule('ref-reserved', path)
+
+    def test_used_in_exactness_and_unused_keys_warn_without_errors(self):
+        self.page()
+        self.assertEqual(self.run_sync()[0], 0)
+        for name in ('references.md', 'references_ZH.md'):
+            path = self.framework / name
+            report, output = self.assert_rule('ref-used-in', path, present=False)
+            self.assertEqual(report.errors, 0, output)
+            self.assertEqual(report.warnings, 1, output)
+            original = path.read_text()
+            for text in (original.replace('tools/README.md', 'README.md'),
+                         original.replace('Used in: none', 'Used in: stale').replace('引用于：无', '引用于：旧'),
+                         original + ('\nUsed in: none\n' if name == 'references.md' else '\n引用于：无\n')):
+                path.write_text(text)
+                self.assert_rule('ref-used-in', path)
+            path.write_text(original)
+
+    def test_catalog_key_sets_are_checked_even_for_one_selected_page(self):
+        path = self.page()
+        self.assert_rule('ref-catalog', path, present=False)
+        zh = self.framework / 'references_ZH.md'
+        zh.write_text(zh.read_text().replace('id="alpha"', 'id="other"'))
+        self.assert_rule('ref-catalog', path)
+
+    def test_legacy_key_resolution_still_applies_to_direction_docs(self):
+        doc = self.root / 'docs/direction/extra.md'
+        doc.parent.mkdir(parents=True)
+        doc.write_text('[B](../../theoretical_framework/references.md#beta)\n')
+        report, output = self.validate(doc)
+        self.assertEqual(report.errors, 0, output)
+        zh = self.framework / 'references_ZH.md'
+        zh.write_text(zh.read_text().replace('id="beta"', 'id="other"'))
+        report, output = self.validate(doc)
+        self.assertIn('reference key missing in ZH: beta', output)
+        self.assertNotIn('ref-empty', output)
+        self.assertNotIn('ref-legacy', output)
+
+    def test_readme_appendix_before_references_keeps_exemption_and_math_limit(self):
+        for name, appendix in (('README.md', 'Appendix · Sources'), ('README_ZH.md', '附录 · 出处')):
+            self.page(name, '# Overview\n\n[B](#ref-beta)\n\n'
+                      f'## {appendix}\n\nN01 Theorem 7 §5.2 eqs. (A11)\n'
+                      '### Nested\n\nTheorem 6.99\n')
+        paths = [self.framework / name for name in ('README.md', 'README_ZH.md')]
+        report, output = self.validate(*paths, policy=True)
+        self.assertEqual(report.errors, 0, output)
+        # The next H2 ends the appendix; labels in References do get checked.
+        en = paths[0]
+        en.write_text(en.read_text() + '\nN01\n')
+        report, output = self.validate(en, policy=True)
+        self.assertIn('retired node label', output)
+        self.assertIn('ref-content', output)
+        self.page('README.md', '# Overview\n\n[B](#ref-beta)\n\n'
+                  '## Appendix · Sources\n\n' + '$`x`$\n\n' * 601)
+        report, output = self.validate(en, policy=True)
+        self.assertIn('too many math expressions: 601', output)
 
 
 if __name__ == "__main__":

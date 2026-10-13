@@ -644,6 +644,7 @@ class FrameworkIndex:
 class Report:
     def __init__(self):
         self.errors = 0
+        self.warnings = 0
         self.counts: Counter[str] = Counter()
 
     def hit(self, path: Path, line: int, message: str):
@@ -658,13 +659,101 @@ class Report:
             rule = "denylisted macro"
         self.counts[rule] += 1
 
+    def warn(self, path: Path, line: int, message: str):
+        try:
+            name = path.relative_to(ROOT)
+        except ValueError:
+            name = path
+        print(f"{name}:{line}: WARNING {message}")
+        self.warnings += 1
+
+
+def validate_references(files: list[Path], texts: dict[Path, str], report: Report):
+    """Use the sync tool's parser and generator against the same offline snapshot."""
+    import sync_references as refs
+
+    roots = {root for path in files if (root := refs.framework_root(path))}
+    for root in sorted(roots):
+        selected = [p for p in files if p in texts and p.is_relative_to(root)]
+        pages = {p: t for p, t in texts.items() if refs.is_ref_page(p, root)}
+        bodies = {p: refs.body_text(t) for p, t in pages.items()}
+        keys = {p: {key for _, key, _ in refs.citations(p, body, root)} for p, body in bodies.items()}
+        try:
+            catalog = refs.Catalog(root, texts)
+        except refs.ReferenceError as error:
+            report.hit(error.path, error.line, f"ref-catalog: {error.message}")
+            catalog = None
+        for path in selected:
+            if path not in pages:
+                continue
+            text = pages[path]
+            sections = refs.h2_sections(text)
+            references = [section for section in sections if section.title in refs.TITLES]
+            title = "参考文献" if language(path) == "ZH" else "References"
+            valid_section = (len(references) == 1 and references[0] == sections[-1]
+                             and references[0].title == title)
+            if not valid_section:
+                report.hit(path, references[0].line if references else 1,
+                           f"ref-section: expected exactly one final H2 {title}")
+            if not keys[path]:
+                report.hit(path, 1, "ref-empty: page has no body citations")
+            section_anchors = set()
+            for section in references:
+                section_anchors.update(explicit_anchors(text[section.content:section.end]))
+            for link, key, legacy in refs.citations(path, bodies[path], root):
+                if legacy:
+                    report.hit(path, link.line, f"ref-legacy: use #ref-{key}")
+                elif f"ref-{key}" not in section_anchors:
+                    report.hit(path, link.line, f"ref-target: missing section anchor ref-{key}")
+                if catalog and key not in catalog.keys:
+                    report.hit(path, link.line, f"ref-key: unknown reference key {key}")
+            for anchor in sorted(section_anchors):
+                if anchor.startswith("ref-") and anchor[4:] not in keys[path]:
+                    report.hit(path, references[0].line, f"ref-padding: uncited entry {anchor[4:]}")
+            for anchor in re.finditer(r'<[^>]+\b(?:id|name)=["\'](ref-[^"\']*)["\'][^>]*>',
+                                      refs.masked_source(text)):
+                if not any(s.content <= anchor.start() < s.end for s in references):
+                    report.hit(path, text.count("\n", 0, anchor.start()) + 1,
+                               f"ref-reserved: anchor {anchor[1]} outside references section")
+            if valid_section and catalog and keys[path] <= set(catalog.keys):
+                section = references[0]
+                if text[section.start:] != refs.generate_section(path, keys[path], catalog):
+                    report.hit(path, section.line, "ref-content: section differs from generated bibliography")
+            other = refs.counterpart(path, "EN" if language(path) == "ZH" else "ZH")
+            if other in keys and keys[path] != keys[other]:
+                report.hit(path, 1, "ref-parity: EN/ZH body citation keys differ: "
+                           + ", ".join(sorted(keys[path] ^ keys[other])))
+        if catalog:
+            try:
+                usage = refs.usage_lines(catalog, texts)
+            except refs.ReferenceError as error:
+                report.hit(error.path, error.line, f"ref-used-in: {error.message}")
+                continue
+            for lang, name in (("EN", "references.md"), ("ZH", "references_ZH.md")):
+                path = root / name
+                if path not in selected:
+                    continue
+                for key, start, end in catalog.blocks[lang]:
+                    lines = re.findall(r"(?m)^(?:Used in:|引用于：)[^\n]*", texts[path][start:end])
+                    line = texts[path].count("\n", 0, start) + 1
+                    if lines != [usage[lang][key]]:
+                        report.hit(path, line, f"ref-used-in: stale usage for {key}; expected {usage[lang][key]}")
+                    if usage[lang][key] in {"Used in: none", "引用于：无"}:
+                        report.warn(path, line, f"ref-unused: no citing page for {key}")
+
 
 def offline(files: list[Path], s1: set[Path], report: Report):
+    import sync_references as refs
+
     anchor_cache: dict[Path, dict[str, int]] = {}
     reference_anchors: dict[Path, set[str]] = {}
     checked_keys: set[tuple[Path, str]] = set()
     texts = {}
-    for path in sorted(set(files) | s1):
+    # Include all ref pages for usage/parity, even when checking selected files.
+    # Read each only once while independent writers update the framework.
+    reference_roots = {root for path in files if (root := refs.framework_root(path))}
+    reference_scope = {p for root in reference_roots for p in root.rglob("*.md")}
+    for path in sorted(set(files) | s1 | reference_scope):
         try:
             texts[path] = path.read_text(encoding="utf-8")
         except (FileNotFoundError, IsADirectoryError):
@@ -686,6 +775,7 @@ def offline(files: list[Path], s1: set[Path], report: Report):
             for n, paragraph in reference_paragraphs(path, text, keep_links=True):
                 framework.check_links(path, n, paragraph, report)
         lines = [line for _, line, _ in lines_outside_fences(text)]
+        link_lines = refs.masked_source(text).splitlines()
         for n, line, fence_language, opening, in_list, indent in block_lines(text):
             if fence_language == "math" and FENCE.match(line) and (in_list or indent):
                 if opening or indent:
@@ -740,7 +830,7 @@ def offline(files: list[Path], s1: set[Path], report: Report):
                 if is_link and (any(t[0] in {"math", "dollar"} for t in inline_tokens(label))
                                 or re.search(r"\\\(.+?\\\)", mask_inline(label, {"code"}))):
                     report.hit(path, n, "math in link text")
-            for label, dest, _, _ in markdown_links(line):
+            for label, dest, _, _ in markdown_links(link_lines[n - 1]):
                 u = urlsplit(html.unescape(dest))
                 if u.scheme or u.netloc or dest.startswith("/"):
                     continue
@@ -827,6 +917,7 @@ def offline(files: list[Path], s1: set[Path], report: Report):
     policy_files = [path for path in files if path in s1]
     framework.validate_sections(policy_files, report)
     framework.validate_parity(policy_files, texts, report)
+    validate_references(files, texts, report)
 
 
 class RenderedHTML(HTMLParser):
@@ -1145,7 +1236,7 @@ def main(argv=None) -> int:
             return 1
     for rule, count in sorted(report.counts.items()):
         print(f"  {rule}: {count}")
-    print(f"{'FAIL' if report.errors else 'PASS'}: {len(files)} files; {report.errors} errors"
+    print(f"{'FAIL' if report.errors else 'PASS'}: {len(files)} files; {report.errors} errors; {report.warnings} warnings"
           + ("; offline + GitHub file view" if args.blob else
              "; offline + GitHub Markdown API" if args.online else "; offline"))
     return int(bool(report.errors))
