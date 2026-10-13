@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **20:40 CDT 10-12: teacher collection RUNNING with the new key** (user sent it 20:16 CDT, valid 30 days; sha8 c43d7f3d; in
+  rai llm_apis.env and hpg secrets/openai.env, old files kept as .bak-20261012-oldopenai). teacher-r1 45727129 (tree 9cf3201,
+  run IDs r03-r1-p2-k2 / r03-r1-p4-k2 — the old run ID is halted by its 401 by design): P2 400/600 success, 0 failed.
+  teacher-r2 45727130 afterok (r03-r2-union, 558 new calls + 125 cache hits). Next: P2/P4 CRN items (seed 1101, r=64, T=10)
+  → certificate → full 4-way ranking here → R1 continuation arms; R2 arms after its labels.
 - **14:48 CDT 10-12: R1 certificate P1 vs P3 DONE — PRE-REGISTERED (partial) RANKING: P1 > P3.** 45624783–86 (tree 57131a6),
   r=64, T=10, tail seed 1101. Ŝ(P1−P3): geo-prob +0.00138 (57/64 replicas positive, SE 1.5e-4, diagnostic radius 0.00121 →
   certified by the diagnostic radius only; strict a-priori radius 0.325), per-token +0.00156 (54/64, diagnostic 0.00150 →
