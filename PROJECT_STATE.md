@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **03:45 CDT 10-13: R2 A1_n100 45733057 TIMEOUT at its 1:30 limit (123/395 updates, no checkpoint) — R2 cost was underestimated ~8x.**
+  Cause (engineering, not the method): an extra-pool update is token-matched (~515 supervised tokens) but each teacher label is a
+  single Action turn (~8.5 supervised tokens) with the full student prefix, so one extra update = ~60 full-context forward/backward
+  passes (microbatch 1, eager attention, grad checkpointing — the cold recipe, kept for comparability with A0): median 170 s vs
+  4 s for a reference update. Per arm ≈ 98 extra × ~165 s + 297 ref × 4 s ≈ 4.9 h (A2 arms shorter: mean state step 8.7/11.3 vs
+  ~17). Projection R0–R3 ≈ 62 GPU-h (used 15.2; R2 arms ~27 + evals 2.4; R1 shards 3.3; R1 continuation 3 arms ~14 + evals
+  1.3) vs the approved ~40 cap → asked the user. Actions within the cap: dead eval 45733058 cancelled; A1_n100 partial output
+  moved to $B/_trash/r03_r2_A1_n100_timeout_20261013/; resubmitted A1_n100 45754199 (6:30) + eval 45754200 afterok; A3_n100
+  45733065 raised to 6:30 and released (A1_n100 + A3_n100 = the primary A3−A1 test at n=100, ~10 GPU-h, total ≈ 29 < 40).
+  A1_n400 45733059 (limit 6:30), A2_n100 61, A2_n400 63, A3_n400 67 HELD (scontrol hold; limits 1:30 except 59 — raise to 6:30
+  before release; raising a pending job's limit works for users). Their evals 60/62/64/68 wait on them.
 - **22:02 CDT 10-12: hpg Qwen + garbage/cache deletion DONE** (user, tc channel 21:46 CDT: "tc上面所有和qwen相关的全部删掉，垃圾缓存全部删掉").
   305 items deleted (290 Qwen3.5-4B items ≈1,705 GiB; _trash dirs incl. this project's 47.5 GiB; vllm/uv/triton/inductor/envs caches).
   dept /blue 17,615 → 15,751 GiB used (of 20,480). Record before deletion: tc_code notes/hpg_qwen_deletion_20261012.{tsv,md}
