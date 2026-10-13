@@ -10,7 +10,7 @@
 
 - 标量任务：一个 context 被访问 $`N`$ 次，全部动作为 1 时成功，所以动作概率为 $`p\in[0,1]`$ 的学生的部署价值为 $`J(p)=p^N`$。
 - $`N`$ 个 context 上的 parity 任务：每个 context 访问一次，动作 $`a_j\sim\mathrm{Bernoulli}(p_j)`$ 相互独立，$`\sum_ja_j`$ 为偶数时回报 1：$`J_{\rm even}(p)=\tfrac12\big(1+\prod_{j=1}^N(1-2p_j)\big)`$（[Theorem 4.4(c)](../statements/04-04_affine_learners_moment_order_ZH.md#s4-4)）。
-- $`T_j`$ 是第一类 Chebyshev 多项式（[Rivlin, 1990](../references_ZH.md#rivlin1990chebyshev)）：$`T_j(\cos\theta)=\cos(j\theta)`$，所以在 $`[-1,1]`$ 上 $`\lvert T_j\rvert\le1`$，且 $`T_j(1)=1`$。$`\mathcal P_q`$ 是总次数不超过 $`q`$ 的多项式集合。
+- $`T_j`$ 是第一类 Chebyshev 多项式（[Rivlin, 1990](#ref-rivlin1990chebyshev)）：$`T_j(\cos\theta)=\cos(j\theta)`$，所以在 $`[-1,1]`$ 上 $`\lvert T_j\rvert\le1`$，且 $`T_j(1)=1`$。$`\mathcal P_q`$ 是总次数不超过 $`q`$ 的多项式集合。
 - $`[0,1]`$ 上（或块 $`Z\in[0,1]^k`$ 上）的分布 $`P,Q`$，以及带 IID 块的凸仿射 learner $`p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i`$，如 [Definition 4.3](../statements/04-03_binary_context_student_affine_learner_ZH.md#s4-3)。对 $`\lvert\alpha\rvert=a`$ 的多重指标 $`\alpha`$（标量情形下 $`\alpha=\ell`$），[Theorem 4.4](04-04_affine_learners_moment_order_ZH.md) 证明中的块矩展开为
 
 ```math
@@ -51,7 +51,7 @@ p^N=\Big(\frac{e^{i\theta/2}+e^{-i\theta/2}}{2}\Big)^{2N}=4^{-N}\sum_{b=0}^{2N}\
 
 - 所有 $`a_j\ge0`$ 且 $`\lvert T_j\rvert\le1`$，所以 $`\lvert p^N-h_q(p)\rvert\le\sum_{j>q}a_j`$；在 $`p=1`$ 处每个 $`T_j(1)=1`$，等号成立。
 - 把 $`b=N-j`$ 与 $`b=N+j`$ 配对，$`\sum_{j=q+1}^Na_j=\sum_{b:\lvert b-N\rvert>q}\binom{2N}b4^{-N}=\Pr\lbrace\lvert B-N\rvert>q\rbrace`$。
-- $`B`$ 是 $`2N`$ 个独立 $`\lbrace0,1\rbrace`$ 变量之和，均值为 $`N`$，由 Hoeffding 不等式（[Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)），$`\Pr\lbrace\lvert B-N\rvert\ge q\rbrace\le2\exp(-2q^2/(2N))=2e^{-q^2/N}`$。
+- $`B`$ 是 $`2N`$ 个独立 $`\lbrace0,1\rbrace`$ 变量之和，均值为 $`N`$，由 Hoeffding 不等式（[Hoeffding, 1963](#ref-hoeffding1963probability)），$`\Pr\lbrace\lvert B-N\rvert\ge q\rbrace\le2\exp(-2q^2/(2N))=2e^{-q^2/N}`$。
 
 *(a)，第二条.* 由于 $`h_q\in\mathcal P_q`$ 且两个分布的矩匹配到 $`q`$ 阶，$`\mathbb E_Ph_q(Z)=\mathbb E_Qh_q(Z)`$，所以 $`\lvert\mathbb E_PZ^N-\mathbb E_QZ^N\rvert=\lvert(P-Q)(p^N-h_q)\rvert\le\lVert P-Q\rVert_1\lVert p^N-h_q\rVert_\infty\le4e^{-q^2/N}`$。
 
@@ -90,10 +90,17 @@ p^N=\Big(\frac{e^{i\theta/2}+e^{-i\theta/2}}{2}\Big)^{2N}=4^{-N}\sum_{b=0}^{2N}\
 
 ## 相关工作
 
-- Chebyshev 展开（[Rivlin, 1990](../references_ZH.md#rivlin1990chebyshev)）、Hoeffding 不等式（[Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)）以及 parity 与真坐标子集的独立性都是经典工具，在此注明，不作为新结果。
+- Chebyshev 展开（[Rivlin, 1990](#ref-rivlin1990chebyshev)）、Hoeffding 不等式（[Hoeffding, 1963](#ref-hoeffding1963probability)）以及 parity 与真坐标子集的独立性都是经典工具，在此注明，不作为新结果。
 - 本页新增的是用它们把 response 类的精确信息阶数与它的近似维数分开。
 
 ## 参考文献
 
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability) — Hoeffding 不等式。
-- [Rivlin, 1990](../references_ZH.md#rivlin1990chebyshev) — Chebyshev 多项式。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.

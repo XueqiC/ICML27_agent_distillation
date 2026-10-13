@@ -67,3 +67,19 @@
 
 - 范数裁剪就是 [Pascanu et al., 2013](#ref-pascanu2013difficulty) 的梯度裁剪规则，normalized SGD 是 [Hazan et al., 2015](#ref-hazan2015beyond) 研究的方法。两者都让步长与梯度的尺度无关，这正是 (a) 中裁剪学习器的泛函里没有 $`b`$ 的原因。
 - (b) 中的 warm Adam 是矩估计已经热身之后的 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hazan2015beyond"></a>
+
+**Elad Hazan, Kfir Y. Levy, Shai Shalev-Shwartz (2015).** Beyond convexity: Stochastic quasi-convex optimization. *Advances in Neural Information Processing Systems 28 (NIPS)*. [proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5](https://proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5-Abstract.html); arXiv [1507.02030](https://arxiv.org/abs/1507.02030).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

@@ -75,7 +75,7 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 **(a)** 令 $`f(X_1,\dots,X_n)=\lVert\bar X-\mu\rVert`$。
 
 - *均值.* 由 Jensen 不等式与独立性，$`\mathbb Ef\le(\mathbb Ef^2)^{1/2}=(\mathbb E\lVert X-\mu\rVert^2/n)^{1/2}`$。交叉项 $`\mathbb E\langle X_i-\mu,X_l-\mu\rangle`$（$`i\ne l`$）由独立性为零，这里用到了内积。在 Hilbert 空间中 $`\mathbb E\lVert X-\mu\rVert^2=\mathbb E\lVert X\rVert^2-\lVert\mu\rVert^2\le b^2`$，所以 $`\mathbb Ef\le b/\sqrt n`$。
-- *偏离.* 把 $`X_i`$ 换成 $`X_i'`$，$`f`$ 的变化不超过 $`\lVert X_i-X_i'\rVert/n\le2b/n`$。对 $`c_i=2b/n`$ 用 McDiarmid 不等式 ([McDiarmid, 1989](../references_ZH.md#mcdiarmid1989method))，$`\Pr\lbrace f-\mathbb Ef\ge s\rbrace\le\exp(-2s^2/\sum_ic_i^2)=\exp(-ns^2/(2b^2))`$。令它等于 $`\delta`$，得 $`s=b\sqrt{2\log(1/\delta)/n}`$。
+- *偏离.* 把 $`X_i`$ 换成 $`X_i'`$，$`f`$ 的变化不超过 $`\lVert X_i-X_i'\rVert/n\le2b/n`$。对 $`c_i=2b/n`$ 用 McDiarmid 不等式 ([McDiarmid, 1989](#ref-mcdiarmid1989method))，$`\Pr\lbrace f-\mathbb Ef\ge s\rbrace\le\exp(-2s^2/\sum_ic_i^2)=\exp(-ns^2/(2b^2))`$。令它等于 $`\delta`$，得 $`s=b\sqrt{2\log(1/\delta)/n}`$。
 - *两个样本.* 对每个样本以 $`\delta/2`$ 用单样本的界，再用 $`\lVert(\bar X_P-\bar X_Q)-(\mu^P-\mu^Q)\rVert\le\lVert\bar X_P-\mu^P\rVert+\lVert\bar X_Q-\mu^Q\rVert`$ 并取 union bound。
 
 **(b)** 把 $`\delta/2`$ 分给 (a) 的两样本界，由 $`\log(2/(\delta/2))=\log(4/\delta)`$ 得到 $`e_1`$。把 $`\delta/4`$ 分别分给两个二阶矩：$`\lVert X\rVert^2\in[0,b^2]`$，单侧 Hoeffding（[Hoeffding, 1963](#ref-hoeffding1963probability)）给出以至少 $`1-\delta/4`$ 的概率 $`m^P_2\le\hat m^P_2+b^2\sqrt{\log(4/\delta)/(2n_P)}`$，$`Q`$ 同理。在三个事件的交上，$`\lVert\mu^P-\mu^Q\rVert\le\lVert\bar X_P-\bar X_Q\rVert+e_1`$，且 $`m^P_2+m^Q_2\le\hat m^P_2+\hat m^Q_2+e_2`$。
@@ -96,4 +96,12 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 ## 参考文献
 
-- [McDiarmid, 1989](../references_ZH.md#mcdiarmid1989method). McDiarmid, C. (1989). On the method of bounded differences. Surveys in Combinatorics, LMS Lecture Note Series 141, 148–188.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).

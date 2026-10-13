@@ -78,3 +78,15 @@
 
 - For $`n=0`$, $`\mathfrak n_{K,0}^2=c^\top(K\,I_D)^{-1}c`$ is the classical local asymptotic minimax bound on the variance of regular estimators of the smooth functional $`\Psi`$ ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); with queries the best design enters ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)).
 - $`\Psi`$ adds, over audited checkpoints, inner products of a task gradient with the learner's update, the structure of gradient-tracing influence estimates such as TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)); here it is the quantity a distiller must reproduce, not a score for ranking data.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

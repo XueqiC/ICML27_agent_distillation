@@ -33,7 +33,7 @@
 - [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)：每个轴 $`\ell_k`$ 上的 c-optimal design。
 - [Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5)：二阶项的处理。
 
-**用到的经典工具.** John 的最大体积椭球定理（[John, 1948](../references_ZH.md#john1948extremum)）。
+**用到的经典工具.** John 的最大体积椭球定理（[John, 1948](#ref-john1948extremum)）。
 
 **上界的证明.** 令 $`\mathcal K`$ 为 $`\lbrace\pm c_V\rbrace`$ 的闭凸包，它是某个 $`d`$ 维子空间中的对称凸体。由 John 定理，存在椭球 $`\mathcal E=\lbrace\sum_kw_k\ell_k:\lVert w\rVert\le1\rbrace\subseteq\mathcal K\subseteq\sqrt d\,\mathcal E`$，所以 $`\sigma(u)=\sup_{v\in\mathcal K}v^\top u\le\sqrt d\,\big(\sum_{k=1}^d(\ell_k^\top u)^2\big)^{1/2}`$。令 $`\xi_k`$ 为 $`\ell_k`$ 的 c-optimal design，$`\bar\xi=\tfrac1d\sum_k\xi_k`$。则对每个 $`k`$ 有 $`A(\bar\xi)\succeq\tfrac1dA(\xi_k)`$，从而 $`\ell_k^\top A(\bar\xi)^{-1}\ell_k\le d\,\mathfrak n_{K,n}(\ell_k)^2`$。由于 $`\ell_k\in\mathcal K`$，且 $`\mathfrak n_{K,n}(\cdot)`$ 关于其向量自变量是半范数，$`\mathfrak n_{K,n}(\ell_k)\le\sup_V\mathfrak n_{K,n}(c_V)`$。由 Jensen 不等式，
 
@@ -45,4 +45,8 @@
 
 ## 参考文献
 
-- [John, 1948](../references_ZH.md#john1948extremum)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-john1948extremum"></a>
+
+**Fritz John (1948).** Extremum problems with inequalities as subsidiary conditions. In *Studies and Essays Presented to R. Courant on his 60th Birthday*, 187–204, Interscience, New York; reprinted in *Traces and Emergence of Nonlinear Programming* (Birkhäuser, 2014), 197–215. DOI of the reprint [10.1007/978-3-0348-0439-4_9](https://doi.org/10.1007/978-3-0348-0439-4_9).

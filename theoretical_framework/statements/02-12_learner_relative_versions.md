@@ -43,3 +43,15 @@
 ## Related work
 
 - Both learner-relative versions are lower bounds in Le Cam's framework: [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7) is a two-point bound ([Le Cam, 1973](#ref-lecam1973convergence)), and [Corollary 6.8](../statements/06-08_exchange_rate_between_demonstrations_queries.md#s6-8) is a local bound with Fisher informations in each direction $`h`$, as in local asymptotic minimax theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

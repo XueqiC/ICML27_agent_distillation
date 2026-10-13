@@ -32,3 +32,11 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 ## 产物
 
 - `theory/v015_checks/results_v015_independent.json`：`v015:V5` 的条目；代码 `theory/v015_checks/mathematics.py`（`check_V5`）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

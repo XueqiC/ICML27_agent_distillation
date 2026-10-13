@@ -61,7 +61,7 @@ J(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c_\
 
 *Claim 2 (cumulants of the empirical mean).* For $`s\ge2`$, $`\kappa_s(W_n)=n^{1-s}\kappa_s(Z)`$, and $`\kappa_1(W_n)=0`$. Joint cumulants of order $`s\ge2`$ are translation invariant and multilinear, and they are additive over independent summands because every mixed cumulant of independent vectors vanishes. Hence $`\kappa_s\big(\tfrac1n\sum_iZ_i\big)=n^{-s}\sum_{i=1}^n\kappa_s(Z_i)=n^{1-s}\kappa_s(Z)`$; the mean of $`W_n`$ is zero.
 
-*Claim 3 (moment–cumulant formula).* For a random vector $`W`$ with finite moments, $`\mathbb E[W_{j_1}\cdots W_{j_s}]=\sum_{\pi\in\Pi(s)}\prod_{B\in\pi}\kappa(W_{j_b}:b\in B)`$, where $`\Pi(s)`$ is the set of partitions of $`\lbrace1,\dots,s\rbrace`$. This is the defining inversion of cumulants ([Leonov & Shiryaev, 1959](../references.md#leonov1959method)).
+*Claim 3 (moment–cumulant formula).* For a random vector $`W`$ with finite moments, $`\mathbb E[W_{j_1}\cdots W_{j_s}]=\sum_{\pi\in\Pi(s)}\prod_{B\in\pi}\kappa(W_{j_b}:b\in B)`$, where $`\Pi(s)`$ is the set of partitions of $`\lbrace1,\dots,s\rbrace`$. This is the defining inversion of cumulants ([Leonov & Shiryaev, 1959](#ref-leonov1959method)).
 
 *(a).* Fix $`\alpha`$ with $`1\le\lvert\alpha\rvert=a\le N`$. Write (4.4) as $`\mathbb Ep_R^\alpha=\sum_s\omega_s\pi_s\prod_{i=1}^Rm(\beta_i(s))`$ with $`\omega_s=\prod_lw_{s(l)}\ge0`$, $`\sum_s\omega_s=1`$ and $`\pi_s=\prod_{l:s(l)=0}p_{0,j(l)}\in[0,1]`$.
 
@@ -105,9 +105,13 @@ So the only differing term of order $`n^{1-r}`$ is the single block at $`s=r`$, 
 
 ## Related work
 
-- The moment–cumulant formula ([Leonov & Shiryaev, 1959](../references.md#leonov1959method)) and the additivity of cumulants over independent summands are classical; they are credited as such and not claimed as new.
+- The moment–cumulant formula ([Leonov & Shiryaev, 1959](#ref-leonov1959method)) and the additivity of cumulants over independent summands are classical; they are credited as such and not claimed as new.
 - What is added is their use to separate independent evidence from exposure in the learning value of a feedback source.
 
 ## References
 
-- [Leonov & Shiryaev, 1959](../references.md#leonov1959method) — the moment–cumulant formula.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-leonov1959method"></a>
+
+**V. P. Leonov, A. N. Shiryaev (1959).** On a method of calculation of semi-invariants. *Theory of Probability and Its Applications* 4, no. 3, 319–329. DOI [10.1137/1104031](https://doi.org/10.1137/1104031).

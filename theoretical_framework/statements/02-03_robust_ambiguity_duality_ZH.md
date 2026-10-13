@@ -71,3 +71,11 @@ r(C)=\max_{\mu\in\Delta(C)}\Big[\sum_E\mu_EJ_E^\Pi-\max_{\pi\in\Pi}\sum_E\mu_EJ_
 ## 相关工作
 
 - (2.3) 与 (2.4) 相等，就是 von Neumann 关于有限零和博弈的 minimax 定理，博弈的支付为 $`M_{E,\pi}=J_E^\Pi-J_E(\pi)`$ ([von Neumann, 1928](#ref-vonneumann1928zur))；取到最大值的先验就是这个博弈的最不利先验。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-vonneumann1928zur"></a>
+
+**John von Neumann (1928).** Zur Theorie der Gesellschaftsspiele. *Mathematische Annalen* 100, no. 1, 295–320. DOI [10.1007/BF01448847](https://doi.org/10.1007/BF01448847).

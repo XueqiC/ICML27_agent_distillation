@@ -62,7 +62,7 @@ and both extrema are attained. Let $`A\in\mathbb R^{m\times k}`$ have columns sp
 \min_{t\in\mathbb R,\,c\in\mathbb R^k}\ t\quad\text{s.t.}\quad g-Ac\le t\mathbf 1,\ \ -(g-Ac)\le t\mathbf 1 .
 ```
 
-- It is feasible ($`c=0`$, $`t=\lVert g\rVert_\infty`$) and bounded below by $`0`$. By LP strong duality ([Bertsimas & Tsitsiklis, 1997](../references.md#bertsimas1997introduction)) its value equals that of the dual
+- It is feasible ($`c=0`$, $`t=\lVert g\rVert_\infty`$) and bounded below by $`0`$. By LP strong duality ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)) its value equals that of the dual
 
 ```math
 \max_{y^+,y^-\ge0}\ (y^+-y^-)^\top g\quad\text{s.t.}\quad A^\top(y^+-y^-)=0,\ \ \mathbf 1^\top(y^++y^-)=1 ,
@@ -112,9 +112,13 @@ By Hölder, $`\lvert\sum_\ell b_\ell\Delta\phi_\ell\rvert\le\lVert b\rVert_1\lVe
 
 ## Related work
 
-- LP duality and the event form of total variation are classical tools ([Bertsimas & Tsitsiklis, 1997](../references.md#bertsimas1997introduction)); they are credited as such and not claimed as new.
+- LP duality and the event form of total variation are classical tools ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)); they are credited as such and not claimed as new.
 - What is added is their use to count the information a feedback law must carry for a given response class: a span dimension or an approximation width.
 
 ## References
 
-- [Bertsimas & Tsitsiklis, 1997](../references.md#bertsimas1997introduction) — linear-programming duality.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.

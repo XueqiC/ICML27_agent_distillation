@@ -11,7 +11,7 @@
 - 标量任务：一个 context 被访问 $`N`$ 次，全部动作为 1 时成功，所以动作概率为 $`p\in[0,1]`$ 的学生的部署价值为 $`J(p)=p^N`$。
 - $`N`$ 个 context 上的 parity 任务：每个 context 访问一次，动作 $`a_j\sim\mathrm{Bernoulli}(p_j)`$ 相互独立，$`\sum_ja_j`$ 为偶数时回报 1：$`[0,1]^N`$ 上的 $`J_{\rm even}(p)=\tfrac12\big(1+\prod_{j=1}^N(1-2p_j)\big)`$（[Theorem 4.4(c)](04-04_affine_learners_moment_order_ZH.md#s4-4)）。
 - 带 IID 块的凸仿射 learner 如 [Definition 4.3](04-03_binary_context_student_affine_learner_ZH.md#s4-3)：$`p_R=w_0p_0+\sum_iw_iZ_i`$，凸权重固定。
-- $`T_j`$ 是第一类 Chebyshev 多项式（[Rivlin, 1990](../references_ZH.md#rivlin1990chebyshev)）：$`T_j(\cos\theta)=\cos(j\theta)`$，所以在 $`[-1,1]`$ 上 $`\lvert T_j\rvert\le1`$，且 $`T_j(1)=1`$。$`\mathcal P_q`$ 是总次数不超过 $`q`$ 的多项式集合，$`\lVert\cdot\rVert_{\infty,S}`$ 是集合 $`S`$ 上的上确界范数。
+- $`T_j`$ 是第一类 Chebyshev 多项式（[Rivlin, 1990](#ref-rivlin1990chebyshev)）：$`T_j(\cos\theta)=\cos(j\theta)`$，所以在 $`[-1,1]`$ 上 $`\lvert T_j\rvert\le1`$，且 $`T_j(1)=1`$。$`\mathcal P_q`$ 是总次数不超过 $`q`$ 的多项式集合，$`\lVert\cdot\rVert_{\infty,S}`$ 是集合 $`S`$ 上的上确界范数。
 - $`B\sim\mathrm{Bin}(2N,\tfrac12)`$ 是一个二项随机变量。
 
 <a id="s4-6"></a>
@@ -52,7 +52,7 @@ p^N=4^{-N}\binom{2N}{N}+2\cdot4^{-N}\sum_{j=1}^N\binom{2N}{N-j}T_j(2p-1). \qquad
 
 **推导要点.**
 
-- (a) 令 $`2p-1=\cos\theta`$，$`p^N=\cos^{2N}(\theta/2)`$ 展开成以二项式系数为系数的 Chebyshev 多项式。非负系数的尾部就是上确界误差（在 $`p=1`$ 处取到），它是一个二项分布的尾概率，用 Hoeffding 不等式界住（[Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)）。匹配的矩消去截断部分，剩下至多两倍的上确界误差。
+- (a) 令 $`2p-1=\cos\theta`$，$`p^N=\cos^{2N}(\theta/2)`$ 展开成以二项式系数为系数的 Chebyshev 多项式。非负系数的尾部就是上确界误差（在 $`p=1`$ 处取到），它是一个二项分布的尾概率，用 Hoeffding 不等式界住（[Hoeffding, 1963](#ref-hoeffding1963probability)）。匹配的矩消去截断部分，剩下至多两倍的上确界误差。
 - (b) 偶、奇 parity 分布在每个次数低于 $`N`$ 的多项式上都一致，在 $`J_{\rm even}`$ 上却相差 1；由 Theorem 4.2(b)，逼近误差至少为 $`\tfrac12`$。
 
 **例示.** $`N=100`$、$`\varepsilon=0.01`$ 时，大约 $`\sqrt{100\log400}\approx25`$ 个匹配的矩就已经能分辨 $`p^{100}`$；而 100 个 context 上的 parity 需要全部 100 阶。
@@ -69,5 +69,12 @@ p^N=4^{-N}\binom{2N}{N}+2\cdot4^{-N}\sum_{j=1}^N\binom{2N}{N-j}T_j(2p-1). \qquad
 
 ## 参考文献
 
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability) — 有界变量之和的 Hoeffding 不等式。
-- [Rivlin, 1990](../references_ZH.md#rivlin1990chebyshev) — Chebyshev 多项式。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.

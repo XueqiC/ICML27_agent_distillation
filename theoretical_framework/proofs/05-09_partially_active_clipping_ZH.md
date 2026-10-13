@@ -40,3 +40,11 @@
 - 只有在始终激活（$`p_{\rm act}=1`$）时，平均方向才恰好等于裁剪后均值。
 
 *证明.* 第一式是按事件 $`\lbrace\lVert G\rVert\le c\rbrace`$ 拆分 $`\mathbb E\,\mathrm{clip}_c(G)`$。第二式：$`\mathbb E\,\mathrm{clip}_c(G)-c\,\mathbb E[G/\lVert G\rVert]=\mathbb E\big[(G-cG/\lVert G\rVert)1\lbrace\lVert G\rVert\le c\rbrace\big]`$，在该事件上（包括 $`G=0`$）$`\lVert G-cG/\lVert G\rVert\rVert=\lvert\lVert G\rVert-c\rvert=c-\lVert G\rVert\le c`$。所以范数至多为 $`\mathbb E[(c-\lVert G\rVert)1\lbrace\lVert G\rVert\le c\rbrace]\le c\Pr(\lVert G\rVert\le c)=c(1-p_{\rm act})`$。两个分布的结论由三角不等式得到。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

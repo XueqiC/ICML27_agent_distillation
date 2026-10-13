@@ -90,8 +90,12 @@ L_E(0)-L_E(S)=\mathbb E\big[V_0^0(Z_0)-V_\tau^0(Z_\tau)\big]+\mathbb E\big[V_\ta
 
 ## 相关工作
 
-- 这个 telescoping 恒等式属于强化学习中 performance difference 一类的分解 ([Kakade & Langford, 2002](../references_ZH.md#kakade2002approximately)).
+- 这个 telescoping 恒等式属于强化学习中 performance difference 一类的分解 ([Kakade & Langford, 2002](#ref-kakade2002approximately)).
 
 ## 参考文献
 
-- [Kakade & Langford, 2002](../references_ZH.md#kakade2002approximately)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

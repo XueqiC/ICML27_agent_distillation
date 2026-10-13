@@ -56,3 +56,15 @@
 
 - 未分辨差距是一种 integral probability metric（[Müller, 1997](#ref-muller1997integral)），即 $`\lvert(P-Q)g\rvert`$ 在一个函数类上的上确界，只是限制在特征均值相等的分布对上。若 $`\mathcal G`$ 包含所有事件的示性函数，内层上确界就是 total variation 距离（[Theorem 4.2(d)](04-02_sufficiency_duality_transfer_ZH.md#s4-2)）。
 - 近似维数是 sup 范数下的 Kolmogorov width 计数（[Pinkus, 1985](#ref-pinkus1985nwidths)）：由 [Theorem 4.2(b)](04-02_sufficiency_duality_transfer_ZH.md#s4-2)，$`d_\varepsilon(\mathcal G)`$ 是使某个包含 $`\mathbf 1`$、维数不超过 $`d+1`$ 的子空间 $`H`$ 以一致误差 $`\varepsilon/2`$ 逼近每个 $`g\in\mathcal G`$ 的最小 $`d`$。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-muller1997integral"></a>
+
+**Alfred Müller (1997).** Integral probability metrics and their generating classes of functions. *Advances in Applied Probability* 29, no. 2, 429–443. DOI [10.2307/1428011](https://doi.org/10.2307/1428011).
+
+<a id="ref-pinkus1985nwidths"></a>
+
+**Allan Pinkus (1985).** n-Widths in Approximation Theory. Springer, Berlin (Ergebnisse der Mathematik und ihrer Grenzgebiete, 3. Folge, 7). DOI [10.1007/978-3-642-69894-1](https://doi.org/10.1007/978-3-642-69894-1).

@@ -63,3 +63,11 @@
 ## 相关工作
 
 - (b) 中的括号 $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ 是给定 $`D`$ 时关于 $`E`$ 的完全信息的期望价值 ([Howard, 1966](#ref-howard1966information))；证明表明，它为零当且仅当某个后验最优策略在每个后验概率为正的环境中都最优。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).

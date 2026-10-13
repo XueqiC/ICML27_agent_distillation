@@ -32,3 +32,15 @@ All data come from `theory/v015_checks/results_v015_independent.json`.
 - **Title:** "Inside vs outside the margin". The footer states that E12 uses the oracle continuation gradient.
 
 **Caption.** The bound constant b can grow with dimension. E12 uses the oracle continuation gradient. (A) The empirical deviation of the mean increment stays below 0.62 of the concentration bound at every tested dimension from 1 to 100,000. (B) On the frozen E6 panels, the oracle has no wrong signs in bins at or above one quarter of the remainder bound; this empirical observation is distinct from the C6 margin > bound condition. Static proxies remain wrong 42% of the time in the largest-margin bin. (C) Inside the margin first order decides; outside, measured short tails are more reliable here but retain nonzero error. The outside-margin oracle rate is reconstructed with the specified bin-row weighting. Controlled small network; not a real-model result.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).

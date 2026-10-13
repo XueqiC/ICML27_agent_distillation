@@ -47,3 +47,15 @@ The warm-up advances only the Adam moments ([Kingma & Ba, 2015](#ref-kingma2015a
 - **Title:** "E9: warm-up compresses differences, static proxies stay non-predictive".
 
 **Caption.** Controlled-learner evidence for CED’s selection rules. (A) Wrong-sign rate of frozen proxies on held-out learner states, warmth shift, ε and learning-rate shifts (E6); static update statistics are at the random level, measured short-tail responses are near zero. (B) Selection regret: short tails select near-optimally on held-out states but worse than random on the held-out threshold task; only the full tail is exact everywhere. (C) Effect of an lr = 0 moment warm-up (E9): the spread between providers shrinks (random regret falls) while static proxies do not improve all metrics. Exact finite-history computations in a controlled small network; not a real-model result.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

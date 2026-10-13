@@ -90,5 +90,16 @@
 
 ## References
 
-- [Le Cam, 1973](../references.md#lecam1973convergence)
-- [van der Vaart, 1998](../references.md#vandervaart1998asymptotic)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

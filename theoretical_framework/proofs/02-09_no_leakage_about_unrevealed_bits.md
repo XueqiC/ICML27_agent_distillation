@@ -29,3 +29,11 @@ where $`X`$ is the additional transcript content. Fix the observed $`(S_{1:K},\T
 ## Related work
 
 - The factorization is the ignorability argument for data missing completely at random ([Rubin, 1976](#ref-rubin1976inference)): the reveal mechanism $`\prod_kL(S_k)`$ does not involve $`\Theta`$, so it drops out of the posterior.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

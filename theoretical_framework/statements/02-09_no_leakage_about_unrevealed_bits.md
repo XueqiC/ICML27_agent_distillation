@@ -45,3 +45,11 @@
 ## Related work
 
 - The lemma is the ignorability of a missing-data mechanism that is missing completely at random: the posterior of the unrevealed bits can be computed as if the reveal mechanism were absent, and here it equals the prior ([Rubin, 1976](#ref-rubin1976inference)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

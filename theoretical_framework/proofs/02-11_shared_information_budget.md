@@ -59,10 +59,17 @@ Hence $`\mathrm{KL}(P_v^T\Vert P_{1-v}^T)\le K\kappa_D^{(v)}+\kappa_X^{(v)}\math
 
 ## Related work
 
-- The change-of-measure lower bound for adaptive sampling with a stopping time is the standard argument of best-arm identification ([Kaufmann, Cappé & Garivier, 2016](../references.md#kaufmann2016complexity)).
-- The data-processing inequality for KL divergence is standard ([Cover & Thomas, 2006](../references.md#cover2006elements)).
+- The change-of-measure lower bound for adaptive sampling with a stopping time is the standard argument of best-arm identification ([Kaufmann, Cappé & Garivier, 2016](#ref-kaufmann2016complexity)).
+- The data-processing inequality for KL divergence is standard ([Cover & Thomas, 2006](#ref-cover2006elements)).
 
 ## References
 
-- [Kaufmann, Cappé & Garivier, 2016](../references.md#kaufmann2016complexity)
-- [Cover & Thomas, 2006](../references.md#cover2006elements)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).

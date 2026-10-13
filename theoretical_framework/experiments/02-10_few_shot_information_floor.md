@@ -162,3 +162,19 @@ theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py -
 - `theory/v015_checks/results_v015_independent.json`: the group of `v015:V5`, `v015:E5`; code `theory/v015_checks/mathematics.py` (`check_V5`; `check_E5` in `experiments.py`).
 - `docs/direction/v015_revision/results_v015.json`: `checks.T09_*`, `checks.T10_*`, `checks.T11_*`; code `docs/direction/v015_revision/verify_v015_extensions.py`.
 - Figures: `figures/fig2_3_floor.{png,pdf}`; specs `figures/specs/fig2_3.md`.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+<a id="ref-jensen1906fonctions"></a>
+
+**J. L. W. V. Jensen (1906).** Sur les fonctions convexes et les inégalités entre les valeurs moyennes. *Acta Mathematica* 30, 175–193. DOI [10.1007/BF02418571](https://doi.org/10.1007/BF02418571).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

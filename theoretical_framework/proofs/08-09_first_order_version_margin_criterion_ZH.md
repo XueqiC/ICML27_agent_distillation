@@ -96,3 +96,11 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 **(c)** 被 (b) 认证意味着 $`\hat S^{jk}(h)>e^{jk}_{\rm stat}(h)+e^{jk}_{\rm fd}(h)+\tilde e^{jk}_2+\varepsilon_{\rm sur}`$。在 (b) 的事件上，$`\tilde s^{jk}\ge\mathbb EZ^{jk}_\ell(h)-e^{jk}_{\rm fd}(h)\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\rm fd}(h)>\tilde e^{jk}_2+\varepsilon_{\rm sur}`$。若平均增量沿 $`\nabla\tilde V(0)`$ 一致，则 $`\tilde s^{jk}=0`$，不可能被认证。(c) 的最后一句就是 (b) 中的余项步骤。
 
 **(d)** 第一个结论就是 (a)。关于 (i)：若分数之差等于 $`\langle\nabla V(z),\mu^j-\mu^k\rangle`$ 且 margin 成立，(a) 给出符号。若分数与这一项不同，(a) 不控制两者之差；若 margin 不成立，余项可以反转符号。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

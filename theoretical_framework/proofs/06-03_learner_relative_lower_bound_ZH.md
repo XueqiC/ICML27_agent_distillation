@@ -48,7 +48,7 @@
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)：蒸馏器一项 $`\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$ 与 $`\theta`$ 无关；$`\mathbb I_{K,n}`$、$`\mathfrak n_{K,n}`$ 与 (G) 的定义。
 
-**用到的经典工具.** Le Cam 两点法（[Le Cam, 1973](../references_ZH.md#lecam1973convergence)）；Pinsker 不等式与 KL 散度的链式法则（[Cover & Thomas, 2006](#ref-cover2006elements)）；differentiability in quadratic mean 下的局部渐近理论（[van der Vaart, 1998](../references_ZH.md#vandervaart1998asymptotic)）。
+**用到的经典工具.** Le Cam 两点法（[Le Cam, 1973](#ref-lecam1973convergence)）；Pinsker 不等式与 KL 散度的链式法则（[Cover & Thomas, 2006](#ref-cover2006elements)）；differentiability in quadratic mean 下的局部渐近理论（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
 
 **证明.** (a) 记 $`s=\lvert\Psi(\theta_1)-\Psi(\theta_0)\rvert`$，$`a(Q)=\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$；后者与 $`\theta`$ 无关（[Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)）。由三角不等式，
 
@@ -82,12 +82,29 @@ K\,\mathrm{KL}_D+n\sup_x\mathrm{KL}_Q(x)\le\tfrac12\tau^2\,\mathbb I_{K,n}(\thet
 
 ## 相关工作
 
-- **下界技术.** 两点法来自 Le Cam（[Le Cam, 1973](../references_ZH.md#lecam1973convergence)）；带 Fisher information 与 differentiability in quadratic mean 的局部形式遵循标准的局部渐近 minimax 理论（[van der Vaart, 1998](../references_ZH.md#vandervaart1998asymptotic)）。这里特有的是泛函本身：它由学习器的增量映射与声明的任务决定。
-- **数据与 teacher 的选择分数.** LESS（[Xia et al., 2024](../references_ZH.md#xia2024less)）与 GRACE（[Panigrahi et al., 2025](../references_ZH.md#panigrahi2025good)）给候选数据或 teacher 打分。Theorem A 不是又一个分数：它是任何蒸馏器都无法突破的下界，连同达到它的获取规则。
+- **下界技术.** 两点法来自 Le Cam（[Le Cam, 1973](#ref-lecam1973convergence)）；带 Fisher information 与 differentiability in quadratic mean 的局部形式遵循标准的局部渐近 minimax 理论（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。这里特有的是泛函本身：它由学习器的增量映射与声明的任务决定。
+- **数据与 teacher 的选择分数.** LESS（[Xia et al., 2024](#ref-xia2024less)）与 GRACE（[Panigrahi et al., 2025](#ref-panigrahi2025good)）给候选数据或 teacher 打分。Theorem A 不是又一个分数：它是任何蒸馏器都无法突破的下界，连同达到它的获取规则。
 
 ## 参考文献
 
-- [Le Cam, 1973](../references_ZH.md#lecam1973convergence)
-- [Panigrahi et al., 2025](../references_ZH.md#panigrahi2025good)
-- [van der Vaart, 1998](../references_ZH.md#vandervaart1998asymptotic)
-- [Xia et al., 2024](../references_ZH.md#xia2024less)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-panigrahi2025good"></a>
+
+**Abhishek Panigrahi, Bingbin Liu, Sadhika Malladi, Sham Kakade, Surbhi Goel (2025).** In good GRACEs: Principled teacher selection for knowledge distillation. arXiv preprint. arXiv [2511.02833](https://arxiv.org/abs/2511.02833).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

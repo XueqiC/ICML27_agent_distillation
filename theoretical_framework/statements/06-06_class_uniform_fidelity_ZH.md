@@ -64,4 +64,12 @@
 
 ## 参考文献
 
-- [John, 1948](../references_ZH.md#john1948extremum)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-elfving1952optimum"></a>
+
+**Gustav Elfving (1952).** Optimum allocation in linear regression theory. *The Annals of Mathematical Statistics* 23, no. 2, 255–262. DOI [10.1214/aoms/1177729442](https://doi.org/10.1214/aoms/1177729442).
+
+<a id="ref-john1948extremum"></a>
+
+**Fritz John (1948).** Extremum problems with inequalities as subsidiary conditions. In *Studies and Essays Presented to R. Courant on his 60th Birthday*, 187–204, Interscience, New York; reprinted in *Traces and Emergence of Nonlinear Programming* (Birkhäuser, 2014), 197–215. DOI of the reprint [10.1007/978-3-0348-0439-4_9](https://doi.org/10.1007/978-3-0348-0439-4_9).

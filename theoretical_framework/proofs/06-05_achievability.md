@@ -70,9 +70,16 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 
 ## Related work
 
-- **Regularized designs and two-stage estimation** are standard in optimal design ([Pukelsheim, 1993](../references.md#pukelsheim1993optimal)) and in local asymptotic theory ([van der Vaart, 1998](../references.md#vandervaart1998asymptotic)); the regularization is needed here because the learner-relative c-optimal design is typically singular.
+- **Regularized designs and two-stage estimation** are standard in optimal design ([Pukelsheim, 1993](#ref-pukelsheim1993optimal)) and in local asymptotic theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); the regularization is needed here because the learner-relative c-optimal design is typically singular.
 
 ## References
 
-- [Pukelsheim, 1993](../references.md#pukelsheim1993optimal)
-- [van der Vaart, 1998](../references.md#vandervaart1998asymptotic)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-pukelsheim1993optimal"></a>
+
+**Friedrich Pukelsheim (1993).** Optimal Design of Experiments. Wiley, New York (Wiley Series in Probability and Mathematical Statistics); reprinted as SIAM Classics in Applied Mathematics 50 (2006). DOI of the reprint [10.1137/1.9780898719109](https://doi.org/10.1137/1.9780898719109).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

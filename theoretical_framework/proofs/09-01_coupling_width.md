@@ -105,3 +105,11 @@ so
 - **What a nonzero width means.** Fixed-marginal reorganization of authentic units can change the learning outcome only through the non-additive part of the joint-packet response $`H_z`$. This is an effect on the learning consequence, separate from per-unit quality, gradient variance or action-level cost.
 - **What $`H_z`$ must be.** It is the full-tail response to the whole packet under the declared learning experiment. A table of token-level losses is not a table of learning consequences.
 - **Scope.** The result is coupling linear algebra; no new duality is claimed. It turns the question "does packet organization matter for this learner?" into a measurable quantity with an exact null.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.

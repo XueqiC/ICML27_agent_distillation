@@ -103,3 +103,19 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 ## 相关工作
 
 - [Balles & Hennig, 2018](#ref-balles2018dissecting) 把 Adam 的方向解读为平均梯度的符号乘上一个方差自适应因子，于是它通过 $`\mathbb E\,G`$ 与 $`\mathbb E\,G^{\odot2}`$ 依赖梯度分布。Proposition 5.5 说明，对 warm 步的这种描述依赖两个彼此独立的近似：一阶展开与 frozen denominator，并用 warmth 给出第二个近似的误差界。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

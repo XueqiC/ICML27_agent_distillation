@@ -15,3 +15,15 @@
 **Panel E — full measurement cost.** First-order: `checks[claim_id=C6].data[kind=protocol].costs.by_surrogate.<surrogate>.measurement_over_full_audit`. Finite replacement: `checks[claim_id=C6b].data[kind=certificate,range_variant=a_priori].costs.measurement_over_full_audit`. Horizontal bars on log scale with 1× reference. Includes first-order curvature and short-surrogate calibration; excludes held-out validation gold and independent-variance diagnostics. Reference is 40×9×1016 tail evaluations (prescribed M=4 rate); actual M=8 rate is 1154. Different accuracy criteria must be disclosed.
 
 **Caption.** The aligned first-order certificate certifies zero of 1,584 eligible pairs: statistical radius and second-order remainder compete with the gold gap. Component medians and variance distributions use the SHA-256-verified raw companion; summary coverage and costs use committed result rows. Finite paired replacement is shown for both surrogates and r=64,256. B=2 is the strict a-priori range; replacing it with an observed range is diagnostic only. The short-surrogate calibration envelope need not transfer, and certified-wrong counts remain visible. CRN CDFs retain zero ratios and exclude explicitly undefined zero-independent-variance ratios with denominators shown. Cost counts full measurement work including calibration and first-order curvature; independent variance diagnostics and validation gold are excluded. The comparison uses the prescribed M=4 audit rate (1,016 replicas) on the M=8 panel; M=8 would require 1,154. Accuracy criteria differ. Strict probability coverage is for one state/r/surrogate, conditional on alignment, not jointly across all plotted cases.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).

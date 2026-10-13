@@ -154,12 +154,28 @@ L(P)-L(Q)=\sum_{t=0}^{R-1}\mathbb E_{d_t^Q}\big[(K_t^P-K_t^Q)V^P_{t+1}(Z_t)\big]
 
 ## 相关工作
 
-- Proposition 5.1 与 stochastic modified equations（[Li, Tai & E, 2019](../references_ZH.md#li2019stochastic)）、TracIn（[Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)）、influence function（[Koh & Liang, 2017](../references_ZH.md#koh2017understanding)）、metagradient（[Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing)）和 In-Run Data Shapley（[Wang et al., 2025](../references_ZH.md#wang2025data)）属于同一类计算，见 Remark 5.2。
+- Proposition 5.1 与 stochastic modified equations（[Li, Tai & E, 2019](#ref-li2019stochastic)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、influence function（[Koh & Liang, 2017](#ref-koh2017understanding)）、metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）和 In-Run Data Shapley（[Wang et al., 2025](#ref-wang2025data)）属于同一类计算，见 Remark 5.2。
 
 ## 参考文献
 
-- [Li, Q., Tai, C., & E, W. (2019). Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research*, vol. 20, no. 40.](../references_ZH.md#li2019stochastic)
-- [Pruthi, G., Liu, F., Kale, S., & Sundararajan, M. (2020). Estimating training data influence by tracing gradient descent. *NeurIPS*.](../references_ZH.md#pruthi2020estimating)
-- [Koh, P. W., & Liang, P. (2017). Understanding black-box predictions via influence functions. *ICML*.](../references_ZH.md#koh2017understanding)
-- [Engstrom, L., Ilyas, A., Chen, B., Feldmann, A., Moses, W., & Madry, A. (2025). Optimizing ML training with metagradient descent. arXiv:2503.13751.](../references_ZH.md#engstrom2025optimizing)
-- [Wang, J. T., Mittal, P., Song, D., & Jia, R. (2025). Data Shapley in one training run. *ICLR*.](../references_ZH.md#wang2025data)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-engstrom2025optimizing"></a>
+
+**Logan Engstrom, Andrew Ilyas, Benjamin Chen, Axel Feldmann, William Moses, Aleksander Madry (2025).** Optimizing ML training with metagradient descent. arXiv preprint. arXiv [2503.13751](https://arxiv.org/abs/2503.13751).
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-wang2025data"></a>
+
+**Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).

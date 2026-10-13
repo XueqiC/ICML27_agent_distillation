@@ -63,3 +63,15 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 
 - 被动的示范与交互式的 expert 查询是交互式模仿学习的两种数据来源（[Ross et al., 2011](#ref-ross2011reduction)）；本推论针对给定学习器给出两者之间的兑换价格。
 - 这个预算来自 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3) 的局部两点下界，即逐方向应用 Le Cam 方法（[Le Cam, 1973](#ref-lecam1973convergence)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

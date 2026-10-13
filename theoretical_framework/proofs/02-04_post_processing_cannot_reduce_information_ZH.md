@@ -42,8 +42,12 @@
 
 ## 相关工作
 
-- garbling transcript 只会降低每个决策问题的 Bayes 值，这是 Blackwell 实验比较理论中容易的那个方向 ([Blackwell, 1953](../references_ZH.md#blackwell1953equivalent)).
+- garbling transcript 只会降低每个决策问题的 Bayes 值，这是 Blackwell 实验比较理论中容易的那个方向 ([Blackwell, 1953](#ref-blackwell1953equivalent)).
 
 ## 参考文献
 
-- [Blackwell, 1953](../references_ZH.md#blackwell1953equivalent)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).

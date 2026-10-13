@@ -63,7 +63,7 @@ L_E(\mathrm{adaptive})-L_E(0)\ge-\delta,\qquad L_E(\mathrm{adaptive})-L_E(0)\ge\
 
 **(b)** Along the $`S`$-process the tower property gives $`\mathbb E[V^0_{t+1}(Z_{t+1})\mid\text{history to }t]=(K^{J_t}_tV^0_{t+1})(Z_t)`$, so $`\mathbb E[V^0_{t+1}(Z_{t+1})-V^0_t(Z_t)]=\mathbb E\,A_t(Z_t,J_t)`$. Summing over $`t`$ telescopes; $`\mathbb EV^0_0(Z_0)=L_E(0)`$ by the common initial law and $`\mathbb EV^0_R(Z_R)=L_E(S)`$ since $`V^0_R=F_E`$.
 
-**(c)** *Audit event.* Conditional on $`\mathcal H_t`$, the $`n_t`$ contrasts of candidate $`j`$ are i.i.d. in $`[-1,1]`$ with mean $`A_t(Z_t,j)`$; this uses the correct marginals, the full tail and exact restoration. Hoeffding's inequality ([Hoeffding, 1963](../references.md#hoeffding1963probability)) for range $`2`$ gives
+**(c)** *Audit event.* Conditional on $`\mathcal H_t`$, the $`n_t`$ contrasts of candidate $`j`$ are i.i.d. in $`[-1,1]`$ with mean $`A_t(Z_t,j)`$; this uses the correct marginals, the full tail and exact restoration. Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)) for range $`2`$ gives
 
 ```math
 \Pr\big(\lvert\widehat A_t(j)-A_t(Z_t,j)\rvert>e_t\ \big\vert\ \mathcal H_t\big)\le2\exp(-n_te_t^2/2)=\delta_t/M_t .
@@ -90,4 +90,8 @@ and likewise $`\mathbb E\sum_tA_t\ge\mathbb E\sum_t\Gamma_t-2\delta`$.
 
 ## References
 
-- [Hoeffding, 1963](../references.md#hoeffding1963probability). Hoeffding, W. (1963). Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58, no. 301, 13–30.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

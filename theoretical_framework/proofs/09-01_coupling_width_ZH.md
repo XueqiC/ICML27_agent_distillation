@@ -105,3 +105,11 @@ H_{ij}+H_{i'j'}-H_{ij'}-H_{i'j}=0\quad\text{对所有矩形成立}.
 - **宽度不为零意味着什么.** 在边缘分布固定的前提下重组真实的单元，只能通过联合 packet response $`H_z`$ 的不可加部分改变学习结果。这是学习后果层面的效应，与单个单元的质量、梯度方差或动作层面的代价是两回事。
 - **$`H_z`$ 必须是什么.** 它是声明的学习实验下、对整个 packet 的全尾段 response。token 级损失的表格不是学习后果的表格。
 - **范围.** 这一结果是耦合上的线性代数，不主张新的对偶。它的作用是把"packet 的组织方式对这个学习器有没有影响"变成一个可测、并带有精确零假设的量。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.

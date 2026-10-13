@@ -63,3 +63,15 @@ All maxima are attained because the classes are finite. $`B(D)`$ is the Bayes va
 
 - $`B(D)`$ is the Bayes value of the experiment that produces $`D`$ in the decision problem $`(\mathcal E,\mu,\Pi,J)`$. Ordering experiments by such values over all decision problems is Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)).
 - The information regret is the expected value of perfect information about $`E`$ once $`D`$ is known, the central quantity of information value theory ([Howard, 1966](#ref-howard1966information)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).

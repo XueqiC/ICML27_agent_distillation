@@ -15,3 +15,15 @@ Overlay V:`groups[id=E8].data.W3.per_step` with `task=moment,N=3,source=P,eta=0.
 **Panel C — warm-Adam affine residual vs bound.** V:`groups[id=E8].data.W1.panels[*].{r,pointwise_residual}`. Log-log scatter with all messages, color by `eta`, marker by `task`; diagonal y=x. Distinguish max pointwise residual/r (0.998487) from law-pair max `groups[id=E8].data.W1.best_ratio` (0.988341), with `n_law_pairs=2496`.
 
 **Caption.** A zero-learning-rate moment warm-up reduces short-horizon gaps; long-horizon residuals remain. Exact stationary mean-field warmth has early-phase 1/(beta2 s) behavior and a nonvanishing plateau (1-beta2)/beta2. Shading gives the two-sided bounds; dashed lines give the plateaus. The measured median is an early-phase diagnostic, not the mean-field expectation. Warm-up and real steps advance v alike. The warm-Adam affine bound holds on the stored residuals; max pointwise residual/bound 0.998487, law-pair max 0.988341. This is empirical consistency, not a uniform neural certificate.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

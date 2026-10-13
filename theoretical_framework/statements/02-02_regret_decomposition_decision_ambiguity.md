@@ -75,3 +75,11 @@
 ## Related work
 
 - The bracket $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ in the derivation of (b) is the expected value of perfect information about $`E`$ given $`D`$ ([Howard, 1966](#ref-howard1966information)). Part (b) says that this value is zero for every transcript exactly when the environments the transcript cannot rule out share an optimal policy.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).

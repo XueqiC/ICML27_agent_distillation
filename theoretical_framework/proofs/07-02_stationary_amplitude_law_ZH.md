@@ -98,3 +98,11 @@
 - mean-field 替换忽略了 $`m_k`$、$`v_k`$ 围绕均值的波动。这是 (a) 里唯一的近似，它的精度在 [Check 7.2](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-2) 中测量。
 - (b) 中的常数 11 成立但偏保守；实测中 $`2\lambda^\star`$ 与真实变号点的吻合程度远好于这个界（[Check 7.3](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-3)）。
 - (c) 关于正零点的结论是单向蕴含。本文不声称极限为正时不存在零点；在检验过的设定中两者总是一致（[Check 7.2](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-2)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

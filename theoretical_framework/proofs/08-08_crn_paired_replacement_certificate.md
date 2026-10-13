@@ -80,7 +80,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 **(a)** By linearity of expectation, $`\mathbb EZ^{jk}_\ell=\mathbb E\varphi_{\omega_\ell}(\Delta^j_\ell)-\mathbb E\varphi_{\omega_\ell}(\Delta^k_\ell)`$. Each term depends only on the joint law of $`(\omega_\ell,\Delta^j_\ell)`$, which is the product of the law of $`\omega`$ and the marginal law of $`\Delta^j`$, whatever coupling is used across candidates. Hence each term equals $`\tilde L(P^j)`$, respectively $`\tilde L(P^k)`$. With exact enumeration over a finite support the same holds with the inner average in place of the draw.
 
-**(b)** *Empirical Bernstein bound.* Maurer and Pontil ([2009](../references.md#maurer2009empirical)) prove the following empirical Bernstein bound. For $`n\ge2`$ i.i.d. variables $`X_i\in[0,1]`$ with unbiased sample variance $`V_n`$, with probability at least $`1-\delta'`$,
+**(b)** *Empirical Bernstein bound.* Maurer and Pontil ([2009](#ref-maurer2009empirical)) prove the following empirical Bernstein bound. For $`n\ge2`$ i.i.d. variables $`X_i\in[0,1]`$ with unbiased sample variance $`V_n`$, with probability at least $`1-\delta'`$,
 
 ```math
 \mathbb EX-\frac1n\sum_iX_i\le\sqrt{\frac{2V_n\log(2/\delta')}{n}}+\frac{7\log(2/\delta')}{3(n-1)} .
@@ -94,4 +94,8 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 ## References
 
-- [Maurer & Pontil, 2009](../references.md#maurer2009empirical). Maurer, A., Pontil, M. (2009). Empirical Bernstein bounds and sample variance penalization. COLT.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

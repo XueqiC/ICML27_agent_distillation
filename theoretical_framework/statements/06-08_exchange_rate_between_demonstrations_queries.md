@@ -63,3 +63,15 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 
 - Passive demonstrations and interactive expert queries are the two data sources of interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)); the corollary prices one against the other for a given learner.
 - The budget comes from the local two-point lower bound of [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3), that is, Le Cam's method ([Le Cam, 1973](#ref-lecam1973convergence)) applied direction by direction.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

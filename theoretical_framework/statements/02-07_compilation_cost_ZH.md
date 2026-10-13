@@ -62,3 +62,11 @@
 ## 相关工作
 
 - 识别与编译两步都由有界独立变量的 Hoeffding 不等式控制 ([Hoeffding, 1963](#ref-hoeffding1963probability))。编译只需要固定精度 $`\tfrac18`$ 下的双边形式，所以标签数与 $`\Delta`$ 无关。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

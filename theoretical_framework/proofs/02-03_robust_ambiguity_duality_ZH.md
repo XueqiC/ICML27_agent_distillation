@@ -54,8 +54,12 @@ r(C)=\max_{\mu\in\Delta(C)}\min_{\rho\in\Delta(\Pi)}\mu^\top M\rho=\max_\mu\min_
 
 ## 相关工作
 
-- min 与 max 的交换是有限零和博弈的 von Neumann minimax 定理 ([von Neumann, 1928](../references_ZH.md#vonneumann1928zur)).
+- min 与 max 的交换是有限零和博弈的 von Neumann minimax 定理 ([von Neumann, 1928](#ref-vonneumann1928zur)).
 
 ## 参考文献
 
-- [von Neumann, 1928](../references_ZH.md#vonneumann1928zur)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-vonneumann1928zur"></a>
+
+**John von Neumann (1928).** Zur Theorie der Gesellschaftsspiele. *Mathematische Annalen* 100, no. 1, 295–320. DOI [10.1007/BF01448847](https://doi.org/10.1007/BF01448847).

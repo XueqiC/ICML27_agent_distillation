@@ -25,3 +25,19 @@
 - **Title:** "Coupling width: 0 iff additive".
 
 **Caption.** (A) In a controlled network (C23(e)), grouping the same four labels as {(0,0),(1,1)} versus {(0,1),(0,1)} changes the final return. The gap is exactly zero for one common-state step and grows with step size and horizon under SGD; under Adam it has the opposite sign and other dynamics. (B) The range of expected packet response over the coupling polytope: a single point for an additive table, positive width for a non-additive one. Only the additive width is stored, so its single point has schematic position. Exact finite computations and a controlled small network; not a real-model result.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

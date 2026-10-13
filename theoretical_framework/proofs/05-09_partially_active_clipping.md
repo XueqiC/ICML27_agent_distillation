@@ -40,3 +40,11 @@ For a law $`P`$ at $`(t,z)`$, the message-level mean increment is $`D_t(z,y)=\ma
 - The always-active case $`p_{\rm act}=1`$ is the only one in which the mean direction is exactly the clipped mean.
 
 *Proof.* The first identity splits $`\mathbb E\,\mathrm{clip}_c(G)`$ on the event $`\lbrace\lVert G\rVert\le c\rbrace`$. For the second, $`\mathbb E\,\mathrm{clip}_c(G)-c\,\mathbb E[G/\lVert G\rVert]=\mathbb E\big[(G-cG/\lVert G\rVert)1\lbrace\lVert G\rVert\le c\rbrace\big]`$, and $`\lVert G-cG/\lVert G\rVert\rVert=\lvert\lVert G\rVert-c\rvert=c-\lVert G\rVert\le c`$ on that event (including $`G=0`$). Hence the norm is at most $`\mathbb E[(c-\lVert G\rVert)1\lbrace\lVert G\rVert\le c\rbrace]\le c\Pr(\lVert G\rVert\le c)=c(1-p_{\rm act})`$. The two-law statement follows by the triangle inequality. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

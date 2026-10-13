@@ -60,3 +60,15 @@
 
 - Replay, rewriting and synthesis are garblings of the transcript, and a garbling is never more informative than the experiment it comes from ([Blackwell, 1953](#ref-blackwell1953equivalent)); the corollary is the quantitative, learner-relative form of this fact for aliased environments.
 - The remedy, querying the teacher where the learner goes instead of replaying demonstrations, is the idea of interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)); the corollary adds that whether a direction needs queries depends on the learner's $`c`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

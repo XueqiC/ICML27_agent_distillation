@@ -62,7 +62,7 @@ d_0(\mathcal G)=\dim\mathrm{span}(\lbrace\mathbf 1\rbrace\cup\mathcal G)-1. \qqu
 \min_{t\in\mathbb R,\,c\in\mathbb R^k}\ t\quad\text{s.t.}\quad g-Ac\le t\mathbf 1,\ \ -(g-Ac)\le t\mathbf 1
 ```
 
-- 的值。它可行（$`c=0`$、$`t=\lVert g\rVert_\infty`$）且下有界（$`\ge0`$）。由 LP 强对偶（[Bertsimas & Tsitsiklis, 1997](../references_ZH.md#bertsimas1997introduction)），它的值等于对偶问题
+- 的值。它可行（$`c=0`$、$`t=\lVert g\rVert_\infty`$）且下有界（$`\ge0`$）。由 LP 强对偶（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)），它的值等于对偶问题
 
 ```math
 \max_{y^+,y^-\ge0}\ (y^+-y^-)^\top g\quad\text{s.t.}\quad A^\top(y^+-y^-)=0,\ \ \mathbf 1^\top(y^++y^-)=1
@@ -112,9 +112,13 @@ d_0(\mathcal G)=\dim\mathrm{span}(\lbrace\mathbf 1\rbrace\cup\mathcal G)-1. \qqu
 
 ## 相关工作
 
-- LP 对偶与全变差的事件形式是经典工具（[Bertsimas & Tsitsiklis, 1997](../references_ZH.md#bertsimas1997introduction)），在此注明，不作为新结果。
+- LP 对偶与全变差的事件形式是经典工具（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)），在此注明，不作为新结果。
 - 本页新增的是用它们计算：对给定的 response 类，一个 feedback law 必须携带多少信息——一个 span 维数或一个逼近宽度。
 
 ## 参考文献
 
-- [Bertsimas & Tsitsiklis, 1997](../references_ZH.md#bertsimas1997introduction) — 线性规划对偶。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.

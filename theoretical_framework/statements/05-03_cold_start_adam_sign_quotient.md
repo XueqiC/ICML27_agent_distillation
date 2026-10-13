@@ -104,3 +104,31 @@ h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h
 
 - Adam's update and its bias correction are those of [Kingma & Ba, 2015](#ref-kingma2015adam). Reading Adam as sign descent with a variance adaptation is due to [Balles & Hennig, 2018](#ref-balles2018dissecting); sign-based optimizers include signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd)) and Lion ([Chen et al., 2023](#ref-chen2023symbolic)). The large variance of Adam's adaptive learning rate in the first steps is analysed by [Liu et al., 2020](#ref-liu2020variance).
 - What Proposition 5.3 adds is the exact information requirement of the cold step, the joint sign law at $`\epsilon=0`$ and the whole law at $`\epsilon>0`$, and the fact that the optimizer state keeps the magnitude that the step divides out.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-bernstein2018signsgd"></a>
+
+**Jeremy Bernstein, Yu-Xiang Wang, Kamyar Azizzadenesheli, Animashree Anandkumar (2018).** signSGD: Compressed optimisation for non-convex problems. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:560–569. [proceedings.mlr.press/v80/bernstein18a](https://proceedings.mlr.press/v80/bernstein18a.html).
+
+<a id="ref-chen2023symbolic"></a>
+
+**Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

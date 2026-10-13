@@ -96,5 +96,20 @@ $`V_{t+1}(z)=F(\pi_\theta\,\Phi_{R-1}\circ\cdots\circ\Phi_{t+1}(z))`$，其中 $
 
 ## 参考文献
 
-- [Kingma & Ba, 2015](../references_ZH.md#kingma2015adam)：Adam 优化器。
-- [Loshchilov & Hutter, 2019](../references_ZH.md#loshchilov2019decoupled)：decoupled weight decay（AdamW）。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-maclaurin2015gradient"></a>
+
+**Dougal Maclaurin, David Duvenaud, Ryan Adams (2015).** Gradient-based hyperparameter optimization through reversible learning. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2113–2122. [proceedings.mlr.press/v37/maclaurin15](https://proceedings.mlr.press/v37/maclaurin15.html).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

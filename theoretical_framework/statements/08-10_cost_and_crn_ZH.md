@@ -106,3 +106,15 @@ r\ \ge\ 1+\frac{7\log(4M^2/\delta)}{3\zeta}.
 
 - (b) 所确定的 range 项，就是 [Maurer & Pontil, 2009](#ref-maurer2009empirical) 的 empirical Bernstein 界的第二项：$`7\log(\cdot)/(3(r-1))`$ 乘以取值范围。
 - (c) 是 common random numbers 的标准论证：当两个臂对共享随机性的响应方向一致时（例如 Lipschitz 或单调的响应），配对才有帮助（[Glasserman, 2004](#ref-glasserman2004monte)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

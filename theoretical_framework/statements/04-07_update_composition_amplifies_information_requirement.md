@@ -92,3 +92,11 @@ e_R\le C\eta^2\sum_{s=0}^{R-1}(1+\eta L)^s=\frac{C\eta}{L}\big((1+\eta L)^R-1\bi
 ## Related work
 
 - Part (d) is the one-step moment expansion on which weak approximations of SGD by stochastic modified equations are built ([Li et al., 2019](#ref-li2019stochastic)): the mean and the second moment of the stochastic gradient fix the expected effect of one step up to a remainder of third order in $`\eta`$. Part (e) is the step that turns such one-step errors into a bound over many steps.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

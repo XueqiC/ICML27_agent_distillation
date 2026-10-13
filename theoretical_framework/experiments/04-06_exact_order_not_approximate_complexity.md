@@ -13,7 +13,7 @@
 **Setting used on this page.**
 
 - Scalar task $`J(p)=p^N`$ on $`[0,1]`$ (one context visited $`N`$ times, success if all actions are 1). Parity task $`J_{\rm even}(p)=\tfrac12\big(1+\prod_{j=1}^N(1-2p_j)\big)`$ on $`[0,1]^N`$ (pays 1 if the number of 1-actions is even).
-- $`T_j`$ is the Chebyshev polynomial of the first kind, $`T_j(\cos\theta)=\cos(j\theta)`$ ([Rivlin, 1990](../references.md#rivlin1990chebyshev)); $`h_q`$ is the truncation of (4.7) after order $`q`$; $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$; $`B\sim\mathrm{Bin}(2N,\tfrac12)`$.
+- $`T_j`$ is the Chebyshev polynomial of the first kind, $`T_j(\cos\theta)=\cos(j\theta)`$ ([Rivlin, 1990](#ref-rivlin1990chebyshev)); $`h_q`$ is the truncation of (4.7) after order $`q`$; $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$; $`B\sim\mathrm{Bin}(2N,\tfrac12)`$.
 - For a response family $`\mathcal G`$ on a finite message grid and a subspace $`H`$ of functions containing the constants, the *uniform error* is $`\max_{g\in\mathcal G}\mathrm{dist}_\infty(g,H)`$ and the *worst-pair discrepancy* is the largest $`(P-Q)g`$ over pairs of laws that agree on $`H`$ ([Definition 4.1](../statements/04-01_feature_sufficiency_unresolved_discrepancy.md#s4-1)). A feature budget $`d`$ means $`\dim H=d+1`$.
 - Code IDs: `v014:` = `theory/independent_checks` (results `results_independent_v014.json`); `pkg:` = package verifier re-run into `theory/v014_repro/results_v014_rerun.json`.
 
@@ -154,4 +154,24 @@ The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)), SymPy ([Meur
 
 ## References
 
-- [Rivlin, 1990](../references.md#rivlin1990chebyshev) — Chebyshev polynomials.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+<a id="ref-huangfu2018parallelizing"></a>
+
+**Qi Huangfu, J. A. Julian Hall (2018).** Parallelizing the dual revised simplex method. *Mathematical Programming Computation* 10, no. 1, 119–142. DOI [10.1007/s12532-017-0130-5](https://doi.org/10.1007/s12532-017-0130-5).
+
+<a id="ref-meurer2017sympy"></a>
+
+**Aaron Meurer, Christopher P. Smith, Mateusz Paprocki, Ondřej Čertík, Sergey B. Kirpichev, Matthew Rocklin, AMiT Kumar, Sergiu Ivanov, Jason K. Moore, Sartaj Singh, Thilina Rathnayake, Sean Vig, Brian E. Granger, Richard P. Muller, Francesco Bonazzi, Harsh Gupta, Shivam Vats, Fredrik Johansson, Fabian Pedregosa, Matthew J. Curry, Andy R. Terrel, Štěpán Roučka, Ashutosh Saboo, Isuru Fernando, Sumith Kulal, Robert Cimrman, Anthony Scopatz (2017).** SymPy: Symbolic computing in Python. *PeerJ Computer Science* 3, e103. DOI [10.7717/peerj-cs.103](https://doi.org/10.7717/peerj-cs.103).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.
+
+<a id="ref-virtanen2020scipy"></a>
+
+**Pauli Virtanen, Ralf Gommers, Travis E. Oliphant, Matt Haberland, Tyler Reddy, David Cournapeau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, Stéfan J. van der Walt, Matthew Brett, Joshua Wilson, K. Jarrod Millman, Nikolay Mayorov, Andrew R. J. Nelson, Eric Jones, Robert Kern, Eric Larson, C J Carey, İlhan Polat, Yu Feng, Eric W. Moore, Jake VanderPlas, Denis Laxalde, Josef Perktold, Robert Cimrman, Ian Henriksen, E. A. Quintero, Charles R. Harris, Anne M. Archibald, Antônio H. Ribeiro, Fabian Pedregosa, Paul van Mulbregt, SciPy 1.0 Contributors (2020).** SciPy 1.0: Fundamental algorithms for scientific computing in Python. *Nature Methods* 17, no. 3, 261–272. DOI [10.1038/s41592-019-0686-2](https://doi.org/10.1038/s41592-019-0686-2).

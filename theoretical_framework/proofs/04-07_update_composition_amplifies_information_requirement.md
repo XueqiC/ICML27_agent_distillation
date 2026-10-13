@@ -82,3 +82,11 @@ By (T3) $`\lvert\varphi'''\rvert\le M_3\eta^3\lVert g\rVert^3`$, and $`\int_0^1(
 
 - Taylor expansion with integral remainder and the geometric accumulation of per-step errors are classical; they are credited as such and not claimed as new. The same one-step moment expansion, followed by the accumulation of one-step errors, underlies the weak approximation of SGD by stochastic modified equations ([Li et al., 2019](#ref-li2019stochastic)).
 - What is added is their use to show that the information a feedback source must carry is set by the learner composed with the deployment, not by the data alone.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

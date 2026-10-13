@@ -49,3 +49,11 @@
 **被用于.**
 
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)（第 4–5 步）与 [Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)（Rule 3 与 Rule 5）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).

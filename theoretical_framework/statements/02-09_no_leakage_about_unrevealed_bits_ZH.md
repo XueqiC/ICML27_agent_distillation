@@ -45,3 +45,11 @@
 ## 相关工作
 
 - 这个引理就是 missing completely at random 的缺失机制的 ignorability：未揭示比特的后验可以当作揭示机制不存在来计算，而这里它就等于先验 ([Rubin, 1976](#ref-rubin1976inference))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

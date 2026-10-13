@@ -84,3 +84,15 @@ J_E(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c
 
 - (a) 用逆向归纳计算一个 behaviour strategy 在带机会节点的有限树中的期望值（[Kuhn, 1953](#ref-kuhn1953extensive)）。
 - parity witness 与 (d) 的二值壁垒都是 Boolean cube 上的 Fourier 事实（[O'Donnell, 2014](#ref-odonnell2014analysis)）：偶 parity 律与奇 parity 律只在最高阶 Fourier 系数上不同，而 $`2^k`$ 个 parity 函数构成 $`\lbrace0,1\rbrace^k`$ 上全体函数的一组基。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).
+
+<a id="ref-odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).

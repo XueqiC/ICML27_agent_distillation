@@ -63,7 +63,7 @@ L_E(\mathrm{adaptive})-L_E(0)\ge-\delta,\qquad L_E(\mathrm{adaptive})-L_E(0)\ge\
 
 **(b)** 沿 $`S`$ 过程，由塔性质 $`\mathbb E[V^0_{t+1}(Z_{t+1})\mid\text{history to }t]=(K^{J_t}_tV^0_{t+1})(Z_t)`$，所以 $`\mathbb E[V^0_{t+1}(Z_{t+1})-V^0_t(Z_t)]=\mathbb E\,A_t(Z_t,J_t)`$。对 $`t`$ 求和即 telescoping；由相同初始律 $`\mathbb EV^0_0(Z_0)=L_E(0)`$，由 $`V^0_R=F_E`$ 有 $`\mathbb EV^0_R(Z_R)=L_E(S)`$。
 
-**(c)** *audit 事件.* 在 $`\mathcal H_t`$ 条件下，候选 $`j`$ 的 $`n_t`$ 个对比独立同分布，取值于 $`[-1,1]`$，均值为 $`A_t(Z_t,j)`$；这里用到了正确的边缘分布、完整尾段与精确恢复。对取值范围为 $`2`$ 的变量用 Hoeffding 不等式 ([Hoeffding, 1963](../references_ZH.md#hoeffding1963probability))，
+**(c)** *audit 事件.* 在 $`\mathcal H_t`$ 条件下，候选 $`j`$ 的 $`n_t`$ 个对比独立同分布，取值于 $`[-1,1]`$，均值为 $`A_t(Z_t,j)`$；这里用到了正确的边缘分布、完整尾段与精确恢复。对取值范围为 $`2`$ 的变量用 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability))，
 
 ```math
 \Pr\big(\lvert\widehat A_t(j)-A_t(Z_t,j)\rvert>e_t\ \big\vert\ \mathcal H_t\big)\le2\exp(-n_te_t^2/2)=\delta_t/M_t .
@@ -90,4 +90,8 @@ L_E(\mathrm{adaptive})-L_E(0)=\mathbb E\sum_tA_t\ge-\mathbb E\sum_t\Pr(\mathcal 
 
 ## 参考文献
 
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability). Hoeffding, W. (1963). Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58, no. 301, 13–30.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

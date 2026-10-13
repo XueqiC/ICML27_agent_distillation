@@ -85,3 +85,15 @@ theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py -
 
 - `theory/v015_checks/results_v015_independent.json`: the group of `v015:V6`; code `theory/v015_checks/mathematics.py` (`check_V6`).
 - `docs/direction/v015_revision/results_v015.json`: `checks.T11_adaptive_query_KL_enumeration.rows`; code `docs/direction/v015_revision/verify_v015_extensions.py`.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).

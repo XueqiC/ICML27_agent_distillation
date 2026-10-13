@@ -73,7 +73,7 @@ Taking the maximum over $`v`$ and the infimum over $`b`$ gives $`W_{\mathbf{\eps
 \mathcal L(v;u,w)=g^\top v-u^\top(\Phi^\top v-\mathbf{\epsilon})-w^\top(-\Phi^\top v-\mathbf{\epsilon})=\big(g-\Phi(u-w)\big)^\top v+\mathbf{\epsilon}^\top(u+w).
 ```
 
-- $`\mathcal L`$ is bilinear, $`\mathcal D`$ is compact and convex, and $`\mathbb R^{2d}_{\ge0}`$ is convex. Sion's minimax theorem ([Sion, 1958](../references.md#sion1958general)) gives $`\max_{v\in\mathcal D}\inf_{u,w\ge0}\mathcal L=\inf_{u,w\ge0}\max_{v\in\mathcal D}\mathcal L`$.
+- $`\mathcal L`$ is bilinear, $`\mathcal D`$ is compact and convex, and $`\mathbb R^{2d}_{\ge0}`$ is convex. Sion's minimax theorem ([Sion, 1958](#ref-sion1958general)) gives $`\max_{v\in\mathcal D}\inf_{u,w\ge0}\mathcal L=\inf_{u,w\ge0}\max_{v\in\mathcal D}\mathcal L`$.
 - The left side equals $`\max_{v\in\mathcal F}g^\top v`$, since the inner infimum is $`g^\top v`$ on $`\mathcal F`$ and $`-\infty`$ off it.
 - By Claim 2 the right side is $`\inf_{u,w\ge0}\big[\mathrm{osc}(g-\Phi(u-w))+\mathbf{\epsilon}^\top(u+w)\big]`$. For fixed $`b=u-w`$, $`\mathbf{\epsilon}^\top(u+w)\ge\sum_j\epsilon_j\lvert b_j\rvert`$ because $`u_j+w_j\ge\lvert u_j-w_j\rvert`$, with equality at $`u=b^+`$, $`w=b^-`$.
 
@@ -91,4 +91,12 @@ Hence $`W_{\mathbf{\epsilon}}(g)=\inf_b\big[\mathrm{osc}(g-\Phi b)+\sum_j\epsilo
 
 ## References
 
-- [Sion, 1958](../references.md#sion1958general). Sion, M. (1958). On general minimax theorems. Pacific Journal of Mathematics 8, no. 1, 171–176.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

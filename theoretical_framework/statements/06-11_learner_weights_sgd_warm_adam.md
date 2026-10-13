@@ -90,3 +90,19 @@ f_s^{\rm Adam}(y)=-\eta R\sqrt{d(s)}\,\zeta_s\Big[\frac{g-m_1}{\sqrt{m_2}}-\frac
 
 - Adam, with momentum, second-moment decay and bias correction, is as defined in [Kingma & Ba, 2015](#ref-kingma2015adam).
 - In the isolated regime each visit moves the coordinate by a fixed multiple of the gradient's sign: the sign-descent aspect of Adam analysed by [Balles & Hennig, 2018](#ref-balles2018dissecting), related to signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-bernstein2018signsgd"></a>
+
+**Jeremy Bernstein, Yu-Xiang Wang, Kamyar Azizzadenesheli, Animashree Anandkumar (2018).** signSGD: Compressed optimisation for non-convex problems. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:560–569. [proceedings.mlr.press/v80/bernstein18a](https://proceedings.mlr.press/v80/bernstein18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

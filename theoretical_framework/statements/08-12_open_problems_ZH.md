@@ -88,3 +88,15 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 ## Related work
 
 - 自适应于方差的置信界，仍要通过一个量级为 $`B/r`$ 的项为先验取值范围付出代价（[Audibert et al., 2009](#ref-audibert2009exploration)；[Maurer & Pontil, 2009](#ref-maurer2009empirical)）。所以更小的取值范围只能来自训练问题本身，例如经过认证的 Lipschitz 常数，而不是更精细的估计量。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

@@ -88,3 +88,15 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 ## Related work
 
 - Variance-adaptive confidence bounds still pay for the a-priori range through a term of order $`B/r`$ ([Audibert et al., 2009](#ref-audibert2009exploration); [Maurer & Pontil, 2009](#ref-maurer2009empirical)). A smaller range therefore has to come from the training problem, for example a certified Lipschitz constant, not from a sharper estimator.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

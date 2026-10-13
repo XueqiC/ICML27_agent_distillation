@@ -41,3 +41,15 @@
 **Classical tools.** Norm clipping ([Pascanu et al., 2013](#ref-pascanu2013difficulty)): when active it returns $`c_{\rm clip}G/\lVert G\rVert`$, so the step does not depend on the gradient's scale; normalized SGD ([Hazan et al., 2015](#ref-hazan2015beyond)) has the same property.
 
 **Proof.** (a) With always-active clipping, $`\mathrm{clip}_{c_{\rm clip}}(bG)=c_{\rm clip}\,G/\lVert G\rVert`$ does not depend on $`b>0`$, so $`\partial_b\mu^*_t=0`$; the rest follows from [Theorem 6.5](../statements/06-05_achievability.md#s6-5) and [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay.md#s6-7), with $`\theta_0=(\alpha,b)`$ and $`\theta_1=(\alpha,b')`$ having identical demonstration laws and $`\Psi(\theta_1)-\Psi(\theta_0)=-\eta(b'-b)\sum_t\langle g_t,\mathbb E\,G_\alpha\rangle\neq0`$ for SGD. (b) Combine [Proposition 6.10](../statements/06-10_water_filling_allocation.md#s6-10)(a)–(b) with the weights of [Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam.md#s6-11). $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hazan2015beyond"></a>
+
+**Elad Hazan, Kfir Y. Levy, Shai Shalev-Shwartz (2015).** Beyond convexity: Stochastic quasi-convex optimization. *Advances in Neural Information Processing Systems 28 (NIPS)*. [proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5](https://proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5-Abstract.html); arXiv [1507.02030](https://arxiv.org/abs/1507.02030).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

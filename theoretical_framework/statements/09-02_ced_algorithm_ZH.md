@@ -96,5 +96,16 @@
 
 ## 参考文献
 
-- [Ross et al., 2011](../references_ZH.md#ross2011reduction)：DAgger，在学生的状态上查询（第 2 步按学习器相对权重分配这类查询）。
-- [Xia et al., 2024](../references_ZH.md#xia2024less) 与 [Panigrahi et al., 2025](../references_ZH.md#panigrahi2025good)：数据与 teacher 选择分数（CED 改为按实测后果排序）。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-panigrahi2025good"></a>
+
+**Abhishek Panigrahi, Bingbin Liu, Sadhika Malladi, Sham Kakade, Surbhi Goel (2025).** In good GRACEs: Principled teacher selection for knowledge distillation. arXiv preprint. arXiv [2511.02833](https://arxiv.org/abs/2511.02833).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

@@ -115,3 +115,15 @@ L(0)-L(S)=\sum_{s=1}^R\mathbb E_{d_s^S}\big[(K_s^0-K_s^S)V_{s+1}^0(Z_s)\big],
 - *warmth 消除不了的部分.* 曲率项 $`\tfrac12H_G\lVert G\rVert_\infty^2`$ 不依赖 $`\kappa`$，随 $`R`$ 线性累积。在长 horizon 上，均值相同的两个来源之间剩下的差别由曲率决定，而 SGD 同样有这一项。warm-up 只控制 cold 窗口。
 - *消息与梯度.* Proposition 5.6 是关于 *consumed* gradient 的仿射性。当 $`G(y)`$ 本身关于 $`y`$ 非线性时，response 关于消息不是仿射的。例如序列级 teacher forcing（前缀会改变 Jacobian），以及处于激活状态的全局范数裁剪。
 - *局部性.* Proposition 5.6 是单边界的结论，常数是 continuation value 的性质。要沿训练过程给出证书，还需要 [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2) 的 transport 与 coverage 项。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

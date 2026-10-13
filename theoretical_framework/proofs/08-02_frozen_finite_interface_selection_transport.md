@@ -88,7 +88,7 @@ Let $`\sigma=\inf\lbrace t<R:Z_t\notin\mathcal C_t\rbrace`$ ($`\sigma=\infty`$ i
 
 *Proof.*
 
-**(a)** Each $`\phi_{u,\ell}\in[0,1]`$, and the samples behind each empirical mean are independent. Two-sided Hoeffding ([Hoeffding, 1963](../references.md#hoeffding1963probability)) gives
+**(a)** Each $`\phi_{u,\ell}\in[0,1]`$, and the samples behind each empirical mean are independent. Two-sided Hoeffding ([Hoeffding, 1963](#ref-hoeffding1963probability)) gives
 
 ```math
 \Pr\big(\lvert\widehat\mu_{0,u,\ell}-\mu_{0,u,\ell}\rvert>e_0\big)\le2e^{-2n_0e_0^2}=\frac{\delta}{2\lvert\mathcal U\rvert d},\qquad\Pr\big(\lvert\widehat\mu_{j,u,\ell}-\mu_{j,u,\ell}\rvert>e_S\big)\le\frac{\delta}{2M\lvert\mathcal U\rvert d}.
@@ -134,4 +134,8 @@ In both cases (c) equals the gap after capping, so the transport term can be nei
 
 ## References
 
-- [Hoeffding, 1963](../references.md#hoeffding1963probability). Hoeffding, W. (1963). Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58, no. 301, 13–30.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

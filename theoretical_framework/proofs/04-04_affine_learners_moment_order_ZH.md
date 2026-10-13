@@ -125,3 +125,19 @@ m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,
 
 - 有限差分（[Graham et al., 1994](#ref-graham1994concrete)）、parity 与真坐标子集的独立性（[O'Donnell, 2014](#ref-odonnell2014analysis)）、网格上单项式的线性无关性都是经典工具，在此注明，不作为新结果。(a) 中的逆向归纳，是在带机会节点的树上计算一个 behaviour strategy 的期望值（[Kuhn, 1953](#ref-kuhn1953extensive)）。
 - 本页新增的是用它们计算：对凸仿射 learner 与至多 $`N`$ 次决策的部署，一个反馈来源必须携带的精确信息。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-graham1994concrete"></a>
+
+**Ronald L. Graham, Donald E. Knuth, Oren Patashnik (1994).** Concrete Mathematics: A Foundation for Computer Science. 2nd edition, Addison-Wesley, Reading, MA. ISBN 0-201-55802-5.
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).
+
+<a id="ref-odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).

@@ -47,3 +47,23 @@ Plot:
 **Caption.** Exact degree does not measure approximate information complexity. (a)–(b) Chebyshev truncation of pᴺ has error equal to a binomial tail ≤ 2 exp(−q²/N); error 0.001 needs only q = 4, 6, 9, 13 for N = 4, 8, 16, 32 (package check; C12 for N ≤ 16). Parity keeps error 0.5 below degree N. (c) On the same grid and degree, scalar and structured families are exactly resolved by 3 features, parity only by 7 (C19; hollow markers = upper bounds from the best subspace found). Zero-error endpoint threshold crossings are marked at the threshold, outside the log-error curves.
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). Panel (a) evaluates the Chebyshev truncations ([Rivlin, 1990](#ref-rivlin1990chebyshev)) with NumPy's `chebval` ([Harris et al., 2020](#ref-harris2020array)); the dashed curves of panel (b) are the bound $`2e^{-q^2/N}`$ that Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)) gives for the binomial tail in [Proposition 4.6(a)](../../statements/04-06_exact_order_not_approximate_complexity.md#s4-6).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.

@@ -55,3 +55,15 @@
 
 - 蒸馏器是 transcript 与独立随机性的可测映射，所以它的输出是数据实验在 Blackwell 意义下的 garbling；对任何决策问题，garbling 都不会比原实验更有信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）。
 - 把在新状态上新调用一次 teacher 算作查询、而不是免费的合成，与交互式模仿学习一致：在那里 expert 为学习器访问到的状态打标签（[Ross et al., 2011](#ref-ross2011reduction)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

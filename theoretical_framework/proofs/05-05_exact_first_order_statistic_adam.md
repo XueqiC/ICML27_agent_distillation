@@ -98,3 +98,15 @@ f(g)=-\eta\,\frac{\big(\beta_1m_i+(1-\beta_1)g\big)/(1-\beta_1^{\,t})}{\sqrt{\bi
 - *Case $`v_i=0`$ with $`\epsilon>0`$.* Then $`a_i=0`$, $`\kappa_i=\infty`$ and $`u_i=\lvert n_i\rvert/\epsilon`$. Both reciprocals $`1/(d_i+\epsilon)`$ and $`1/\epsilon`$ lie in $`[0,1/\epsilon]`$, so their difference is at most $`1/\epsilon`$, and the left side is at most $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$. $`\square`$
 
 *Proof of (c).* By Definition 5.4, $`\tilde\theta^+-\theta=-\eta\lambda_{\rm wd}\theta-\eta\Phi\beta_1m/(1-\beta_1^{\,t})-\eta\Phi(1-\beta_1)G/(1-\beta_1^{\,t})`$ and $`m^+-m=(1-\beta_1)(G-m)`$ are affine in $`G`$ with coefficients fixed by the state, and $`v^+-v=(1-\beta_2)(G^{\odot2}-v)`$ is affine in $`G^{\odot2}`$. Taking expectations, $`\tilde\mu`$ is an affine function of $`(\mathbb E\,G,\mathbb E\,G^{\odot2})`$. The $`m`$ and $`v`$ blocks of $`\Delta`$ and $`\tilde\Delta`$ coincide, and the $`\theta`$ blocks differ by $`\theta^+-\tilde\theta^+`$, whose expectation is bounded coordinatewise by (b). $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

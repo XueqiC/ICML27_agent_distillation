@@ -61,7 +61,7 @@ J(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c_\
 
 *Claim 2（经验均值的 cumulant）.* 对 $`s\ge2`$，$`\kappa_s(W_n)=n^{1-s}\kappa_s(Z)`$，且 $`\kappa_1(W_n)=0`$。$`s\ge2`$ 阶联合 cumulant 平移不变、多重线性，并且对独立求和项可加，因为独立向量的混合 cumulant 都为零。所以 $`\kappa_s\big(\tfrac1n\sum_iZ_i\big)=n^{-s}\sum_{i=1}^n\kappa_s(Z_i)=n^{1-s}\kappa_s(Z)`$；$`W_n`$ 的均值为零。
 
-*Claim 3（矩–cumulant 公式）.* 对矩有限的随机向量 $`W`$，$`\mathbb E[W_{j_1}\cdots W_{j_s}]=\sum_{\pi\in\Pi(s)}\prod_{B\in\pi}\kappa(W_{j_b}:b\in B)`$，其中 $`\Pi(s)`$ 是 $`\lbrace1,\dots,s\rbrace`$ 的划分集合。这是 cumulant 的定义式反演（[Leonov & Shiryaev, 1959](../references_ZH.md#leonov1959method)）。
+*Claim 3（矩–cumulant 公式）.* 对矩有限的随机向量 $`W`$，$`\mathbb E[W_{j_1}\cdots W_{j_s}]=\sum_{\pi\in\Pi(s)}\prod_{B\in\pi}\kappa(W_{j_b}:b\in B)`$，其中 $`\Pi(s)`$ 是 $`\lbrace1,\dots,s\rbrace`$ 的划分集合。这是 cumulant 的定义式反演（[Leonov & Shiryaev, 1959](#ref-leonov1959method)）。
 
 *(a).* 固定 $`1\le\lvert\alpha\rvert=a\le N`$ 的 $`\alpha`$。把 (4.4) 写成 $`\mathbb Ep_R^\alpha=\sum_s\omega_s\pi_s\prod_{i=1}^Rm(\beta_i(s))`$，其中 $`\omega_s=\prod_lw_{s(l)}\ge0`$、$`\sum_s\omega_s=1`$、$`\pi_s=\prod_{l:s(l)=0}p_{0,j(l)}\in[0,1]`$。
 
@@ -105,9 +105,13 @@ $`P`$ 与 $`Q`$ 有同一个 $`\mu`$，所以 $`D^sJ(\mu)`$ 相同。$`s=0`$ 的
 
 ## 相关工作
 
-- 矩–cumulant 公式（[Leonov & Shiryaev, 1959](../references_ZH.md#leonov1959method)）与 cumulant 对独立求和项的可加性是经典结果，在此注明，不作为新结果。
+- 矩–cumulant 公式（[Leonov & Shiryaev, 1959](#ref-leonov1959method)）与 cumulant 对独立求和项的可加性是经典结果，在此注明，不作为新结果。
 - 本页新增的是用它们在一个反馈来源的学习价值中把独立证据与暴露量分开。
 
 ## 参考文献
 
-- [Leonov & Shiryaev, 1959](../references_ZH.md#leonov1959method) — 矩–cumulant 公式。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-leonov1959method"></a>
+
+**V. P. Leonov, A. N. Shiryaev (1959).** On a method of calculation of semi-invariants. *Theory of Probability and Its Applications* 4, no. 3, 319–329. DOI [10.1137/1104031](https://doi.org/10.1137/1104031).

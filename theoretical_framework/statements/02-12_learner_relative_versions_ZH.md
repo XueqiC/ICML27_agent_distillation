@@ -43,3 +43,15 @@
 ## 相关工作
 
 - 两个 learner-relative 版本都是 Le Cam 框架下的下界：[Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7) 是两点界 ([Le Cam, 1973](#ref-lecam1973convergence))，[Corollary 6.8](../statements/06-08_exchange_rate_between_demonstrations_queries_ZH.md#s6-8) 是在每个方向 $`h`$ 上用 Fisher information 写出的局部界，与 local asymptotic minimax 理论中的形式相同 ([van der Vaart, 1998](#ref-vandervaart1998asymptotic))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

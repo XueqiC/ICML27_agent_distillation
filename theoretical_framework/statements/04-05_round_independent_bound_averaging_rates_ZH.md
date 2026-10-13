@@ -86,3 +86,11 @@
 ## Related work
 
 - (b) 背后的联合 cumulant 与矩–cumulant 公式是经典的（[Leonov & Shiryaev, 1959](#ref-leonov1959method)）。速率来自它们在平均下的标度：$`n`$ 个 IID block 的平均值，其 $`s`$ 阶 cumulant 等于 $`n^{1-s}\kappa_s`$。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-leonov1959method"></a>
+
+**V. P. Leonov, A. N. Shiryaev (1959).** On a method of calculation of semi-invariants. *Theory of Probability and Its Applications* 4, no. 3, 319–329. DOI [10.1137/1104031](https://doi.org/10.1137/1104031).

@@ -33,7 +33,7 @@
 - [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4): c-optimal designs for each axis $`\ell_k`$.
 - [Theorem 6.5](../statements/06-05_achievability.md#s6-5): the second-order term.
 
-**Classical tools.** John's theorem on maximal-volume ellipsoids ([John, 1948](../references.md#john1948extremum)).
+**Classical tools.** John's theorem on maximal-volume ellipsoids ([John, 1948](#ref-john1948extremum)).
 
 **Proof of the upper bound.** Let $`\mathcal K`$ be the closed convex hull of $`\lbrace\pm c_V\rbrace`$, a symmetric convex body in a $`d`$-dimensional subspace. By John's theorem there is an ellipsoid $`\mathcal E=\lbrace\sum_kw_k\ell_k:\lVert w\rVert\le1\rbrace\subseteq\mathcal K\subseteq\sqrt d\,\mathcal E`$, so $`\sigma(u)=\sup_{v\in\mathcal K}v^\top u\le\sqrt d\,\big(\sum_{k=1}^d(\ell_k^\top u)^2\big)^{1/2}`$. Let $`\xi_k`$ be c-optimal for $`\ell_k`$ and $`\bar\xi=\tfrac1d\sum_k\xi_k`$. Then $`A(\bar\xi)\succeq\tfrac1dA(\xi_k)`$ for each $`k`$, so $`\ell_k^\top A(\bar\xi)^{-1}\ell_k\le d\,\mathfrak n_{K,n}(\ell_k)^2`$. Since $`\ell_k\in\mathcal K`$ and $`\mathfrak n_{K,n}(\cdot)`$ is a seminorm of its vector argument, $`\mathfrak n_{K,n}(\ell_k)\le\sup_V\mathfrak n_{K,n}(c_V)`$. By Jensen's inequality,
 
@@ -45,4 +45,8 @@ and the second-order term is handled as in [Theorem 6.5](../statements/06-05_ach
 
 ## References
 
-- [John, 1948](../references.md#john1948extremum)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-john1948extremum"></a>
+
+**Fritz John (1948).** Extremum problems with inequalities as subsidiary conditions. In *Studies and Essays Presented to R. Courant on his 60th Birthday*, 187–204, Interscience, New York; reprinted in *Traces and Emergence of Nonlinear Programming* (Birkhäuser, 2014), 197–215. DOI of the reprint [10.1007/978-3-0348-0439-4_9](https://doi.org/10.1007/978-3-0348-0439-4_9).

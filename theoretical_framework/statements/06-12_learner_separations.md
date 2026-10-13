@@ -67,3 +67,19 @@
 
 - Norm clipping is the gradient-clipping rule of [Pascanu et al., 2013](#ref-pascanu2013difficulty), and normalized SGD is the method studied by [Hazan et al., 2015](#ref-hazan2015beyond). Both make the step independent of the gradient's scale, which is what removes $`b`$ from the clipped learner's functional in (a).
 - Warm Adam in (b) is Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) after its moment estimates have warmed up.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hazan2015beyond"></a>
+
+**Elad Hazan, Kfir Y. Levy, Shai Shalev-Shwartz (2015).** Beyond convexity: Stochastic quasi-convex optimization. *Advances in Neural Information Processing Systems 28 (NIPS)*. [proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5](https://proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5-Abstract.html); arXiv [1507.02030](https://arxiv.org/abs/1507.02030).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

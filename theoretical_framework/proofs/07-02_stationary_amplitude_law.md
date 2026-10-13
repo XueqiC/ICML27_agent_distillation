@@ -102,3 +102,11 @@ The consequences:
 - The mean-field substitution ignores the fluctuation of $`m_k`$ and $`v_k`$ around their means. It is part of the definition of $`\Delta F_i`$ and the only approximation in (a); how accurate it is on actual stochastic Adam trajectories is measured on the [experiments page](../experiments/07-02_stationary_amplitude_law.md#c7-2).
 - The constant 11 in (b) is valid but conservative; the measured agreement of $`2\lambda^\star`$ with the actual sign change is far better ([Check 7.3](../experiments/07-02_stationary_amplitude_law.md#c7-3)).
 - The positive-zero statement in (c) is a one-way implication. That no zero exists when the limit is positive is not claimed. In the checked settings the two always agreed ([Check 7.2](../experiments/07-02_stationary_amplitude_law.md#c7-2)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

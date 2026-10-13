@@ -72,3 +72,15 @@ W_{\mathbf{\epsilon}}(g)=\min_{b\in\mathbb R^d,\ c\in\mathbb R}\Big[2\big\lVert 
 ## Related work
 
 - [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff_ZH.md#s8-1) 是把线性规划对偶（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）与范数对偶用在可操作的差距上，等号来自 Sion minimax 定理（[Sion, 1958](#ref-sion1958general)），不主张新的对偶原理。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

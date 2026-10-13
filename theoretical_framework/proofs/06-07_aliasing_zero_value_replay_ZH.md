@@ -31,3 +31,11 @@
 **用到的经典工具.** Le Cam 两点法（[Le Cam, 1973](#ref-lecam1973convergence)），经由 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(a)：两条 transcript 的分布相同时，没有任何检验能区分两个世界。
 
 **证明.** 两条 transcript 的分布相同，所以 $`\mathrm{TV}=0`$，[Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(a) 中平方根项为零。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).

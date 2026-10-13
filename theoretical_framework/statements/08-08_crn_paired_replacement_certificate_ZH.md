@@ -114,10 +114,20 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 ## Related work
 
-- [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 把 empirical Bernstein 界（[Maurer & Pontil, 2009](../references_ZH.md#maurer2009empirical)；[Audibert et al., 2009](../references_ZH.md#audibert2009exploration)）与 common random numbers（模拟中经典的方差缩减手段，[Glasserman, 2004](../references_ZH.md#glasserman2004monte)）结合起来。它的内容在于被估计的量：实际 complete learner state 上一轮替换的有限对比，在经过校准的 surrogate 尾段上测量。
+- [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 把 empirical Bernstein 界（[Maurer & Pontil, 2009](#ref-maurer2009empirical)；[Audibert et al., 2009](#ref-audibert2009exploration)）与 common random numbers（模拟中经典的方差缩减手段，[Glasserman, 2004](#ref-glasserman2004monte)）结合起来。它的内容在于被估计的量：实际 complete learner state 上一轮替换的有限对比，在经过校准的 surrogate 尾段上测量。
 
 ## 参考文献
 
-- [Maurer & Pontil, 2009](../references_ZH.md#maurer2009empirical). Maurer, A., Pontil, M. (2009). Empirical Bernstein bounds and sample variance penalization. COLT.
-- [Audibert et al., 2009](../references_ZH.md#audibert2009exploration). Audibert, J.-Y., Munos, R., Szepesvári, C. (2009). Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. Theoretical Computer Science 410, no. 19, 1876–1902.
-- [Glasserman, 2004](../references_ZH.md#glasserman2004monte). Glasserman, P. (2004). Monte Carlo Methods in Financial Engineering. Springer.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

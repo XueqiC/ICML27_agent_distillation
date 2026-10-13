@@ -42,8 +42,12 @@ Taking expectations over $`D'`$ gives (2.5). Since $`\mathbb EJ_E^\Pi`$ does not
 
 ## Related work
 
-- That garbling a transcript can only lower the Bayes value of every decision problem is the easy direction of Blackwell's comparison of experiments ([Blackwell, 1953](../references.md#blackwell1953equivalent)).
+- That garbling a transcript can only lower the Bayes value of every decision problem is the easy direction of Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)).
 
 ## References
 
-- [Blackwell, 1953](../references.md#blackwell1953equivalent)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).

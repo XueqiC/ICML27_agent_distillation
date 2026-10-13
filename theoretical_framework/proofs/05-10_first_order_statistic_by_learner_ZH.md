@@ -157,9 +157,24 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 ## 相关工作
 
-- LESS（[Xia et al., 2024](../references_ZH.md#xia2024less)）在 LoRA warm-up 之后用经 Adam 预条件的梯度特征做数据选择，对应 Theorem 5.10(c) 的参数块。Adam 版 In-Run Data Shapley（[Ding et al., 2026](../references_ZH.md#ding2026inrun)）采用 fixed-state 近似，即只算当前一步的预条件更新。
+- LESS（[Xia et al., 2024](#ref-xia2024less)）在 LoRA warm-up 之后用经 Adam 预条件的梯度特征做数据选择，对应 Theorem 5.10(c) 的参数块。Adam 版 In-Run Data Shapley（[Ding et al., 2026](#ref-ding2026inrun)）采用 fixed-state 近似，即只算当前一步的预条件更新。
 
 ## 参考文献
 
-- [Xia, M., Malladi, S., Gururangan, S., Arora, S., & Chen, D. (2024). LESS: Selecting influential data for targeted instruction tuning. *ICML*.](../references_ZH.md#xia2024less)
-- [Ding, M., Zhang, Z., Wang, D., & Hu, L. (2026). In-Run Data Shapley for Adam optimizer. arXiv:2602.00329.](../references_ZH.md#ding2026inrun)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-ding2026inrun"></a>
+
+**Meng Ding, Zeqing Zhang, Di Wang, Lijie Hu (2026).** In-Run Data Shapley for Adam optimizer. arXiv preprint. arXiv [2602.00329](https://arxiv.org/abs/2602.00329).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

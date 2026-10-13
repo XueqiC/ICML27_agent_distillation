@@ -70,3 +70,19 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 - 各候选共享尾段随机性 $`\omega_\ell`$，就是 common random numbers 方法：比较模拟系统时经典的方差缩减手段（[Glasserman, 2004](#ref-glasserman2004monte)）。
 - 任务一侧的对比 $`A_t(z,j)`$ 是一轮替换对比；对到达的状态求和，得到 [Kakade & Langford, 2002](#ref-kakade2002approximately) 的 performance-difference lemma 背后的 telescoping 分解。
 - 通过真正重新训练、而不是梯度近似，来测量训练数据变化的效果，也是 datamodels（[Ilyas et al., 2022](#ref-ilyas2022datamodels)）的做法。这里的变化是实际学习者状态上的一轮反馈，且各候选共享尾段。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

@@ -52,3 +52,11 @@ For a law $`P`$ at $`(t,z)`$, the message-level mean increment is $`D_t(z,y)=\ma
 Split on the event $`\lbrace\lVert G\rVert\le c\rbrace`$; on it, $`\lVert G-cG/\lVert G\rVert\rVert=c-\lVert G\rVert\le c`$.
 
 *Used by:* Theorem 5.10(e).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

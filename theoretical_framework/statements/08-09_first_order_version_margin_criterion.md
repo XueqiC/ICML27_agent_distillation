@@ -114,12 +114,28 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 
 ## Related work
 
-- First-order data-attribution scores, such as influence functions ([Koh & Liang, 2017](../references.md#koh2017understanding)), TracIn ([Pruthi et al., 2020](../references.md#pruthi2020estimating)), In-Run Data Shapley ([Wang et al., 2025](../references.md#wang2025data)) and metagradients ([Engstrom et al., 2025](../references.md#engstrom2025optimizing)), use gradients of an objective with respect to training data or hyperparameters. [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) states when such first-order rankings are guaranteed and why they cannot certify pairs whose first-order term is below the remainder. Datamodels ([Ilyas et al., 2022](../references.md#ilyas2022datamodels)) estimate finite retraining effects by regression over many training runs; Theorem 8.8 measures one-round finite effects at a fixed state with paired tails.
+- First-order data-attribution scores, such as influence functions ([Koh & Liang, 2017](#ref-koh2017understanding)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)), In-Run Data Shapley ([Wang et al., 2025](#ref-wang2025data)) and metagradients ([Engstrom et al., 2025](#ref-engstrom2025optimizing)), use gradients of an objective with respect to training data or hyperparameters. [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) states when such first-order rankings are guaranteed and why they cannot certify pairs whose first-order term is below the remainder. Datamodels ([Ilyas et al., 2022](#ref-ilyas2022datamodels)) estimate finite retraining effects by regression over many training runs; Theorem 8.8 measures one-round finite effects at a fixed state with paired tails.
 
 ## References
 
-- [Koh & Liang, 2017](../references.md#koh2017understanding). Koh, P. W., Liang, P. (2017). Understanding black-box predictions via influence functions. ICML.
-- [Pruthi et al., 2020](../references.md#pruthi2020estimating). Pruthi, G., Liu, F., Kale, S., Sundararajan, M. (2020). Estimating training data influence by tracing gradient descent. NeurIPS.
-- [Wang et al., 2025](../references.md#wang2025data). Wang, J. T., Mittal, P., Song, D., Jia, R. (2025). Data Shapley in one training run. ICLR.
-- [Engstrom et al., 2025](../references.md#engstrom2025optimizing). Engstrom, L., Ilyas, A., Chen, B., Feldmann, A., Moses, W., Madry, A. (2025). Optimizing ML training with metagradient descent. arXiv:2503.13751.
-- [Ilyas et al., 2022](../references.md#ilyas2022datamodels). Ilyas, A., Park, S. M., Engstrom, L., Leclerc, G., Madry, A. (2022). Datamodels: Understanding predictions with data and data with predictions. ICML.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-engstrom2025optimizing"></a>
+
+**Logan Engstrom, Andrew Ilyas, Benjamin Chen, Axel Feldmann, William Moses, Aleksander Madry (2025).** Optimizing ML training with metagradient descent. arXiv preprint. arXiv [2503.13751](https://arxiv.org/abs/2503.13751).
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-wang2025data"></a>
+
+**Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).

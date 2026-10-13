@@ -13,3 +13,19 @@
 **Caption.** LESS-style cosine uses positive loss-gradient direction for SGD and actual parameter updates for Adam. The update-oriented cosine reverses SGD orientation, leaving Adam unchanged; these are proxies, not official LESS reproduction. Parameter-only and full-state first-order scores use oracle continuation gradients; CRN first order uses the aligned surrogate. Finite paired replacement uses the aligned surrogate at r=256. Bars report wrong signs, denominators and ties separately, preserving the stored convention. Second-moment-channel shares are oracle diagnostics used only for reporting; 165 rows have unavailable shares and remain in the overall panel. Ranking accuracy is not certification.
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). The LESS-style cosine is a proxy for LESS ([Xia et al., 2024](#ref-xia2024less)), not a reproduction; finite paired replacement runs the candidates on common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)), as in [Theorem 8.8](../../statements/08-08_crn_paired_replacement_certificate.md#s8-8).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

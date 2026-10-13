@@ -87,10 +87,38 @@ L_F(P^j)-L_F(P^0)\ \ge\ \alpha\big(\hat S^{j0}-e^{j0}_{\rm stat}-\varepsilon_{\r
 
 ## 相关工作
 
-- **数据与 teacher 选择.** LESS（[Xia et al., 2024](../references_ZH.md#xia2024less)）按与目标的梯度余弦给训练数据排序；GRACE（[Panigrahi et al., 2025](../references_ZH.md#panigrahi2025good)）给蒸馏用的 teacher 打分。Algorithm 9.2 改为按候选 feedback law 在实际 optimizer state 上的实测后果排序，[Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 指出余弦类分数在哪里不一致。
-- **主动获取.** DAgger（[Ross et al., 2011](../references_ZH.md#ross2011reduction)）在学生的状态上查询 teacher。第 2 步按学习器相对权重、而不是均匀地分配这类查询（[Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10)）。
-- **影响函数与 metagradient.** TracIn（[Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)）、影响函数（[Koh & Liang, 2017](../references_ZH.md#koh2017understanding)）、metagradient（[Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing)）与 In-Run Data Shapley（[Wang et al., 2025](../references_ZH.md#wang2025data)）都是一阶或 fixed-state 的归因。在 Algorithm 9.2 中，它们只能在 [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) 的条件下作为第 5 步的筛选。
+- **数据与 teacher 选择.** LESS（[Xia et al., 2024](#ref-xia2024less)）按与目标的梯度余弦给训练数据排序；GRACE（[Panigrahi et al., 2025](#ref-panigrahi2025good)）给蒸馏用的 teacher 打分。Algorithm 9.2 改为按候选 feedback law 在实际 optimizer state 上的实测后果排序，[Proposition 7.3](../statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 指出余弦类分数在哪里不一致。
+- **主动获取.** DAgger（[Ross et al., 2011](#ref-ross2011reduction)）在学生的状态上查询 teacher。第 2 步按学习器相对权重、而不是均匀地分配这类查询（[Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10)）。
+- **影响函数与 metagradient.** TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、影响函数（[Koh & Liang, 2017](#ref-koh2017understanding)）、metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）与 In-Run Data Shapley（[Wang et al., 2025](#ref-wang2025data)）都是一阶或 fixed-state 的归因。在 Algorithm 9.2 中，它们只能在 [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) 的条件下作为第 5 步的筛选。
 
 ## 参考文献
 
-- [Xia et al., 2024](../references_ZH.md#xia2024less) · [Panigrahi et al., 2025](../references_ZH.md#panigrahi2025good) · [Ross et al., 2011](../references_ZH.md#ross2011reduction) · [Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating) · [Koh & Liang, 2017](../references_ZH.md#koh2017understanding) · [Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing) · [Wang et al., 2025](../references_ZH.md#wang2025data)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-engstrom2025optimizing"></a>
+
+**Logan Engstrom, Andrew Ilyas, Benjamin Chen, Axel Feldmann, William Moses, Aleksander Madry (2025).** Optimizing ML training with metagradient descent. arXiv preprint. arXiv [2503.13751](https://arxiv.org/abs/2503.13751).
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-panigrahi2025good"></a>
+
+**Abhishek Panigrahi, Bingbin Liu, Sadhika Malladi, Sham Kakade, Surbhi Goel (2025).** In good GRACEs: Principled teacher selection for knowledge distillation. arXiv preprint. arXiv [2511.02833](https://arxiv.org/abs/2511.02833).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-wang2025data"></a>
+
+**Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

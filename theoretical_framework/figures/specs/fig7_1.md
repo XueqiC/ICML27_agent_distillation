@@ -15,3 +15,15 @@
 **Caption.** Four representative finite-response sweeps compare measured Delta F(lambda) with pointwise 95% intervals, the exact stationary mean-field formula, and the local quadratic law. The quadratic law is only local; the exact formula is mean-field, not an exact stochastic rollout identity. All 33 settings are accounted for: 26 bracketed roots and 7 unbracketed in both bounded searches. The single FAIL (beta2=0.99, rho approximately 0.245, T=50) has 10.925% crossing error against a 10% threshold. The shaded criterion is abs(predicted/measured - 1) <= 0.10. Unbracketed searches do not prove global nonexistence.
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). The responses are those of one coordinate of Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)) without bias correction, as in [Corollary 7.2](../../statements/07-02_stationary_amplitude_law.md#s7-2).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

@@ -98,8 +98,20 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 ## Related work
 
-- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3) 与 [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4) 用到 Hoeffding 不等式（[Hoeffding, 1963](#ref-hoeffding1963probability)）、union bound 与 McDiarmid 不等式（[McDiarmid, 1989](#ref-mcdiarmid1989method)）。按置信下界选择以保证不退化，是 high-confidence policy improvement（[Thomas et al., 2015](../references_ZH.md#thomas2015high)）的思路。
+- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3) 与 [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states_ZH.md#s8-4) 用到 Hoeffding 不等式（[Hoeffding, 1963](#ref-hoeffding1963probability)）、union bound 与 McDiarmid 不等式（[McDiarmid, 1989](#ref-mcdiarmid1989method)）。按置信下界选择以保证不退化，是 high-confidence policy improvement（[Thomas et al., 2015](#ref-thomas2015high)）的思路。
 
 ## 参考文献
 
-- [Thomas et al., 2015](../references_ZH.md#thomas2015high). Thomas, P. S., Theocharous, G., Ghavamzadeh, M. (2015). High confidence policy improvement. ICML.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).
+
+<a id="ref-thomas2015high"></a>
+
+**Philip S. Thomas, Georgios Theocharous, Mohammad Ghavamzadeh (2015).** High confidence policy improvement. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2380–2388. [proceedings.mlr.press/v37/thomas15](https://proceedings.mlr.press/v37/thomas15.html).

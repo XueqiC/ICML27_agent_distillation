@@ -17,8 +17,8 @@
 
 **Remark 7.4（与已有工作的关系，以及裁剪的作用）.**
 
-- [Liu 与 Li（2026）](../references_ZH.md#liu2026finite)把 AdamW 写成 input–state–output 系统，分析一个 minibatch 扰动在短 horizon（8–32 步）内如何通过动量与二阶矩状态传播。他们没有给出幅度定律、最优幅度、阈值，也没有讨论对数据选择的含义。[Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 在长 horizon 的平稳情形下补上了这些。
-- Adam 版 In-Run Data Shapley（[Ding et al., 2026](../references_ZH.md#ding2026inrun)）采用 fixed-state 近似，只给当前这一步的预条件更新打分，因此属于 [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 中只看参数的一类。用 Adam 步长计算的 TracIn 式分数（[Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)）也属于这一类。LESS（[Xia et al., 2024](../references_ZH.md#xia2024less)）按 Adam 预条件后的训练梯度与验证梯度的余弦排序，属于 [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 中的余弦一类。
+- [Liu 与 Li（2026）](#ref-liu2026finite)把 AdamW 写成 input–state–output 系统，分析一个 minibatch 扰动在短 horizon（8–32 步）内如何通过动量与二阶矩状态传播。他们没有给出幅度定律、最优幅度、阈值，也没有讨论对数据选择的含义。[Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 在长 horizon 的平稳情形下补上了这些。
+- Adam 版 In-Run Data Shapley（[Ding et al., 2026](#ref-ding2026inrun)）采用 fixed-state 近似，只给当前这一步的预条件更新打分，因此属于 [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 中只看参数的一类。用 Adam 步长计算的 TracIn 式分数（[Pruthi et al., 2020](#ref-pruthi2020estimating)）也属于这一类。LESS（[Xia et al., 2024](#ref-xia2024less)）按 Adam 预条件后的训练梯度与验证梯度的余弦排序，属于 [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 中的余弦一类。
 - 全局范数裁剪限制了单条消息的幅度 $`\lambda`$，因此也限制了二阶矩通道能造成的损失（[Corollary 7.2(a),(c)](07-02_stationary_amplitude_law_ZH.md#s7-2)）。这为"裁剪为什么有帮助"提供了一个可检验的机制，但这里不把它作为结论。
 
 **说了什么.**
@@ -44,7 +44,24 @@
 
 ## 参考文献
 
-- [Liu & Li, 2026](../references_ZH.md#liu2026finite)：AdamW 中 minibatch 扰动的有限 horizon input–output 动力学。
-- [Ding et al., 2026](../references_ZH.md#ding2026inrun)：Adam 版 In-Run Data Shapley。
-- [Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)：TracIn。
-- [Xia et al., 2024](../references_ZH.md#xia2024less)：LESS。
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-ding2026inrun"></a>
+
+**Meng Ding, Zeqing Zhang, Di Wang, Lijie Hu (2026).** In-Run Data Shapley for Adam optimizer. arXiv preprint. arXiv [2602.00329](https://arxiv.org/abs/2602.00329).
+
+<a id="ref-liu2026finite"></a>
+
+**Kang Liu, Suyan Li (2026).** Finite-horizon input–output dynamics of minibatch perturbations in AdamW. arXiv preprint. arXiv [2608.19762](https://arxiv.org/abs/2608.19762).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

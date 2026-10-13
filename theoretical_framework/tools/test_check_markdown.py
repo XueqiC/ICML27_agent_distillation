@@ -1424,6 +1424,18 @@ class ReferencePolicyTests(reference_fixtures.ReferenceFixture, unittest.TestCas
             path.write_text(anchor + '\n\n' + original)
             self.assert_rule('ref-reserved', path)
 
+    def test_less_than_prose_before_generated_references_passes(self):
+        path = self.page(text='# Tools\n\nscore × gold < 0.\n\n[Beta](#ref-beta).\n')
+        report, output = self.validate(path)
+        self.assertEqual(report.errors, 0, output)
+
+    def test_reserved_body_anchor_after_less_than_prose_reports_tag_line(self):
+        path = self.page(text='# Tools\n\nscore × gold < 0.\n\n'
+                         '<a id="ref-x"></a>\n\n[Beta](#ref-beta).\n')
+        report, output = self.assert_rule('ref-reserved', path)
+        self.assertEqual(report.errors, 1, output)
+        self.assertIn(f'{path}:5: ref-reserved: anchor ref-x outside references section', output)
+
     def test_used_in_exactness_and_unused_keys_warn_without_errors(self):
         self.page()
         self.assertEqual(self.run_sync()[0], 0)

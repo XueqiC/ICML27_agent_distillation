@@ -77,3 +77,19 @@ The cold step is $`-\eta\,\mathrm{sign}(G)`$, so the response is affine in $`\ma
 ## Related work
 
 - That Adam's first steps behave differently is known in another form: [Liu et al., 2020](#ref-liu2020variance) trace the need for learning-rate warm-up to the large variance of the adaptive learning rate early in training. Proposition 5.7 is an information-level counterpart: at a cold state, laws with equal low-order moments separate at first order in the learning rate.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

@@ -93,3 +93,15 @@ Consequently, if $`\lvert(K_t^0-K_t^S)V_{t+1}^0(z)\rvert\le\varepsilon_t(z)`$ fo
 
 - The telescoping identity (3.2) has the form of the performance-difference lemma of reinforcement learning ([Kakade & Langford, 2002](#ref-kakade2002approximately)), with the training process in place of the MDP: the occupancy is that of the alternative process, and the role of the advantage is played by the one-round replacement effect under the reference continuation.
 - Coupling the random seeds of the branches, which the comments allow, is the method of common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

@@ -32,3 +32,19 @@
 - Axes: "mean output E p̂", "expected regret".
 
 **Caption.** (a)–(b) Exact query counts: the SPRT meets the KL lower bound (8), fixed-sample tests and the sufficient n of (9) lie above it, and no strategy falls below. (c) Any passive learner has worst-case regret at least Δ.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).
+
+<a id="ref-wald1945sequential"></a>
+
+**Abraham Wald (1945).** Sequential tests of statistical hypotheses. *The Annals of Mathematical Statistics* 16, no. 2, 117–186. DOI [10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118).

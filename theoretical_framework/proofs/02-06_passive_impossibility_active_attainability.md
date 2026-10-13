@@ -75,12 +75,22 @@ whenever $`n\ge\log(1/\delta)/(8\Delta^2)`$. World $`-1`$ is symmetric. On the s
 
 ## Related work
 
-- The KL divergence of the stopped transcript is computed with Wald's identity for sums with a stopping time ([Wald, 1944](../references.md#wald1944cumulative)).
-- The sufficiency bounds use Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](../references.md#hoeffding1963probability)).
-- The change-of-measure lower bound for adaptive sampling with a stopping time is the standard argument of best-arm identification ([Kaufmann, Cappé & Garivier, 2016](../references.md#kaufmann2016complexity)).
+- The KL divergence of the stopped transcript is computed with Wald's identity for sums with a stopping time ([Wald, 1944](#ref-wald1944cumulative)).
+- The sufficiency bounds use Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](#ref-hoeffding1963probability)).
+- The change-of-measure lower bound for adaptive sampling with a stopping time is the standard argument of best-arm identification ([Kaufmann, Cappé & Garivier, 2016](#ref-kaufmann2016complexity)).
 
 ## References
 
-- [Wald, 1944](../references.md#wald1944cumulative)
-- [Hoeffding, 1963](../references.md#hoeffding1963probability)
-- [Kaufmann, Cappé & Garivier, 2016](../references.md#kaufmann2016complexity)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).
+
+<a id="ref-wald1944cumulative"></a>
+
+**Abraham Wald (1944).** On cumulative sums of random variables. *The Annals of Mathematical Statistics* 15, no. 3, 283–296. DOI [10.1214/aoms/1177731235](https://doi.org/10.1214/aoms/1177731235).

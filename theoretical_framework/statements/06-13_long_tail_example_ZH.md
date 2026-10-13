@@ -51,3 +51,15 @@
 
 - 用于计算频繁区间的 $`\beta_2=0.999`$ 是 Adam 推荐的默认值（[Kingma & Ba, 2015](#ref-kingma2015adam)）。
 - 把放大效应转成查询分配的 water-filling 规则，在没有 teacher 覆盖时退化为 Neyman 分配 $`n_s\propto\sqrt{W_s}`$（[Neyman, 1934](#ref-neyman1934two)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).

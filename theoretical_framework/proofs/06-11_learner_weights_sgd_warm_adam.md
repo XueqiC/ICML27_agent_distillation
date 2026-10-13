@@ -80,3 +80,19 @@ The geometric series converges because $`\beta_1<\sqrt{\beta_2}`$, and its terms
 
 - The two regimes meet near $`d(s)\approx1-\beta_2`$, where a visit's effect on $`v`$ neither averages out nor decays completely. Neither closed form applies there.
 - In the isolated regime the displacement depends on the message only through $`\mathrm{sign}(g)`$: the sign-descent aspect of Adam analysed by [Balles & Hennig, 2018](#ref-balles2018dissecting).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

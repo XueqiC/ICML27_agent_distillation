@@ -72,3 +72,15 @@ In particular $`W_{\mathbf{\epsilon}}(g)\le\mathrm{osc}(g)`$, which is at most $
 ## Related work
 
 - [Theorem 8.1](../statements/08-01_stability_approximation_tradeoff.md#s8-1) is linear-programming duality ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)) and norm duality applied to the operational discrepancy, with equality from Sion's minimax theorem ([Sion, 1958](#ref-sion1958general)); no new duality principle is claimed.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

@@ -90,3 +90,15 @@ In general $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$, and the inequality can
 
 - In the uniform case each demonstration reveals one context drawn from the deployment distribution, and $`2R_{\rm info}(K,0)=(1-1/d)^K`$ is the expected missing mass of that distribution after $`K`$ draws, the quantity that the Good–Turing estimator estimates from a sample ([Good, 1953](#ref-good1953population)).
 - The comparison of the two positive-part expressions in (b) is Jensen's inequality for the convex map $`x\mapsto(x-n)_+`$ ([Jensen, 1906](#ref-jensen1906fonctions)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-good1953population"></a>
+
+**I. J. Good (1953).** The population frequencies of species and the estimation of population parameters. *Biometrika* 40, no. 3–4, 237–264. DOI [10.1093/biomet/40.3-4.237](https://doi.org/10.1093/biomet/40.3-4.237).
+
+<a id="ref-jensen1906fonctions"></a>
+
+**J. L. W. V. Jensen (1906).** Sur les fonctions convexes et les inégalités entre les valeurs moyennes. *Acta Mathematica* 30, 175–193. DOI [10.1007/BF02418571](https://doi.org/10.1007/BF02418571).

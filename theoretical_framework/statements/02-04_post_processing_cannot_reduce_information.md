@@ -65,3 +65,15 @@ that is, $`\mathcal R_{\rm info}(D')\ge\mathcal R_{\rm info}(D)`$. If $`Z\perp E
 
 - That an environment-independent garbling of the transcript cannot raise the Bayes value of any decision problem is the easy direction of Blackwell's comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent)).
 - (2.5) is the decision-theoretic counterpart of the data-processing inequality for the Markov chain $`E\to D\to D'`$ ([Cover & Thomas, 2006](#ref-cover2006elements)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).

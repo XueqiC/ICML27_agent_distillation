@@ -102,8 +102,20 @@ This page contains Proposition 8.4 through Remark 8.12, including Theorem C; the
 
 ## Related work
 
-- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3) and [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4) use Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)), union bounds and McDiarmid's inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)). Selecting by a lower confidence bound to guarantee no degradation is the logic of high-confidence policy improvement ([Thomas et al., 2015](../references.md#thomas2015high)).
+- [Theorems 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2)–[8.3](../statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3) and [Proposition 8.4](../statements/08-04_measuring_mean_increment_actual_states.md#s8-4) use Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)), union bounds and McDiarmid's inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)). Selecting by a lower confidence bound to guarantee no degradation is the logic of high-confidence policy improvement ([Thomas et al., 2015](#ref-thomas2015high)).
 
 ## References
 
-- [Thomas et al., 2015](../references.md#thomas2015high). Thomas, P. S., Theocharous, G., Ghavamzadeh, M. (2015). High confidence policy improvement. ICML.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).
+
+<a id="ref-thomas2015high"></a>
+
+**Philip S. Thomas, Georgios Theocharous, Mohammad Ghavamzadeh (2015).** High confidence policy improvement. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2380–2388. [proceedings.mlr.press/v37/thomas15](https://proceedings.mlr.press/v37/thomas15.html).

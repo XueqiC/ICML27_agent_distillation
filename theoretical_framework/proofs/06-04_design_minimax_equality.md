@@ -33,7 +33,7 @@ and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** f
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2): definition of the information norm $`\mathfrak n_{K,n}`$.
 
-**Classical tools.** Cauchy–Schwarz, Prokhorov's theorem and Sion's minimax theorem ([Sion, 1958](../references.md#sion1958general)).
+**Classical tools.** Cauchy–Schwarz, Prokhorov's theorem and Sion's minimax theorem ([Sion, 1958](#ref-sion1958general)).
 
 **Proof.** If $`c=0`$ both sides vanish; let $`c\neq0`$. For $`A\succ0`$, Cauchy–Schwarz gives $`(c^\top h)^2\le(c^\top A^{-1}c)(h^\top Ah)`$ with equality at $`h=A^{-1}c`$, so
 
@@ -55,10 +55,20 @@ Sion's minimax theorem applied to $`-f`$, with the compact convex set of designs
 
 ## Related work
 
-- **Optimal design.** c-optimal designs and their geometry go back to [Elfving, 1952](../references.md#elfving1952optimum); the minimax exchange is Sion's theorem ([Sion, 1958](../references.md#sion1958general)); designs with prior information are standard ([Pukelsheim, 1993](../references.md#pukelsheim1993optimal)). What is specific here is the target vector $`c=\sum_tJ_t^*g_t`$: it is set by the optimizer's increment map and the declared task.
+- **Optimal design.** c-optimal designs and their geometry go back to [Elfving, 1952](#ref-elfving1952optimum); the minimax exchange is Sion's theorem ([Sion, 1958](#ref-sion1958general)); designs with prior information are standard ([Pukelsheim, 1993](#ref-pukelsheim1993optimal)). What is specific here is the target vector $`c=\sum_tJ_t^*g_t`$: it is set by the optimizer's increment map and the declared task.
 
 ## References
 
-- [Elfving, 1952](../references.md#elfving1952optimum)
-- [Pukelsheim, 1993](../references.md#pukelsheim1993optimal)
-- [Sion, 1958](../references.md#sion1958general)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-elfving1952optimum"></a>
+
+**Gustav Elfving (1952).** Optimum allocation in linear regression theory. *The Annals of Mathematical Statistics* 23, no. 2, 255–262. DOI [10.1214/aoms/1177729442](https://doi.org/10.1214/aoms/1177729442).
+
+<a id="ref-pukelsheim1993optimal"></a>
+
+**Friedrich Pukelsheim (1993).** Optimal Design of Experiments. Wiley, New York (Wiley Series in Probability and Mathematical Statistics); reprinted as SIAM Classics in Applied Mathematics 50 (2006). DOI of the reprint [10.1137/1.9780898719109](https://doi.org/10.1137/1.9780898719109).
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

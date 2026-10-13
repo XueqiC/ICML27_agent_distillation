@@ -68,3 +68,15 @@ J_v(p)=\tfrac12\big[p+(1-p)(\tfrac12-2v\Delta)\big]+\tfrac12\big[p(\tfrac12+2v\D
 
 - The family is a two-point construction in the sense of Le Cam's method: two worlds that the passive data cannot separate but whose optimal decisions differ ([Le Cam, 1973](#ref-lecam1973convergence)).
 - A teacher that acts on information the student cannot observe, so that imitation marginalizes that information, produces the *imitation gap* of [Weihs et al., 2021](#ref-weihs2021bridging). The family is a minimal instance in which the missing fact is a single sign.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-weihs2021bridging"></a>
+
+**Luca Weihs, Unnat Jain, Iou-Jen Liu, Jordi Salvador, Svetlana Lazebnik, Aniruddha Kembhavi, Alexander Schwing (2021).** Bridging the imitation gap by adaptive insubordination. *Advances in Neural Information Processing Systems 34 (NeurIPS)*, 19134–19146. arXiv [2007.12173](https://arxiv.org/abs/2007.12173).

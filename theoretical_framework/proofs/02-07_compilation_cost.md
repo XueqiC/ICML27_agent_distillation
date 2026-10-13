@@ -35,8 +35,12 @@ when $`m\ge32\log(2/\delta_L)`$. Suppose $`\widehat v=v=+1`$ and $`\lvert\wideha
 
 ## Related work
 
-- The sufficiency bounds use Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](../references.md#hoeffding1963probability)).
+- The sufficiency bounds use Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](#ref-hoeffding1963probability)).
 
 ## References
 
-- [Hoeffding, 1963](../references.md#hoeffding1963probability)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

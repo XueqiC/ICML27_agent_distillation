@@ -82,3 +82,11 @@ e_R\le C\eta^2\sum_{s=0}^{R-1}(1+\eta L)^s=\frac{C\eta}{L}\big((1+\eta L)^R-1\bi
 
 - 带积分余项的 Taylor 展开与逐步误差的几何累积都是经典工具，在此注明，不作为新结果。用随机修正方程弱逼近 SGD 时，依据的也是同样的单步矩展开加上单步误差的累积（[Li et al., 2019](#ref-li2019stochastic)）。
 - 本页新增的是用它们说明：一个反馈来源必须携带的信息由 learner 与部署的复合决定，而不只由数据决定。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

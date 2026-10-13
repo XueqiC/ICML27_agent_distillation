@@ -45,3 +45,11 @@
 ## Related work
 
 - The reveal sets are independent of the bits, so the unrevealed labels are *missing completely at random* in the sense of [Rubin, 1976](#ref-rubin1976inference). [Lemma 2.9](../statements/02-09_no_leakage_about_unrevealed_bits.md#s2-9) turns this assumption into the absence of leakage; reveal sets chosen on the basis of the bits would make the missingness informative.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

@@ -77,3 +77,19 @@ cold 步是 $`-\eta\,\mathrm{sign}(G)`$，所以 response 关于 $`\mathbb E\,\m
 ## 相关工作
 
 - Adam 最初几步行为特殊，这一点以另一种形式已为人知：[Liu et al., 2020](#ref-liu2020variance) 把学习率 warm-up 的必要性归因于训练早期自适应学习率的方差过大。Proposition 5.7 是信息层面的对应结论：在 cold 状态，低阶矩相同的分布在学习率的一阶上就能分开。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

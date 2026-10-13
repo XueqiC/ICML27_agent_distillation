@@ -93,3 +93,15 @@ L_E(0)-L_E(S)=\sum_{t=0}^{R-1}\mathbb E_{d_t^S}\big[(K_t^0-K_t^S)V_{t+1}^0(Z_t)\
 
 - 伸缩恒等式 (3.2) 与强化学习中的 performance-difference lemma 形式相同 ([Kakade & Langford, 2002](#ref-kakade2002approximately))，只是 MDP 换成了训练过程：占据分布来自备选过程，advantage 的角色由参照 continuation 下的单轮替换效应担任。
 - Comments 中允许的"在分支之间耦合随机种子"，就是 common random numbers 方法 ([Glasserman, 2004](#ref-glasserman2004monte))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

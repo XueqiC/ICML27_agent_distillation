@@ -90,8 +90,12 @@ Adding the two bounds gives (3.5). $`\square`$
 
 ## Related work
 
-- The telescoping identity is of the performance-difference type used in reinforcement learning ([Kakade & Langford, 2002](../references.md#kakade2002approximately)).
+- The telescoping identity is of the performance-difference type used in reinforcement learning ([Kakade & Langford, 2002](#ref-kakade2002approximately)).
 
 ## References
 
-- [Kakade & Langford, 2002](../references.md#kakade2002approximately)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

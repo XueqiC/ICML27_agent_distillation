@@ -73,3 +73,27 @@
 - (a) 是 imitation gap 的一个精确实例：teacher 用到学生看不到的信息，模仿只能把它边缘化 ([Weihs et al., 2021](#ref-weihs2021bridging))。Weihs et al. 通过混入基于奖励的强化学习来弥合这个 gap；这里学生自己的实验是 reset 查询，其次数在常数倍之内被确定。
 - (b) 是 best-arm identification 中的 change of measure 论证 ([Kaufmann et al., 2016](#ref-kaufmann2016complexity))，停时部分用 Wald 恒等式 ([Wald, 1944](#ref-wald1944cumulative))。在部分设定上达到 (2.6) 的序贯概率比检验（SPRT）来自 Wald ([Wald, 1945](#ref-wald1945sequential))。
 - (c) 是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).
+
+<a id="ref-wald1944cumulative"></a>
+
+**Abraham Wald (1944).** On cumulative sums of random variables. *The Annals of Mathematical Statistics* 15, no. 3, 283–296. DOI [10.1214/aoms/1177731235](https://doi.org/10.1214/aoms/1177731235).
+
+<a id="ref-wald1945sequential"></a>
+
+**Abraham Wald (1945).** Sequential tests of statistical hypotheses. *The Annals of Mathematical Statistics* 16, no. 2, 117–186. DOI [10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118).
+
+<a id="ref-weihs2021bridging"></a>
+
+**Luca Weihs, Unnat Jain, Iou-Jen Liu, Jordi Salvador, Svetlana Lazebnik, Aniruddha Kembhavi, Alexander Schwing (2021).** Bridging the imitation gap by adaptive insubordination. *Advances in Neural Information Processing Systems 34 (NeurIPS)*, 19134–19146. arXiv [2007.12173](https://arxiv.org/abs/2007.12173).

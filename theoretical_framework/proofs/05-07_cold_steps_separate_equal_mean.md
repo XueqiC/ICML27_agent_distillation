@@ -58,3 +58,15 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 - *(a)* By Proposition 5.3(a) with $`h_0=\mathrm{sign}`$, $`\theta_1=\theta_0-\eta\,\mathrm{sign}(G)`$. Under $`P_0`$, $`\mathbb E\,\mathrm{sign}\,G=\tfrac14-\tfrac34=-\tfrac12`$, so $`\mathbb E\theta_1=\theta_0+\eta/2`$. Under $`P_1`$, $`\mathrm{sign}\,0=0`$, so $`\mathbb E\theta_1=\theta_0`$. The utility is affine, so the response gap is $`\lvert w\rvert\eta/2`$. The means agree: $`\tfrac14\cdot1+\tfrac34\cdot(-\tfrac13)=0`$.
 - *(b)* Both $`P_N`$ and $`Q_N`$ are probability laws because $`\sum_{i\ \rm even}\binom Ni=\sum_{i\ \rm odd}\binom Ni=2^{N-1}`$. For $`\ell<N`$, $`\sum_i(-1)^i\binom Ni\,i^\ell=0`$, so their moments of order below $`N`$ agree, and so do those of the affine image $`G=q-Z`$. With $`q\in(0,1/N)`$: under $`P_N`$, $`G>0`$ exactly when $`i=0`$, which has probability $`2^{1-N}`$, and otherwise $`Z\ge2/N>q`$ and $`G<0`$, so $`\mathbb E_{P_N}\mathrm{sign}\,G=2^{2-N}-1`$. Under $`Q_N`$, $`Z\ge1/N>q`$ always, so $`\mathbb E_{Q_N}\mathrm{sign}\,G=-1`$. The expected first steps differ by $`\eta\,2^{2-N}`$, and the affine utility gives the gap $`\lvert w\rvert\eta\,2^{2-N}`$.
 - *Warm counterpart.* For $`V(\theta)=\tfrac12+w\theta`$ without a tail, $`F`$ is affine in $`g`$, so $`H_G=0`$; $`V`$ does not depend on $`(m,v)`$, so $`L_v=0`$; and $`L=\lvert w\rvert`$. With equal means, Proposition 5.6 gives the displayed bound. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

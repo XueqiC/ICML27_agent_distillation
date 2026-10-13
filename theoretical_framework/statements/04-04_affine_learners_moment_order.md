@@ -84,3 +84,15 @@ J_E(p)=\sum_{\lvert\alpha\rvert\le N}c_\alpha p^\alpha,\qquad\sum_\alpha\lvert c
 
 - (a) evaluates a behaviour strategy in a finite tree with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)) by backward induction.
 - The parity witness and the binary barrier of (d) are Fourier facts on the Boolean cube ([O'Donnell, 2014](#ref-odonnell2014analysis)): the even- and odd-parity laws differ only in the top Fourier coefficient, and the $`2^k`$ parity functions form a basis of all functions on $`\lbrace0,1\rbrace^k`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).
+
+<a id="ref-odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).

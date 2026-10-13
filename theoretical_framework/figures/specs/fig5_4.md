@@ -56,3 +56,23 @@ A compact two-column text table: learner → first-order statistic.
 Use text ink and no colors.
 
 **Caption.** Learner-specific first-order statistics. The exact Adam statistic is the mean Adam increment; gradient first and second moments suffice only under the frozen-denominator approximation. (A) Equal raw means, different clipped means: first-order gap under clipping. (B) Always-active clipping: equal mean directions give an O(eta²) gap. (C) Warm Adam: with equal gradient means, the first-order term is carried entirely by the v block; the warm-Adam affine bound covers this linear contribution, not the entire measured gap. (D) Momentum-dominated Lion: the parameter increment does not depend on the message. (E) LoRA at initialization: null-space differences are second order, range differences first order. Controlled small networks; not a real-model result.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-chen2023symbolic"></a>
+
+**Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
+
+<a id="ref-hu2022lora"></a>
+
+**Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen (2022).** LoRA: Low-rank adaptation of large language models. *The Tenth International Conference on Learning Representations (ICLR)*. [openreview.net/forum?id=nZeVKeeFYf9](https://openreview.net/forum?id=nZeVKeeFYf9); arXiv [2106.09685](https://arxiv.org/abs/2106.09685).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

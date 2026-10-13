@@ -80,3 +80,11 @@ For example, $`M=8`$, $`\delta=0.05`$ and $`\zeta=0.2`$ give $`\log(4M^2/\delta)
 With independent tails $`\omega,\omega'`$ for the two arms (and independent messages), the variance of $`\varphi_\omega(\Delta^j)-\varphi_{\omega'}(\Delta^k)`$ is $`\mathrm{Var}\,\varphi_\omega(\Delta^j)+\mathrm{Var}\,\varphi_{\omega'}(\Delta^k)\ge\mathbb E\,\mathrm{Var}(\varphi_\omega(\Delta^j)\mid\Delta^j)+\mathbb E\,\mathrm{Var}(\varphi_{\omega'}(\Delta^k)\mid\Delta^k)`$, which contains the tail noise and does not vanish as the candidates approach each other. If moreover $`\sup_\omega\lambda_\omega\le\bar\lambda`$ and $`\lVert\Delta^j-\Delta^k\rVert\le b_{jk}`$ almost surely under the coupling, then $`B=2\bar\lambda b_{jk}`$ is a valid range in [Assumption 8.7(B)](../statements/08-07_certificate_assumptions.md#s8-7).
 
 *Proof.* (a) is counting: each replica evaluates each of the $`M+1`$ candidates once. (b) The range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)), $`7B\log(4M^2/\delta)/(3(r-1))\le\zeta B`$, rearranges to the display; for the example, $`7\cdot8.541/(3\cdot0.2)\approx99.6`$, so $`r\ge100.6`$. (c) The first inequality is the Lipschitz condition at $`u=\Delta^j_\ell`$, $`u'=\Delta^k_\ell`$. Then $`\mathrm{Var}\,Z\le\mathbb EZ^2`$. With independent arms the variance of a difference is the sum of variances, and the law of total variance gives $`\mathrm{Var}\,\varphi_\omega(\Delta^j)\ge\mathbb E\,\mathrm{Var}(\varphi_\omega(\Delta^j)\mid\Delta^j)`$. Under the two uniform bounds, $`Z^{jk}_\ell\in[-\bar\lambda b_{jk},\bar\lambda b_{jk}]`$. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

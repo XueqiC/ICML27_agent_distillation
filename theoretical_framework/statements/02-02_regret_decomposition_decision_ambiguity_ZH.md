@@ -75,3 +75,11 @@
 ## 相关工作
 
 - (b) 推导中的括号 $`\mathbb E[J_E^\Pi\mid D]-B(D)`$ 是给定 $`D`$ 时关于 $`E`$ 的完全信息的期望价值（expected value of perfect information）([Howard, 1966](#ref-howard1966information))。(b) 说的是：这一价值对每条 transcript 都为零，当且仅当 transcript 无法排除的环境有共同的最优策略。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).

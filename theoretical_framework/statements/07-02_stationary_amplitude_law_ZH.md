@@ -106,3 +106,15 @@ mean-field 一阶价值之差 $`\mathrm{Val}_i(\lambda)-\mathrm{Val}_i(0)`$ 满�
 ## Related work
 
 - Adam 在单个坐标上的步长由该坐标的信噪比决定；把 Adam 看作"符号步乘以方差自适应因子"的解读正基于此（[Balles & Hennig, 2018](#ref-balles2018dissecting)）。这里同一个比值 $`\rho_i`$ 决定大消息对此后各步是有利还是有害。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

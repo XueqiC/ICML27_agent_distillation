@@ -59,10 +59,17 @@ K\kappa_D^{(v)}+\kappa_X^{(v)}\,\mathbb E_vN\ge\mathrm{kl}(1-\delta,\delta). \qq
 
 ## 相关工作
 
-- 带停时的自适应采样的 change of measure 下界，是 best-arm identification 中的标准论证 ([Kaufmann, Cappé & Garivier, 2016](../references_ZH.md#kaufmann2016complexity)).
-- KL 散度的 data processing 不等式是标准结论 ([Cover & Thomas, 2006](../references_ZH.md#cover2006elements)).
+- 带停时的自适应采样的 change of measure 下界，是 best-arm identification 中的标准论证 ([Kaufmann, Cappé & Garivier, 2016](#ref-kaufmann2016complexity)).
+- KL 散度的 data processing 不等式是标准结论 ([Cover & Thomas, 2006](#ref-cover2006elements)).
 
 ## 参考文献
 
-- [Kaufmann, Cappé & Garivier, 2016](../references_ZH.md#kaufmann2016complexity)
-- [Cover & Thomas, 2006](../references_ZH.md#cover2006elements)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).

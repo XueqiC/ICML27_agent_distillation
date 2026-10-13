@@ -51,3 +51,15 @@
 
 - $`\beta_2=0.999`$, used for the frequent-regime count, is the default recommended for Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)).
 - The water-filling rule that turns the amplification into a query allocation reduces, without teacher coverage, to Neyman's allocation $`n_s\propto\sqrt{W_s}`$ ([Neyman, 1934](#ref-neyman1934two)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).

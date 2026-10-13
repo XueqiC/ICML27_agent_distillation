@@ -100,3 +100,15 @@ b=(1-\beta_1)\Big[-\frac{\eta}{1-\beta_1^{\,t}}\,\Phi\,\nabla_\theta V+\nabla_mV
 - *(iii)* The segment $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ lies in $`\mathcal C`$. Taylor's theorem with integral remainder gives $`F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau`$. By (H) the integrand is at most $`(1-\tau)H_G\lVert G\rVert_\infty^2`$ in absolute value, so $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$.
 
 Adding the three bounds proves the pointwise statement. For two laws, write $`\psi=\psi_0+b^\top G+e`$ with $`\lvert e\rvert\le r`$. Then $`\mathbb E_{P_0}\psi-\mathbb E_{P_1}\psi=b^\top(\mathbb E_{P_0}G-\mathbb E_{P_1}G)+\mathbb E_{P_0}e-\mathbb E_{P_1}e`$; the constant $`\psi_0`$ cancels because both laws are probability measures, and $`Y`$ is finite, so all expectations exist. The triangle inequality gives the bound, and $`\psi\in[0,1]`$ gives the cap at $`1`$. For $`b`$, the chain rule applies with $`\partial\tilde\theta^+/\partial g=-\eta(1-\beta_1)\Phi/(1-\beta_1^{\,t})`$, $`\partial m^+/\partial g=(1-\beta_1)I`$, and the $`v`$-component of $`\tilde z^+`$ independent of $`g`$. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

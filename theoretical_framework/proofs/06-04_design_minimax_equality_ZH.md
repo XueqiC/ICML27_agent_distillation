@@ -33,7 +33,7 @@
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)：信息范数 $`\mathfrak n_{K,n}`$ 的定义。
 
-**用到的经典工具.** Cauchy–Schwarz 不等式、Prokhorov 定理与 Sion minimax 定理（[Sion, 1958](../references_ZH.md#sion1958general)）。
+**用到的经典工具.** Cauchy–Schwarz 不等式、Prokhorov 定理与 Sion minimax 定理（[Sion, 1958](#ref-sion1958general)）。
 
 **证明.** 若 $`c=0`$，两边都为零；下设 $`c\neq0`$。对 $`A\succ0`$，Cauchy–Schwarz 给出 $`(c^\top h)^2\le(c^\top A^{-1}c)(h^\top Ah)`$，等号在 $`h=A^{-1}c`$ 处成立，所以
 
@@ -55,10 +55,20 @@ c^\top A^{-1}c=\sup_{h\neq0}\frac{(c^\top h)^2}{h^\top Ah}=\frac{1}{\inf_{h\in H
 
 ## 相关工作
 
-- **最优设计.** c-optimal design 及其几何刻画可以追溯到 [Elfving, 1952](../references_ZH.md#elfving1952optimum)；minimax 的交换是 Sion 定理（[Sion, 1958](../references_ZH.md#sion1958general)）；带先验信息的设计是标准内容（[Pukelsheim, 1993](../references_ZH.md#pukelsheim1993optimal)）。这里特有的是目标向量 $`c=\sum_tJ_t^*g_t`$：它由 optimizer 的增量映射与声明的任务决定。
+- **最优设计.** c-optimal design 及其几何刻画可以追溯到 [Elfving, 1952](#ref-elfving1952optimum)；minimax 的交换是 Sion 定理（[Sion, 1958](#ref-sion1958general)）；带先验信息的设计是标准内容（[Pukelsheim, 1993](#ref-pukelsheim1993optimal)）。这里特有的是目标向量 $`c=\sum_tJ_t^*g_t`$：它由 optimizer 的增量映射与声明的任务决定。
 
 ## 参考文献
 
-- [Elfving, 1952](../references_ZH.md#elfving1952optimum)
-- [Pukelsheim, 1993](../references_ZH.md#pukelsheim1993optimal)
-- [Sion, 1958](../references_ZH.md#sion1958general)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-elfving1952optimum"></a>
+
+**Gustav Elfving (1952).** Optimum allocation in linear regression theory. *The Annals of Mathematical Statistics* 23, no. 2, 255–262. DOI [10.1214/aoms/1177729442](https://doi.org/10.1214/aoms/1177729442).
+
+<a id="ref-pukelsheim1993optimal"></a>
+
+**Friedrich Pukelsheim (1993).** Optimal Design of Experiments. Wiley, New York (Wiley Series in Probability and Mathematical Statistics); reprinted as SIAM Classics in Applied Mathematics 50 (2006). DOI of the reprint [10.1137/1.9780898719109](https://doi.org/10.1137/1.9780898719109).
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

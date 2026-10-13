@@ -87,3 +87,19 @@ d_0(\mathcal G)=\dim\mathrm{span}(\lbrace\mathbf 1\rbrace\cup\mathcal G)-1. \qqu
 
 - (b) 是一个线性规划对偶（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）。对所有包含 $`\mathbf 1`$、维数不超过 $`d+1`$ 的子空间 $`H`$ 取最小，(4.2) 右边就成为 $`\mathcal G`$ 在 sup 范数下的 Kolmogorov width（只取包含常数的子空间）的两倍（[Pinkus, 1985](#ref-pinkus1985nwidths)）。
 - $`\mathfrak D_\phi`$ 是限制在特征匹配分布对上的 integral probability metric（[Müller, 1997](#ref-muller1997integral)）。(d) 中的 total variation 距离，就是由事件示性函数生成的 integral probability metric。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-muller1997integral"></a>
+
+**Alfred Müller (1997).** Integral probability metrics and their generating classes of functions. *Advances in Applied Probability* 29, no. 2, 429–443. DOI [10.2307/1428011](https://doi.org/10.2307/1428011).
+
+<a id="ref-pinkus1985nwidths"></a>
+
+**Allan Pinkus (1985).** n-Widths in Approximation Theory. Springer, Berlin (Ergebnisse der Mathematik und ihrer Grenzgebiete, 3. Folge, 7). DOI [10.1007/978-3-642-69894-1](https://doi.org/10.1007/978-3-642-69894-1).

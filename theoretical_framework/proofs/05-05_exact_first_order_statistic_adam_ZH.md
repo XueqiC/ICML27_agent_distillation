@@ -98,3 +98,15 @@ f(g)=-\eta\,\frac{\big(\beta_1m_i+(1-\beta_1)g\big)/(1-\beta_1^{\,t})}{\sqrt{\bi
 - *$`v_i=0`$ 且 $`\epsilon>0`$ 的情形.* 此时 $`a_i=0`$，$`\kappa_i=\infty`$，$`u_i=\lvert n_i\rvert/\epsilon`$。两个倒数 $`1/(d_i+\epsilon)`$ 与 $`1/\epsilon`$ 都在 $`[0,1/\epsilon]`$ 中，差不超过 $`1/\epsilon`$，所以左边不超过 $`\eta u_i=\eta u_i\min\lbrace \infty,1\rbrace`$。$`\square`$
 
 *(c) 的证明.* 由 Definition 5.4，$`\tilde\theta^+-\theta=-\eta\lambda_{\rm wd}\theta-\eta\Phi\beta_1m/(1-\beta_1^{\,t})-\eta\Phi(1-\beta_1)G/(1-\beta_1^{\,t})`$ 与 $`m^+-m=(1-\beta_1)(G-m)`$ 关于 $`G`$ 仿射，系数由状态固定；$`v^+-v=(1-\beta_2)(G^{\odot2}-v)`$ 关于 $`G^{\odot2}`$ 仿射。取期望后 $`\tilde\mu`$ 是 $`(\mathbb E\,G,\mathbb E\,G^{\odot2})`$ 的仿射函数。$`\Delta`$ 与 $`\tilde\Delta`$ 的 $`m`$ 块、$`v`$ 块相同，$`\theta`$ 块相差 $`\theta^+-\tilde\theta^+`$，其期望逐坐标由 (b) 控制。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

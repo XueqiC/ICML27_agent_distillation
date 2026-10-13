@@ -56,3 +56,15 @@
 
 - The unresolved discrepancy is an integral probability metric ([Müller, 1997](#ref-muller1997integral)), the supremum of $`\lvert(P-Q)g\rvert`$ over a class of functions, restricted to pairs of laws with equal feature means. If $`\mathcal G`$ contains the indicators of all events, the inner supremum is the total variation distance ([Theorem 4.2(d)](04-02_sufficiency_duality_transfer.md#s4-2)).
 - The approximate dimension is a Kolmogorov-width count in the sup norm ([Pinkus, 1985](#ref-pinkus1985nwidths)): by [Theorem 4.2(b)](04-02_sufficiency_duality_transfer.md#s4-2), $`d_\varepsilon(\mathcal G)`$ is the least $`d`$ for which some subspace $`H\ni\mathbf 1`$ of dimension at most $`d+1`$ approximates every $`g\in\mathcal G`$ uniformly to within $`\varepsilon/2`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-muller1997integral"></a>
+
+**Alfred Müller (1997).** Integral probability metrics and their generating classes of functions. *Advances in Applied Probability* 29, no. 2, 429–443. DOI [10.2307/1428011](https://doi.org/10.2307/1428011).
+
+<a id="ref-pinkus1985nwidths"></a>
+
+**Allan Pinkus (1985).** n-Widths in Approximation Theory. Springer, Berlin (Ergebnisse der Mathematik und ihrer Grenzgebiete, 3. Folge, 7). DOI [10.1007/978-3-642-69894-1](https://doi.org/10.1007/978-3-642-69894-1).

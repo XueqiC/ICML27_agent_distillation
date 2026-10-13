@@ -95,3 +95,19 @@ and under $`J'=1-p^2`$ the difference is $`-\eta^2/8`$.
 
 - First-order influence estimates score a training example by an inner product with its gradient: influence functions through an inverse-Hessian-weighted inner product ([Koh & Liang, 2017](#ref-koh2017understanding)), TracIn through a sum of inner products along the training run ([Pruthi et al., 2020](#ref-pruthi2020estimating)). Averaged over a source, such a score depends on the source only through its mean gradient, so it cannot separate the two packets of Construction (b), whose mean gradients at $`p_0`$ agree.
 - The comparison in (a) is value equivalence restricted to the aliased class. Value equivalence pins down the true model only as the sets of tested policies and functions grow ([Grimm et al., 2020](#ref-grimm2020value)), which is why (a) does not contradict full Bellman value equivalence.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).

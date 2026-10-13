@@ -29,3 +29,11 @@
 ## 相关工作
 
 - 这个分解就是 missing completely at random 数据的 ignorability 论证 ([Rubin, 1976](#ref-rubin1976inference))：揭示机制 $`\prod_kL(S_k)`$ 不含 $`\Theta`$，所以在后验中消掉。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

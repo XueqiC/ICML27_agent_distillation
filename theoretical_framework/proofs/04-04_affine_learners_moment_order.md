@@ -125,3 +125,19 @@ m_{P_N}(\ell)-m_{Q_N}(\ell)=\frac{1}{2^{N-1}N^\ell}\sum_{i=0}^N(-1)^i\binom Ni\,
 
 - Finite differences ([Graham et al., 1994](#ref-graham1994concrete)), the independence of parity from proper coordinate subsets ([O'Donnell, 2014](#ref-odonnell2014analysis)), and the linear independence of monomials on a grid are classical tools; they are credited as such and not claimed as new. The backward induction in (a) evaluates a behaviour strategy in a tree with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)).
 - What is added is their use to compute, for convex-affine learners and deployments with at most $`N`$ decisions, the exact information a feedback source must carry.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-graham1994concrete"></a>
+
+**Ronald L. Graham, Donald E. Knuth, Oren Patashnik (1994).** Concrete Mathematics: A Foundation for Computer Science. 2nd edition, Addison-Wesley, Reading, MA. ISBN 0-201-55802-5.
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).
+
+<a id="ref-odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).

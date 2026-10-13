@@ -71,3 +71,11 @@ Moreover:
 ## Related work
 
 - The equality of (2.3) and (2.4) is von Neumann's minimax theorem for the finite zero-sum game with payoff $`M_{E,\pi}=J_E^\Pi-J_E(\pi)`$ ([von Neumann, 1928](#ref-vonneumann1928zur)); the maximizing prior is the least favourable prior of that game.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-vonneumann1928zur"></a>
+
+**John von Neumann (1928).** Zur Theorie der Gesellschaftsspiele. *Mathematische Annalen* 100, no. 1, 295–320. DOI [10.1007/BF01448847](https://doi.org/10.1007/BF01448847).

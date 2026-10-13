@@ -52,3 +52,15 @@
 
 - Influence functions of Hadamard-differentiable functionals, and the delta method that turns them into asymptotic variances, are standard ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); here they are applied state by state.
 - The gap between the teacher's state distribution, which demonstrations cover, and the student's, at which training and deployment happen, is the distribution shift that motivates interactive imitation learning ([Ross et al., 2011](#ref-ross2011reduction)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

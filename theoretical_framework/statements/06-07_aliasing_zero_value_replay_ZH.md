@@ -60,3 +60,15 @@
 
 - replay、改写与合成都是 transcript 的 garbling，而 garbling 不会比它所来自的实验更有信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）；本推论是这一事实在混叠环境下的定量、学习器相对的形式。
 - 补救办法是在学习器所到之处查询 teacher，而不是 replay 示范，这正是交互式模仿学习的想法（[Ross et al., 2011](#ref-ross2011reduction)）；本推论补充的是：一个方向是否需要查询，取决于学习器的 $`c`$。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

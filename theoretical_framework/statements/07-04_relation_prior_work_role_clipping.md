@@ -17,8 +17,8 @@
 
 **Remark 7.4 (Relation to prior work; the role of clipping).**
 
-- [Liu and Li (2026)](../references.md#liu2026finite) write AdamW as an input–state–output system and analyze how a minibatch perturbation propagates through the momentum and second-moment states over short horizons (8–32 steps). They give no amplitude law, optimal amplitude, threshold, or implication for data selection; [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) supplies these for the long-horizon stationary case.
-- In-Run Data Shapley for Adam ([Ding et al., 2026](../references.md#ding2026inrun)) uses a fixed-state approximation: only the current preconditioned update is scored. It therefore belongs to the parameter-only class of [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes.md#s7-3). So do TracIn-style scores ([Pruthi et al., 2020](../references.md#pruthi2020estimating)) evaluated with Adam steps. LESS ([Xia et al., 2024](../references.md#xia2024less)) ranks by the cosine between Adam-preconditioned training gradients and validation gradients, the cosine class of [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes.md#s7-3).
+- [Liu and Li (2026)](#ref-liu2026finite) write AdamW as an input–state–output system and analyze how a minibatch perturbation propagates through the momentum and second-moment states over short horizons (8–32 steps). They give no amplitude law, optimal amplitude, threshold, or implication for data selection; [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) supplies these for the long-horizon stationary case.
+- In-Run Data Shapley for Adam ([Ding et al., 2026](#ref-ding2026inrun)) uses a fixed-state approximation: only the current preconditioned update is scored. It therefore belongs to the parameter-only class of [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes.md#s7-3). So do TracIn-style scores ([Pruthi et al., 2020](#ref-pruthi2020estimating)) evaluated with Adam steps. LESS ([Xia et al., 2024](#ref-xia2024less)) ranks by the cosine between Adam-preconditioned training gradients and validation gradients, the cosine class of [Proposition 7.3(b)](07-03_inconsistency_two_proxy_classes.md#s7-3).
 - Global-norm clipping bounds the amplitude $`\lambda`$ of any single message. It therefore bounds the loss that the second-moment channel can cause ([Corollary 7.2(a),(c)](07-02_stationary_amplitude_law.md#s7-2)). This is a testable mechanism for why clipping helps; it is not claimed as a result here.
 
 **What it says.**
@@ -44,7 +44,24 @@
 
 ## References
 
-- [Liu & Li, 2026](../references.md#liu2026finite): finite-horizon input–output dynamics of minibatch perturbations in AdamW.
-- [Ding et al., 2026](../references.md#ding2026inrun): In-Run Data Shapley for Adam.
-- [Pruthi et al., 2020](../references.md#pruthi2020estimating): TracIn.
-- [Xia et al., 2024](../references.md#xia2024less): LESS.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-ding2026inrun"></a>
+
+**Meng Ding, Zeqing Zhang, Di Wang, Lijie Hu (2026).** In-Run Data Shapley for Adam optimizer. arXiv preprint. arXiv [2602.00329](https://arxiv.org/abs/2602.00329).
+
+<a id="ref-liu2026finite"></a>
+
+**Kang Liu, Suyan Li (2026).** Finite-horizon input–output dynamics of minibatch perturbations in AdamW. arXiv preprint. arXiv [2608.19762](https://arxiv.org/abs/2608.19762).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

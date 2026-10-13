@@ -75,12 +75,22 @@ P_{+1}(\bar Y\le\tfrac12)\le\exp(-2n(2\Delta)^2)=\exp(-8n\Delta^2)\le\delta
 
 ## 相关工作
 
-- 停止后 transcript 的 KL 散度用带停时求和的 Wald 恒等式计算 ([Wald, 1944](../references_ZH.md#wald1944cumulative)).
-- 充分性的界用的是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)).
-- 带停时的自适应采样的 change of measure 下界，是 best-arm identification 中的标准论证 ([Kaufmann, Cappé & Garivier, 2016](../references_ZH.md#kaufmann2016complexity)).
+- 停止后 transcript 的 KL 散度用带停时求和的 Wald 恒等式计算 ([Wald, 1944](#ref-wald1944cumulative)).
+- 充分性的界用的是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability)).
+- 带停时的自适应采样的 change of measure 下界，是 best-arm identification 中的标准论证 ([Kaufmann, Cappé & Garivier, 2016](#ref-kaufmann2016complexity)).
 
 ## 参考文献
 
-- [Wald, 1944](../references_ZH.md#wald1944cumulative)
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)
-- [Kaufmann, Cappé & Garivier, 2016](../references_ZH.md#kaufmann2016complexity)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).
+
+<a id="ref-wald1944cumulative"></a>
+
+**Abraham Wald (1944).** On cumulative sums of random variables. *The Annals of Mathematical Statistics* 15, no. 3, 283–296. DOI [10.1214/aoms/1177731235](https://doi.org/10.1214/aoms/1177731235).

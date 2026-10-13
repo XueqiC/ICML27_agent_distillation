@@ -75,9 +75,25 @@ with equality at $`h_s=1/N_s`$, which gives (a).
 
 ## Related work
 
-- **Active acquisition in imitation learning.** DAgger ([Ross, Gordon & Bagnell, 2011](../references.md#ross2011reduction)) queries the teacher at the states the student visits; in the terms of this proposition it allocates queries in proportion to student visitation. The information-optimal allocation is water-filling in the learner-relative weights, and these weights change with the optimizer ([Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam.md#s6-11)).
+- **Active acquisition in imitation learning.** DAgger ([Ross, Gordon & Bagnell, 2011](#ref-ross2011reduction)) queries the teacher at the states the student visits; in the terms of this proposition it allocates queries in proportion to student visitation. The information-optimal allocation is water-filling in the learner-relative weights, and these weights change with the optimizer ([Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam.md#s6-11)).
 - **Allocation rule.** Without teacher coverage the optimum $`n_s\propto\sqrt{W_s}`$ is Neyman's allocation for stratified sampling ([Neyman, 1934](#ref-neyman1934two)); with coverage $`k_s`$ it is water-filling, the solution shape of power allocation over parallel Gaussian channels ([Cover & Thomas, 2006](#ref-cover2006elements)).
 
 ## References
 
-- [Ross, Gordon & Bagnell, 2011](../references.md#ross2011reduction)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

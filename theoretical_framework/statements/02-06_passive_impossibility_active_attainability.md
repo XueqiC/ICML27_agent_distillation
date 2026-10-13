@@ -73,3 +73,27 @@
 - Part (a) is an exact instance of the imitation gap: the teacher uses information hidden from the student, and imitation must marginalize it ([Weihs et al., 2021](#ref-weihs2021bridging)). Weihs et al. close the gap by mixing in reward-based reinforcement learning; here the student's own experiments are reset queries, and their number is pinned down up to a constant.
 - Part (b) is the change-of-measure argument of best-arm identification ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)), with Wald's identity for the stopping time ([Wald, 1944](#ref-wald1944cumulative)). The sequential probability ratio test that attains (2.6) in some configurations is Wald's ([Wald, 1945](#ref-wald1945sequential)).
 - Part (c) is Hoeffding's inequality for bounded independent variables ([Hoeffding, 1963](#ref-hoeffding1963probability)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).
+
+<a id="ref-wald1944cumulative"></a>
+
+**Abraham Wald (1944).** On cumulative sums of random variables. *The Annals of Mathematical Statistics* 15, no. 3, 283–296. DOI [10.1214/aoms/1177731235](https://doi.org/10.1214/aoms/1177731235).
+
+<a id="ref-wald1945sequential"></a>
+
+**Abraham Wald (1945).** Sequential tests of statistical hypotheses. *The Annals of Mathematical Statistics* 16, no. 2, 117–186. DOI [10.1214/aoms/1177731118](https://doi.org/10.1214/aoms/1177731118).
+
+<a id="ref-weihs2021bridging"></a>
+
+**Luca Weihs, Unnat Jain, Iou-Jen Liu, Jordi Salvador, Svetlana Lazebnik, Aniruddha Kembhavi, Alexander Schwing (2021).** Bridging the imitation gap by adaptive insubordination. *Advances in Neural Information Processing Systems 34 (NeurIPS)*, 19134–19146. arXiv [2007.12173](https://arxiv.org/abs/2007.12173).

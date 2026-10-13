@@ -119,9 +119,32 @@ h_\epsilon^{-1}(u)_i=\frac{\epsilon u_i}{1-\lvert u_i\rvert},\qquad\frac{d}{du}h
 
 ## 相关工作
 
-- Adam 带 bias correction 的第一步及其 sign descent 行为是已知的：[Kingma & Ba, 2015](#ref-kingma2015adam)；[Balles & Hennig, 2018](#ref-balles2018dissecting) 把 Adam 看成带方差自适应的 sign descent；[Liu et al., 2020](#ref-liu2020variance)（RAdam）讨论早期步的方差；signSGD（[Bernstein et al., 2018](../references_ZH.md#bernstein2018signsgd)）与 Lion（[Chen et al., 2023](../references_ZH.md#chen2023symbolic)）。decoupled weight decay 见 [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)。
+- Adam 带 bias correction 的第一步及其 sign descent 行为是已知的：[Kingma & Ba, 2015](#ref-kingma2015adam)；[Balles & Hennig, 2018](#ref-balles2018dissecting) 把 Adam 看成带方差自适应的 sign descent；[Liu et al., 2020](#ref-liu2020variance)（RAdam）讨论早期步的方差；signSGD（[Bernstein et al., 2018](#ref-bernstein2018signsgd)）与 Lion（[Chen et al., 2023](#ref-chen2023symbolic)）。decoupled weight decay 见 [Loshchilov & Hutter, 2019](#ref-loshchilov2019decoupled)。
 
 ## 参考文献
 
-- [Bernstein, J., Wang, Y.-X., Azizzadenesheli, K., & Anandkumar, A. (2018). signSGD: Compressed optimisation for non-convex problems. *ICML*.](../references_ZH.md#bernstein2018signsgd)
-- [Chen, X., Liang, C., Huang, D., Real, E., et al. (2023). Symbolic discovery of optimization algorithms. *NeurIPS*.](../references_ZH.md#chen2023symbolic)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-bernstein2018signsgd"></a>
+
+**Jeremy Bernstein, Yu-Xiang Wang, Kamyar Azizzadenesheli, Animashree Anandkumar (2018).** signSGD: Compressed optimisation for non-convex problems. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:560–569. [proceedings.mlr.press/v80/bernstein18a](https://proceedings.mlr.press/v80/bernstein18a.html).
+
+<a id="ref-chen2023symbolic"></a>
+
+**Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

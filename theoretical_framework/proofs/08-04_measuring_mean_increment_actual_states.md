@@ -75,7 +75,7 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 **(a)** Let $`f(X_1,\dots,X_n)=\lVert\bar X-\mu\rVert`$.
 
 - *Mean.* By Jensen's inequality and independence, $`\mathbb Ef\le(\mathbb Ef^2)^{1/2}=(\mathbb E\lVert X-\mu\rVert^2/n)^{1/2}`$. The cross terms $`\mathbb E\langle X_i-\mu,X_l-\mu\rangle`$, $`i\ne l`$, vanish by independence; this uses the inner product. In a Hilbert space $`\mathbb E\lVert X-\mu\rVert^2=\mathbb E\lVert X\rVert^2-\lVert\mu\rVert^2\le b^2`$, so $`\mathbb Ef\le b/\sqrt n`$.
-- *Deviation.* Replacing $`X_i`$ by $`X_i'`$ changes $`f`$ by at most $`\lVert X_i-X_i'\rVert/n\le2b/n`$. McDiarmid's inequality ([McDiarmid, 1989](../references.md#mcdiarmid1989method)) with $`c_i=2b/n`$ gives $`\Pr\lbrace f-\mathbb Ef\ge s\rbrace\le\exp(-2s^2/\sum_ic_i^2)=\exp(-ns^2/(2b^2))`$. Setting this to $`\delta`$ gives $`s=b\sqrt{2\log(1/\delta)/n}`$.
+- *Deviation.* Replacing $`X_i`$ by $`X_i'`$ changes $`f`$ by at most $`\lVert X_i-X_i'\rVert/n\le2b/n`$. McDiarmid's inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)) with $`c_i=2b/n`$ gives $`\Pr\lbrace f-\mathbb Ef\ge s\rbrace\le\exp(-2s^2/\sum_ic_i^2)=\exp(-ns^2/(2b^2))`$. Setting this to $`\delta`$ gives $`s=b\sqrt{2\log(1/\delta)/n}`$.
 - *Two samples.* Apply the one-sample bound to each sample with $`\delta/2`$, use $`\lVert(\bar X_P-\bar X_Q)-(\mu^P-\mu^Q)\rVert\le\lVert\bar X_P-\mu^P\rVert+\lVert\bar X_Q-\mu^Q\rVert`$, and take a union bound.
 
 **(b)** Allocate $`\delta/2`$ to the two-sample bound of (a), which gives $`e_1`$ since $`\log(2/(\delta/2))=\log(4/\delta)`$. Allocate $`\delta/4`$ to each second moment: $`\lVert X\rVert^2\in[0,b^2]`$, so one-sided Hoeffding ([Hoeffding, 1963](#ref-hoeffding1963probability)) gives $`m^P_2\le\hat m^P_2+b^2\sqrt{\log(4/\delta)/(2n_P)}`$ with probability at least $`1-\delta/4`$, and likewise for $`Q`$. On the intersection of the three events, $`\lVert\mu^P-\mu^Q\rVert\le\lVert\bar X_P-\bar X_Q\rVert+e_1`$ and $`m^P_2+m^Q_2\le\hat m^P_2+\hat m^Q_2+e_2`$.
@@ -96,4 +96,12 @@ e_1=b\Big(1+\sqrt{2\log(4/\delta)}\Big)\Big(\tfrac1{\sqrt{n_P}}+\tfrac1{\sqrt{n_
 
 ## References
 
-- [McDiarmid, 1989](../references.md#mcdiarmid1989method). McDiarmid, C. (1989). On the method of bounded differences. Surveys in Combinatorics, LMS Lecture Note Series 141, 148–188.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).

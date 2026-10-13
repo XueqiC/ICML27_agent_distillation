@@ -52,3 +52,15 @@
 
 - Hadamard 可微泛函的 influence function，以及把它变成渐近方差的 delta method，都是标准工具（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）；这里逐个状态使用它们。
 - 示范所覆盖的 teacher 状态分布，与训练和部署所在的学生状态分布之间的差别，正是推动交互式模仿学习的分布偏移（[Ross et al., 2011](#ref-ross2011reduction)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

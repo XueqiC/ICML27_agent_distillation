@@ -114,10 +114,20 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 ## Related work
 
-- [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) combines an empirical Bernstein bound ([Maurer & Pontil, 2009](../references.md#maurer2009empirical); [Audibert et al., 2009](../references.md#audibert2009exploration)) with common random numbers, a classical variance-reduction device in simulation ([Glasserman, 2004](../references.md#glasserman2004monte)). Its content is the estimand: the finite one-round replacement contrast at the actual complete learner state, measured on a calibrated surrogate tail.
+- [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) combines an empirical Bernstein bound ([Maurer & Pontil, 2009](#ref-maurer2009empirical); [Audibert et al., 2009](#ref-audibert2009exploration)) with common random numbers, a classical variance-reduction device in simulation ([Glasserman, 2004](#ref-glasserman2004monte)). Its content is the estimand: the finite one-round replacement contrast at the actual complete learner state, measured on a calibrated surrogate tail.
 
 ## References
 
-- [Maurer & Pontil, 2009](../references.md#maurer2009empirical). Maurer, A., Pontil, M. (2009). Empirical Bernstein bounds and sample variance penalization. COLT.
-- [Audibert et al., 2009](../references.md#audibert2009exploration). Audibert, J.-Y., Munos, R., Szepesvári, C. (2009). Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. Theoretical Computer Science 410, no. 19, 1876–1902.
-- [Glasserman, 2004](../references.md#glasserman2004monte). Glasserman, P. (2004). Monte Carlo Methods in Financial Engineering. Springer.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

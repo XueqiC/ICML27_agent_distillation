@@ -41,3 +41,15 @@
 **用到的经典工具.** 范数裁剪（[Pascanu et al., 2013](#ref-pascanu2013difficulty)）：激活时它返回 $`c_{\rm clip}G/\lVert G\rVert`$，所以步长与梯度的尺度无关；normalized SGD（[Hazan et al., 2015](#ref-hazan2015beyond)）也有这个性质。
 
 **证明.** (a) 裁剪始终激活时，$`\mathrm{clip}_{c_{\rm clip}}(bG)=c_{\rm clip}\,G/\lVert G\rVert`$ 与 $`b>0`$ 无关，所以 $`\partial_b\mu^*_t=0`$；其余由 [Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5) 与 [Corollary 6.7](../statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7) 得出：$`\theta_0=(\alpha,b)`$ 与 $`\theta_1=(\alpha,b')`$ 的示范分布相同，而对 SGD，$`\Psi(\theta_1)-\Psi(\theta_0)=-\eta(b'-b)\sum_t\langle g_t,\mathbb E\,G_\alpha\rangle\neq0`$。(b) 把 [Proposition 6.10](../statements/06-10_water_filling_allocation_ZH.md#s6-10)(a)–(b) 与 [Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11) 的权重结合。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hazan2015beyond"></a>
+
+**Elad Hazan, Kfir Y. Levy, Shai Shalev-Shwartz (2015).** Beyond convexity: Stochastic quasi-convex optimization. *Advances in Neural Information Processing Systems 28 (NIPS)*. [proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5](https://proceedings.neurips.cc/paper/2015/hash/934815ad542a4a7c5e8a2dfa04fea9f5-Abstract.html); arXiv [1507.02030](https://arxiv.org/abs/1507.02030).
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

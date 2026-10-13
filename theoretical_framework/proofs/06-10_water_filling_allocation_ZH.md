@@ -75,9 +75,25 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{其中 }\lambda>0\text
 
 ## 相关工作
 
-- **模仿学习中的主动获取.** DAgger（[Ross, Gordon & Bagnell, 2011](../references_ZH.md#ross2011reduction)）在学生访问的状态上查询 teacher；用本命题的语言，它按学生的访问频率分配查询。信息意义下的最优分配是按学习器相对权重做 water-filling，而这些权重随 optimizer 改变（[Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11)）。
+- **模仿学习中的主动获取.** DAgger（[Ross, Gordon & Bagnell, 2011](#ref-ross2011reduction)）在学生访问的状态上查询 teacher；用本命题的语言，它按学生的访问频率分配查询。信息意义下的最优分配是按学习器相对权重做 water-filling，而这些权重随 optimizer 改变（[Proposition 6.11](../statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11)）。
 - **分配规则.** 没有 teacher 覆盖时，最优解 $`n_s\propto\sqrt{W_s}`$ 就是分层抽样中的 Neyman 分配（[Neyman, 1934](#ref-neyman1934two)）；有覆盖 $`k_s`$ 时它是 water-filling，与并行 Gaussian 信道上功率分配的解形状相同（[Cover & Thomas, 2006](#ref-cover2006elements)）。
 
 ## 参考文献
 
-- [Ross, Gordon & Bagnell, 2011](../references_ZH.md#ross2011reduction)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

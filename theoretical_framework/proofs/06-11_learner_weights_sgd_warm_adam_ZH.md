@@ -80,3 +80,19 @@ $`\Phi`$ 是 $`(m_1,m_2)`$ 的光滑函数，由链式法则（delta method）�
 
 - 两个区间在 $`d(s)\approx1-\beta_2`$ 附近相接：在那里一次访问对 $`v`$ 的影响既平均不掉，也衰减不完。两个闭式在那里都不适用。
 - 在孤立区间里，位移只通过 $`\mathrm{sign}(g)`$ 依赖于消息：这是 [Balles & Hennig, 2018](#ref-balles2018dissecting) 分析的 Adam 的 sign descent 一面。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

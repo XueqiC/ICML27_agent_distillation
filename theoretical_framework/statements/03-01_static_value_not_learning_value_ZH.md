@@ -95,3 +95,19 @@ p^+=p_0-\eta\big(p_0-\tfrac{Y_1+Y_2}2\big)=\frac{1-\eta}2+\eta\,\frac{Y_1+Y_2}2 
 
 - 一阶 influence 估计用训练样本梯度的内积给样本打分：influence function 用逆 Hessian 加权的内积 ([Koh & Liang, 2017](#ref-koh2017understanding))，TracIn 用沿训练过程的内积之和 ([Pruthi et al., 2020](#ref-pruthi2020estimating))。对一个来源取平均后，这类分数只通过平均梯度依赖于来源，因此分不开构造 (b) 中的两种 packet：它们在 $`p_0`$ 处的平均梯度相同。
 - (a) 中的比较是限制在 aliased class 上的 value equivalence。只有当被检验的策略集与函数集足够大时，value equivalence 才能确定真实模型 ([Grimm et al., 2020](#ref-grimm2020value))，所以 (a) 与完整的 Bellman value equivalence 并不矛盾。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).

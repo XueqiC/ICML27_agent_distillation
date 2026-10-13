@@ -70,3 +70,19 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 - Sharing the tail randomness $`\omega_\ell`$ across candidates is the method of common random numbers, a classical variance-reduction device for comparing simulated systems ([Glasserman, 2004](#ref-glasserman2004monte)).
 - The task-side contrast $`A_t(z,j)`$ is a one-round replacement contrast; summed over the reached states it gives the telescoping decomposition behind the performance-difference lemma of [Kakade & Langford, 2002](#ref-kakade2002approximately).
 - Measuring the effect of a change in the training data by actually retraining, rather than by a gradient approximation, is also the approach of datamodels ([Ilyas et al., 2022](#ref-ilyas2022datamodels)). Here the change is one round of feedback at an actual learner state, and the tail is shared across candidates.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

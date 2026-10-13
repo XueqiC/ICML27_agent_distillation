@@ -81,3 +81,19 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 - (I) and (B) are exactly the hypotheses of empirical Bernstein bounds: independent, identically distributed scores with a known range ([Maurer & Pontil, 2009](#ref-maurer2009empirical); [Audibert et al., 2009](#ref-audibert2009exploration)).
 - Data-selection methods that score training data against a small validation set, such as LESS ([Xia et al., 2024](#ref-xia2024less)), assume implicitly that proxy differences track task differences. (A) states that assumption explicitly, with a scale $`\alpha`$ and an error $`\varepsilon_{\rm sur}`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

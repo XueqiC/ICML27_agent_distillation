@@ -46,3 +46,11 @@
 ## 相关工作
 
 - model-based 强化学习中的 value equivalence 有同样的单调性：扩大两个模型必须一致的策略集与函数集，只会缩小等价模型的类 ([Grimm et al., 2020](#ref-grimm2020value), Property 3)。不同的是，这里被检验的函数不是选出来的，而是由声明的学习器与任务生成的。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).

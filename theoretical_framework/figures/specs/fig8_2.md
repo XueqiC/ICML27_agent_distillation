@@ -33,3 +33,11 @@
 - **Title:** "Uncovered state: charge a or ρ".
 
 **Caption.** (A) Exact gap versus the transport-aware certificate on 2,000 random finite training processes (V1); no point lies above y = x. The annotation summarizes all 2,572 committed V1 instances. (B) In a controlled network (E4), the measured-transport local bound contains the gold full-tail contrast at all 40 reached states, while zero-transport anchor predictions miss 36. (C) Transport and feature drift at reached states, and the uncovered-state witness. Exact finite computations and a controlled small network; not a real-model result.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).

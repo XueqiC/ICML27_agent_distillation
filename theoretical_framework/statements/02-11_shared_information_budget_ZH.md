@@ -71,3 +71,15 @@ K\kappa_D^{(v)}+\kappa_X^{(v)}\,\mathbb E_vN\ge\mathrm{kl}(1-\delta,\delta). \qq
 
 - best-arm identification 中的 change of measure 不等式用某个事件概率的二元 KL 从下方界住停时之前收集的期望 KL 信息 ([Kaufmann et al., 2016](#ref-kaufmann2016complexity))；(2.11) 在它上面加了示范项 $`K\kappa_D^{(v)}`$。
 - 下界 $`\mathrm{kl}(1-\delta,\delta)`$ 来自对最终决策应用 KL 散度的 data-processing 不等式 ([Cover & Thomas, 2006](#ref-cover2006elements))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).

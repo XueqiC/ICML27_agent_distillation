@@ -92,3 +92,11 @@ e_R\le C\eta^2\sum_{s=0}^{R-1}(1+\eta L)^s=\frac{C\eta}{L}\big((1+\eta L)^R-1\bi
 ## Related work
 
 - (d) 是用随机修正方程（stochastic modified equation）弱逼近 SGD 时所依据的单步矩展开（[Li et al., 2019](#ref-li2019stochastic)）：随机梯度的均值与二阶矩决定一步的期望效应，余项是 $`\eta`$ 的三阶。(e) 则是把这类单步误差累积成多步界的那一步。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

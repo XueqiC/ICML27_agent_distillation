@@ -43,3 +43,19 @@ Use the objects of [Proposition 5.1](../statements/05-01_optimizer_transformed_e
 
 - The Hilbert-norm bound being qualified combines Jensen's inequality with McDiarmid's bounded-difference inequality ([McDiarmid, 1989](#ref-mcdiarmid1989method)); the inner product enters only through the vanishing cross terms.
 - The growth of $`b`$ with dimension under cold-start Adam reflects the sign-like first step of Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)); the sign view of Adam is studied by [Balles & Hennig, 2018](#ref-balles2018dissecting).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-mcdiarmid1989method"></a>
+
+**Colin McDiarmid (1989).** On the method of bounded differences. In *Surveys in Combinatorics, 1989*, London Mathematical Society Lecture Note Series 141, 148–188, Cambridge University Press. DOI [10.1017/CBO9781107359949.008](https://doi.org/10.1017/CBO9781107359949.008).

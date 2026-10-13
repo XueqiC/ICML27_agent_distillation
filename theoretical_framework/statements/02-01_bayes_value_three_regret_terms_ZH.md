@@ -63,3 +63,15 @@ J_E^\Pi=\max_{\pi\in\Pi}J_E(\pi),\qquad J_E^{\rm ref}=\max_{\pi\in\Pi_{\rm ref}}
 
 - $`B(D)`$ 是产生 $`D`$ 的实验在决策问题 $`(\mathcal E,\mu,\Pi,J)`$ 中的 Bayes value。在所有决策问题上按这种值比较实验，就是 Blackwell 的 comparison of experiments ([Blackwell, 1953](#ref-blackwell1953equivalent))。
 - information regret 是已知 $`D`$ 之后、关于 $`E`$ 的完全信息的期望价值（expected value of perfect information），这是 information value theory 的核心量 ([Howard, 1966](#ref-howard1966information))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-howard1966information"></a>
+
+**Ronald A. Howard (1966).** Information value theory. *IEEE Transactions on Systems Science and Cybernetics* 2, no. 1, 22–26. DOI [10.1109/TSSC.1966.300074](https://doi.org/10.1109/TSSC.1966.300074).

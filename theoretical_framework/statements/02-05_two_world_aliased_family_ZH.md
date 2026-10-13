@@ -68,3 +68,15 @@ J_v(p)=\tfrac12\big[p+(1-p)(\tfrac12-2v\Delta)\big]+\tfrac12\big[p(\tfrac12+2v\D
 
 - 这个族是 Le Cam 方法意义下的两点构造：被动数据分不开的两个世界，最优决策却不同 ([Le Cam, 1973](#ref-lecam1973convergence))。
 - teacher 依据学生观察不到的信息行动，模仿时这部分信息被边缘化，这就是 [Weihs et al., 2021](#ref-weihs2021bridging) 所说的 *imitation gap*。这个族是它的一个最小实例，缺失的事实只是一个符号。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-weihs2021bridging"></a>
+
+**Luca Weihs, Unnat Jain, Iou-Jen Liu, Jordi Salvador, Svetlana Lazebnik, Aniruddha Kembhavi, Alexander Schwing (2021).** Bridging the imitation gap by adaptive insubordination. *Advances in Neural Information Processing Systems 34 (NeurIPS)*, 19134–19146. arXiv [2007.12173](https://arxiv.org/abs/2007.12173).

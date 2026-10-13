@@ -11,7 +11,7 @@
 - Scalar task: one context visited $`N`$ times, success if all actions are 1, so the deployment value of a student with action probability $`p\in[0,1]`$ is $`J(p)=p^N`$.
 - Parity task on $`N`$ contexts, each visited once with independent actions $`a_j\sim\mathrm{Bernoulli}(p_j)`$, paying 1 if $`\sum_ja_j`$ is even: $`J_{\rm even}(p)=\tfrac12\big(1+\prod_{j=1}^N(1-2p_j)\big)`$ on $`[0,1]^N`$ ([Theorem 4.4(c)](04-04_affine_learners_moment_order.md#s4-4)).
 - Convex-affine learners with IID blocks are as in [Definition 4.3](04-03_binary_context_student_affine_learner.md#s4-3): $`p_R=w_0p_0+\sum_iw_iZ_i`$ with fixed convex weights.
-- $`T_j`$ is the Chebyshev polynomial of the first kind ([Rivlin, 1990](../references.md#rivlin1990chebyshev)): $`T_j(\cos\theta)=\cos(j\theta)`$, so $`\lvert T_j\rvert\le1`$ on $`[-1,1]`$ and $`T_j(1)=1`$. $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$, and $`\lVert\cdot\rVert_{\infty,S}`$ is the sup norm on a set $`S`$.
+- $`T_j`$ is the Chebyshev polynomial of the first kind ([Rivlin, 1990](#ref-rivlin1990chebyshev)): $`T_j(\cos\theta)=\cos(j\theta)`$, so $`\lvert T_j\rvert\le1`$ on $`[-1,1]`$ and $`T_j(1)=1`$. $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$, and $`\lVert\cdot\rVert_{\infty,S}`$ is the sup norm on a set $`S`$.
 - $`B\sim\mathrm{Bin}(2N,\tfrac12)`$ is a binomial random variable.
 
 <a id="s4-6"></a>
@@ -52,7 +52,7 @@ p^N=4^{-N}\binom{2N}{N}+2\cdot4^{-N}\sum_{j=1}^N\binom{2N}{N-j}T_j(2p-1). \qquad
 
 **Derivation outline.**
 
-- (a) With $`2p-1=\cos\theta`$, $`p^N=\cos^{2N}(\theta/2)`$ expands into Chebyshev polynomials with binomial coefficients. The tail of these nonnegative coefficients is the sup-error (attained at $`p=1`$) and equals a binomial tail, bounded by Hoeffding's inequality ([Hoeffding, 1963](../references.md#hoeffding1963probability)). Matched moments cancel the truncation, leaving at most twice the sup-error.
+- (a) With $`2p-1=\cos\theta`$, $`p^N=\cos^{2N}(\theta/2)`$ expands into Chebyshev polynomials with binomial coefficients. The tail of these nonnegative coefficients is the sup-error (attained at $`p=1`$) and equals a binomial tail, bounded by Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)). Matched moments cancel the truncation, leaving at most twice the sup-error.
 - (b) The even- and odd-parity laws agree on every polynomial of degree below $`N`$ but differ by 1 on $`J_{\rm even}`$, which by Theorem 4.2(b) forces approximation error at least $`\tfrac12`$.
 
 **Illustration.** For $`N=100`$ and $`\varepsilon=0.01`$, about $`\sqrt{100\log400}\approx25`$ matched moments already resolve $`p^{100}`$, whereas parity over 100 contexts needs all 100 orders.
@@ -69,5 +69,12 @@ p^N=4^{-N}\binom{2N}{N}+2\cdot4^{-N}\sum_{j=1}^N\binom{2N}{N-j}T_j(2p-1). \qquad
 
 ## References
 
-- [Hoeffding, 1963](../references.md#hoeffding1963probability) — Hoeffding's inequality for bounded sums.
-- [Rivlin, 1990](../references.md#rivlin1990chebyshev) — Chebyshev polynomials.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.

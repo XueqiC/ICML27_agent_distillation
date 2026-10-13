@@ -32,3 +32,11 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 ## Artifacts
 
 - `theory/v015_checks/results_v015_independent.json`: the group of `v015:V5`; code `theory/v015_checks/mathematics.py` (`check_V5`).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-rubin1976inference"></a>
+
+**Donald B. Rubin (1976).** Inference and missing data. *Biometrika* 63, no. 3, 581–592. DOI [10.1093/biomet/63.3.581](https://doi.org/10.1093/biomet/63.3.581).

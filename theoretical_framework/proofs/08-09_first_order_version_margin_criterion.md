@@ -96,3 +96,11 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 **(c)** Certification by (b) means $`\hat S^{jk}(h)>e^{jk}_{\rm stat}(h)+e^{jk}_{\rm fd}(h)+\tilde e^{jk}_2+\varepsilon_{\rm sur}`$. On the event of (b), $`\tilde s^{jk}\ge\mathbb EZ^{jk}_\ell(h)-e^{jk}_{\rm fd}(h)\ge\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\rm fd}(h)>\tilde e^{jk}_2+\varepsilon_{\rm sur}`$. If the mean increments agree along $`\nabla\tilde V(0)`$, then $`\tilde s^{jk}=0`$ and no certification is possible. The last sentence of (c) is the remainder step of (b).
 
 **(d)** The first claim is (a). For (i): if the score difference equals $`\langle\nabla V(z),\mu^j-\mu^k\rangle`$ and the margin holds, (a) gives the sign. If the score differs from this term, (a) does not control the difference; if the margin fails, the remainder can reverse the sign. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

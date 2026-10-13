@@ -67,3 +67,15 @@
 
 - The coupling polytope $`\mathcal C(\mu,\nu)`$ is the feasible set of the transportation problem of linear programming ([Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)); (a)–(c) are linear algebra on that polytope.
 - The cross term $`\eta^2H_{P_2}g_{P_1}`$ in (d) is the second-order effect of evaluating a gradient after an earlier update, the same term that produces the drift correction in stochastic modified equations for SGD ([Li et al., 2019](#ref-li2019stochastic)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

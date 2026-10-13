@@ -78,3 +78,15 @@
 
 - 当 $`n=0`$ 时，$`\mathfrak n_{K,0}^2=c^\top(K\,I_D)^{-1}c`$ 正是光滑泛函 $`\Psi`$ 的正则估计量方差的经典局部渐近 minimax 下界（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）；有查询时，最优 design 进入其中（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)）。
 - $`\Psi`$ 在被审计的检查点上累加任务梯度与学习器更新的内积，这与 TracIn 等沿梯度轨迹的影响估计结构相同（[Pruthi et al., 2020](#ref-pruthi2020estimating)）；在这里它是蒸馏器必须复现的量，而不是给数据排序的分数。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

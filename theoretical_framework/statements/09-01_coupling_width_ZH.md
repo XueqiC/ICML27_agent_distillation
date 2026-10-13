@@ -67,3 +67,15 @@
 
 - coupling 多面体 $`\mathcal C(\mu,\nu)`$ 就是线性规划中运输问题的可行集（[Bertsimas & Tsitsiklis, 1997](#ref-bertsimas1997introduction)）；(a)–(c) 是这个多面体上的线性代数。
 - (d) 中的交叉项 $`\eta^2H_{P_2}g_{P_1}`$，是在前一次更新之后再计算梯度带来的二阶效应，也正是 SGD 的 stochastic modified equations 里漂移修正项的来源（[Li et al., 2019](#ref-li2019stochastic)）。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).

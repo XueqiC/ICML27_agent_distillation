@@ -30,3 +30,11 @@
 ## 相关工作
 
 - 这里的包含关系论证，与 model-based 强化学习中 value-equivalence 类的单调性背后的论证相同 ([Grimm et al., 2020](#ref-grimm2020value), Property 3)。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).

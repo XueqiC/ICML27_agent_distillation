@@ -52,3 +52,11 @@
 按事件 $`\lbrace\lVert G\rVert\le c\rbrace`$ 拆分；在该事件上 $`\lVert G-cG/\lVert G\rVert\rVert=c-\lVert G\rVert\le c`$。
 
 *被用于:* Theorem 5.10(e)。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-pascanu2013difficulty"></a>
+
+**Razvan Pascanu, Tomas Mikolov, Yoshua Bengio (2013).** On the difficulty of training recurrent neural networks. *Proceedings of the 30th International Conference on Machine Learning (ICML)*, PMLR 28, no. 3, 1310–1318. [proceedings.mlr.press/v28/pascanu13](https://proceedings.mlr.press/v28/pascanu13.html).

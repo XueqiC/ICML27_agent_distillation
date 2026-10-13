@@ -91,4 +91,16 @@ n_s^\star=\Big(\sqrt{W_s/\lambda}-k_s\Big)_+,\qquad \text{with }\lambda>0\text{ 
 
 ## References
 
-- [Ross, Gordon & Bagnell, 2011](../references.md#ross2011reduction)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-neyman1934two"></a>
+
+**Jerzy Neyman (1934).** On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society* 97, no. 4, 558–625. DOI [10.2307/2342192](https://doi.org/10.2307/2342192).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

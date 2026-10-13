@@ -137,3 +137,15 @@ theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py -
 - `theory/independent_checks/results_independent_v014.json`: the entry of `v014:C4`; code `theory/independent_checks/check_v014_independent.py` (`check_C4` with `process`, `continuations`, `process_stats`).
 - `docs/direction/v015_revision/results_v015.json`: `checks.T12_stopped_occupancy_composition`; function `stopped_learning`; code `docs/direction/v015_revision/verify_v015_extensions.py`.
 - Figures: `figures/fig3_2_response.{png,pdf}`; specs `figures/specs/fig3_2.md`.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-harris2020array"></a>
+
+**Charles R. Harris, K. Jarrod Millman, Stéfan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernández del Río, Mark Wiebe, Pearu Peterson, Pierre Gérard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, Travis E. Oliphant (2020).** Array programming with NumPy. *Nature* 585, no. 7825, 357–362. DOI [10.1038/s41586-020-2649-2](https://doi.org/10.1038/s41586-020-2649-2).
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).

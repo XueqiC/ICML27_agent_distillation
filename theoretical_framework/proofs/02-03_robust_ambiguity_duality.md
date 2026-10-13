@@ -54,8 +54,12 @@ The inner minimum over the simplex is attained at a pure policy, and $`(\mu^\top
 
 ## Related work
 
-- The exchange of min and max is von Neumann's minimax theorem for finite zero-sum games ([von Neumann, 1928](../references.md#vonneumann1928zur)).
+- The exchange of min and max is von Neumann's minimax theorem for finite zero-sum games ([von Neumann, 1928](#ref-vonneumann1928zur)).
 
 ## References
 
-- [von Neumann, 1928](../references.md#vonneumann1928zur)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-vonneumann1928zur"></a>
+
+**John von Neumann (1928).** Zur Theorie der Gesellschaftsspiele. *Mathematische Annalen* 100, no. 1, 295–320. DOI [10.1007/BF01448847](https://doi.org/10.1007/BF01448847).

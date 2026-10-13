@@ -100,3 +100,15 @@ b=(1-\beta_1)\Big[-\frac{\eta}{1-\beta_1^{\,t}}\,\Phi\,\nabla_\theta V+\nabla_mV
 - *(iii)* 线段 $`\lbrace \tau G:\tau\in[0,1]\rbrace`$ 落在 $`\mathcal C`$ 中。带积分余项的 Taylor 定理给出 $`F(G)-F(0)-\nabla F(0)^\top G=\int_0^1(1-\tau)\,G^\top\nabla^2F(\tau G)\,G\,d\tau`$。由 (H)，被积函数的绝对值不超过 $`(1-\tau)H_G\lVert G\rVert_\infty^2`$，所以 $`\lvert(iii)\rvert\le\tfrac12H_G\lVert G\rVert_\infty^2`$。
 
 三个界相加即得逐点结论。对两个分布，写 $`\psi=\psi_0+b^\top G+e`$，$`\lvert e\rvert\le r`$。于是 $`\mathbb E_{P_0}\psi-\mathbb E_{P_1}\psi=b^\top(\mathbb E_{P_0}G-\mathbb E_{P_1}G)+\mathbb E_{P_0}e-\mathbb E_{P_1}e`$；常数 $`\psi_0`$ 抵消，因为两者都是概率测度；$`Y`$ 有限，所有期望都存在。三角不等式给出界，$`\psi\in[0,1]`$ 给出截断。对 $`b`$ 用链式法则：$`\partial\tilde\theta^+/\partial g=-\eta(1-\beta_1)\Phi/(1-\beta_1^{\,t})`$，$`\partial m^+/\partial g=(1-\beta_1)I`$，$`\tilde z^+`$ 的 $`v`$ 分量与 $`g`$ 无关。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

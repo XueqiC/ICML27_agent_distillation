@@ -75,3 +75,11 @@ The maximum equals $`\mathrm{top}_b(U)`$, attained by taking $`j`$ of largest we
 - *Uniform case.* With weights $`1/d`$, $`\sum_{r>n}w_{(r)}=(M_K-n)_+/d`$, which gives (2.10); for $`n=0`$, (a) with $`q_j=1/d`$ gives $`R_{\rm info}(K,0)=\tfrac12(1-1/d)^K`$.
 - *Jensen.* Since $`x\mapsto(x-n)_+`$ is convex, Jensen's inequality ([Jensen, 1906](#ref-jensen1906fonctions)) gives $`\mathbb E[(M_K-n)_+]\ge(\mathbb EM_K-n)_+`$.
 - *Strictness.* Take $`d=3`$, $`K=3`$, $`n=1`$. Then $`\Pr(M_3=0)=6/27`$, $`\Pr(M_3=1)=18/27`$, $`\Pr(M_3=2)=3/27`$ and $`\mathbb EM_3=8/9<1`$. The right-hand side is $`0`$, while $`R_{\rm info}(3,1)=\Pr(M_3=2)/(2\cdot3)=1/54`$. $`\square`$
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-jensen1906fonctions"></a>
+
+**J. L. W. V. Jensen (1906).** Sur les fonctions convexes et les inégalités entre les valeurs moyennes. *Acta Mathematica* 30, 175–193. DOI [10.1007/BF02418571](https://doi.org/10.1007/BF02418571).

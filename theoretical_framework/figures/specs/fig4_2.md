@@ -46,3 +46,15 @@ Plot:
 **Caption.** Theorems 11–13 in exact arithmetic. (a) scalar witnesses separate at every order with exponentially small gaps (C8, matching the closed form); parity laws keep gap 1 (package check). (b) the monomial evaluation rank on the grid equals C(k+N, N) in all 18 configurations (C9). (c) on binary messages with arbitrary payoffs, any interface with fewer than 2ᵏ − 1 features leaves worst-case error 1 (C9).
 
 **Sources.** Drawn by `figures/make_figures.py` with Matplotlib ([Hunter, 2007](#ref-hunter2007matplotlib)). The parity witness of panel (a) and the binary barrier of panel (c) are Fourier facts on the Boolean cube ([O'Donnell, 2014](#ref-odonnell2014analysis)); see [Theorem 4.4](../../statements/04-04_affine_learners_moment_order.md#s4-4).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../../references.md).
+
+<a id="ref-hunter2007matplotlib"></a>
+
+**John D. Hunter (2007).** Matplotlib: A 2D graphics environment. *Computing in Science & Engineering* 9, no. 3, 90–95. DOI [10.1109/MCSE.2007.55](https://doi.org/10.1109/MCSE.2007.55).
+
+<a id="ref-odonnell2014analysis"></a>
+
+**Ryan O'Donnell (2014).** Analysis of Boolean Functions. Cambridge University Press. DOI [10.1017/CBO9781139814782](https://doi.org/10.1017/CBO9781139814782).

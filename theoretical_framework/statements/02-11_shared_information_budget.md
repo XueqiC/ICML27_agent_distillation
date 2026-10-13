@@ -71,3 +71,15 @@ If $`\kappa_X^{(v)}=0`$ and $`K\kappa_D^{(v)}<\mathrm{kl}(1-\delta,\delta)`$, no
 
 - (2.11) extends the change-of-measure inequality of best-arm identification, which bounds the expected KL information collected up to a stopping time from below by the binary KL of the probabilities of an event ([Kaufmann et al., 2016](#ref-kaufmann2016complexity)), by the demonstration term $`K\kappa_D^{(v)}`$.
 - The lower bound $`\mathrm{kl}(1-\delta,\delta)`$ comes from the data-processing inequality for KL divergence, applied to the final decision ([Cover & Thomas, 2006](#ref-cover2006elements)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-kaufmann2016complexity"></a>
+
+**Emilie Kaufmann, Olivier Cappé, Aurélien Garivier (2016).** On the complexity of best-arm identification in multi-armed bandit models. *Journal of Machine Learning Research* 17, no. 1, 1–42. [jmlr.org/papers/v17/kaufman16a](https://jmlr.org/papers/v17/kaufman16a.html).

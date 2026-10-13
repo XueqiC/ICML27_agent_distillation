@@ -88,7 +88,7 @@ g_{t,z}=c_{t,z}+b_{t,z}^\top\phi_u+r_{t,z},\qquad\lVert b_{t,z}\rVert_1\le B_t,\
 
 *Proof.*
 
-**(a)** 每个 $`\phi_{u,\ell}\in[0,1]`$，每个经验均值背后的样本相互独立。由双侧 Hoeffding 不等式 ([Hoeffding, 1963](../references_ZH.md#hoeffding1963probability))，
+**(a)** 每个 $`\phi_{u,\ell}\in[0,1]`$，每个经验均值背后的样本相互独立。由双侧 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability))，
 
 ```math
 \Pr\big(\lvert\widehat\mu_{0,u,\ell}-\mu_{0,u,\ell}\rvert>e_0\big)\le2e^{-2n_0e_0^2}=\frac{\delta}{2\lvert\mathcal U\rvert d},\qquad\Pr\big(\lvert\widehat\mu_{j,u,\ell}-\mu_{j,u,\ell}\rvert>e_S\big)\le\frac{\delta}{2M\lvert\mathcal U\rvert d}.
@@ -134,4 +134,8 @@ L_E(0)-L_E(S')=\sum_{t=0}^{R-1}\mathbb E_{S'}\big[(K^0_t-K^{S'}_t)V^0_{t+1}(Z_t)
 
 ## 参考文献
 
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability). Hoeffding, W. (1963). Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association 58, no. 301, 13–30.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

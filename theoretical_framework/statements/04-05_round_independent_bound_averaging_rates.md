@@ -86,3 +86,11 @@
 ## Related work
 
 - The joint cumulants and the moment–cumulant formula behind (b) are classical ([Leonov & Shiryaev, 1959](#ref-leonov1959method)). The rate comes from their scaling under averaging: the order-$`s`$ cumulant of the average of $`n`$ IID blocks is $`n^{1-s}\kappa_s`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-leonov1959method"></a>
+
+**V. P. Leonov, A. N. Shiryaev (1959).** On a method of calculation of semi-invariants. *Theory of Probability and Its Applications* 4, no. 3, 319–329. DOI [10.1137/1104031](https://doi.org/10.1137/1104031).

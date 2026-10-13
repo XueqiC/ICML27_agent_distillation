@@ -30,3 +30,11 @@ Every $`g\in\mathcal G`$ has this form by the definitions of $`V^0`$ and $`g_{t,
 ## Related work
 
 - The inclusion argument is the one behind the monotonicity of value-equivalence classes in model-based reinforcement learning ([Grimm et al., 2020](#ref-grimm2020value), Property 3).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-grimm2020value"></a>
+
+**Christopher Grimm, André Barreto, Satinder Singh, David Silver (2020).** The value equivalence principle for model-based reinforcement learning. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 5541–5552. arXiv [2011.03506](https://arxiv.org/abs/2011.03506).

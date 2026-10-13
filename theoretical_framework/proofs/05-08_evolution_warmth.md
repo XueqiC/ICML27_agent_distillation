@@ -115,3 +115,15 @@ Summing over $`s`$ proves the first display. For the second, $`\min\lbrace1,a+b\
 - *What warmth does not remove.* The curvature term $`\tfrac12H_G\lVert G\rVert_\infty^2`$ does not depend on $`\kappa`$ and accumulates linearly in $`R`$. Over long horizons the residual difference between equal-mean sources is governed by curvature, which SGD shares. Warm-up controls only the cold window.
 - *Messages versus gradients.* Proposition 5.6 is affine in the *consumed* gradient. When $`G(y)`$ is itself nonlinear in $`y`$, the response is not affine in the message. Examples are sequence-level teacher forcing, where the prefix changes the Jacobian, and active global-norm clipping.
 - *Locality.* Proposition 5.6 is a one-boundary statement whose constants are properties of the continuation value. A certificate along training also needs the transport and coverage terms of [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport.md#s8-2).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

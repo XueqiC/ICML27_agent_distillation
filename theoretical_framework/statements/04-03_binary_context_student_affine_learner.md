@@ -58,3 +58,11 @@ p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1 .
 ## Related work
 
 - The deployment is a one-player extensive-form game with chance moves ([Kuhn, 1953](#ref-kuhn1953extensive)), the contexts playing the role of information sets, and $`p`$ is a behaviour strategy: one action probability per context, used at every decision with that context. Because a context may recur along a path, $`J_E`$ can have degree above 1 in a single coordinate $`p_j`$.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).

@@ -103,3 +103,15 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 - 只通过改进量的高置信下界来接受候选，从而保住保证，这是 high-confidence policy improvement 的安全检验（[Thomas et al., 2015](#ref-thomas2015high)）。
 - 在重新训练的运行上拟合一个廉价的训练结果预测器，再在留出的运行上检验，也是 datamodels 的拟合与验证方式（[Ilyas et al., 2022](#ref-ilyas2022datamodels)）。这里的校准是在实际学习者状态上，把任务对比回归到 surrogate 分数上。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-thomas2015high"></a>
+
+**Philip S. Thomas, Georgios Theocharous, Mohammad Ghavamzadeh (2015).** High confidence policy improvement. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2380–2388. [proceedings.mlr.press/v37/thomas15](https://proceedings.mlr.press/v37/thomas15.html).

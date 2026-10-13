@@ -106,3 +106,15 @@ The same bound holds for the mean-field first-order value difference $`\mathrm{V
 ## Related work
 
 - Adam's step in one coordinate is governed by that coordinate's signal-to-noise ratio; this is the basis of the reading of Adam as a sign step scaled by a variance-adaptation factor ([Balles & Hennig, 2018](#ref-balles2018dissecting)). Here the same ratio $`\rho_i`$ decides whether a large message helps or harms the later steps.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).

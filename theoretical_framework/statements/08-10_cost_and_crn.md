@@ -106,3 +106,15 @@ Counting; rearranging the range term; the Lipschitz condition at the paired incr
 
 - The range term sized in (b) is the second term of the empirical Bernstein bound of [Maurer & Pontil, 2009](#ref-maurer2009empirical), $`7\log(\cdot)/(3(r-1))`$ times the range.
 - (c) is the standard argument for common random numbers: pairing helps when both arms respond to the shared randomness in the same way, as a Lipschitz or monotone response does ([Glasserman, 2004](#ref-glasserman2004monte)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

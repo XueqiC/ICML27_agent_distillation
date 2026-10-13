@@ -58,3 +58,15 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 - *(a)* 由 Proposition 5.3(a) 与 $`h_0=\mathrm{sign}`$，$`\theta_1=\theta_0-\eta\,\mathrm{sign}(G)`$。在 $`P_0`$ 下 $`\mathbb E\,\mathrm{sign}\,G=\tfrac14-\tfrac34=-\tfrac12`$，所以 $`\mathbb E\theta_1=\theta_0+\eta/2`$。在 $`P_1`$ 下 $`\mathrm{sign}\,0=0`$，所以 $`\mathbb E\theta_1=\theta_0`$。效用是仿射的，response 差为 $`\lvert w\rvert\eta/2`$。均值相同：$`\tfrac14\cdot1+\tfrac34\cdot(-\tfrac13)=0`$。
 - *(b)* 因为 $`\sum_{i\ \rm even}\binom Ni=\sum_{i\ \rm odd}\binom Ni=2^{N-1}`$，$`P_N`$ 与 $`Q_N`$ 都是概率分布。对 $`\ell<N`$，$`\sum_i(-1)^i\binom Ni\,i^\ell=0`$，所以它们低于 $`N`$ 阶的矩相同，仿射像 $`G=q-Z`$ 的矩也相同。取 $`q\in(0,1/N)`$：在 $`P_N`$ 下，$`G>0`$ 当且仅当 $`i=0`$，概率为 $`2^{1-N}`$；否则 $`Z\ge2/N>q`$，$`G<0`$。所以 $`\mathbb E_{P_N}\mathrm{sign}\,G=2^{2-N}-1`$。在 $`Q_N`$ 下总有 $`Z\ge1/N>q`$，所以 $`\mathbb E_{Q_N}\mathrm{sign}\,G=-1`$。第一步的期望相差 $`\eta\,2^{2-N}`$，仿射效用给出差距 $`\lvert w\rvert\eta\,2^{2-N}`$。
 - *warm 对照.* 对没有尾段的 $`V(\theta)=\tfrac12+w\theta`$，$`F`$ 关于 $`g`$ 仿射，故 $`H_G=0`$；$`V`$ 不依赖 $`(m,v)`$，故 $`L_v=0`$；且 $`L=\lvert w\rvert`$。均值相同时，Proposition 5.6 给出所示的界。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

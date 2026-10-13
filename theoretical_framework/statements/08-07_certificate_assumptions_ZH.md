@@ -81,3 +81,19 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 - (I) 与 (B) 正是 empirical Bernstein 界的前提：独立同分布、取值范围已知的分数（[Maurer & Pontil, 2009](#ref-maurer2009empirical)；[Audibert et al., 2009](#ref-audibert2009exploration)）。
 - 用一个小验证集给训练数据打分的数据选择方法，例如 LESS（[Xia et al., 2024](#ref-xia2024less)），隐含地假设 proxy 的差距跟随任务的差距。(A) 把这个假设明确写出来，带一个尺度 $`\alpha`$ 和一个误差 $`\varepsilon_{\rm sur}`$。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-audibert2009exploration"></a>
+
+**Jean-Yves Audibert, Rémi Munos, Csaba Szepesvári (2009).** Exploration–exploitation tradeoff using variance estimates in multi-armed bandits. *Theoretical Computer Science* 410, no. 19, 1876–1902. DOI [10.1016/j.tcs.2009.01.016](https://doi.org/10.1016/j.tcs.2009.01.016).
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

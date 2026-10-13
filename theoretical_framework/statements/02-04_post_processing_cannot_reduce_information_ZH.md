@@ -65,3 +65,15 @@
 
 - 与环境无关的 garbling 不能提高任何决策问题的 Bayes value，这是 Blackwell 实验比较中容易的那个方向 ([Blackwell, 1953](#ref-blackwell1953equivalent))。
 - (2.5) 是 Markov 链 $`E\to D\to D'`$ 上 data-processing 不等式在决策论中的对应 ([Cover & Thomas, 2006](#ref-cover2006elements))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).

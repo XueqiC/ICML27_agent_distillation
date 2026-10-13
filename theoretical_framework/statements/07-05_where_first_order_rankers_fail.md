@@ -49,3 +49,11 @@
 **Used by.**
 
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) (steps 4–5) and [Remark 9.3](09-03_derivation_design_rules.md#s9-3) (Rules 3 and 5).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-glasserman2004monte"></a>
+
+**Paul Glasserman (2004).** Monte Carlo Methods in Financial Engineering. Springer, New York (Stochastic Modelling and Applied Probability 53). DOI [10.1007/978-0-387-21617-1](https://doi.org/10.1007/978-0-387-21617-1).

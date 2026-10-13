@@ -35,8 +35,12 @@
 
 ## 相关工作
 
-- 充分性的界用的是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)).
+- 充分性的界用的是有界独立变量的 Hoeffding 不等式 ([Hoeffding, 1963](#ref-hoeffding1963probability)).
 
 ## 参考文献
 
-- [Hoeffding, 1963](../references_ZH.md#hoeffding1963probability)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).

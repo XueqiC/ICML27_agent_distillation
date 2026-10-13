@@ -73,7 +73,7 @@ g^\top v=(g-\Phi b)^\top v+b^\top\Phi^\top v\le\mathrm{osc}(g-\Phi b)+\sum_j\lve
 \mathcal L(v;u,w)=g^\top v-u^\top(\Phi^\top v-\mathbf{\epsilon})-w^\top(-\Phi^\top v-\mathbf{\epsilon})=\big(g-\Phi(u-w)\big)^\top v+\mathbf{\epsilon}^\top(u+w).
 ```
 
-- $`\mathcal L`$ 是双线性的，$`\mathcal D`$ 紧且凸，$`\mathbb R^{2d}_{\ge0}`$ 凸。由 Sion minimax 定理 ([Sion, 1958](../references_ZH.md#sion1958general))，$`\max_{v\in\mathcal D}\inf_{u,w\ge0}\mathcal L=\inf_{u,w\ge0}\max_{v\in\mathcal D}\mathcal L`$。
+- $`\mathcal L`$ 是双线性的，$`\mathcal D`$ 紧且凸，$`\mathbb R^{2d}_{\ge0}`$ 凸。由 Sion minimax 定理 ([Sion, 1958](#ref-sion1958general))，$`\max_{v\in\mathcal D}\inf_{u,w\ge0}\mathcal L=\inf_{u,w\ge0}\max_{v\in\mathcal D}\mathcal L`$。
 - 左端等于 $`\max_{v\in\mathcal F}g^\top v`$，因为内层下确界在 $`\mathcal F`$ 上是 $`g^\top v`$，在 $`\mathcal F`$ 外是 $`-\infty`$。
 - 由 Claim 2，右端为 $`\inf_{u,w\ge0}\big[\mathrm{osc}(g-\Phi(u-w))+\mathbf{\epsilon}^\top(u+w)\big]`$。固定 $`b=u-w`$ 时，由 $`u_j+w_j\ge\lvert u_j-w_j\rvert`$ 有 $`\mathbf{\epsilon}^\top(u+w)\ge\sum_j\epsilon_j\lvert b_j\rvert`$，在 $`u=b^+`$、$`w=b^-`$ 处取等号。
 
@@ -91,4 +91,12 @@ g^\top v=(g-\Phi b)^\top v+b^\top\Phi^\top v\le\mathrm{osc}(g-\Phi b)+\sum_j\lve
 
 ## 参考文献
 
-- [Sion, 1958](../references_ZH.md#sion1958general). Sion, M. (1958). On general minimax theorems. Pacific Journal of Mathematics 8, no. 1, 171–176.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-bertsimas1997introduction"></a>
+
+**Dimitris Bertsimas, John N. Tsitsiklis (1997).** Introduction to Linear Optimization. Athena Scientific, Belmont, MA (Athena Scientific Series in Optimization and Neural Computation 6). ISBN 978-1-886529-19-9.
+
+<a id="ref-sion1958general"></a>
+
+**Maurice Sion (1958).** On general minimax theorems. *Pacific Journal of Mathematics* 8, no. 1, 171–176. DOI [10.2140/pjm.1958.8.171](https://doi.org/10.2140/pjm.1958.8.171).

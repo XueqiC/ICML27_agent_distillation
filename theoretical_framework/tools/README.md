@@ -272,3 +272,11 @@ commit ID, separately from the Markdown API cache.
 The supplementary API check remains available with `--online`; both flags may be
 combined. Unit tests inject Git, credentials and HTTP responses to exercise tree
 building, HTML parsing, caching, retries and ref cleanup entirely offline.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cervone2012mathjax"></a>
+
+**Davide Cervone (2012).** MathJax: A platform for mathematics on the Web. *Notices of the American Mathematical Society* 59, no. 2, 312–316. DOI [10.1090/noti794](https://doi.org/10.1090/noti794).

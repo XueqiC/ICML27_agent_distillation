@@ -48,7 +48,7 @@
 
 - [Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2): the distiller's term $`\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$ does not depend on $`\theta`$; definition of $`\mathbb I_{K,n}`$, of $`\mathfrak n_{K,n}`$ and of (G).
 
-**Classical tools.** Le Cam's two-point method ([Le Cam, 1973](../references.md#lecam1973convergence)); Pinsker's inequality and the chain rule for KL divergence ([Cover & Thomas, 2006](#ref-cover2006elements)); local asymptotics under differentiability in quadratic mean ([van der Vaart, 1998](../references.md#vandervaart1998asymptotic)).
+**Classical tools.** Le Cam's two-point method ([Le Cam, 1973](#ref-lecam1973convergence)); Pinsker's inequality and the chain rule for KL divergence ([Cover & Thomas, 2006](#ref-cover2006elements)); local asymptotics under differentiability in quadratic mean ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)).
 
 **Proof.** (a) Write $`s=\lvert\Psi(\theta_1)-\Psi(\theta_0)\rvert`$ and $`a(Q)=\sum_t\langle g_t,\mu^Q_t(z_t)\rangle`$, which does not depend on $`\theta`$ ([Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2)). By the triangle inequality,
 
@@ -82,12 +82,29 @@ With $`\tau=\mathbb I_{K,n}(\theta_0;h)^{-1/2}\to0`$ the square root in (a) is a
 
 ## Related work
 
-- **Lower-bound technique.** The two-point method is Le Cam's ([Le Cam, 1973](../references.md#lecam1973convergence)); the local form with Fisher information and differentiability in quadratic mean follows the standard local asymptotic minimax theory ([van der Vaart, 1998](../references.md#vandervaart1998asymptotic)). What is specific here is the functional: it is set by the learner's increment map and the declared task.
-- **Data and teacher selection scores.** LESS ([Xia et al., 2024](../references.md#xia2024less)) and GRACE ([Panigrahi et al., 2025](../references.md#panigrahi2025good)) score candidate data or teachers. Theorem A is not another score: it is a lower bound that no distiller can beat, together with the acquisition rule that attains it.
+- **Lower-bound technique.** The two-point method is Le Cam's ([Le Cam, 1973](#ref-lecam1973convergence)); the local form with Fisher information and differentiability in quadratic mean follows the standard local asymptotic minimax theory ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)). What is specific here is the functional: it is set by the learner's increment map and the declared task.
+- **Data and teacher selection scores.** LESS ([Xia et al., 2024](#ref-xia2024less)) and GRACE ([Panigrahi et al., 2025](#ref-panigrahi2025good)) score candidate data or teachers. Theorem A is not another score: it is a lower bound that no distiller can beat, together with the acquisition rule that attains it.
 
 ## References
 
-- [Le Cam, 1973](../references.md#lecam1973convergence)
-- [Panigrahi et al., 2025](../references.md#panigrahi2025good)
-- [van der Vaart, 1998](../references.md#vandervaart1998asymptotic)
-- [Xia et al., 2024](../references.md#xia2024less)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-cover2006elements"></a>
+
+**Thomas M. Cover, Joy A. Thomas (2006).** Elements of Information Theory. 2nd edition, Wiley-Interscience, Hoboken, NJ. DOI [10.1002/047174882X](https://doi.org/10.1002/047174882X).
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-panigrahi2025good"></a>
+
+**Abhishek Panigrahi, Bingbin Liu, Sadhika Malladi, Sham Kakade, Surbhi Goel (2025).** In good GRACEs: Principled teacher selection for knowledge distillation. arXiv preprint. arXiv [2511.02833](https://arxiv.org/abs/2511.02833).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

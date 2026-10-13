@@ -114,12 +114,28 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}(h)-e^{jk}_{\rm stat}(h)-e^{jk}_{\
 
 ## Related work
 
-- 一阶的数据归因分数，如 influence functions（[Koh & Liang, 2017](../references_ZH.md#koh2017understanding)）、TracIn（[Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)）、In-Run Data Shapley（[Wang et al., 2025](../references_ZH.md#wang2025data)）与 metagradient（[Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing)），使用目标关于训练数据或超参数的梯度。[Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) 说明这类一阶排序何时有保证，以及为什么一阶项低于余项的候选对无法被认证。Datamodels（[Ilyas et al., 2022](../references_ZH.md#ilyas2022datamodels)）通过对大量训练运行做回归来估计有限的重训练效应；Theorem 8.8 则在固定状态上用配对尾段测量一轮的有限效应。
+- 一阶的数据归因分数，如 influence functions（[Koh & Liang, 2017](#ref-koh2017understanding)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、In-Run Data Shapley（[Wang et al., 2025](#ref-wang2025data)）与 metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)），使用目标关于训练数据或超参数的梯度。[Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) 说明这类一阶排序何时有保证，以及为什么一阶项低于余项的候选对无法被认证。Datamodels（[Ilyas et al., 2022](#ref-ilyas2022datamodels)）通过对大量训练运行做回归来估计有限的重训练效应；Theorem 8.8 则在固定状态上用配对尾段测量一轮的有限效应。
 
 ## 参考文献
 
-- [Koh & Liang, 2017](../references_ZH.md#koh2017understanding). Koh, P. W., Liang, P. (2017). Understanding black-box predictions via influence functions. ICML.
-- [Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating). Pruthi, G., Liu, F., Kale, S., Sundararajan, M. (2020). Estimating training data influence by tracing gradient descent. NeurIPS.
-- [Wang et al., 2025](../references_ZH.md#wang2025data). Wang, J. T., Mittal, P., Song, D., Jia, R. (2025). Data Shapley in one training run. ICLR.
-- [Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing). Engstrom, L., Ilyas, A., Chen, B., Feldmann, A., Moses, W., Madry, A. (2025). Optimizing ML training with metagradient descent. arXiv:2503.13751.
-- [Ilyas et al., 2022](../references_ZH.md#ilyas2022datamodels). Ilyas, A., Park, S. M., Engstrom, L., Leclerc, G., Madry, A. (2022). Datamodels: Understanding predictions with data and data with predictions. ICML.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-engstrom2025optimizing"></a>
+
+**Logan Engstrom, Andrew Ilyas, Benjamin Chen, Axel Feldmann, William Moses, Aleksander Madry (2025).** Optimizing ML training with metagradient descent. arXiv preprint. arXiv [2503.13751](https://arxiv.org/abs/2503.13751).
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-wang2025data"></a>
+
+**Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).

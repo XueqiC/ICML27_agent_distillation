@@ -103,3 +103,15 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 - Accepting a candidate only through a high-confidence lower bound on its improvement, so that the guarantee survives, is the safety test of high-confidence policy improvement ([Thomas et al., 2015](#ref-thomas2015high)).
 - Fitting a cheap predictor of what training would produce on retrained runs, and judging it on held-out runs, is also how datamodels are fitted and validated ([Ilyas et al., 2022](#ref-ilyas2022datamodels)). The calibration here regresses task contrasts on surrogate scores at actual learner states.
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-thomas2015high"></a>
+
+**Philip S. Thomas, Georgios Theocharous, Mohammad Ghavamzadeh (2015).** High confidence policy improvement. *Proceedings of the 32nd International Conference on Machine Learning (ICML)*, PMLR 37:2380–2388. [proceedings.mlr.press/v37/thomas15](https://proceedings.mlr.press/v37/thomas15.html).

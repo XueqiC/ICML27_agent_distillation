@@ -55,3 +55,15 @@
 
 - A distiller is a measurable map of the transcript and independent randomness, so its output is a garbling of the data experiment in Blackwell's sense; a garbling is never more informative than the experiment for any decision problem ([Blackwell, 1953](#ref-blackwell1953equivalent)).
 - Counting a new teacher call at a new state as a query, rather than as free synthesis, matches interactive imitation learning, in which the expert labels the states the learner visits ([Ross et al., 2011](#ref-ross2011reduction)).
+
+## References
+
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-blackwell1953equivalent"></a>
+
+**David Blackwell (1953).** Equivalent comparisons of experiments. *The Annals of Mathematical Statistics* 24, no. 2, 265–272. DOI [10.1214/aoms/1177729032](https://doi.org/10.1214/aoms/1177729032).
+
+<a id="ref-ross2011reduction"></a>
+
+**Stéphane Ross, Geoffrey J. Gordon, J. Andrew Bagnell (2011).** A reduction of imitation learning and structured prediction to no-regret online learning. *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 15:627–635. [proceedings.mlr.press/v15/ross11a](https://proceedings.mlr.press/v15/ross11a.html).

@@ -710,10 +710,12 @@ def validate_references(files: list[Path], texts: dict[Path, str], report: Repor
             for anchor in sorted(section_anchors):
                 if anchor.startswith("ref-") and anchor[4:] not in keys[path]:
                     report.hit(path, references[0].line, f"ref-padding: uncited entry {anchor[4:]}")
-            for anchor in re.finditer(r'<[^>]+\b(?:id|name)=["\'](ref-[^"\']*)["\'][^>]*>',
+            for anchor in re.finditer(r'<[A-Za-z][^<>\n]*?\b(?:id|name)=["\']'
+                                      r'(ref-[^"\'<>\n]*)["\'][^<>\n]*>',
                                       refs.masked_source(text)):
-                if not any(s.content <= anchor.start() < s.end for s in references):
-                    report.hit(path, text.count("\n", 0, anchor.start()) + 1,
+                tag_start = anchor.start()
+                if not any(s.content <= tag_start < s.end for s in references):
+                    report.hit(path, text.count("\n", 0, tag_start) + 1,
                                f"ref-reserved: anchor {anchor[1]} outside references section")
             if valid_section and catalog and keys[path] <= set(catalog.keys):
                 section = references[0]

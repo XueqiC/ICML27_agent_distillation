@@ -157,9 +157,24 @@ and $`\Delta^m=(1-\beta_2)(G-m)`$. The parameter block's statistic is the flip-p
 
 ## Related work
 
-- Adam-preconditioned gradient features for data selection after a LoRA warm-up are used by LESS ([Xia et al., 2024](../references.md#xia2024less)); they correspond to the parameter block of Theorem 5.10(c). The Adam version of In-Run Data Shapley ([Ding et al., 2026](../references.md#ding2026inrun)) uses a fixed-state approximation, i.e. the current preconditioned step only.
+- Adam-preconditioned gradient features for data selection after a LoRA warm-up are used by LESS ([Xia et al., 2024](#ref-xia2024less)); they correspond to the parameter block of Theorem 5.10(c). The Adam version of In-Run Data Shapley ([Ding et al., 2026](#ref-ding2026inrun)) uses a fixed-state approximation, i.e. the current preconditioned step only.
 
 ## References
 
-- [Xia, M., Malladi, S., Gururangan, S., Arora, S., & Chen, D. (2024). LESS: Selecting influential data for targeted instruction tuning. *ICML*.](../references.md#xia2024less)
-- [Ding, M., Zhang, Z., Wang, D., & Hu, L. (2026). In-Run Data Shapley for Adam optimizer. arXiv:2602.00329.](../references.md#ding2026inrun)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-ding2026inrun"></a>
+
+**Meng Ding, Zeqing Zhang, Di Wang, Lijie Hu (2026).** In-Run Data Shapley for Adam optimizer. arXiv preprint. arXiv [2602.00329](https://arxiv.org/abs/2602.00329).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-xia2024less"></a>
+
+**Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, Danqi Chen (2024).** LESS: Selecting influential data for targeted instruction tuning. *Proceedings of the 41st International Conference on Machine Learning (ICML)*, PMLR 235:54104–54132. [proceedings.mlr.press/v235/xia24c](https://proceedings.mlr.press/v235/xia24c.html); arXiv [2402.04333](https://arxiv.org/abs/2402.04333).

@@ -110,3 +110,19 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 - bias correction 来自 [Kingma & Ba, 2015](#ref-kingma2015adam)；Proposition 5.8 说明它不改变 warmth。
 - Adam 的学习率 warm-up，以及促使人们使用 warm-up 的自适应学习率大方差问题，由 [Liu et al., 2020](#ref-liu2020variance) 分析。Proposition 5.8 补充的是：学习率为零的 warm-up 推进二阶矩的方式与真实更新完全相同；并且在固定的 $`\beta_2`$ 下，warmth 停在 $`(1-\beta_2)/\beta_2`$，不会趋于零。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).

@@ -58,3 +58,11 @@ p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i,\qquad w_i\ge0,\quad\sum_{i=0}^Rw_i=1 .
 ## Related work
 
 - 部署是一个带机会节点的单人 extensive-form 博弈（[Kuhn, 1953](#ref-kuhn1953extensive)），context 扮演 information set 的角色，$`p`$ 是 behaviour strategy：每个 context 一个动作概率，凡在该 context 下作决策都用它。由于同一个 context 可以在一条路径上重复出现，$`J_E`$ 在单个坐标 $`p_j`$ 上的次数可以大于 1。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-kuhn1953extensive"></a>
+
+**Harold W. Kuhn (1953).** Extensive games and the problem of information. In *Contributions to the Theory of Games, Volume II*, edited by H. W. Kuhn and A. W. Tucker, Annals of Mathematics Studies 28, 193–216, Princeton University Press, Princeton, NJ. DOI [10.1515/9781400881970-012](https://doi.org/10.1515/9781400881970-012).

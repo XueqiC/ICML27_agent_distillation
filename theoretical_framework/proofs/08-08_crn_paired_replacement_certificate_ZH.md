@@ -80,7 +80,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 **(a)** 由期望的线性，$`\mathbb EZ^{jk}_\ell=\mathbb E\varphi_{\omega_\ell}(\Delta^j_\ell)-\mathbb E\varphi_{\omega_\ell}(\Delta^k_\ell)`$。每一项只依赖于 $`(\omega_\ell,\Delta^j_\ell)`$ 的联合分布，它是 $`\omega`$ 的分布与 $`\Delta^j`$ 的边缘分布的乘积，与候选之间用什么耦合无关。所以两项分别等于 $`\tilde L(P^j)`$ 与 $`\tilde L(P^k)`$。在有限支撑上精确枚举时，把抽样换成内层平均，结论相同。
 
-**(b)** *Empirical Bernstein 界.* Maurer 与 Pontil（[2009](../references_ZH.md#maurer2009empirical)）证明了如下 empirical Bernstein 界：对 $`n\ge2`$ 个取值于 $`[0,1]`$ 的独立同分布变量 $`X_i`$，记其无偏样本方差为 $`V_n`$，则以至少 $`1-\delta'`$ 的概率，
+**(b)** *Empirical Bernstein 界.* Maurer 与 Pontil（[2009](#ref-maurer2009empirical)）证明了如下 empirical Bernstein 界：对 $`n\ge2`$ 个取值于 $`[0,1]`$ 的独立同分布变量 $`X_i`$，记其无偏样本方差为 $`V_n`$，则以至少 $`1-\delta'`$ 的概率，
 
 ```math
 \mathbb EX-\frac1n\sum_iX_i\le\sqrt{\frac{2V_n\log(2/\delta')}{n}}+\frac{7\log(2/\delta')}{3(n-1)} .
@@ -94,4 +94,8 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 ## 参考文献
 
-- [Maurer & Pontil, 2009](../references_ZH.md#maurer2009empirical). Maurer, A., Pontil, M. (2009). Empirical Bernstein bounds and sample variance penalization. COLT.
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-maurer2009empirical"></a>
+
+**Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).

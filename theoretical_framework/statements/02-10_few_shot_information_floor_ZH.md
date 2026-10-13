@@ -90,3 +90,15 @@ R_{\rm info}(K,n)=\frac{\mathbb E[(M_K-n)_+]}{2d},\qquad R_{\rm info}(K,0)=\frac
 
 - 均匀情形下每条示范揭示一个按部署分布抽出的上下文，$`2R_{\rm info}(K,0)=(1-1/d)^K`$ 就是抽 $`K`$ 次后该分布的期望 missing mass，即 Good–Turing 估计量从样本估计的那个量 ([Good, 1953](#ref-good1953population))。
 - (b) 中两个正部表达式的比较，是凸映射 $`x\mapsto(x-n)_+`$ 上的 Jensen 不等式 ([Jensen, 1906](#ref-jensen1906fonctions))。
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-good1953population"></a>
+
+**I. J. Good (1953).** The population frequencies of species and the estimation of population parameters. *Biometrika* 40, no. 3–4, 237–264. DOI [10.1093/biomet/40.3-4.237](https://doi.org/10.1093/biomet/40.3-4.237).
+
+<a id="ref-jensen1906fonctions"></a>
+
+**J. L. W. V. Jensen (1906).** Sur les fonctions convexes et les inégalités entre les valeurs moyennes. *Acta Mathematica* 30, 175–193. DOI [10.1007/BF02418571](https://doi.org/10.1007/BF02418571).

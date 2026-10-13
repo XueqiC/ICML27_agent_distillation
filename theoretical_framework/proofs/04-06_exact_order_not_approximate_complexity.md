@@ -10,7 +10,7 @@
 
 - Scalar task: one context visited $`N`$ times, success if all actions are 1, so a student with action probability $`p\in[0,1]`$ has deployment value $`J(p)=p^N`$.
 - Parity task on $`N`$ contexts, each visited once with independent actions $`a_j\sim\mathrm{Bernoulli}(p_j)`$, paying 1 if $`\sum_ja_j`$ is even: $`J_{\rm even}(p)=\tfrac12\big(1+\prod_{j=1}^N(1-2p_j)\big)`$ ([Theorem 4.4(c)](../statements/04-04_affine_learners_moment_order.md#s4-4)).
-- $`T_j`$ is the Chebyshev polynomial of the first kind ([Rivlin, 1990](../references.md#rivlin1990chebyshev)): $`T_j(\cos\theta)=\cos(j\theta)`$, so $`\lvert T_j\rvert\le1`$ on $`[-1,1]`$ and $`T_j(1)=1`$. $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$.
+- $`T_j`$ is the Chebyshev polynomial of the first kind ([Rivlin, 1990](#ref-rivlin1990chebyshev)): $`T_j(\cos\theta)=\cos(j\theta)`$, so $`\lvert T_j\rvert\le1`$ on $`[-1,1]`$ and $`T_j(1)=1`$. $`\mathcal P_q`$ is the set of polynomials of total degree at most $`q`$.
 - Laws $`P,Q`$ on $`[0,1]`$ (or on blocks $`Z\in[0,1]^k`$) and convex-affine learners $`p_R=w_0p_0+\sum_{i=1}^Rw_iZ_i`$ with IID blocks are as in [Definition 4.3](../statements/04-03_binary_context_student_affine_learner.md#s4-3). For a multi-index $`\alpha`$ with $`\lvert\alpha\rvert=a`$ (in the scalar case, $`\alpha=\ell`$), the block-moment expansion from the proof of [Theorem 4.4](04-04_affine_learners_moment_order.md) reads
 
 ```math
@@ -51,7 +51,7 @@ Grouping $`b=N\pm j`$ for $`j\ge1`$ with $`\binom{2N}{N+j}=\binom{2N}{N-j}`$ giv
 
 - All $`a_j\ge0`$ and $`\lvert T_j\rvert\le1`$, so $`\lvert p^N-h_q(p)\rvert\le\sum_{j>q}a_j`$, with equality at $`p=1`$ where every $`T_j(1)=1`$.
 - Pairing $`b=N-j`$ with $`b=N+j`$, $`\sum_{j=q+1}^Na_j=\sum_{b:\lvert b-N\rvert>q}\binom{2N}b4^{-N}=\Pr\lbrace\lvert B-N\rvert>q\rbrace`$.
-- $`B`$ is a sum of $`2N`$ independent $`\lbrace0,1\rbrace`$ variables with mean $`N`$, so Hoeffding's inequality ([Hoeffding, 1963](../references.md#hoeffding1963probability)) gives $`\Pr\lbrace\lvert B-N\rvert\ge q\rbrace\le2\exp(-2q^2/(2N))=2e^{-q^2/N}`$.
+- $`B`$ is a sum of $`2N`$ independent $`\lbrace0,1\rbrace`$ variables with mean $`N`$, so Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)) gives $`\Pr\lbrace\lvert B-N\rvert\ge q\rbrace\le2\exp(-2q^2/(2N))=2e^{-q^2/N}`$.
 
 *(a), second item.* Since $`h_q\in\mathcal P_q`$ and the laws match moments through $`q`$, $`\mathbb E_Ph_q(Z)=\mathbb E_Qh_q(Z)`$, so $`\lvert\mathbb E_PZ^N-\mathbb E_QZ^N\rvert=\lvert(P-Q)(p^N-h_q)\rvert\le\lVert P-Q\rVert_1\lVert p^N-h_q\rVert_\infty\le4e^{-q^2/N}`$.
 
@@ -90,10 +90,17 @@ so $`\lVert J_{\rm even}-h\rVert_\infty\ge\tfrac12`$. Equivalently, by [Theorem 
 
 ## Related work
 
-- Chebyshev expansions ([Rivlin, 1990](../references.md#rivlin1990chebyshev)), Hoeffding's inequality ([Hoeffding, 1963](../references.md#hoeffding1963probability)) and the independence of parity from proper coordinate subsets are classical tools; they are credited as such and not claimed as new.
+- Chebyshev expansions ([Rivlin, 1990](#ref-rivlin1990chebyshev)), Hoeffding's inequality ([Hoeffding, 1963](#ref-hoeffding1963probability)) and the independence of parity from proper coordinate subsets are classical tools; they are credited as such and not claimed as new.
 - What is added is their use to separate the exact information order of a response class from its approximate dimension.
 
 ## References
 
-- [Hoeffding, 1963](../references.md#hoeffding1963probability) — Hoeffding's inequality.
-- [Rivlin, 1990](../references.md#rivlin1990chebyshev) — Chebyshev polynomials.
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-hoeffding1963probability"></a>
+
+**Wassily Hoeffding (1963).** Probability inequalities for sums of bounded random variables. *Journal of the American Statistical Association* 58, no. 301, 13–30. DOI [10.1080/01621459.1963.10500830](https://doi.org/10.1080/01621459.1963.10500830).
+
+<a id="ref-rivlin1990chebyshev"></a>
+
+**Theodore J. Rivlin (1990).** Chebyshev Polynomials: From Approximation Theory to Algebra and Number Theory. 2nd edition, Wiley, New York. ISBN 978-0-471-62896-5.

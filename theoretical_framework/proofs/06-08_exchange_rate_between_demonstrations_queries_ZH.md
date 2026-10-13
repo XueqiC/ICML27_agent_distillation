@@ -37,3 +37,15 @@ K\,e_D(h)+n\,e_Q(h)\ge\frac{(c(\theta_0)^\top h)^2}{16\,\varepsilon^2}\,\big(1-o
 **用到的经典工具.** 与 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(b) 相同：Le Cam 两点法（[Le Cam, 1973](#ref-lecam1973convergence)）与 differentiability in quadratic mean 下的局部渐近理论（[van der Vaart, 1998](#ref-vandervaart1998asymptotic)）。
 
 **证明.** 由 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(b)，$`\varepsilon\ge\lvert c^\top h\rvert/(4\sqrt{\mathbb I_{K,n}(\theta_0;h)})\,(1-o(1))`$，其中 $`\mathbb I_{K,n}(\theta_0;h)=K\,e_D(h)+n\,e_Q(h)`$。移项即得；$`c^\top h=0`$ 的方向不产生约束。$`\square`$
+
+## 参考文献
+
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-lecam1973convergence"></a>
+
+**Lucien Le Cam (1973).** Convergence of estimates under dimensionality restrictions. *The Annals of Statistics* 1, no. 1, 38–53. DOI [10.1214/aos/1193342380](https://doi.org/10.1214/aos/1193342380).
+
+<a id="ref-vandervaart1998asymptotic"></a>
+
+**A. W. van der Vaart (1998).** Asymptotic Statistics. Cambridge University Press, Cambridge (Cambridge Series in Statistical and Probabilistic Mathematics 3). DOI [10.1017/CBO9780511802256](https://doi.org/10.1017/CBO9780511802256).

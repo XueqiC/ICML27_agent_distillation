@@ -34,7 +34,7 @@
 
 **Remark 5.2（与 stochastic modified equations、TracIn、influence function 和 metagradient 的关系）.**
 
-- Proposition 5.1 是对完整状态增量做 Taylor 展开，再代入逐轮的 telescoping 求和。它与 weak approximation / stochastic modified equations（[Li, Tai & E, 2019](../references_ZH.md#li2019stochastic)）、TracIn（[Pruthi et al., 2020](../references_ZH.md#pruthi2020estimating)）、influence function（[Koh & Liang, 2017](../references_ZH.md#koh2017understanding)）、metagradient（[Engstrom et al., 2025](../references_ZH.md#engstrom2025optimizing)）以及 In-Run Data Shapley（[Wang et al., 2025](../references_ZH.md#wang2025data)）属于同一类计算。我们不主张它的新颖性；它是推导后面结果的工具。
+- Proposition 5.1 是对完整状态增量做 Taylor 展开，再代入逐轮的 telescoping 求和。它与 weak approximation / stochastic modified equations（[Li, Tai & E, 2019](#ref-li2019stochastic)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）、influence function（[Koh & Liang, 2017](#ref-koh2017understanding)）、metagradient（[Engstrom et al., 2025](#ref-engstrom2025optimizing)）以及 In-Run Data Shapley（[Wang et al., 2025](#ref-wang2025data)）属于同一类计算。我们不主张它的新颖性；它是推导后面结果的工具。
 - 这套记账显式写出了：
   - *对象.* 一阶统计量是完整状态平均增量在 $`U`$ 上的投影，包括 optimizer 的矩 $`m`$ 和 $`v`$；既不是平均梯度，也不是 loss。梯度分布的哪些特征会进入，完全由 optimizer 映射 $`\Delta`$ 决定（Theorem 5.10）。
   - *特例.* 对 SGD，(a) 取 $`k=2`$ 就是 [Theorem 4.7](../statements/04-07_update_composition_amplifies_information_requirement_ZH.md#s4-7) 中的局部 SGD 展开；(c) 是 [Theorem 4.2(a)–(c)](../statements/04-02_sufficiency_duality_transfer_ZH.md#s4-2) 用于线性化的 response 类；(b) 是 [Theorem 3.2](../statements/03-02_continuation_response_characterization_ZH.md#s3-2) 的 telescoping 恒等式在每一轮插入局部展开。
@@ -52,8 +52,24 @@
 
 ## 参考文献
 
-- [Li, Q., Tai, C., & E, W. (2019). Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research*, vol. 20, no. 40.](../references_ZH.md#li2019stochastic)
-- [Pruthi, G., Liu, F., Kale, S., & Sundararajan, M. (2020). Estimating training data influence by tracing gradient descent. *NeurIPS*.](../references_ZH.md#pruthi2020estimating)
-- [Koh, P. W., & Liang, P. (2017). Understanding black-box predictions via influence functions. *ICML*.](../references_ZH.md#koh2017understanding)
-- [Engstrom, L., Ilyas, A., Chen, B., Feldmann, A., Moses, W., & Madry, A. (2025). Optimizing ML training with metagradient descent. arXiv:2503.13751.](../references_ZH.md#engstrom2025optimizing)
-- [Wang, J. T., Mittal, P., Song, D., & Jia, R. (2025). Data Shapley in one training run. *ICLR*.](../references_ZH.md#wang2025data)
+本页引用的文献。完整列表及每篇文献的使用位置见 [参考文献](../references_ZH.md)。
+
+<a id="ref-engstrom2025optimizing"></a>
+
+**Logan Engstrom, Andrew Ilyas, Benjamin Chen, Axel Feldmann, William Moses, Aleksander Madry (2025).** Optimizing ML training with metagradient descent. arXiv preprint. arXiv [2503.13751](https://arxiv.org/abs/2503.13751).
+
+<a id="ref-koh2017understanding"></a>
+
+**Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
+
+<a id="ref-li2019stochastic"></a>
+
+**Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).
+
+<a id="ref-pruthi2020estimating"></a>
+
+**Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-wang2025data"></a>
+
+**Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).

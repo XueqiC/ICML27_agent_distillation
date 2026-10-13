@@ -119,13 +119,32 @@ and the same holds under $`Q`$. The triangle inequality through the two ideal-si
 
 ## Related work
 
-- The bias-corrected first step of Adam and its sign-descent behaviour are standard: [Kingma & Ba (2015)](../references.md#kingma2015adam); [Balles & Hennig (2018)](../references.md#balles2018dissecting) on Adam as sign descent with variance adaptation; [Liu et al. (RAdam, ICLR 2020)](../references.md#liu2020variance) on early-step variance; signSGD ([Bernstein et al., 2018](../references.md#bernstein2018signsgd)) and Lion ([Chen et al., 2023](../references.md#chen2023symbolic)). Decoupled weight decay is [Loshchilov & Hutter (2019)](../references.md#loshchilov2019decoupled).
+- The bias-corrected first step of Adam and its sign-descent behaviour are standard: [Kingma & Ba (2015)](#ref-kingma2015adam); [Balles & Hennig (2018)](#ref-balles2018dissecting) on Adam as sign descent with variance adaptation; [Liu et al. (RAdam, ICLR 2020)](#ref-liu2020variance) on early-step variance; signSGD ([Bernstein et al., 2018](#ref-bernstein2018signsgd)) and Lion ([Chen et al., 2023](#ref-chen2023symbolic)). Decoupled weight decay is [Loshchilov & Hutter (2019)](#ref-loshchilov2019decoupled).
 
 ## References
 
-- [Kingma, D. P., & Ba, J. (2015). Adam: A method for stochastic optimization. *ICLR*.](../references.md#kingma2015adam)
-- [Balles, L., & Hennig, P. (2018). Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *ICML*.](../references.md#balles2018dissecting)
-- [Liu, L., Jiang, H., He, P., Chen, W., Liu, X., Gao, J., & Han, J. (2020). On the variance of the adaptive learning rate and beyond. *ICLR*.](../references.md#liu2020variance)
-- [Bernstein, J., Wang, Y.-X., Azizzadenesheli, K., & Anandkumar, A. (2018). signSGD: Compressed optimisation for non-convex problems. *ICML*.](../references.md#bernstein2018signsgd)
-- [Chen, X., Liang, C., Huang, D., Real, E., et al. (2023). Symbolic discovery of optimization algorithms. *NeurIPS*.](../references.md#chen2023symbolic)
-- [Loshchilov, I., & Hutter, F. (2019). Decoupled weight decay regularization. *ICLR*.](../references.md#loshchilov2019decoupled)
+Works cited on this page. The complete list, with the pages that use each work, is in [References](../references.md).
+
+<a id="ref-balles2018dissecting"></a>
+
+**Lukas Balles, Philipp Hennig (2018).** Dissecting Adam: The sign, magnitude and variance of stochastic gradients. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:404–413. [proceedings.mlr.press/v80/balles18a](https://proceedings.mlr.press/v80/balles18a.html).
+
+<a id="ref-bernstein2018signsgd"></a>
+
+**Jeremy Bernstein, Yu-Xiang Wang, Kamyar Azizzadenesheli, Animashree Anandkumar (2018).** signSGD: Compressed optimisation for non-convex problems. *Proceedings of the 35th International Conference on Machine Learning (ICML)*, PMLR 80:560–569. [proceedings.mlr.press/v80/bernstein18a](https://proceedings.mlr.press/v80/bernstein18a.html).
+
+<a id="ref-chen2023symbolic"></a>
+
+**Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
+
+<a id="ref-kingma2015adam"></a>
+
+**Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-liu2020variance"></a>
+
+**Liyuan Liu, Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao, Jiawei Han (2020).** On the variance of the adaptive learning rate and beyond. *8th International Conference on Learning Representations (ICLR)*. arXiv [1908.03265](https://arxiv.org/abs/1908.03265).
+
+<a id="ref-loshchilov2019decoupled"></a>
+
+**Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
