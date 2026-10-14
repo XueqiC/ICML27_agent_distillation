@@ -4,10 +4,11 @@
 #SBATCH --qos=yd24f.fsu
 #SBATCH --partition=hpg-milan
 #SBATCH --gpus=0
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
 #SBATCH --time=04:00:00
 #SBATCH --output=slurm-%j.out
+# Sizing (sacct): CPU-only API client, 0.03-0.07 busy cores, peak RSS 0.9 GB.
 # R1/R2 teacher collection (capped, cached, stop on non-200). CPU only.
 # Required: R03_MODE (r1|r2), R03_ROLLOUTS, R03_OUTDIR, SED_SECRETS_FILE. r1 also: R03_SELECTION, R03_K20. r2: R03_SELECTION.
 # Optional: R03_RUN_TAG, appended to every run ID. A run whose ledger holds a failed call stays halted by design

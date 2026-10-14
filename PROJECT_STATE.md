@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **12:0x CDT 10-14: pending requests resized to measured usage** (user: "我们以后申请的量应该按照实际估算"). sacct 10-01..10-14:
+  1-GPU continuation jobs (r0/r1/r3/gradstats/pilot, 20 jobs) 1.0 busy core, peak RSS ~23G; evals (53) 1.8-2.2 cores, <=23G;
+  IPR r4 sft 4.0 cores/24G; IPR/ETO explore 1.2-2.6 cores/<=15G; ETO 2-GPU DPO 2.0 cores, 99.5G; IPR 4-GPU DPO OOM at 160G.
+  Applied with scripts/ops_shrink_1014.sh (NumCPUs+MinCPUsNode+CpusPerTask together; every job re-checked, dependencies intact):
+  R1 p2p4 x4, R2 arms x6 (incl. 4 held), T1 smoke/transplant 6CPU/96G -> 3/48G; 8 evals 64G -> 48G (CPUs stay 14: pre-registered
+  comparisons use the 14-CPU noise-reference settings); IPR r5 sft 96G -> 48G; IPR r5 x1-x6 6 -> 4 CPU; ETO tp6 dpo3 8 -> 4 CPU.
+  DPO 4-GPU 256G kept. **ETO tp6 x3 45058903 was BadConstraints since 10-07** (NumCPUs=6 but MinCPUsNode=14, left by
+  ops_shrink_1007.sh) -> fixed to 4/32G, now eligible, so the ETO chain x3 -> dpo3 -> eval can run. Pending totals: 302 -> 234 CPU,
+  3744G -> 2992G. Templates (hpg_r03_*, hpg_t1_*) changed the same way; OMP_NUM_THREADS stays 6 (numerics unchanged).
 - **11:3x CDT 10-14: framework v0.17.1 — the user's review of v0.17 (16:19 UTC msg, "作为后续工作的统一底稿，不再推倒重写").**
   The user re-ran the 22+5 checks (PASS) and asked for local fixes only, freezing the main structure:
   (1) Thm 7.1(e) now holds only for exogenous tail randomness; the new 7.1(f) covers state-dependent sampling:

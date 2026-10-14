@@ -5,9 +5,11 @@
 #SBATCH --partition=hpg-b200
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=14
-#SBATCH --mem=64G
+#SBATCH --mem=48G
 #SBATCH --time=01:30:00
 #SBATCH --output=slurm-%j.out
+# Sizing (sacct, 53 evals): 1.8-2.2 busy cores, peak RSS 23 GB. CPUs stay 14 so pre-registered comparisons keep the
+# settings of the 14-CPU noise reference; a new eval protocol with its own reference should request 6.
 # Evaluate the final checkpoint of one continuation arm with the SAME eval tree and settings as the R0-R3 noise
 # reference (scripts/hpg_eval_adapters.slurm, r03_dev300, WORKERS=16, BATCH_INVARIANT=1).
 # Required: R03_CONT (continuation output dir), R03_NAME, EVAL_TREE (pinned code tree of the noise reference), OUT,

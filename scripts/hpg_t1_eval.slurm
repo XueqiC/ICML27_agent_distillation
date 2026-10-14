@@ -5,9 +5,11 @@
 #SBATCH --partition=hpg-b200
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=14
-#SBATCH --mem=64G
+#SBATCH --mem=48G
 #SBATCH --time=01:30:00
 #SBATCH --output=slurm-%j.out
+# Sizing (sacct, 53 evals): 1.8-2.2 busy cores, peak RSS 23 GB. CPUs stay 14 so pre-registered comparisons keep the
+# settings of the 14-CPU noise reference; a new eval protocol with its own reference should request 6.
 # Submit with: sbatch --dependency=afterok:<T1 job id> scripts/hpg_t1_eval.slurm
 # EVAL_TREE must be the pinned noise-reference tree, as in ops_r03_r2.sh.
 # Its hpg_eval_adapters.slurm accepts whitespace-delimited NAME=PATH entries.

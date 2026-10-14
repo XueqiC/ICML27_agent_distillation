@@ -4,8 +4,8 @@
 #SBATCH --qos=fsu-compsci-dept
 #SBATCH --partition=hpg-b200
 #SBATCH --gpus=1
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=96G
+#SBATCH --cpus-per-task=3
+#SBATCH --mem=48G
 #SBATCH --time=06:30:00
 #SBATCH --output=slurm-%j.out
 # Deploy to a new tree. Submit only after CPU and authorized GPU smoke checks.
@@ -16,6 +16,8 @@ source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false PYTHONDONTWRITEBYTECODE=1
+# Sizing (sacct 10-01..10-14, 20 jobs): ~1.0 busy core, peak RSS ~23 GB (gemma-4-12B weights). OMP_NUM_THREADS stays 6,
+# independent of the allocation, so CPU-side numerics match the earlier 6-CPU runs (R1 CRN pairing, T1 arms).
 export OMP_NUM_THREADS=6 CUBLAS_WORKSPACE_CONFIG=:4096:8 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True CUDA_DEVICE_ORDER=PCI_BUS_ID
 [[ -x "$TRAIN_PYTHON" && -d "$MODEL_PATH" && -f "$VERIFIED/manifest.json" ]]
 [[ -d "$T1_Z10" && -d "$T1_A0" && -f "$T1_EXTRA/manifest.json" && -f "$T1_EXTRA_STATES" && -f "$T1_SURR" ]]
