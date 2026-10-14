@@ -82,7 +82,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 **直觉.** 与其先线性化再给线性化误差找界，不如直接测有限效应；共享随机数抵消了两次独立运行会引入的尾段噪声。
 
-**在框架中的作用.** 它用一个测量代替 oracle continuation 梯度，也是方法中的选择步骤。它的严格性依赖已知的分数范围与校准过的 surrogate，这正是 Remark 8.12 的未解决问题。
+**在框架中的作用.** 它用一个测量代替 oracle continuation 梯度，也是方法中的选择步骤。它的严格性依赖已知的分数范围与校准过的 surrogate，这正是 Remark 8.17 的未解决问题。
 
 **关于陈述的说明.**
 

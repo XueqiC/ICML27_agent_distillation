@@ -25,7 +25,7 @@
 
 **Theorem 6.5 (Achievability; tight to constants in the scalar case).** Assume (G), the regularity of [Theorem 6.3](../statements/06-03_learner_relative_lower_bound.md#s6-3)(b), and:
 
-- **(R) Realizability.** For every $`\theta'\in\Theta`$ the distiller can emit the oracle law $`P^*_{\theta'}`$ at the audited states, for example by running a simulator or the teacher model at $`\theta'`$, or by reweighting messages obtained from queries.
+- **(R) Realizability.** For every $`\theta'\in\Theta`$ the distiller can emit the oracle law $`P^*_{\theta'}`$ at the audited states, for example by running a simulator or the teacher model at $`\theta'`$, or by reweighting messages obtained from queries. This is an assumption that the oracle law can be generated at every candidate environment. A distiller restricted to a finite pool of verified legal messages generally cannot do so; it must output a positive mixture of the pool, and [Proposition 6.14](../statements/06-14_convex_realizability_legal_pool.md#s6-14) states when that mixture matches the required feature means and what is paid when it cannot.
 - **(I) Identifiability.** Some design $`\xi_0`$ has $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$.
 - **(S) Smoothness.** $`\Psi\in C^2`$ near $`\theta_0`$ with $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$.
 - **Design.** Use the regularized c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$, with $`\xi^*`$ from [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4), $`\varepsilon_n\to0`$ and $`\varepsilon_n\sqrt n\to\infty`$ (for example $`\varepsilon_n=n^{-1/4}`$).
@@ -54,12 +54,13 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 **Role in the framework.**
 
 - It is the upper half of Theorem A: the information norm is the right measure of how sufficient a batch of experience is for a given learner.
+- The bound is an upper bound for a distiller that can generate $`P^*_{\hat\theta}`$. Without (R) it is not a default upper bound for real agent distillation: with a finite legal pool the realizability error of [Proposition 6.14](../statements/06-14_convex_realizability_legal_pool.md#s6-14) and the information–compilation radius of [Proposition 6.16](../statements/06-16_information_compilation_radius.md#s6-16) replace the plug-in step.
 
 **Derivation outline.**
 
 - The error of the plug-in output is $`\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$, bounded by the linear term $`\lvert c^\top(\hat\theta-\theta)\rvert`$ plus a quadratic remainder.
 - The regularized design loses only a factor $`1/(1-\varepsilon_n)`$ in $`c^\top A^{-1}c`$, so the linear term is $`\mathfrak n_{K,n}(1+o(1))`$ by Jensen's inequality and [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4).
-- The small nondegenerate component makes $`\hat\theta`$ consistent in every direction, so the remainder is $`o(N^{-1/2})`$; c-optimal designs alone are often singular and would not guarantee this.
+- The small nondegenerate component makes $`\hat\theta`$ consistent in every direction, so the remainder is $`o(N^{-1/2})`$; c-optimal designs alone are often singular ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)(b) allows exactly that) and would not guarantee this.
 
 **Illustration.** In a Gaussian linear experiment the plug-in error is exactly $`\sqrt{2/\pi}\,\mathfrak n_{K,n}\approx0.80\,\mathfrak n_{K,n}`$ at the optimal design, inside the band $`[1/4,1]`$.
 

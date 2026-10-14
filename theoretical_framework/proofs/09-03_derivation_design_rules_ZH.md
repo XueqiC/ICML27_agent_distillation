@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/09-03_derivation_design_rules_ZH.md) · [证明](09-03_derivation_design_rules_ZH.md) · [实验](../experiments/09-03_derivation_design_rules_ZH.md) · [English](09-03_derivation_design_rules.md)
 
-**本页推导什么.** 对 [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) 背后的六条设计规则中的每一条，给出迫使它成立的先前陈述。每一条推导要么应用一个该规则所遵守的已证明的界，要么借助一个先前的陈述给出一个实例：违反该规则的方法在其中失去保证。这些规则是获得所述保证的必要条件，而不是 CED 优于任何 baseline 的证明。
+**本页推导什么.** 对 [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) 背后的七条设计规则中的每一条，给出迫使它成立的先前陈述。每一条推导要么应用一个该规则所遵守的已证明的界，要么借助一个先前的陈述给出一个实例：违反该规则的方法在其中失去保证。这些规则是获得所述保证的必要条件，而不是 CED 优于任何 baseline 的证明。
 
 **本页用到的设定与记号.**
 
@@ -13,10 +13,11 @@
 - *信息.* $`D`$ 是 transcript；$`\mathcal R_{\rm info}(D)`$ 是它的信息 regret（[Theorem 2.2](../statements/02-02_regret_decomposition_decision_ambiguity_ZH.md#s2-2)）；$`\mathfrak n_{K,n}`$ 是 $`K`$ 条示范与 $`n`$ 次查询下的学习器相对信息范数，$`c=\sum_tJ_t^*g_t`$ 是学习器相对的目标向量：学习器相对泛函的梯度，把学习器平均增量关于环境参数的 Jacobian $`J_t`$ 与任务方向 $`g_t`$ 合在一起（[Definition 6.2](../statements/06-02_learner_relative_functional_information_norm_ZH.md#s6-2)）。
 - *平均增量.* $`\mu_t^P(z)=\mathbb E_P\Delta`$；warmth 度量一个 Adam 状态离它的冻结分母描述有多远（[Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11)）；$`p_{\rm act}`$ 是 [Proposition 5.9](../statements/05-09_partially_active_clipping_ZH.md#s5-9) 中的裁剪激活率，$`c`$ 是裁剪阈值。
 - *response 模型.* 特征 $`\phi_1,\dots,\phi_d`$，矩阵为 $`\Phi`$；response 模型 $`c+b^\top\phi`$，常数为 $`c`$、系数为 $`b`$；容差 $`\epsilon_j`$；response 估计 $`\widehat g`$ 满足 $`\lVert\widehat g-g\rVert_\infty\le\eta`$；$`\mathrm{osc}(h)=\max h-\min h`$。
-- *记号说明.* 与所引陈述一致，字母 $`c`$ 在 Rule 1 中是目标向量，在 Rule 3 中是裁剪阈值，在 Rule 4 与 Rule 6 中是 response 模型的常数；含义由所在的规则确定。
+- *记号说明.* 与所引陈述一致，字母 $`c`$ 在 Rule 1 中是目标向量，在 Rule 3 中是裁剪阈值，在 Rule 4 与 Rule 6 中是 response 模型的常数；含义由所在的规则确定。同样，$`r`$ 在 Rule 6 中是 response 模型的残差，写成 $`r(\mathcal M,\mathcal K)`$ 时是 Rule 7 中的信息—编译半径。
 - *迁移.* 方法迁移评测在新任务族 $`E'`$ 上用它自己的 $`K`$ 条示范重跑冻结协议 $`S`$ 得到的 $`L_{E'}(S)`$；策略迁移评测蒸馏好的学生 $`z`$ 不再更新时的 $`J_{E'}(\pi_z)`$。
+- *缺口（Rule 7）.* response 接口 $`\phi(y)\in\mathbb R^r`$ 及系数矩阵 $`C`$（[Definition 4.8](../statements/04-08_response_operator_ZH.md#s4-8)）；目标特征均值的置信集合 $`\mathcal M`$；有限合法池的混合能达到的 response 输出集合 $`\mathcal K`$；信息—编译半径 $`r(\mathcal M,\mathcal K)=\min_{q\in\mathcal K}\sup_{\mu\in\mathcal M}\lVert C\mu-q\rVert_\omega`$（[Proposition 6.16](../statements/06-16_information_compilation_radius_ZH.md#s6-16)）。
 
-**陈述（[Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3)）.** Algorithm 9.2 实现了六条规则，每条都是获得相应保证的必要条件：
+**陈述（[Remark 9.3](../statements/09-03_derivation_design_rules_ZH.md#s9-3)）.** Algorithm 9.2 实现了七条规则，每条都是获得相应保证的必要条件：
 
 - **Rule 1（先获取，再编译）.** transcript 无法确定、但与决策相关的事实，只能由新的允许实验提供；获取多少、在哪里获取，由学习器决定。
 - **Rule 2（按实测后果选择）.** 在声明的族上，选择规则与学习价值的排序一致，仅当它是平均 response $`\lbrace\bar g_t(z,j)\rbrace_j`$ 的函数，或是某个在该族上已证明对它们充分的统计量的函数。
@@ -28,6 +29,7 @@
   - (iii) 被 audit 状态上、带校准 surrogate 的 CRN 配对替换证书，沿训练推广只能靠 transport 项或重新 audit；
   - (iv) 冻结方法的整次训练随机对照，标注为经验结论。
 - **Rule 6（先冻结，再检验迁移）.** 选择器、特征、cell、surrogate 与候选都在评测它们的数据之前冻结；迁移只能通过目标 response 的已核实分解来保证，否则就要测量。方法迁移与策略迁移分开报告。
+- **Rule 7（把每个缺口交给对应的补救）.** 信息缺口靠获取来填，可实现性缺口靠扩充合法池，闭合缺口靠扩充测试或记录的状态；跨检查点复用与两保真度估计只在各自的成本条件核实后使用。
 
 这些规则本身并不说明某个 CED 实例优于某个给定的 baseline。
 
@@ -92,7 +94,25 @@
 
 反之，若某个目标 response 不在特征张成的空间中，就存在特征匹配、却被它区分的分布（[Theorem 4.2](../statements/04-02_sufficiency_duality_transfer_ZH.md#s4-2)(a)），只在训练族上做 audit 无法认证目标族。
 
-*两种迁移.* 方法迁移评测 $`L_{E'}(S)`$：把冻结的流程 $`S`$ 用到新任务族 $`E'`$、用它自己的 $`K`$ 条示范；它的检验类是 $`E'`$ 经由更新定义的 response 类。策略迁移评测 $`J_{E'}(\pi_z)`$：蒸馏好的学生 $`z`$ 不再更新；它的检验函数是 $`E'`$ 的部署得分。两者是检验类不同的两个泛函，一个的界不能推出另一个的界，所以分开报告。 $`\square`$
+*两种迁移.* 方法迁移评测 $`L_{E'}(S)`$：把冻结的流程 $`S`$ 用到新任务族 $`E'`$、用它自己的 $`K`$ 条示范；它的检验类是 $`E'`$ 经由更新定义的 response 类。策略迁移评测 $`J_{E'}(\pi_z)`$：蒸馏好的学生 $`z`$ 不再更新；它的检验函数是 $`E'`$ 的部署得分。两者是检验类不同的两个泛函，一个的界不能推出另一个的界，所以分开报告。
+
+**Rule 7（把每个缺口交给对应的补救）.** 四种补救不能互换；每一种都由一个陈述迫使，该陈述说明其他补救帮不上忙。
+
+*信息缺口要靠获取，而且只沿可见的方向获取.* 对固定的接口，[Proposition 6.16](../statements/06-16_information_compilation_radius_ZH.md#s6-16) 给出
+
+```math
+r(\mathcal M,\mathcal K)\ \ge\ \max\Big\lbrace\tfrac12\,\mathrm{diam}_\omega(C\mathcal M),\ \sup_{\mu\in\mathcal M}\mathrm{dist}_\omega(C\mu,\mathcal K)\Big\rbrace ,
+```
+
+并且只有当 $`C\mathcal M`$ 是 $`\mathcal K`$ 中的单点时才有 $`r(\mathcal M,\mathcal K)=0`$。由此得到两点。沿 $`\ker C`$ 缩小 $`\mathcal M`$ 不改变 $`C\mathcal M`$，因而两个下界都不变：只消除这类方向的查询，不能降低任何声明测试上的误差，所以获取要针对测试看得见的方向来计划（在哪里、获取多少由 Rule 1 给出）。直径项占主导时，transcript 让声明的测试仍不确定，只有新证据能缩小它（[Proposition 2.4](../statements/02-04_post_processing_cannot_reduce_information_ZH.md#s2-4)）。
+
+*可实现性缺口要靠更大的合法池.* 目标特征均值能被合法池的混合达到，当且仅当它落在合法池特征向量的凸包里（[Proposition 6.14](../statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14)）。为同一个目标获取更多信息，只会缩小 $`\mathcal M`$，不会移动 $`\mathcal K`$。在置信事件上，真实的目标均值 $`\mu_P`$ 属于每个置信集合，所以对每个 $`q\in\mathcal K`$，$`\mathcal M`$ 上的最坏情形至少是 $`\lVert C\mu_P-q\rVert_\omega\ge\mathrm{dist}_\omega(C\mu_P,\mathcal K)`$；不论获取多少信息，半径都不会低于 $`\mathrm{dist}_\omega(C\mu_P,\mathcal K)`$。只有扩充合法池、从而扩大 $`\mathcal K`$，才能降低它。负权重或未经核验的生成消息虽然能扩大 $`\mathcal K`$，但那是离开了合法反馈类。
+
+*闭合缺口要靠更多测试或更多状态.* 一个特征集合可以准确预测每个当前测试，却在一个未来测试上差 $`1`$，因为下一次更新把状态推向特征没有张成的方向（[Proposition 4.11](../statements/04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）。关于当前测试的查询发现不了这一点，因为当前测试按构造已经被预测准了。补救办法是加入缺少的未来测试，或者加入承载它们的状态坐标，直到测试空间在声明的更新下闭合。
+
+*估计成本缺口可以靠复用或两保真度估计，但只在各自的条件下.* 在新检查点复用锚点的接口，要付锚点的估计误差加上实测的算子漂移，而漂移本身需要用配对续训来认证（[Proposition 8.14](../statements/08-14_anchor_reuse_drift_certificate_ZH.md#s8-14)）；只有这些续训比重新拟合便宜时，复用才省计算。两保真度估计量恰好在它的成本条件下比完整续训便宜，而这个条件涉及的方差与相关系数必须由独立 pilot 支持（[Proposition 8.15](../statements/08-15_two_fidelity_response_estimation_ZH.md#s8-15)）。条件没有核实时，两种手段都可能比直接测量更贵。
+
+所以，把补救用在错的缺口上，只会花掉预算而不降低任何声明测试的误差；这就是为什么要先给缺口分类。 $`\square`$
 
 ## 相关工作
 

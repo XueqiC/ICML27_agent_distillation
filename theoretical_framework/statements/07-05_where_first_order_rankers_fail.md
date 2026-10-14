@@ -38,6 +38,7 @@
 
 - It limits the use of first-order scores in the method to pairs where the first-order term dominates and the share is low ([Algorithm 9.2](09-02_ced_algorithm.md#s9-2), steps 4–5), and routes the rest to the finite measurement of [Theorem 8.8](08-08_crn_paired_replacement_certificate.md#s8-8).
 - It explains why first-order data-attribution methods that are accurate under SGD can fail under Adam.
+- Its premise is the regime of [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2), a restricted mean-field model whose real-model prediction was not supported ([Check 7.6](../experiments/07-02_stationary_amplitude_law.md#c7-6)); the routing to finite measurement does not depend on that premise.
 
 **Uses.**
 

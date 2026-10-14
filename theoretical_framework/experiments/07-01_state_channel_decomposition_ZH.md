@@ -4,7 +4,12 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/07-01_state_channel_decomposition_ZH.md) · [证明](../proofs/07-01_state_channel_decomposition_ZH.md) · [实验](07-01_state_channel_decomposition_ZH.md) · [English](07-01_state_channel_decomposition.md)
 
-**本页检验什么.** 定理的 (a)：反向 costate 递推给出 continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的精确梯度。(b) 的通道拆分与 (d) 的闭式都是 (a) 的代数推论。**结论：通过.** 在全部 1,024 次方向比较中，adjoint 梯度都与中心差分一致，最大相对误差 $`2.8\times10^{-7}`$（容差 $`10^{-6}`$）。这些比较覆盖 256 组配置，包括 bias correction、decoupled weight decay、$`\epsilon>0`$ 与生效的全局范数裁剪。
+**本页检验什么.** 定理的 (a)：反向 costate 递推给出 continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的精确梯度。(b) 的通道拆分与 (d) 的闭式都是 (a) 的代数推论。**结论：通过.** 在全部 1,024 次方向比较中，adjoint 梯度都与中心差分一致，最大相对误差 $`2.8\times10^{-7}`$（容差 $`10^{-6}`$）。这些比较覆盖 256 组配置，包括 bias correction、decoupled weight decay、$`\epsilon>0`$ 与生效的全局范数裁剪。另有一个独立于该套件、单独写成的单步递推实现，与中心差分的误差为 $`7.5\times10^{-11}`$（[Check 7.7](#c7-7)）。
+
+| 检验 | 检验对象 | 代码 ID | 结果 |
+|---|---|---|---|
+| [Check 7.1](#c7-1) | (a)，完整尾段 | `v016:C4.costate` | 通过 |
+| [Check 7.7](#c7-7) | (a)，单步，独立实现 | `v017:C15.adjoint` | 通过 |
 
 **本页用到的设定与记号.**
 
@@ -53,6 +58,27 @@
 
 **局限.** 损失光滑、维数低；按设计不在裁剪阈值上求导，与定理一致。
 
+<a id="c7-7"></a>
+
+## Check 7.7 · costate 递推的单步独立实现（Theorem 7.1）
+
+**结论.** 通过。在 Hessian 非零、带 bias correction、$`\epsilon>0`$ 与 decoupled weight decay 的情形下，单步 costate 映射与中心有限差分的误差为 $`7.5\times10^{-11}`$（容差 $`10^{-8}`$）。
+
+**为什么做.** [Check 7.1](#c7-1) 在同一套代码里检验完整尾段。本检验在另一套检验中从头重新推导递推的一步，这样，如果那套代码里的递推和它的检验框架犯了同一个错误，这里就能发现。一步是基本单元：[Theorem 7.1](../statements/07-01_state_channel_decomposition_ZH.md#s7-1) 的递推就是把它反向复合起来。
+
+**设置.**
+
+- AdamW 的单个坐标，步数计数 $`s=5`$，$`\beta_1=0.9`$、$`\beta_2=0.999`$，学习率 $`0.07`$，$`\epsilon=0.03`$，decoupled weight decay $`0.1`$；状态 $`(\theta,m,v)=(0.7,0.2,0.8)`$。
+- consumed gradient 为 $`g(\theta)=\theta-0.3`$，因此 Hessian 是 $`1`$ 而不是 $`0`$。
+- 固定下一状态的 costate $`(\chi^\theta,\chi^m,\chi^v)=(0.4,-0.2,0.6)`$；目标函数是它与下一状态 $`(\theta',m',v')`$ 的内积。它关于 $`(\theta,m,v)`$ 的精确梯度正是递推的一步，其中 $`D_1`$、$`D_2`$ 与 $`J=1`$ 同定理。
+- 在三个坐标上各用步长 $`10^{-6}`$ 做中心差分；对欧氏误差设容差 $`10^{-8}`$。
+
+**结果.** 递推与有限差分梯度之间的欧氏误差为 $`7.5\times10^{-11}`$。
+
+**为什么支持该陈述.** 单步中的每一块都出现在检验里：$`\partial m'/\partial m=\beta_1`$、$`\partial v'/\partial v=\beta_2`$、$`\partial\theta'/\partial m'=-\eta D_1`$、$`\partial\theta'/\partial v'=\eta D_2`$，$`D_1,D_2`$ 中的 bias correction 因子，weight decay 因子 $`1-\eta\lambda_{\rm wd}`$，以及经由 $`g(\theta)`$ 的 Jacobian 项。任何一块写错，误差都会达到那一块的量级，远高于容差。
+
+**局限.** 单个坐标、单步；长尾段上的复合由 [Check 7.1](#c7-1) 检验。
+
 ## 复现
 
 在仓库根目录下运行（仅 CPU）：
@@ -65,6 +91,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - costate 这一组（`v016:C4.costate`）在 rai 上约 16 秒；不加 `--only` 时整套约 104 秒。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
 
+[Check 7.7](#c7-7) 的独立单步检验：
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
 本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
@@ -72,6 +104,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - `theory/v016_checks/results_v016.json`：claim id `v016:C4.costate`，含断言与逐配置误差。
 - `theory/v016_checks/results_v016_raw.json.gz`：原始数组，通过 JSON pointer 引用。未提交到 git；SHA-256 为 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`。
 - `theory/v016_checks/SPEC.md`（`v016:C4` 一节）、`check_v016.py` 及其测试。
+- `theory/v017_checks/results_v017.json`：条目 `v017:C15.adjoint`（`theory/v017_checks/check_v017.py` 中的函数 `c_adjoint`）。
 
 ## 参考文献
 

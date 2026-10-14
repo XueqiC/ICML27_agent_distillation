@@ -64,7 +64,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 **是什么.** 给定历史时副本独立；每个配对分数有事先已知的取值范围；surrogate 差与任务差在一个倍数和一个误差内对齐。
 
-**在框架中的作用.** 这是 Theorem 8.8 仅有的假设；其中的取值范围与对齐，正是 Remark 8.12 的两个未解决问题。
+**在框架中的作用.** 这是 Theorem 8.8 仅有的假设；其中的取值范围与对齐，正是 Remark 8.17 的两个未解决问题。
 
 **用到.**
 
@@ -75,7 +75,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) — 证书
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion_ZH.md#s8-9) — 一阶变体
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer_ZH.md#s8-11) — 对齐如何校准
-- [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 关于范围与对齐的未解决问题
+- [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) — 关于范围与对齐的未解决问题
 
 ## Related work
 

@@ -38,6 +38,7 @@
 
 - 它把方法中一阶分数的使用限制在一阶项占主导、占比低的候选对上（[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 4–5 步），其余交给 [Theorem 8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的有限测量。
 - 它解释了为什么在 SGD 下准确的一阶 data attribution 方法到了 Adam 下会失效。
+- 它的前提是 [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 的区间；那是一个受限的 mean-field 模型，它对真实模型的预测没有得到支持（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）。把排序交给有限测量这一点并不依赖这个前提。
 
 **用到.**
 

@@ -4,7 +4,10 @@
 
 [← Framework](../README.md) · [Statement](../statements/06-04_design_minimax_equality.md) · [Proof](../proofs/06-04_design_minimax_equality.md) · [Experiments](../experiments/06-04_design_minimax_equality.md) · [中文](06-04_design_minimax_equality_ZH.md)
 
-**What is tested here.** Lemma 6.4 is tested by [Check 6.1](../experiments/06-04_design_minimax_equality.md#c6-1): on 216 instances, including singular and non-identifiable ones, the c-optimal design value and the dual information norm agree to a relative gap of at most $`4.5\times10^{-13}`$. Verdict: PASS.
+**What is tested here.** Two checks.
+
+- [Check 6.1](../experiments/06-04_design_minimax_equality.md#c6-1): on 216 instances, including singular and non-identifiable ones, the c-optimal design value and the dual information norm agree to a relative gap of at most $`4.5\times10^{-13}`$. Verdict: PASS.
+- [Check 6.7](../experiments/06-04_design_minimax_equality.md#c6-7): an instance in which **every** design leaves one parameter direction unidentified, so no $`A(\xi)`$ is invertible. The pseudo-inverse design value and the dual are both $`2.25`$, attained at the predicted design. Verdict: PASS.
 
 **Setting used on this page.**
 
@@ -20,14 +23,30 @@
 - **Learner-relative information norm** $`\mathfrak n_{K,n}(\theta)=\sup_{h\neq0}\lvert c(\theta)^\top h\rvert/\sqrt{\mathbb I_{K,n}(\theta;h)}`$, with $`0/0=0`$ and $`a/0=\infty`$ for $`a>0`$.
 - **Growth condition (G)**: there are $`N\to\infty`$ and $`0<a\le b<\infty`$ with $`aN\le\mathbb I_{K,n}(\theta_0;h)\le bN`$ for every unit $`h`$.
 - **Designs.** An approximate design $`\xi`$ is a probability measure on the query space; it spreads the $`n`$ queries over query points. $`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$ is the average query information and $`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$ the total information of demonstrations plus queries.
+- **Singular information.** $`I_D(\theta)`$ and every $`I_Q(\theta;x)`$ are positive semidefinite, so $`A(\xi)`$ is positive semidefinite and may be singular. For a positive semidefinite $`A`$, $`A^+`$ is its Moore–Penrose pseudo-inverse and $`\mathrm{range}(A)=(\ker A)^\perp`$.
 
-**Statement under test ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)).** Assume that $`\mathcal X_Q`$ is a compact metric space and that $`x\mapsto I_Q(\theta;x)`$ is continuous. Let $`\xi`$ range over the Borel probability measures on $`\mathcal X_Q`$ (approximate designs), put $`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$ and $`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$, and assume $`A(\xi)\succ0`$ for every $`\xi`$. Then
+**Statement under test ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)).** Assume that $`\mathcal X_Q`$ is a compact metric space and that $`x\mapsto I_Q(\theta;x)`$ is continuous. Let $`\xi`$ range over the Borel probability measures on $`\mathcal X_Q`$ (approximate designs), put $`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$ and $`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$; no design is required to make $`A(\xi)`$ invertible. For a positive semidefinite matrix $`A`$ put
 
 ```math
-\inf_\xi c^\top A(\xi)^{-1}c=\sup_{h\neq0}\frac{(c^\top h)^2}{K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h}=\mathfrak n_{K,n}^2 ,
+\Phi_c(A)=\begin{cases}c^\top A^+c, & c\in\mathrm{range}(A),\\ +\infty, & c\notin\mathrm{range}(A).\end{cases}
 ```
 
-and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** for the target vector $`c=\sum_tJ_t^*g_t`$. For $`n=0`$ and singular $`I_D`$, the identity holds with $`c^\top(KI_D)^+c`$ when $`c\in\mathrm{range}(I_D)`$, and with $`+\infty`$ on both sides otherwise.
+Then, with the conventions $`0/0=0`$ and $`a/0=+\infty`$ for $`a>0`$,
+
+```math
+\inf_\xi\Phi_c\big(A(\xi)\big)=\sup_{h\neq0}\frac{(c^\top h)^2}{K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h}=\mathfrak n_{K,n}^2 ,
+```
+
+and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** for the target vector $`c=\sum_tJ_t^*g_t`$. Moreover:
+
+- **(a) Invertible designs.** If $`A(\xi)\succ0`$ for every $`\xi`$, then $`\Phi_c(A(\xi))=c^\top A(\xi)^{-1}c`$, and the identity is the classical c-optimal design equality.
+- **(b) When the value is finite.** Call $`h`$ *uninformed* if $`K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h=0`$. The common value is finite if and only if $`c^\top h=0`$ for every uninformed $`h`$. In that case $`c\in\mathrm{range}\,A(\xi^*)`$, and $`\xi^*`$ may leave every uninformed direction unidentified.
+- **(c) No queries.** For $`n=0`$ and $`K>0`$ the value is $`c^\top(KI_D)^+c`$ when $`c\in\mathrm{range}(I_D)`$, and $`+\infty`$ otherwise.
+
+| Check | Tests | Code ID | Result |
+|---|---|---|---|
+| [Check 6.1](#c6-1) | the identity on full-rank, singular and non-identifiable instances | `v016:C2.design` | PASS |
+| [Check 6.7](#c6-7) | the identity and attainment when every design is singular, part (b) | `v017:C12.singular` | PASS |
 
 <a id="c6-1"></a>
 
@@ -64,6 +83,34 @@ and the infimum is attained by some design $`\xi^*`$, the **c-optimal design** f
 
 *Figure 6.1, panel (b) concerns this page.* The c-optimal design value against the dual information objective (Lemma 6.4), on the diagonal; the 24 settings that are infinite on both sides are counted, not plotted. Panels (a) and (c) belong to Theorems 6.3/6.5 and Corollary 6.7.
 
+<a id="c6-7"></a>
+
+## Check 6.7 · Every design singular: pseudo-inverse value equals the dual (Lemma 6.4(b))
+
+**Verdict.** PASS. No design makes $`A(\xi)`$ invertible, yet the value $`\inf_\xi\Phi_c(A(\xi))`$ and the dual supremum agree exactly ($`2.25`$ on both sides), the optimal design is the predicted one, and a grid over all designs never goes below it.
+
+**Why.** Part (b) of [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4) drops the requirement that every design be invertible. The smallest case that tests it has a nuisance direction that no design can inform: the earlier formulation does not apply to it at all, while the lemma predicts a finite value because the target does not load on that direction.
+
+**Setup.**
+
+- Parameter $`\theta\in\mathbb R^3`$, no demonstrations ($`K=0`$), one unit of query budget ($`n=1`$).
+- Two query points: $`x_1`$ with information $`I_Q(x_1)=e_1e_1^\top`$ and $`x_2`$ with $`I_Q(x_2)=4\,e_2e_2^\top`$. A design puts weight $`p`$ on $`x_1`$ and $`1-p`$ on $`x_2`$, so $`A(p)=\mathrm{diag}(p,\,4(1-p),\,0)`$; the third coordinate is never informed.
+- Target $`c=(1,1,0)`$, so $`c^\top h=0`$ for the uninformed direction $`e_3`$, and $`c\in\mathrm{range}\,A(p)`$ for $`0<p<1`$. Then $`\Phi_c(A(p))=1/p+1/(4(1-p))`$, minimized at $`p^*=2/3`$ with value $`9/4`$.
+- Dual: $`\sup_h(c^\top h)^2/\max\lbrace h_1^2,4h_2^2\rbrace`$, evaluated at $`h=(2,1,7)`$; the third coordinate is arbitrary because it enters neither side.
+- Independent confirmation: $`\Phi_c(A(p))`$ on a grid of 10,001 values of $`p\in[0.001,0.999]`$.
+
+**Result.**
+
+| Quantity | Value |
+|---|---|
+| primal $`c^\top A(p^*)^+c`$ at $`p^*=2/3`$ | 2.25 |
+| dual at $`h=(2,1,7)`$ | 2.25 |
+| grid minimum over designs | 2.2500000000045 |
+| rank of $`A(p^*)`$ | 2 of 3 |
+| uninformed directions | 1 |
+
+**Why it supports Lemma 6.4.** Equality of the primal and dual values certifies that both are optimal, and the grid confirms that no design does better. The optimal design leaves $`e_3`$ unidentified and loses nothing, which is exactly the content of part (b): directions that the target ignores never need to be identified.
+
 ## Reproduce
 
 From the repository root (CPU only):
@@ -73,13 +120,20 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-The first command reruns the check group(s) of this page into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). All checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
+The first command reruns the `v016` check group of [Check 6.1](#c6-1) into a separate file; `theory/v016_checks/check_v016.py` without `--only` regenerates the full result file (about 104 s). These checks run in float64 on CPU with seeds `numpy.SeedSequence([160160, group, subcase, ...])` (PCG64). [Check 6.7](#c6-7) is part of the `v017` suite, which runs in a few seconds:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
+The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) for linear algebra and random numbers, and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)) for optimization and statistical functions.
 
 ## Artifacts
 
 - `theory/v016_checks/results_v016.json`: claim ids `v016:C2.design`, each with assertions, worst residuals, failures and data rows.
 - `theory/v016_checks/results_v016_raw.json.gz`: complete rows; not tracked by git, its SHA-256 is recorded under `raw_artifact` in the main file.
 - `theory/v016_checks/SPEC.md` (sections `v016:C2`) and `theory/v016_checks/check_v016.py`.
+- `theory/v017_checks/results_v017.json`: entry `v017:C12.singular`; function `c_singular` in `theory/v017_checks/check_v017.py`.
 - `figures/fig6_1_information_bound.png` (PDF alongside)
 
 ## References

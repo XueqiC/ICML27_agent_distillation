@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](07-01_state_channel_decomposition_ZH.md) · [证明](../proofs/07-01_state_channel_decomposition_ZH.md) · [实验](../experiments/07-01_state_channel_decomposition_ZH.md) · [English](07-01_state_channel_decomposition.md)
 
-**一段话概括.** 在 Adam 下，一条训练消息改变的不只是参数：它还改变 running moment $`m`$ 与 $`v`$，并通过它们影响此后训练的每一步。本定理对带 bias correction、decoupled weight decay、$`\epsilon`$ 与全局范数裁剪的 Adam/AdamW，沿剩余训练做一次反向（costate）递推，算出最终结果关于整个 optimizer state 的精确梯度。有了这个梯度，一条消息的一阶价值就精确地分成三部分：经由参数、经由动量、经由二阶矩。它与 [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 合称框架中的 **Theorem B**。
+**一段话概括.** 在 Adam 下，一条训练消息改变的不只是参数：它还改变 running moment $`m`$ 与 $`v`$，并通过它们影响此后训练的每一步。本定理对带 bias correction、decoupled weight decay、$`\epsilon`$ 与全局范数裁剪的 Adam/AdamW，沿剩余训练做一次反向（costate）递推，算出最终结果关于整个 optimizer state 的精确梯度。有了这个梯度，一条消息的一阶价值就精确地分成三部分：经由参数、经由动量、经由二阶矩。它与 [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6) 合称框架中的 **Theorem B**。
 
 **本页用到的设定与记号.**
 
@@ -87,7 +87,8 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 **在框架中的作用.**
 
 - 它让 [Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1) 一阶表示中 optimizer state 的那一部分在 Adam 下可以计算。
-- [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 把它算成闭式；[Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 用它说明只看参数的影响分数与余弦分数不一致；[Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5) 指出它的一阶用法在哪里失效。
+- 它与 [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6) 合称 Theorem B：本定理给出一条消息经三个通道的精确一阶价值，Proposition 7.6 用一个精确的例子说明动量通道与二阶矩通道不能丢掉。两者都不需要平稳性、线性 response 或 mean-field 替换。
+- [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 在一个受限的 mean-field 模型里把它算成闭式，该模型对真实模型的预测没有得到支持；[Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 在该模型里用它说明只看参数的影响分数与余弦分数不一致；[Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5) 指出它的一阶用法在哪里失效。
 
 **推导要点.**
 
@@ -102,7 +103,8 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 
 **被用于.**
 
-- [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2)：闭式的幅度定律。
+- [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2)：受限 mean-field 模型中闭式的幅度定律。
+- [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6)：参数增量相同的两条消息在哪些通道上不同。
 - [Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)：两类 proxy 的不一致性。
 - [Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5)：一阶排序器在哪里失效。
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 与 [Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)：方法中的幅度控制。

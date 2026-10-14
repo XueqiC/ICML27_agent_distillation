@@ -1,14 +1,15 @@
-# Corollary 7.2 · 平稳情形的幅度定律
+# Corollary 7.2 · 平稳情形的幅度定律（受限的 mean-field 模型）
 
 *实验*
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/07-02_stationary_amplitude_law_ZH.md) · [证明](../proofs/07-02_stationary_amplitude_law_ZH.md) · [实验](07-02_stationary_amplitude_law_ZH.md) · [English](07-02_stationary_amplitude_law.md)
 
-**本页检验什么.** 推论的三个部分，在带随机梯度的精确一维 Adam 上，与用 common random numbers 测得的有限 response 对比。
+**本页检验什么.** 推论的三个部分，在带随机梯度的精确一维 Adam 上，与用 common random numbers 测得的有限 response 对比；以及在真实模型上由 (a) 得到的预测。
 
 - **(a) 精确的 mean-field response.** 在全部 213 个网格点上，公式与实测有限 response 之差不超过 response 尺度的 2.7%（**通过**）。26 组有变负点的设定中，25 组预测变负点与实测相差不超过 3.9%；其余 7 组两者都不变负。紧挨变负判据的一组设定（$`\beta_2=0.99`$、$`\rho=0.245`$、$`T=50`$）没有达到 10% 的容差：预测 68.6，实测 $`77.0\pm4.0`$，相对误差 10.9%（**FAIL**，如实报告）。
 - **(b) 二次律.** 在适用范围内 response 误差不超过 1.5%，$`2\lambda^\star`$ 与实测变负点相差不超过 0.6%（**通过**）。超出适用范围时，$`2\lambda^\star`$ 最多把变负点低估 5.7 倍，与推论中的警告一致。
 - **(c) 大幅度判据.** 精确极限的符号在 33/33 组设定上正确区分了变负与不变负（**通过**）。
+- **真实模型（[Check 7.6](#c7-6)）.** 用一个 warm checkpoint 保存的 optimizer state、在实测之前算好的 (a) 的预测**没有得到支持**：同一个 batch 按五个幅度施加，实测 response 都为正且落在诊断半径之内，预测都为负，绝对值是实测的 28 到 339 倍。
 
 **本页用到的设定与记号.**
 
@@ -34,6 +35,7 @@
 |---|---|---|---|
 | [Check 7.2](#c7-2) | (a) 与 (c) | `v016:C4.amplitude` | FAIL（26 个变负点中 1 个） |
 | [Check 7.3](#c7-3) | (b) | `v016:C4.amplitude` | 通过 |
+| [Check 7.6](#c7-6) | 由 (a) 得到的真实模型预测 | `v017:R3.r3` | 预测未获支持（记录检验通过） |
 
 [Check 7.2](#c7-2) 与 [Check 7.3](#c7-3) 共用一个代码 ID：其中唯一 FAIL 的断言是 [Check 7.2](#c7-2) 的变负点比较；[Check 7.3](#c7-3) 的断言全部通过。
 
@@ -150,6 +152,38 @@
 
 **局限.** 与 [Check 7.2](#c7-2) 相同：推论自身的单坐标、外生梯度设定。
 
+<a id="c7-6"></a>
+
+## Check 7.6 · warm checkpoint 上由 (a) 得到的真实模型预测（Corollary 7.2(a)）
+
+**结论.** 预测**没有得到支持**。关闭裁剪时，同一个 batch 在全部五个幅度上的实测 response 都为正，且都落在各自的诊断半径之内。预测的 response 在五个幅度上都为负，落在每一个实测区间之外，绝对值是实测的 28 到 339 倍。按实测之前写定的判据（五个实测 response 都为负且都超出诊断半径），结果记为"不支持"。记录检验 `v017:R3.r3` 从保存的运行输出重新算出这些数字，检验通过。
+
+**为什么做.** Corollary 7.2(a) 在它自己的模型里精确成立。真实模型检验问的是：这个模型能否预测一次真实的训练更新。预测在任何测量之前就已算出并写定：把保存的 optimizer state 逐坐标代入 (a)，再对坐标求和。
+
+**设置.**
+
+- *状态.* ALFWorld（[Shridhar et al., 2021](#ref-shridhar2021alfworld)）上 K20 Seed-SFT 训练的 warm checkpoint $`z_{10}`$，即真实模型检验的起点；配置见[预注册文档](../../docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md)。
+- *消息.* 固定一个参考 batch，把它的损失乘以 $`c\in\lbrace0.5,1,2,4,8\rbrace`$ 做一次更新，这次更新关闭全局范数裁剪。只有幅度在变，所以各个 $`c`$ 的余弦分数完全相同。对照是零梯度消息。另有两个保持裁剪的臂（$`c=1`$ 与 $`c=4`$），裁剪后的梯度完全相同；比较它们只是对 [Remark 7.4](../statements/07-04_relation_prior_work_role_clipping_ZH.md#s7-4) 机制的核对，不属于本检验。
+- *测量.* 消息之后走 $`T=10`$ 次参照尾段更新，各臂共享随机数，共 16 个独立副本。得分 $`\tilde F`$ 是 40 条留出 teacher 轨迹上每 token 平均的 teacher-forced log-likelihood，这些轨迹从不进入训练（预注册写的是 80 条，改为 40 条这一偏离在任何测量之前就已记录）。$`\delta\tilde F(c)`$ 是相对零消息的配对差的均值。半径是 [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的半径，只是把先验范围换成了配对分数的观测范围，因此它是诊断量，不是证书。
+- *预测.* 对每个坐标 $`i`$，把保存状态中经 bias correction 的 $`m_i`$、$`v_i`$ 当作平稳尾段的均值与平方均值；把 $`\rho_i=\lvert m_i\rvert/\sqrt{v_i}`$、$`\lambda_i(c)=c\,g_i\,\mathrm{sign}(m_i)/\sqrt{v_i}`$、$`\alpha_i=-\partial_i\tilde F\,\mathrm{sign}(m_i)`$ 代入 $`T=10`$ 的 (a)，再对坐标求和。这用上了推论的全部前提：不随步数变化的 bias correction、$`\epsilon=0`$、mean-field 替换、尾段梯度与 $`\theta`$ 无关、$`\tilde F`$ 在恢复的状态处线性化，且没有跨坐标的曲率。
+
+**结果.** 每 token 得分，关闭裁剪。
+
+| $`c`$ | 实测 $`\delta\tilde F`$ | 诊断半径 | 预测 $`\delta\tilde F`$ | 实测在半径内 | $`\lvert\text{预测}/\text{实测}\rvert`$ |
+|---:|---:|---:|---:|---|---:|
+| 0.5 | +0.000498 | 0.00637 | −0.0191 | 是 | 38 |
+| 1 | +0.001231 | 0.00741 | −0.0346 | 是 | 28 |
+| 2 | +0.001092 | 0.00440 | −0.0544 | 是 | 50 |
+| 4 | +0.000726 | 0.00541 | −0.0711 | 是 | 98 |
+| 8 | +0.000236 | 0.00586 | −0.0800 | 是 | 339 |
+
+- 每个预测值都落在对应的实测区间 $`\delta\tilde F\pm\text{半径}`$ 之外。最小的预测绝对值是 $`c=0.5`$ 时的 $`0.0191`$，超过最大半径 $`0.0074`$ 的两倍。
+- 真实 response 的符号没有确定，因为每个实测值都在半径之内。测量能确定的是：response 远小于预测，而且并不明显为负。
+
+**为什么支持该陈述.** 这项检验与推论的数学并不矛盾，因为真实更新并不满足推论的前提。它说明的是：在这个状态上，推论预测不了一次真实的训练更新。这正是陈述页把它归为受限模型、并把它排除在 Theorem B 之外的原因。最可能失效的前提是线性 response：在真实网络中，尾段梯度会随 $`\theta`$ 变化，而模型把它们固定住了。这是假说，没有单独检验。
+
+**局限.** 一个状态、一个 batch、五个幅度、16 个副本，而且用的是 surrogate 得分而不是任务成功率。在这个状态上，这个 batch 对 surrogate 的直接效应为负，所以预测没有内部峰值；要检验最优幅度，需要一个直接效应为正的状态，本检验不涉及。
+
 ## 复现
 
 在仓库根目录下运行（仅 CPU）：
@@ -162,6 +196,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - 幅度这一组（`v016:C4.amplitude`）在 rai 上约 29 秒。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
 
+[Check 7.6](#c7-6) 的真实模型记录检验从保存的运行输出重新算出报告的数字：
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
 本检验使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
 
 ## 产物
@@ -170,6 +210,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - `theory/v016_checks/results_v016_raw.json.gz`：原始数组，通过 JSON pointer 引用。未提交到 git；SHA-256 为 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`。
 - `theory/v016_checks/SPEC.md`（`v016:C4` 一节）、`check_v016.py` 及其测试。
 - `figures/fig7_1_amplitude_law.{png,pdf}` 及其在 `figures/specs/` 中的说明。
+- `theory/v017_checks/results_v017.json`：条目 `v017:R3.r3`（`theory/v017_checks/check_v017.py` 中的函数 `r_r3`），由 `theory/v017_checks/records/r3/r3_eval_summary.json` 与 `theory/v017_checks/records/r3/prediction.json` 算出。
 
 ## 参考文献
 
@@ -182,6 +223,10 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 <a id="ref-kingma2015adam"></a>
 
 **Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 

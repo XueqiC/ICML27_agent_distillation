@@ -79,7 +79,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 - **在自适应 audit 中使用.** 在被 audit 的轮次，把 [Theorem 8.3](../statements/08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3) 的完整尾段置信下界换成被选候选的 $`\Gamma_t=\min\lbrace1,\alpha(\hat S^{J_t0}-e^{J_t0}_{\rm stat}-\varepsilon_{\rm sur})\rbrace`$；没有候选相对参照被认证时令 $`\Gamma_t=0`$。若 (A) 在每个被 audit 的状态上以声明的常数成立，且置信分配之和为 $`\delta`$，则 Theorem 8.3(c) 原样成立。它的证明只用到 audit 事件上的 $`A_t\ge\Gamma_t`$ 与 $`0\le\Gamma_t\le1`$；由于 $`A_t(z,j)=L_F(P^j)-L_F(P^0)`$，前者由 [Theorem 8.8(b)](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 给出。
 - **沿训练的迁移.** 证书在被 audit 的状态上成立。要把选出的候选用到之后的状态上，需要 [Theorem 8.2](../statements/08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2) 的 transport 项，或者在下一个检查点重新 audit，核对排序是否保持（a posteriori 检查）。
 
-### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14) · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11–8.12）
+### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14) · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11 and 8.17）
 
 - **它对 Remark 8.11 检验什么.** 在校准状态上拟合的 surrogate 对齐常数，能否迁移到留出状态。
 - **设置.** 短尾段 surrogate（一次参照更新）在任何留出测量之前，在 8 个单独的校准 cell 上校准（288 个候选对），这些 cell 与留出 cell 不共享任何 complete learner state：用过原点、系数为正的最小二乘拟合得到 $`\alpha`$，$`\varepsilon_{\rm sur}`$ 取最大校准残差除以 $`\alpha`$。然后把这些常数用到 1,728 个留出候选对上。

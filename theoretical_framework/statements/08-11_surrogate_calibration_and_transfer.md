@@ -85,7 +85,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 **Intuition.** Calibration is where the surrogate meets the task; it has to be checked, not assumed.
 
-**Role in the framework.** It connects Theorem C to the safe adaptive audit and states the calibration-transfer condition that Remark 8.12 leaves open.
+**Role in the framework.** It connects Theorem C to the safe adaptive audit and states the calibration-transfer condition that Remark 8.17 leaves open.
 
 **Uses.**
 
@@ -96,7 +96,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 **Used by.**
 
-- [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — calibration transfer as an open problem
+- [Remark 8.17](../statements/08-17_open_problems.md#s8-17) — calibration transfer as an open problem
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2) — calibration step of the method
 
 ## Related work

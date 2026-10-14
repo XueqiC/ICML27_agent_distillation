@@ -1,10 +1,10 @@
-# Remark 8.12 · Open problems
+# Remark 8.17 · Open problems
 
 *Statement*
 
-[← Framework](../README.md) · [Statement](../statements/08-12_open_problems.md) · [Experiments](../experiments/08-12_open_problems.md) · [中文](08-12_open_problems_ZH.md)
+[← Framework](../README.md) · [Statement](../statements/08-17_open_problems.md) · [Experiments](../experiments/08-17_open_problems.md) · [中文](08-17_open_problems_ZH.md)
 
-**In one paragraph.** Theorem C is valid as stated, but two questions decide whether it is decisive in practice. This remark records them: a provable range for the paired scores much smaller than the a-priori one, and a testable condition under which the surrogate calibration transfers to new pairs and later states.
+**In one paragraph.** The certificates of §8 are valid as stated, but whether they are decisive in practice depends on questions this framework does not yet answer. Two concern Theorem C: a provable range for the paired scores much smaller than the a-priori one, and a testable condition under which the surrogate calibration transfers. Four concern maintaining a response interface during continued training ([Propositions 8.12–8.15](08-12_finite_catalog_spectral_certificate.md#s8-12), [Corollary 8.16](08-16_composed_guarantee.md#s8-16)): how much independent information one continuation branch provides, how to reuse across cells without a full continuation per cell, how to obtain certificates whose radius scales with the effect, and whether a short continuation predicts a full one on the real learner.
 
 **Setting used on this page.**
 
@@ -60,19 +60,23 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 
 $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and the task objective and the truncation of the tail.
 
-<a id="s8-12"></a>
+<a id="s8-17"></a>
 
-**Remark 8.12 (Open problems).**
+**Remark 8.17 (Open problems).**
 
 - **A provable range.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) holds with the a-priori range ($`B\le2`$ for $`\tilde F\in[0,1]`$). Its range term is then of order $`7B\log(4M^2/\delta)/(3r)`$, which can far exceed the gaps between nearby candidates for any affordable $`r`$. The observed range of the scores is not a valid substitute. What is missing is a provable range much smaller than the a-priori one, for example the pathwise Lipschitz bound of [Proposition 8.10(c)](../statements/08-10_cost_and_crn.md#s8-10) with a certified $`\bar\lambda`$ for real training tails.
 - **Calibration transfer.** A testable condition under which $`(\alpha,\varepsilon_{\rm sur})`$, fitted on calibration pairs, remain valid on new pairs and at later states.
 - Until both are settled, Theorem 8.8 serves in practice as an unbiased, low-variance ranking score, and as a rigorous certificate only when $`B`$ and $`(\alpha,\varepsilon_{\rm sur})`$ are justified independently.
+- **Information per continuation branch, and identifying closure.** A closed predictive test space of dimension $`d`$ does not require $`d`$ continuation protocols: one branch can output several metrics, so spanning needs at least $`\lceil d/p\rceil`$ protocols for $`p`$ metrics per branch, and identifying closure needs extension tests ([Proposition 4.12](04-12_response_predictive_state_factorization.md#s4-12)). Open: how much independent information one full continuation branch provides about the response operator and its closure, and which interventions identify the closure at least cost.
+- **Reuse across cells.** [Proposition 8.15](08-15_two_fidelity_response_estimation.md#s8-15) reduces replicates within a cell but leaves at least one full continuation per cell (candidate × checkpoint × protocol). Sharing corrections or interfaces across cells needs a coverage condition of the kind matrix completion needs; low rank alone does not give it ([Proposition 8.12](08-12_finite_catalog_spectral_certificate.md#s8-12)).
+- **Certificates that scale with the effect.** The strict radii of [Propositions 8.12](08-12_finite_catalog_spectral_certificate.md#s8-12) and [8.14](08-14_anchor_reuse_drift_certificate.md#s8-14) and of [Corollary 8.16](08-16_composed_guarantee.md#s8-16) are absolute precisions from bounded-range concentration and are vacuous at the measured scale. Open: variance-adaptive or debiased paired certificates whose radius scales with the size of the effect at an affordable number of continuations; the vacuity found here is a property of the stated estimators, not a proof that such certificates cannot exist.
+- **Short versus full continuations on the real learner.** The saving condition of [Proposition 8.15](08-15_two_fidelity_response_estimation.md#s8-15) needs, at a cost ratio of one tenth, a pairing correlation of about 0.787 (fixed coefficient) or 0.575 (optimal coefficient) when every cheap output is charged, and 0.766 or about 0.316 when the cheap output of each pair is reused. This correlation has not been measured on the real model.
 
-**What it says.** Two open problems: a provable score range much smaller than the a-priori range, for example from a certified pathwise Lipschitz constant; and a testable calibration-transfer condition. Until both are settled, Theorem 8.8 is in practice an unbiased, low-variance ranking score, and a rigorous certificate only where the range and the calibration are justified independently.
+**What it says.** Six open problems. For Theorem C: a provable score range much smaller than the a-priori range, for example from a certified pathwise Lipschitz constant, and a testable calibration-transfer condition; until both are settled, Theorem 8.8 is in practice an unbiased, low-variance ranking score, and a rigorous certificate only where the range and the calibration are justified independently. For maintaining the interface during continued training: the information one branch provides, reuse across cells, certificates that scale with the effect, and the real short-versus-full correlation.
 
-**Intuition.** The statistics are no longer the bottleneck; the range and the calibration are.
+**Intuition.** The statistics are no longer the bottleneck; the range, the calibration and the number of full continuations are.
 
-**Role in the framework.** It states precisely what remains to make the measurable certificate both rigorous and useful.
+**Role in the framework.** It states precisely what remains to make the measurable certificates both rigorous and useful, and it separates what is proved (validity) from what is measured (vacuity at the current scale: [Check 8.17](../experiments/08-08_crn_paired_replacement_certificate.md#c8-17), [Check 8.18](../experiments/08-12_finite_catalog_spectral_certificate.md#c8-18), [Check 8.21](../experiments/08-14_anchor_reuse_drift_certificate.md#c8-21), [Check 8.23](../experiments/08-16_composed_guarantee.md#c8-23)).
 
 **Uses.**
 
@@ -80,6 +84,9 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 - [Proposition 8.10](../statements/08-10_cost_and_crn.md#s8-10) — pathwise Lipschitz route to a range
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer.md#s8-11) — calibration and its transfer
 - [Assumption 8.7](../statements/08-07_certificate_assumptions.md#s8-7) — range and alignment assumptions
+- [Proposition 4.12](04-12_response_predictive_state_factorization.md#s4-12) — closure and the number of continuation protocols
+- [Propositions 8.12–8.15](08-12_finite_catalog_spectral_certificate.md#s8-12) — catalog, shared features, drift and two-fidelity estimation
+- [Corollary 8.16](08-16_composed_guarantee.md#s8-16) — the composed guarantee
 
 **Used by.**
 

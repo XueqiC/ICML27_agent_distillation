@@ -25,7 +25,7 @@
 
 **Theorem 6.5（可达性；标量情形紧到常数）.** 设 (G) 与 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)(b) 的正则性成立，并且：
 
-- **(R) 可实现性.** 对任意 $`\theta'\in\Theta`$，蒸馏器能在被审计状态上发出 oracle 律 $`P^*_{\theta'}`$，例如在 $`\theta'`$ 下运行模拟器或 teacher 模型，或对查询得到的消息重新加权。
+- **(R) 可实现性.** 对任意 $`\theta'\in\Theta`$，蒸馏器能在被审计状态上发出 oracle 律 $`P^*_{\theta'}`$，例如在 $`\theta'`$ 下运行模拟器或 teacher 模型，或对查询得到的消息重新加权。这是一条假设：在每个候选环境下都能生成 oracle 律。只能使用有限个已核验合法消息的蒸馏器通常做不到；它只能输出这个消息池的正权重混合，[Proposition 6.14](../statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14) 说明这种混合何时能匹配所需的特征均值、匹配不了时要付出什么。
 - **(I) 可辨识性.** 存在某个 design $`\xi_0`$，使 $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$。
 - **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 附近属于 $`C^2`$，且 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
 - **Design.** 使用正则化的 c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$，其中 $`\xi^*`$ 来自 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，$`\varepsilon_n\to0`$ 且 $`\varepsilon_n\sqrt n\to\infty`$（例如 $`\varepsilon_n=n^{-1/4}`$）。
@@ -54,12 +54,13 @@
 **在框架中的作用.**
 
 - 它是 Theorem A 的上半部分：信息范数就是衡量"一批经验对给定学习器是否充分"的正确尺度。
+- 这个界是能够生成 $`P^*_{\hat\theta}`$ 的蒸馏器的上界。没有 (R)，它就不是真实 agent 蒸馏的默认上界：在有限合法消息池下，plug-in 一步要换成 [Proposition 6.14](../statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14) 的可实现性误差与 [Proposition 6.16](../statements/06-16_information_compilation_radius_ZH.md#s6-16) 的信息—编译半径。
 
 **推导要点.**
 
 - plug-in 输出的误差是 $`\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$，它不超过线性项 $`\lvert c^\top(\hat\theta-\theta)\rvert`$ 加一个二次余项。
 - 正则化 design 只让 $`c^\top A^{-1}c`$ 损失一个因子 $`1/(1-\varepsilon_n)`$，所以由 Jensen 不等式与 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，线性项为 $`\mathfrak n_{K,n}(1+o(1))`$。
-- 那一小部分非退化的 design 让 $`\hat\theta`$ 在每个方向上都相合，所以余项是 $`o(N^{-1/2})`$；单独的 c-optimal design 往往是奇异的，保证不了这一点。
+- 那一小部分非退化的 design 让 $`\hat\theta`$ 在每个方向上都相合，所以余项是 $`o(N^{-1/2})`$；单独的 c-optimal design 往往是奇异的（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)(b) 恰好允许这一点），保证不了这一点。
 
 **示例.** 在高斯线性实验中，最优 design 下 plug-in 误差恰为 $`\sqrt{2/\pi}\,\mathfrak n_{K,n}\approx0.80\,\mathfrak n_{K,n}`$，落在 $`[1/4,1]`$ 之内。
 

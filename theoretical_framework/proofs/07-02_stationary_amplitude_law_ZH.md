@@ -1,4 +1,4 @@
-# Corollary 7.2 · 平稳情形的幅度定律
+# Corollary 7.2 · 平稳情形的幅度定律（受限的 mean-field 模型）
 
 *证明*
 

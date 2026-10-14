@@ -1,4 +1,4 @@
-# Corollary 7.2 · Stationary amplitude law
+# Corollary 7.2 · Stationary amplitude law (restricted mean-field model)
 
 *Proof*
 

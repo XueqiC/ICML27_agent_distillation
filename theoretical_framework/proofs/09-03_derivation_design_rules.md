@@ -4,7 +4,7 @@
 
 [← Framework](../README.md) · [Statement](../statements/09-03_derivation_design_rules.md) · [Proof](09-03_derivation_design_rules.md) · [Experiments](../experiments/09-03_derivation_design_rules.md) · [中文](09-03_derivation_design_rules_ZH.md)
 
-**What is derived here.** For each of the six design rules behind [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2), the earlier statements that force it. Each derivation either applies a proved bound that the rule respects or exhibits, through an earlier statement, an instance where a method that breaks the rule loses the guarantee. The rules are necessary conditions for the stated guarantees, not a proof that CED beats any baseline.
+**What is derived here.** For each of the seven design rules behind [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2), the earlier statements that force it. Each derivation either applies a proved bound that the rule respects or exhibits, through an earlier statement, an instance where a method that breaks the rule loses the guarantee. The rules are necessary conditions for the stated guarantees, not a proof that CED beats any baseline.
 
 **Setting used on this page.**
 
@@ -13,10 +13,11 @@
 - *Information.* $`D`$ is the transcript; $`\mathcal R_{\rm info}(D)`$ its information regret ([Theorem 2.2](../statements/02-02_regret_decomposition_decision_ambiguity.md#s2-2)); $`\mathfrak n_{K,n}`$ is the learner-relative information norm with $`K`$ demonstrations and $`n`$ queries, and $`c=\sum_tJ_t^*g_t`$ the learner-relative target vector: the gradient of the learner-relative functional, combining the Jacobian $`J_t`$ of the learner's mean increment with respect to the environment parameter and the task direction $`g_t`$ ([Definition 6.2](../statements/06-02_learner_relative_functional_information_norm.md#s6-2)).
 - *Mean increment.* $`\mu_t^P(z)=\mathbb E_P\Delta`$; warmth measures how far an Adam state is from its frozen-denominator description ([Remark 5.11](../statements/05-11_checking_warm_state_conditions.md#s5-11)); $`p_{\rm act}`$ is the clipping activation rate and $`c`$ the clipping threshold in [Proposition 5.9](../statements/05-09_partially_active_clipping.md#s5-9).
 - *Response models.* Features $`\phi_1,\dots,\phi_d`$ with matrix $`\Phi`$; a response model $`c+b^\top\phi`$ with constant $`c`$ and coefficients $`b`$; tolerances $`\epsilon_j`$; response estimate $`\widehat g`$ with $`\lVert\widehat g-g\rVert_\infty\le\eta`$; $`\mathrm{osc}(h)=\max h-\min h`$.
-- *Notation.* As in the cited statements, the letter $`c`$ denotes the target vector in Rule 1, the clipping threshold in Rule 3 and the constant of a response model in Rules 4 and 6; the meaning is fixed by the rule.
+- *Notation.* As in the cited statements, the letter $`c`$ denotes the target vector in Rule 1, the clipping threshold in Rule 3 and the constant of a response model in Rules 4 and 6; the meaning is fixed by the rule; likewise $`r`$ is the residual of a response model in Rule 6 and, written $`r(\mathcal M,\mathcal K)`$, the information–compilation radius in Rule 7.
 - *Transfer.* Method transfer evaluates $`L_{E'}(S)`$ for the frozen protocol $`S`$ rerun on a new family $`E'`$ with its own $`K`$ demonstrations; policy transfer evaluates $`J_{E'}(\pi_z)`$ for the distilled student $`z`$ with no further update.
+- *Gaps (Rule 7).* A response interface $`\phi(y)\in\mathbb R^r`$ with coefficient matrix $`C`$ ([Definition 4.8](../statements/04-08_response_operator.md#s4-8)); a confidence set $`\mathcal M`$ for the target feature mean; the set $`\mathcal K`$ of response outputs reachable by mixtures of the finite legal pool; the information–compilation radius $`r(\mathcal M,\mathcal K)=\min_{q\in\mathcal K}\sup_{\mu\in\mathcal M}\lVert C\mu-q\rVert_\omega`$ ([Proposition 6.16](../statements/06-16_information_compilation_radius.md#s6-16)).
 
-**Statement ([Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3)).** Algorithm 9.2 implements six rules, each a necessary condition for the corresponding guarantee:
+**Statement ([Remark 9.3](../statements/09-03_derivation_design_rules.md#s9-3)).** Algorithm 9.2 implements seven rules, each a necessary condition for the corresponding guarantee:
 
 - **Rule 1 (Acquire before compiling).** Decision-relevant facts that the transcript does not determine can be supplied only by new permitted experiments; how much to acquire, and where, is set by the learner.
 - **Rule 2 (Select by measured consequence).** On a declared family, a selection rule is consistent with the learning-value ordering only if it is a function of the mean responses $`\lbrace\bar g_t(z,j)\rbrace_j`$, or of a statistic proved sufficient for them on that family.
@@ -24,6 +25,7 @@
 - **Rule 4 (Fit stable response models).** A response model $`c+b^\top\phi`$ on features measured to tolerances $`\epsilon_j`$ is fitted by minimizing $`\mathrm{osc}(\widehat g-\Phi b)+\sum_j\epsilon_j\lvert b_j\rvert`$.
 - **Rule 5 (Account for coverage; certify by paired replacement; use first-order audits only where the margin dominates).** A guarantee on the learning value of the selected candidate takes one of four forms: (i) the frozen-audit certificate with measured transport and exit probability; (ii) the actual-state lower-confidence-bound guarantee with full-tail paired audits; (iii) the CRN paired-replacement certificate at audited states with a calibrated surrogate, extended along training only by transport terms or by re-auditing; (iv) whole-run randomized comparisons of the frozen method, labelled empirical.
 - **Rule 6 (Freeze, then test transfer).** Selectors, features, cells, surrogates and candidates are frozen before the data that evaluates them; transfer is guaranteed only through a verified decomposition of the target responses and is otherwise measured; method transfer and policy transfer are reported separately.
+- **Rule 7 (Route each gap to its remedy).** Information gaps are closed by acquisition, realizability gaps by enlarging the legal pool, closure gaps by extending the tests or the recorded state; reuse across checkpoints and two-fidelity estimation are used only when their cost conditions are verified.
 
 The rules do not by themselves show that an instance of CED outperforms a given baseline.
 
@@ -88,7 +90,25 @@ Why these and only these:
 
 Conversely, if some target response lies outside the span of the features, there are feature-matched laws that it separates ([Theorem 4.2](../statements/04-02_sufficiency_duality_transfer.md#s4-2)(a)), and no audit on the training family alone certifies the target.
 
-*Two kinds of transfer.* Method transfer evaluates $`L_{E'}(S)`$ for the frozen protocol $`S`$ applied to a new family $`E'`$ with its own $`K`$ demonstrations; its test class is the response class of $`E'`$, defined through updates. Policy transfer evaluates $`J_{E'}(\pi_z)`$ for the distilled student $`z`$ with no further update; its test functions are the deployment scores of $`E'`$. These are different functionals with different test classes, so a bound on one does not bound the other, and they are reported separately. $`\square`$
+*Two kinds of transfer.* Method transfer evaluates $`L_{E'}(S)`$ for the frozen protocol $`S`$ applied to a new family $`E'`$ with its own $`K`$ demonstrations; its test class is the response class of $`E'`$, defined through updates. Policy transfer evaluates $`J_{E'}(\pi_z)`$ for the distilled student $`z`$ with no further update; its test functions are the deployment scores of $`E'`$. These are different functionals with different test classes, so a bound on one does not bound the other, and they are reported separately.
+
+**Rule 7 (Route each gap to its remedy).** The four remedies are not interchangeable; each is forced by a statement that shows the others do not help.
+
+*Information gaps call for acquisition, and only along the visible directions.* For a fixed interface, [Proposition 6.16](../statements/06-16_information_compilation_radius.md#s6-16) gives
+
+```math
+r(\mathcal M,\mathcal K)\ \ge\ \max\Big\lbrace\tfrac12\,\mathrm{diam}_\omega(C\mathcal M),\ \sup_{\mu\in\mathcal M}\mathrm{dist}_\omega(C\mu,\mathcal K)\Big\rbrace ,
+```
+
+with $`r(\mathcal M,\mathcal K)=0`$ only when $`C\mathcal M`$ is a single point inside $`\mathcal K`$. Two consequences follow. Shrinking $`\mathcal M`$ along $`\ker C`$ leaves $`C\mathcal M`$, and so both lower bounds, unchanged: queries that only resolve such directions cannot lower the error on any declared test, so acquisition is planned for the directions the tests see (Rule 1 gives where and how much). When the diameter term dominates, the transcript leaves the declared tests undetermined, and only new evidence can shrink it ([Proposition 2.4](../statements/02-04_post_processing_cannot_reduce_information.md#s2-4)).
+
+*Realizability gaps call for a larger legal pool.* A target feature mean is reached by a mixture of the pool exactly when it lies in the convex hull of the pool's feature vectors ([Proposition 6.14](../statements/06-14_convex_realizability_legal_pool.md#s6-14)). Acquiring more information about the same target shrinks $`\mathcal M`$ but does not move $`\mathcal K`$. On the confidence event the true target mean $`\mu_P`$ lies in every confidence set, so for every $`q\in\mathcal K`$ the worst case over $`\mathcal M`$ is at least $`\lVert C\mu_P-q\rVert_\omega\ge\mathrm{dist}_\omega(C\mu_P,\mathcal K)`$; the radius never falls below $`\mathrm{dist}_\omega(C\mu_P,\mathcal K)`$, however much information is acquired. Only enlarging the pool, and so $`\mathcal K`$, can lower it. Negative weights or unverified generated messages would enlarge $`\mathcal K`$ only by leaving the legal feedback class.
+
+*Closure gaps call for more tests or more state.* A feature set can predict every current test exactly and still miss a future test by $`1`$, because the next update moves the state along a direction the features do not span ([Proposition 4.11](../statements/04-11_static_not_dynamic_closure_error.md#s4-11)). No query about the current tests detects this, since by construction the current tests are already predicted. The remedy is to add the missing future tests, or the state coordinate that carries them, until the test space is closed under the declared updates.
+
+*Estimation-cost gaps call for reuse or two-fidelity estimation, only under their conditions.* Reusing an anchor's interface at a new checkpoint costs the anchor's estimation error plus the measured operator drift, and the drift itself must be certified by paired continuations ([Proposition 8.14](../statements/08-14_anchor_reuse_drift_certificate.md#s8-14)); reuse saves compute only when these continuations cost less than refitting. The two-fidelity estimator is cheaper than full continuations exactly under its cost condition, which involves variances and a correlation that must be supported by an independent pilot ([Proposition 8.15](../statements/08-15_two_fidelity_response_estimation.md#s8-15)). Without the verified condition, each device can cost more than direct measurement.
+
+Applying a remedy to the wrong gap therefore spends budget without lowering the error of any declared test, which is why the gap is classified first. $`\square`$
 
 ## Related work
 

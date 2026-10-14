@@ -54,7 +54,7 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 **What it says.** To check the warm-state condition on a real model, report the weighted sum $`\sum_i\hat L_iu_i\min\lbrace\kappa_i/2,1\rbrace`$, its largest terms and $`\max_i\kappa_i`$, not quantiles of $`\kappa`$. Sensitivities $`\hat L_i`$ are proxies; non-additivity of the update map is not non-additivity of the response; late in training the reference warmth is the plateau $`(1-\beta_2)/\beta_2`$.
 
-**Role in the framework.** Turns the warm-state results into a measurement protocol for real models.
+**Role in the framework.** Turns the warm-state results into a measurement protocol for real models. On a real model (the ALFWorld recipe of [Shridhar et al., 2021](#ref-shridhar2021alfworld) with a 12B student) the pre-registered warm criterion failed at all six measured states, because its denominator multiplies sensitivity magnitudes by signed parameter steps and cancels; the post-hoc comparison with the signed first-order term, labelled as post hoc, and a direct measurement of response non-additivity are in [Check 5.19](../experiments/05-11_checking_warm_state_conditions.md#c5-19) and [Check 5.20](../experiments/05-11_checking_warm_state_conditions.md#c5-20).
 
 ## References
 
@@ -67,3 +67,7 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-loshchilov2019decoupled"></a>
 
 **Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).

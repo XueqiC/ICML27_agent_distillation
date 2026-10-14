@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](09-03_derivation_design_rules_ZH.md) · [证明](../proofs/09-03_derivation_design_rules_ZH.md) · [实验](../experiments/09-03_derivation_design_rules_ZH.md) · [English](09-03_derivation_design_rules.md)
 
-**一段话概括.** [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)（CED）是框架的蒸馏方法。本 remark 提炼出它背后的六条设计规则，并对每一条说明是哪些先前的陈述迫使它成立。这里的规则是必要条件：声称具有相应保证的方法必须遵守它。本 remark 不声称遵守这些规则就能让某个 CED 实例优于给定的 baseline；那是一个经验问题。
+**一段话概括.** [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)（CED）是框架的蒸馏方法。本 remark 提炼出它背后的七条设计规则，并对每一条说明是哪些先前的陈述迫使它成立。这里的规则是必要条件：声称具有相应保证的方法必须遵守它。本 remark 不声称遵守这些规则就能让某个 CED 实例优于给定的 baseline；那是一个经验问题。
 
 **本页用到的设定与记号.**
 
@@ -17,7 +17,7 @@
 
 <a id="s9-3"></a>
 
-**Remark 9.3（设计规则的推导）.** Algorithm 9.2 实现了六条规则。每条规则说明一个声称具有相应保证的方法必须做什么；[证明页](../proofs/09-03_derivation_design_rules_ZH.md)给出迫使它成立的陈述。这些规则是获得这些保证的必要条件；它们本身并不说明某个 CED 实例优于某个给定的 baseline。
+**Remark 9.3（设计规则的推导）.** Algorithm 9.2 实现了七条规则。每条规则说明一个声称具有相应保证的方法必须做什么；[证明页](../proofs/09-03_derivation_design_rules_ZH.md)给出迫使它成立的陈述。这些规则是获得这些保证的必要条件；它们本身并不说明某个 CED 实例优于某个给定的 baseline。
 
 - **Rule 1（先获取，再编译）.** transcript 无法确定、但与决策相关的事实，只能由新的允许实验提供；获取多少、在哪里获取，由学习器决定。
 - **Rule 2（按实测后果选择）.** 在声明的族上，选择规则与学习价值的排序一致，仅当它是平均 response $`\lbrace\bar g_t(z,j)\rbrace_j`$ 的函数，或是某个在该族上已证明对它们充分的统计量的函数。
@@ -29,6 +29,11 @@
   - (iii) 被 audit 状态上、带校准 surrogate 的 CRN 配对替换证书，沿训练推广只能靠 transport 项或重新 audit；
   - (iv) 冻结方法的整次训练随机对照，标注为经验结论。
 - **Rule 6（先冻结，再检验迁移）.** 选择器、特征、cell、surrogate 与候选都在评测它们的数据之前冻结；迁移只能通过目标 response 的已核实分解来保证，否则就要测量。方法迁移与策略迁移分开报告。
+- **Rule 7（把每个缺口交给对应的补救）.** 花预算之前，先判断现有反馈与充分反馈之间隔着什么，只为对应的补救付费：
+  - *信息缺口*（transcript 在测试能看见的方向上让目标仍不确定，因而声明的测试还预测不了），靠获取来填；
+  - *可实现性缺口*（目标已经确定，但合法池的任何混合都达不到它），靠扩充合法池来填，而不是再买信息；
+  - *闭合缺口*（一个摘要能预测当前测试，却在声明的后续更新之后预测不了），靠扩充测试或记录的状态来填；
+  - *估计成本缺口*（response 在预算内测不出来），可以靠跨检查点复用接口或两保真度估计来缓解，但只有在相应的成本条件已经核实时才行。
 
 **说了什么.**
 
@@ -37,13 +42,14 @@
 - 要匹配的是 optimizer 在完整状态上的统计量（warm Adam 下包括消息相对 running RMS 的幅度），而不是原始梯度。
 - 在有噪声的特征上拟合系数小的 response 模型；用配对替换或全尾段 audit 认证；推广到新状态时计入覆盖。
 - 在评测数据之前冻结一切，并分开报告两种迁移。
+- 买任何东西之前，先判断剩下的是哪一种缺口：信息、可实现性、闭合和估计成本各有各的补救，用错了补救什么也买不到。
 
-**直觉.** 一个方法可能走的每条捷径（用改写代替获取、按静态分数排序、匹配梯度、相信 audit 在没见过的状态上也成立、在评测数据上调参），都对应一个先前的陈述，它给出这条捷径失败的情形。
+**直觉.** 一个方法可能走的每条捷径（用改写代替获取、按静态分数排序、匹配梯度、相信 audit 在没见过的状态上也成立、在评测数据上调参、为一个任何合法反馈都达不到的目标去查询），都对应一个先前的陈述，它给出这条捷径失败的情形。
 
 **在框架中的作用.**
 
 - 它是从 §2–§8 的理论到方法的桥梁：[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 的每一步都实现一条或几条规则。
-- 它的必要性已被证明；它在实践中是否有用，由受控学习器（[实验页](../experiments/09-03_derivation_design_rules_ZH.md)）与计划中的真实模型检验（[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)）检验。
+- 它的必要性已被证明；Rules 1–6 在受控学习器上做了检验（[实验页](../experiments/09-03_derivation_design_rules_ZH.md)），真实模型检验见 [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)。Rule 7 没有自己的检验；它的各部分在迫使它成立的陈述页上检验。
 
 **推导要点.**
 
@@ -53,6 +59,7 @@
 - **Rule 4.** 特征上的测量误差，代价是它系数的大小（[Theorem 8.1](08-01_stability_approximation_tradeoff_ZH.md#s8-1)）。
 - **Rule 5.** 去掉 transport 不成立，全尾段 audit 代价高，配对替换在期望下精确，一阶分数只在 margin 之上才能认证（[Theorems 8.2](08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)、[8.3](08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3)、[8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8)、[Corollary 8.9](08-09_first_order_version_margin_criterion_ZH.md#s8-9)）。
 - **Rule 6.** audit 事件只对事先固定的候选同时成立；迁移只能通过目标 response 的已核实分解来保证（[Theorem 4.2](04-02_sufficiency_duality_transfer_ZH.md#s4-2)(c)）；方法迁移与策略迁移是不同的泛函。
+- **Rule 7.** 信息—编译半径分别以可见的不确定性和到合法输出的距离为下界，接口核中的未知量不花任何代价（[Proposition 6.16](06-16_information_compilation_radius_ZH.md#s6-16)）；目标只有落在合法池的凸包里才可实现（[Proposition 6.14](06-14_convex_realizability_legal_pool_ZH.md#s6-14)）；当前充分不等于后续更新之后仍然充分（[Proposition 4.11](04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）；复用与两保真度估计只在各自的成本条件下才省计算（[Propositions 8.14](08-14_anchor_reuse_drift_certificate_ZH.md#s8-14) 与 [8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15)）。
 
 **用到.**
 
@@ -62,17 +69,20 @@
 - [Theorem 8.1](08-01_stability_approximation_tradeoff_ZH.md#s8-1)：稳定的 response 模型（Rule 4）。
 - [Theorems 8.2](08-02_frozen_finite_interface_selection_transport_ZH.md#s8-2)、[8.3](08-03_actual_state_adaptive_audit_fidelity_ZH.md#s8-3)、[8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8)、[Corollary 8.9](08-09_first_order_version_margin_criterion_ZH.md#s8-9)：四种保证形式（Rule 5）。
 - [Theorem 4.2](04-02_sufficiency_duality_transfer_ZH.md#s4-2)：迁移需要已核实的分解（Rule 6）。
+- [Propositions 6.14](06-14_convex_realizability_legal_pool_ZH.md#s6-14) 与 [6.16](06-16_information_compilation_radius_ZH.md#s6-16)、[Proposition 4.11](04-11_static_not_dynamic_closure_error_ZH.md#s4-11)、[Propositions 8.14](08-14_anchor_reuse_drift_certificate_ZH.md#s8-14) 与 [8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15)：把缺口交给对应的补救（Rule 7）。
 
 **被用于.**
 
 - [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2)：每一步都实现这些规则。
-- [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)：计划中的真实模型检验。
+- [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)：真实模型检验。
+- [Remark 9.5](09-05_assumption_audit_ZH.md#s9-5)：假设审计。
 
 ## Related work
 
 - Rule 1 依据的是 Blackwell 实验比较理论中容易的那个方向：对 transcript 做 garbling 不能增加信息（[Blackwell, 1953](#ref-blackwell1953equivalent)）。在学生自己的状态上获取标签，是 DAgger 的做法（[Ross et al., 2011](#ref-ross2011reduction)）。
 - Rule 2 与 Rule 3 针对的是一阶数据分数：influence functions（[Koh & Liang, 2017](#ref-koh2017understanding)）、TracIn（[Pruthi et al., 2020](#ref-pruthi2020estimating)）与 LESS（[Xia et al., 2024](#ref-xia2024less)）都按梯度统计量给训练数据排序，而不是按在 complete learner state 上实测的后果。
 - Rule 6 把调方法的数据与检验方法的数据分开，与 high-confidence policy improvement 的留出安全检验相同（[Thomas et al., 2015](#ref-thomas2015high)）。
+- Rule 7 中的可实现性部分就是凸分析的凸包判据，支撑大小由 Carathéodory 定理给出（[Rockafellar, 1970](#ref-rockafellar1970convex)）。
 
 ## 参考文献
 
@@ -89,6 +99,10 @@
 <a id="ref-pruthi2020estimating"></a>
 
 **Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-rockafellar1970convex"></a>
+
+**R. Tyrrell Rockafellar (1970).** Convex Analysis. Princeton University Press, Princeton, NJ (Princeton Mathematical Series 28). DOI [10.1515/9781400873173](https://doi.org/10.1515/9781400873173).
 
 <a id="ref-ross2011reduction"></a>
 

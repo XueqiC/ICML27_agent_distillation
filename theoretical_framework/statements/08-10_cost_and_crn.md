@@ -99,7 +99,7 @@ Counting; rearranging the range term; the Lipschitz condition at the paired incr
 
 **Used by.**
 
-- [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — provable range as an open problem
+- [Remark 8.17](../statements/08-17_open_problems.md#s8-17) — provable range as an open problem
 - [Algorithm 9.2](../statements/09-02_ced_algorithm.md#s9-2) — replica budget of the method
 
 ## Related work

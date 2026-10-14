@@ -1,16 +1,18 @@
-# Learner-Relative Experience Sufficiency for Agent Distillation — Theoretical Framework
+# Learner-Relative Experience Sufficiency for Continued Training — Theoretical Framework
 
 [中文版](README_ZH.md)
 
-**Question.** Relative to the declared deployment tasks, the permitted experiments and the actual learning procedure, which differences between feedback sources change the final task performance of a distilled student?
+**Question.** Relative to the declared tasks, the permitted experiments and the actual learning procedure, which differences between feedback sources change the outcome of the student's continued training? And can those differences be identified, kept valid as training goes on, and compiled into legal feedback within a finite budget?
+
+**The unifying object.** At a checkpoint, the continuation response of [Theorem 3.2](statements/03-02_continuation_response_characterization.md#s3-2) defines a *response operator* from feedback differences to declared tests ([Definition 4.8](statements/04-08_response_operator.md#s4-8)). Its singular values rank feedback differences by their consequence for the tests ([Theorem 4.9](statements/04-09_spectral_sufficiency.md#s4-9), an instance of [Eckart & Young, 1936](#ref-eckart1936approximation)). The operator factors through the next predictive state of the learning process ([Proposition 4.12](statements/04-12_response_predictive_state_factorization.md#s4-12)), and an interface that is sufficient now need not stay sufficient under further training ([Proposition 4.11](statements/04-11_static_not_dynamic_closure_error.md#s4-11)). These are classical tools (low-rank approximation, predictive state representations, value-directed compression) applied to the complete learning process; what the framework adds is their composition with acquisition, compilation, reuse and cost, and the claims are judged by whether that composition yields testable consequences ([Remark 9.6](statements/09-06_contribution_units_prior_work.md#s9-6)).
 
 **Central results.**
 
-- **Theorem A (§6, learner-relative information bound).** For any distiller (replay, rewriting and synthesis included), the smallest achievable first-order error is governed by the Fisher information that demonstrations and queries carry about one learner-dependent functional. Its gradient $`c=\sum_tJ_t^{*}g_t`$ combines the learner's Jacobian with the task's continuation gradients. Under identifiability and growth conditions, the bound is attained up to a constant factor by a regularized Elfving c-optimal query design ([Elfving, 1952](#ref-elfving1952optimum)). Hence the same demonstrations can be sufficient for one learner and insufficient for another.
-- **Theorem B (§7, Adam's second-moment channel).** Under warm Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), the first-order value of a message splits exactly into a parameter channel, a momentum channel and a second-moment channel. In a stationary regime the response to a message of relative magnitude $`\lambda`$ has an exact mean-field form. For small increments it is a concave quadratic that peaks at an explicit $`\lambda^*`$ and turns negative near $`2\lambda^*`$. Scores that look only at the parameter step, or only at directions, are therefore inconsistent rankers.
-- **Theorem C (§8, auditable certificate).** A common-random-numbers (CRN) paired replacement of one training round (CRN is a classical variance-reduction device in simulation; [Glasserman, 2004](#ref-glasserman2004monte)) measures the finite effect of a feedback law directly. The resulting certificate needs no continuation-value gradient and no curvature constant. Its radius has only a statistical term and a surrogate-calibration term.
+- **Theorem A (§6, learner-relative information bound).** For any distiller (replay, rewriting and synthesis included), the smallest achievable first-order error is governed by the Fisher information that demonstrations and queries carry about one learner-dependent functional. Its gradient $`c=\sum_tJ_t^{*}g_t`$ combines the learner's Jacobian with the task's continuation gradients. Under identifiability and growth conditions, the bound is attained up to a constant factor by a regularized Elfving c-optimal query design ([Elfving, 1952](#ref-elfving1952optimum)), with singular designs allowed. When only a finite legal pool of feedback exists, the attaining distiller pays a realizability error ([Proposition 6.14](statements/06-14_convex_realizability_legal_pool.md#s6-14)), and an information–compilation radius separates missing information from feedback that cannot be realized ([Proposition 6.16](statements/06-16_information_compilation_radius.md#s6-16)). Hence the same demonstrations can be sufficient for one learner and insufficient for another.
+- **Theorem B (§7, Adam's memory channels).** Under Adam ([Kingma & Ba, 2015](#ref-kingma2015adam)), the first-order value of a message splits exactly into a parameter channel, a momentum channel and a second-moment channel, with costates from an exact reverse recursion. Two reachable feedbacks can produce exactly the same immediate parameters and still different continuations, so interfaces that read only the immediate parameter change are not sufficient ([Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation.md#s7-6)). The closed-form amplitude law ([Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2)) holds in a restricted stationary mean-field model; its real-model prediction was not supported.
+- **Theorem C (§8, auditable certificate).** A common-random-numbers (CRN) paired replacement of one training round (CRN is a classical variance-reduction device in simulation; [Glasserman, 2004](#ref-glasserman2004monte)) measures the finite effect of a feedback law directly. The resulting certificate needs no continuation-value gradient and no curvature constant. Its radius has only a statistical term and a surrogate-calibration term. §8 extends it to finite catalogs, shared interfaces across checkpoints, two-fidelity estimation and one composed guarantee. All these strict bounds are valid; at the scales measured so far they are vacuous, and diagnostic radii are reported separately and labelled as such.
 
-These rest on foundations (§2–§5): an exact regret decomposition and the cost of acquiring missing information, the continuation response as the object of sufficiency, the complexity of sufficiency, and the statistic that each optimizer makes feedback carry. §9 derives the method, CED, from all of them.
+These rest on foundations (§2–§5): an exact regret decomposition and the cost of acquiring missing information, the continuation response as the object of sufficiency, the complexity of sufficiency (now including the response spectrum and predictive closure), and the statistic that each optimizer makes feedback carry. §9 derives the method, CED, from all of them, audits the assumptions, and states what the evidence covers.
 
 **How to read this page.** The page goes from the whole to the parts, breadth first.
 
@@ -24,13 +26,13 @@ Notation is fixed in [§1](#1-setting-and-notation). Every numbered result has i
 
 **References.** Every page ends with its own list of the works it cites. The complete list, with authors, title, venue and DOI or arXiv ID checked against the primary source and the pages that use each work, is [references.md](references.md).
 
-**Scope.** Every statement on this page is proved under the assumptions it states. A few are proved to leading order in an explicitly stated asymptotic regime, and the page says so where this happens. Proofs are finite-dimensional or carry explicit regularity assumptions. The checks on the experiments pages are exact finite computations or controlled small networks. Real-model tests of Theorems A–C are designed ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)); the first runs are under way and their results are not yet on these pages.
+**Scope.** Every statement on this page is proved under the assumptions it states. A few are proved to leading order in an explicitly stated asymptotic regime, and the page says so where this happens. Proofs are finite-dimensional or carry explicit regularity assumptions. The checks on the experiments pages are exact finite computations, controlled small networks, and record checks that recompute the reported numbers of the real-model tests from their stored outputs. The real-model tests R0, R1 (partial) and R3 have results; R2 and the optimizer-state transplant test are pending ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)). The assumptions that the main line needs, and those that only restricted models need, are listed in [Remark 9.5](statements/09-05_assumption_audit.md#s9-5).
 
 ---
 
 ## Level 0 · One paragraph
 
-To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstrations per task family, a budget of further permitted experiments (teacher calls, environment branches, resets), and a fixed training recipe (optimizer, learning rate, number of steps). Many feedback sources can be fed to the student: the demonstrations themselves, replays, synthetic rewrites, new queries, different packagings of the same units. The framework asks which differences between these sources actually change the final task performance of the distilled student. It answers in eight steps.
+To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstrations per task family, a budget of further permitted experiments (teacher calls, environment branches, resets), and a fixed training recipe (optimizer, learning rate, number of steps). Many feedback sources can be fed to the student: the demonstrations themselves, replays, synthetic rewrites, new queries, different packagings of the same units. The framework asks which differences between these sources actually change the outcome of the student's continued training, and what it costs to identify, maintain and realize them. It answers in eight steps.
 
 1. **Can the data determine what to do? (§2)**
    - The student's regret splits exactly into a representation term, an information term and an algorithm term.
@@ -39,9 +41,12 @@ To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstr
 2. **What does feedback do to the learner? (§3)**
    - Teacher quality, policy value and the mean gradient do not determine what the student learns.
    - The invariant is the *continuation response*: the expected final return after receiving one message, applying the actual update and finishing training.
-3. **How much must two sources agree on? (§4)**
+   - With an approximate continuation value the same bookkeeping splits a training gap into response, dynamics and terminal terms; it is a performance-difference identity and supplies no small error by itself.
+3. **How much must two sources agree on, now and later? (§4)**
    - Exactly the span of the response class. For averaging learners this is a moment order set by the deployment length.
    - Approximate complexity can be much smaller than the exact order, and nonlinear updates multiply the order.
+   - At a checkpoint the responses form an operator whose singular values rank feedback differences by consequence; matching the leading modes is the optimal linear interface. A generic dimension bound exists but, under the natural mixture measure, contains no compression.
+   - Sufficiency for further training needs closure: responses factor through the next predictive state, and an interface that predicts the current score can fail to predict the next one.
 4. **What does the actual optimizer make feedback carry? (§5)**
    - To first order, what matters is the mean increment of the *complete learner state* (parameters and optimizer state). This first-order representation is a tool, not a claim of novelty.
    - The statistic is explicit for SGD, momentum, cold and warm Adam, clipping, Lion ([Chen et al., 2023](#ref-chen2023symbolic)) and LoRA ([Hu et al., 2022](#ref-hu2022lora)). For warm Adam the exact statistic is the mean Adam increment, and the familiar (mean, second moment) description holds only under a frozen-denominator approximation with an explicit error.
@@ -49,16 +54,20 @@ To distill an agent we have a pretrained student, $`K`$ trusted teacher demonstr
 5. **How much information is needed, and in which direction? (Theorem A, §6)**
    - The learner decides the direction $`c`$ in which the data must be informative. The minimax error of any distiller is the learner-relative information norm, up to a constant.
    - Consequences: replay has zero value against aliasing, demonstrations and queries trade at a learner-relative exchange rate, queries are allocated by water-filling, and SGD and Adam can need very different data for the same task.
-6. **How does a message act through Adam's second moment? (Theorem B, §7)**
-   - A message also changes all later step sizes through $`v`$.
-   - This gives an amplitude law with an optimal magnitude and, for small increments, a sign change near twice that magnitude. Parameter-only and cosine scores misrank in an explicit region.
+   - A finite legal pool can realize a target only inside its convex hull. One radius separates "the important consequence is still unknown" from "it is known but no legal feedback reaches it".
+6. **How does a message act through Adam's memory? (Theorem B, §7)**
+   - A message also changes all later step sizes through $`m`$ and $`v`$; the exact first-order value splits into three channels.
+   - Two feedbacks can leave exactly the same parameters and still lead to different futures, so the immediate parameter change is not a sufficient interface.
+   - In a restricted stationary mean-field model this gives an amplitude law with an optimal magnitude and a sign change; its real-model prediction was not supported.
 7. **How can finite measurements certify a choice? (Theorem C and §8)**
    - Finite audits need a coverage (transport) term, and full-tail audits at the actual states are safe but expensive.
    - First-order scores need the continuation gradient, and they certify a pair only when its first-order term exceeds the second-order remainder; pairs whose mean increments agree along the gradient are never certified.
-   - CRN paired replacement measures the finite effect directly. Two problems remain open: a provable range much smaller than the a-priori one, and a testable condition for transferring the surrogate calibration.
+   - CRN paired replacement measures the finite effect directly. Finite catalogs, shared interfaces across checkpoints and two-fidelity estimation get certificates of the same kind, and they compose into one guarantee for a whole run.
+   - These strict certificates are valid but, at the effect sizes and noise measured so far, vacuous; a range much smaller than the a-priori one, calibration transfer and estimation cost remain open.
 8. **The method (§9).**
    - A mechanism test with a strict null (coupling width).
-   - Consequence-Calibrated Experience Distillation (CED): acquire by learner-relative design, select by certified measured consequence, match the learner's statistic, account for coverage, freeze and then test transfer.
+   - Consequence-Calibrated Experience Distillation (CED): acquire by learner-relative design, route each gap to its remedy, compile within the legal pool, select by measured consequence with strict and diagnostic radii kept apart, match the learner's statistic, account for coverage, freeze and then test transfer.
+   - An audit of the assumptions, the contribution units with their nearest prior work, and the scope of the evidence.
 
 ---
 
@@ -71,20 +80,20 @@ flowchart TB
     direction LR
     S2["<b>§2 Feasibility<br/>and acquisition</b><br/>Can the data<br/>determine what to do?"]:::b1
     S3["<b>§3 Learning<br/>consequence</b><br/>What does feedback<br/>make the student learn?"]:::b2
-    S4["<b>§4 Complexity<br/>of sufficiency</b><br/>How many statistics<br/>must match?"]:::b3
+    S4["<b>§4 Complexity<br/>of sufficiency</b><br/>How many statistics<br/>must match, now and later?"]:::b3
     S2 --> S3 --> S4
   end
   subgraph P2["Part II · What the actual learner needs"]
     direction LR
     S5["<b>§5 Optimizer state</b><br/>What must feedback<br/>carry for a real optimizer?"]:::b4
     S6["<b>§6 Theorem A</b><br/>How much information,<br/>in which direction?"]:::b4
-    S7["<b>§7 Theorem B</b><br/>How does a message<br/>act through Adam's v?"]:::b4
+    S7["<b>§7 Theorem B</b><br/>How does a message<br/>act through Adam's memory?"]:::b4
     S5 --> S6
     S5 --> S7
   end
   subgraph P3["Part III · How to verify and use it"]
     direction LR
-    S8["<b>§8 Verification</b><br/>Theorem C: certify with<br/>finite measurements"]:::b5
+    S8["<b>§8 Verification</b><br/>Theorem C: certify, reuse<br/>and estimate at a cost"]:::b5
     S9["<b>§9 Mechanism<br/>and method</b><br/>CED"]:::b6
     S8 --> S9
   end
@@ -106,6 +115,7 @@ Arrows show the main flow of the argument. Further dependencies:
 - §3 supplies the continuation decomposition used throughout §8.
 - §4 supplies the approximation width and the coefficient stability used by §8.
 - §5 supplies the statistic that §8 measures.
+- §4's response operator is the object that §6 acquires information about, §8 estimates and reuses, and §9 compiles into legal feedback.
 
 ### §2 · Feasibility and acquisition
 
@@ -131,6 +141,7 @@ Arrows show the main flow of the argument. Further dependencies:
 - The right object is the continuation response: the expected final task return after receiving message $`y`$, applying the actual update and finishing training under the reference recipe.
 - The gap over a whole run is exactly a sum over rounds of one-boundary replacement effects. Two message laws are interchangeable if and only if they have equal expectation under every response.
 - When guarantees hold only on part of the state space, the probability of leaving that part is paid once, not once per round.
+- With an approximate continuation value the gap splits exactly into a response term, two Bellman-residual terms and two terminal terms. This is the performance-difference bookkeeping; it organizes errors but does not make them small.
 
 **Hand-off.** The object of sufficiency is the response class $`\mathcal G`$. §4 measures its complexity, §5–§7 compute it for real optimizers, and §8 checks it with finite data.
 
@@ -146,6 +157,8 @@ Arrows show the main flow of the argument. Further dependencies:
 - The gap decays with the number of *independent* blocks at a rate set by the first unmatched cumulant, independently of the number of training rounds. Replay and deterministic synthesis do not make it decay.
 - Approximate complexity can be far below the exact order (about $`\sqrt N`$ for smooth values), with parity-type values as the exception.
 - Composing nonlinear updates multiplies the required order.
+- At a fixed checkpoint the responses define a Hilbert–Schmidt response operator. Its singular values rank feedback differences by consequence, the best rank-$`r`$ linear interface has worst-case error exactly $`B\sigma_{r+1}`$, and an average guarantee does not control rare tests. The generic dimension bound that needs no spectral decay has no compression content under the mixture measure of a finite catalog.
+- Sufficiency for further training is a closure property. A finite task Hankel rank gives an exact linear predictive realization; responses factor through the next predictive state; a feature set can predict the current score exactly and the next one not at all. Finite-horizon Gramians explain which directions matter (excitable and visible), but stable-LTI truncation bounds do not transfer.
 
 **Hand-off.** What must match is decided by the learner itself, so the actual optimizer must be modelled (§5). In approximations the stability of the coefficients matters (§8).
 
@@ -178,24 +191,25 @@ Arrows show the main flow of the argument. Further dependencies:
   - directions the demonstrations cannot see make every amount of replay worthless;
   - one demonstration is worth a learner-relative number of queries;
   - in a state-coverage model, queries go by water-filling to states with high learner-relative weight and low teacher coverage;
-  - SGD weights a state by the square of its visitation, while warm Adam in the frequent-visit regime weights it by the visitation itself, so Adam amplifies the student's long tail;
+  - SGD weights a state by the square of its visitation, while warm Adam in the frequent-visit regime weights it by the visitation itself, so Adam amplifies the student's long tail (a restricted-model result: independent visits, mean field);
   - clipping makes the learner blind to gradient scale.
+- The design equality holds for singular information matrices: directions irrelevant to the target need not be identified.
+- The upper bound emits the oracle law at the estimate. With only a finite legal pool, a target is realizable exactly when it lies in the convex hull of the pool's features, with support at most $`r+1`$, and sparse mixtures can inflate density bounds. For a linear-Gaussian target the risk and the gain of one query are exact.
+- An information–compilation radius vanishes only when the task-relevant uncertainty is gone and the target is legally realizable, so it tells apart information gaps, realizability gaps and uncertainty the tests cannot see.
 
 **Hand-off.** Theorem A says in which direction information is needed. For Adam that direction has a component through the second moment, which §7 analyses.
 
-### §7 · Theorem B: Adam's second-moment channel
+### §7 · Theorem B: Adam's memory channels
 
-**Question.** How does one message act on the final outcome under warm Adam, and when does a larger gradient hurt?
+**Question.** How does one message act on the final outcome through Adam's state, and what does an interface lose when it reads only the immediate parameter change?
 
 **Conclusion.**
 
-- A message's first-order value splits exactly into parameter, momentum and second-moment channels, with costates given by an explicit backward recursion.
-- In a stationary mean-field regime the response to a message of relative magnitude $`\lambda`$ has an exact closed form:
-  - for small increments it is a concave quadratic up to a proved relative error of order $`(1-\beta_2)\max\lbrace1,\lambda^2\rbrace`$, with optimum $`\lambda^*=(1-\beta_1^{T+1})/(\rho\,\omega_T)`$ and a sign change near $`2\lambda^*`$;
-  - for large $`\lambda`$ the direct effect saturates while the suppression of later steps keeps accumulating; the limit is explicit, and when it is negative the response has a positive zero.
-- Parameter-only scores and cosine scores therefore misrank message pairs in an explicit region. Under SGD the value would simply be linear in $`\lambda`$.
+- A message's first-order value splits exactly into parameter, momentum and second-moment channels, with costates given by an explicit backward recursion that keeps bias correction, decoupled weight decay, $`\epsilon`$ and clipping.
+- Memoryless SGD with equal parameters has equal futures. Adam does not: an exact construction from a standard Adam history gives two feedbacks with identical immediate parameters and different next steps. The construction is a cold-start mechanism illustration; it separates interfaces that read only the immediate parameter change, not any particular data-selection method.
+- In a restricted stationary mean-field model (tail gradients independent of the parameters, $`\epsilon=0`$, no bias correction) the response to a message of relative magnitude $`\lambda`$ has an exact closed form, with an optimum $`\lambda^*`$, a sign change near $`2\lambda^*`$ for small increments, and an explicit large-$`\lambda`$ limit. Parameter-only and cosine scores misrank in that model. On the real model the prediction of this law was not supported, so it is a mechanism hypothesis, not a ranking rule.
 
-**Hand-off.** Where the second-moment channel dominates, increments are large relative to $`v`$, and first-order rankings fail; there one must measure finite replacements (§8).
+**Hand-off.** The complete optimizer state is part of what feedback must be matched on (§9, step 1), and candidates are ranked by measured finite replacements (§8), not by the amplitude law.
 
 ### §8 · Verification and Theorem C
 
@@ -208,19 +222,24 @@ Arrows show the main flow of the argument. Further dependencies:
 - Paired full-tail experiments at the actual states, with selection by a lower confidence bound, never lose more than $`\delta`$ against the reference, but they need many paired replicas per candidate.
 - The mean increment itself is cheap to estimate. A first-order score, however, needs the continuation gradient and the remainder constants. It certifies a pair only when the pair's first-order term exceeds the second-order remainder, so pairs whose mean increments agree along the gradient are never certified, however large their true gap.
 - Theorem C replaces the gradient by a CRN paired replacement of one round. This is exact in expectation, has a radius with only a statistical term and a calibration term, and costs $`(M+1)r`$ surrogate tails per audited state.
-- Open: a provable range much smaller than the a-priori one, and a testable calibration-transfer condition. Without them the strict certificate is valid but rarely decisive.
+- The same certificate logic extends to a finite catalog of tests and candidates (no spectral gap needed), to message features shared across checkpoints (with a Hilbert–Schmidt tail, not an operator-norm shortcut), to reusing an anchor interface with a paired drift certificate, to an unbiased two-fidelity estimator with an exact cost condition, and to one composed guarantee for a whole run.
+- These strict certificates are valid. At the effect sizes and evaluation noise measured so far they are vacuous: concentration with an a-priori range gives absolute precision that does not shrink with the effect being certified. This is a property of the estimators used, not a proof that certification is impossible. Diagnostic radii are reported separately.
+- Open: a provable range much smaller than the a-priori one, a testable calibration-transfer condition, how much independent information one continuation branch provides, reuse across candidates and checkpoints without a full continuation per cell, effect-scaled certificates, and the short-versus-full continuation correlation on real models.
 
-**Hand-off.** §9 assembles acquisition, selection and certification into a method.
+**Hand-off.** §9 assembles acquisition, compilation, selection and certification into a method.
 
 ### §9 · Mechanism and method
 
-**Question.** What method follows, and which mechanism deserves a test of its own?
+**Question.** What method follows, which mechanism deserves a test of its own, which assumptions does the framework rest on, and what does the evidence cover?
 
 **Conclusion.**
 
 - *Coupling width:* fixing each unit's marginal law and regrouping units into joint training packets changes nothing if and only if a packet's return is additive across units. One SGD step is the strict null.
-- *CED (Consequence-Calibrated Experience Distillation):* record the complete learner state; acquire missing information by learner-relative design before compiling; select candidate feedback laws by CRN paired-replacement scores, calibrated against full-tail audits and with coverage accounted for; match the learner's statistic and control message magnitude relative to the running second moment; freeze the selector and then test transfer.
+- *CED (Consequence-Calibrated Experience Distillation):* record the complete learner state; acquire missing information by learner-relative design before compiling, and route each gap to its remedy (more information, a larger legal pool, or more tests and state); compile candidates within the convex hull of the legal pool; select candidate feedback laws by CRN paired-replacement scores, calibrated against full-tail audits and with coverage accounted for, keeping strict and diagnostic radii apart; freeze the selector and then test transfer.
 - Each design rule is a corollary of a cited statement.
+- *Assumption audit:* the main line needs only a finite budget, a measurable true kernel, bounded scores and a declared comparison scope; stronger conditions belong to named restricted models.
+- *Contribution units:* three composition claims, each with the prior work it must be compared against; no theorem shows an equal-cost advantage over existing data-selection methods.
+- *Scope of evidence:* the new results are supported by synthetic checks; the real-model tests so far support some statements, fail to support others, and leave R2 and the optimizer-state transplant test pending.
 
 ---
 
@@ -311,7 +330,9 @@ flowchart LR
 flowchart LR
   P1["<b>Prop. 3.1</b><br/>Static value ≠<br/>learning value"]:::b2
   T2["<b>Theorem 3.2</b><br/>Continuation-response<br/>characterization"]:::b2
+  P4["<b>Prop. 3.4</b><br/>Joint decomposition<br/>with an approximate value"]:::b2
   P1 --> T2
+  T2 --> P4
   classDef b2 fill:#eaf6ec,stroke:#2e8540,color:#111
 ```
 
@@ -329,6 +350,11 @@ flowchart LR
 - *What it says.* $`\mathcal G`$ is generated by starting from the task score $`F_E`$, applying the reference kernels backward, and pulling back through the actual update. Enlarging the declared task, learner, suffix or snapshot family can only enlarge $`\mathcal G`$, and therefore only refine the equivalence of [Theorem 3.2(b)](statements/03-02_continuation_response_characterization.md#s3-2).
 - *Role.* It fixes the response class as a property of the learner and the task, not a modelling convenience; every later sufficiency statement is relative to the declared family.
 
+**[Proposition 3.4](statements/03-04_joint_decomposition_approximate_value.md#s3-4) · Joint decomposition with an approximate value** — [statement](statements/03-04_joint_decomposition_approximate_value.md) · [proof](proofs/03-04_joint_decomposition_approximate_value.md) · [experiments](experiments/03-04_joint_decomposition_approximate_value.md)
+- *What it says.* With any approximate continuation value $`\widehat V`$, the gap between two protocols is exactly a local response term on the alternative's visited states, plus the difference of the reference Bellman residuals along the two processes, plus the difference of terminal errors. When $`\widehat V`$ is linear in predictive features, its residual splits into a value-recursion error and a feature-closure error; with certified sets, each process pays its own exit probability once.
+- *Intuition.* An approximate continuation is legitimate as long as one also pays for how badly it fails the reference recursion, on both processes, because they visit different states.
+- *Role.* The bookkeeping behind every composed guarantee ([Corollary 8.16](statements/08-16_composed_guarantee.md#s8-16)). It is a performance-difference identity ([Kakade & Langford, 2002](#ref-kakade2002approximately)) and makes no term small; the absolute-value bound discards the cancellation between the two residual sums, so estimators should use the signed identity with paired runs.
+
 ### §4 · Complexity of sufficiency — results
 
 ```mermaid
@@ -339,10 +365,22 @@ flowchart LR
   T5["<b>Theorem 4.5</b><br/>Round-independent bound,<br/>averaging rates"]:::b3
   P6["<b>Prop. 4.6</b><br/>Exact order ≠<br/>approximate complexity"]:::b3
   T7["<b>Theorem 4.7</b><br/>Update composition"]:::b3
+  D8["<b>Def. 4.8</b><br/>Response operator"]:::b3
+  T9["<b>Theorem 4.9</b><br/>Spectral sufficiency"]:::b3
+  T10["<b>Theorem 4.10</b><br/>Hankel rank,<br/>predictive realization"]:::b3
+  P11["<b>Prop. 4.11</b><br/>Static ≠ dynamic;<br/>closure error"]:::b3
+  P12["<b>Prop. 4.12</b><br/>Factorization through<br/>the next predictive state"]:::b3
+  P13["<b>Prop. 4.13</b><br/>Finite-horizon<br/>Gramians"]:::b3
   T2 --> T4
   T4 --> T5
   T2 --> P6
   T4 --> T7
+  T2 --> T9
+  D8 --> T9
+  T10 --> P11
+  T10 --> P12
+  T9 --> P12
+  P12 --> P13
   classDef b3 fill:#fdf3e1,stroke:#b8741a,color:#111
 ```
 
@@ -376,6 +414,35 @@ flowchart LR
 - *What it says.* Composed polynomial updates can multiply the degree of the response in an early block by the degrees of all later updates, and the bound is attained. A threshold learner breaks first-moment sufficiency with a single decision. For one smooth SGD step, the difference between two feedback laws is a mean-gradient term plus a gradient-second-moment term plus a third-order remainder, and per-step errors add up linearly only under a stability condition.
 - *Intuition.* The same data fed to different learners needs different amounts of information; what must match is a property of the learner composed with the task.
 - *Role.* It shows that the actual optimizer must be modelled, which is the subject of §5 ([Proposition 5.1](statements/05-01_optimizer_transformed_expansion.md#s5-1)).
+
+**[Definition 4.8](statements/04-08_response_operator.md#s4-8) · Response operator at a checkpoint** — [statement](statements/04-08_response_operator.md)
+- *What it is.* At a fixed checkpoint, the map from a centred density difference of two feedback laws to the resulting score difference on every declared test (each test is a task score with a declared continuation protocol). Linearity comes from mixing laws, not from linearizing the learner; the map is Hilbert–Schmidt with total squared gain at most $`\tfrac14`$, so it has a singular value decomposition.
+- *Role.* The object of §4's spectral results, of the information and compilation results of §6, and of the estimation, reuse and cost results of §8.
+
+**[Theorem 4.9](statements/04-09_spectral_sufficiency.md#s4-9) · Spectral sufficiency and linear interface complexity** — [statement](statements/04-09_spectral_sufficiency.md) · [proof](proofs/04-09_spectral_sufficiency.md) · [experiments](experiments/04-09_spectral_sufficiency.md)
+- *What it says.* Matching the $`r`$ largest-gain directions leaves at most $`B\sigma_{r+1}`$, and no interface built from $`r`$ linear statistics, even with a nonlinear decoder, does better in the worst case; for small differences actual probability laws attain it. A weighted average bound is not a per-test bound. The dimension guaranteed by boundedness alone is, under the mixture measure of a finite catalog, no smaller than the trivial one.
+- *Intuition.* The learner and the tests turn most directions of feedback difference into small score changes; the singular values sort directions by consequence, not by how different the messages look.
+- *Role.* The explicit-metric companion of [Theorem 4.2](statements/04-02_sufficiency_duality_transfer.md#s4-2), an instance of the Eckart–Young theorem ([Eckart & Young, 1936](#ref-eckart1936approximation)); low rank and fast decay are measured properties, not assumptions.
+
+**[Theorem 4.10](statements/04-10_hankel_rank_predictive_realization.md#s4-10) · Hankel rank and linear predictive realization** — [statement](statements/04-10_hankel_rank_predictive_realization.md) · [proof](proofs/04-10_hankel_rank_predictive_realization.md) · [experiments](experiments/04-10_hankel_rank_predictive_realization.md)
+- *What it says.* If the declared tests are closed under one more legal step and span a finite-dimensional space, their current predictions form an exact state that updates linearly under every control; the task Hankel rank is the smallest dimension of a linear predictor of these expectations, and it is attained. With observations the state is updated by a linear map and a normalization.
+- *Intuition.* The state that matters for the declared tasks is what the process would score under every legal continuation; finitely many such predictions suffice exactly when they keep predicting each other.
+- *Role.* The dynamic counterpart of the response operator; an instance of predictive state representations ([Littman, Sutton & Singh, 2001](#ref-littman2001predictive); [Singh, James & Rudary, 2004](#ref-singh2004predictive)) and value-directed compression ([Poupart & Boutilier, 2002](#ref-poupart2002value)) for the complete learning process.
+
+**[Proposition 4.11](statements/04-11_static_not_dynamic_closure_error.md#s4-11) · Static sufficiency is not dynamic sufficiency; finite-horizon closure error** — [statement](statements/04-11_static_not_dynamic_closure_error.md) · [proof](proofs/04-11_static_not_dynamic_closure_error.md) · [experiments](experiments/04-11_static_not_dynamic_closure_error.md)
+- *What it says.* A feature set can predict the current score exactly and the next one with error 1. For an approximately closed linear model the error after $`H`$ steps is the initial error and every step's closure residual propagated through the remaining model maps, with the actual gains and no contraction assumed.
+- *Intuition.* Compression for continued training must compress the dynamics, not only the snapshot.
+- *Role.* The reason the framework separates current sufficiency from sufficiency under continued training; its residuals enter the Bellman residuals of [Proposition 3.4](statements/03-04_joint_decomposition_approximate_value.md#s3-4).
+
+**[Proposition 4.12](statements/04-12_response_predictive_state_factorization.md#s4-12) · Responses factor through the next predictive state** — [statement](statements/04-12_response_predictive_state_factorization.md) · [proof](proofs/04-12_response_predictive_state_factorization.md) · [experiments](experiments/04-12_response_predictive_state_factorization.md)
+- *What it says.* At a checkpoint the response operator is the composition of the expected change of the next predictive state with the map that lets the declared tests see it; when the tests see the whole predictive basis, equal responses and equal next predictive states are the same condition, and closure carries the match through the declared continuation. A residual version adds an explicit term.
+- *Intuition.* Feedback matters for the future only through what it leaves in the learner's state; the tests look at that residue through a fixed lens.
+- *Role.* The lemma that unifies the language of §3, §4 and §8; it is close to the definition of a predictive state and is not a main result. Spanning a $`d`$-dimensional predictive space needs at least $`d`$ divided by the number of metrics per continuation branch distinct protocols, not $`d`$.
+
+**[Proposition 4.13](statements/04-13_finite_horizon_gramians.md#s4-13) · Finite-horizon Gramians, and what control theory does not transfer** — [statement](statements/04-13_finite_horizon_gramians.md) · [proof](proofs/04-13_finite_horizon_gramians.md) · [experiments](experiments/04-13_finite_horizon_gramians.md)
+- *What it says.* Over a finite horizon, with no stability assumption, the Hankel singular values are exactly those of the reachability Gramian composed with the observability Gramian: a direction carries gain only if feedback can reach it and the future tests can see it. Stable-LTI truncation bounds, causal-model readings of low-rank Hankel blocks and spectral re-readings of failed mechanisms do not transfer.
+- *Intuition.* What matters for distillation passes through the learner's state from input to output; reachable but invisible, or visible but unreachable, contributes nothing.
+- *Role.* It explains why optimizer-state directions with little immediate effect can matter (§7), and records that training as a controlled system is not itself new ([Lessard, Zhang & Zhu, 2019](#ref-lessard2019optimal)).
 
 ### §5 · Optimizer state and the first-order representation — results
 
@@ -472,6 +539,13 @@ flowchart LR
   P10 --> P11
   P11 --> C12
   C7 --> C12
+  P14["<b>Prop. 6.14</b><br/>Convex realizability"]:::b4
+  P15["<b>Prop. 6.15</b><br/>Linear-Gaussian<br/>target"]:::b4
+  P16["<b>Prop. 6.16</b><br/>Information–compilation<br/>radius"]:::b4
+  T5 --> P14
+  L4 --> P15
+  P14 --> P16
+  P15 --> P16
   classDef b4 fill:#f6e9f4,stroke:#9c3d8f,color:#111
 ```
 
@@ -489,14 +563,14 @@ flowchart LR
 - *Role.* It is the lower half of Theorem A and the quantitative core of "acquire before compiling"; the aliasing and exchange-rate corollaries follow from it.
 
 **[Lemma 6.4](statements/06-04_design_minimax_equality.md#s6-4) · Design minimax equality** — [statement](statements/06-04_design_minimax_equality.md) · [proof](proofs/06-04_design_minimax_equality.md) · [experiments](experiments/06-04_design_minimax_equality.md)
-- *What it says.* The best variance any query design can achieve for estimating the learner-relative functional equals the square of the information norm, and an optimal design exists. It is the c-optimal (Elfving) design whose target vector is the learner Jacobian applied to the continuation-value gradients.
+- *What it says.* The best variance any query design can achieve for estimating the learner-relative functional equals the square of the information norm, and an optimal design exists. It is the c-optimal (Elfving) design whose target vector is the learner Jacobian applied to the continuation-value gradients. The equality also holds for singular information matrices: the value is finite exactly when the target is orthogonal to every direction no design informs, so directions irrelevant to the target need not be identified.
 - *Intuition.* The best way to spend queries is the one that is most informative about the single direction the learner will use; this is a classical design problem with a learner-specific target.
 - *Role.* It turns the lower bound into an acquisition rule and makes the upper bound computable.
 
 **[Theorem 6.5](statements/06-05_achievability.md#s6-5) · Achievability; tight to constants in the scalar case** — [statement](statements/06-05_achievability.md) · [proof](proofs/06-05_achievability.md) · [experiments](experiments/06-05_achievability.md)
 - *What it says.* Estimating the environment with a (slightly regularized) c-optimal query design and emitting the oracle law at the estimate reaches error $`\mathfrak n_{K,n}(1+o(1))`$. Together with the lower bound, the best achievable first-order error is pinned between $`\mathfrak n_{K,n}/4`$ and $`\mathfrak n_{K,n}`$.
 - *Intuition.* Once the information is collected in the right direction, a plug-in distiller loses at most a constant factor.
-- *Role.* It is the upper half of Theorem A: the information norm is the right measure of how sufficient a batch of experience is for a given learner.
+- *Role.* It is the upper half of Theorem A: the information norm is the right measure of how sufficient a batch of experience is for a given learner. It assumes the oracle law can be generated at the estimate; a distiller restricted to a finite legal pool pays the realizability error of [Proposition 6.14](statements/06-14_convex_realizability_legal_pool.md#s6-14).
 
 **[Remark 6.6](statements/06-06_class_uniform_fidelity.md#s6-6) · Class-uniform fidelity** — [statement](statements/06-06_class_uniform_fidelity.md) · [proof](proofs/06-06_class_uniform_fidelity.md)
 - *What it says.* For fidelity over a whole declared class of tasks, the lower and upper bounds of Theorem A extend and differ by at most $`4d^{3/2}`$, with $`d`$ the dimension of the class.
@@ -535,35 +609,52 @@ flowchart LR
 - *What it says.* One common state and $`N`$ tail states: relative to the common state, the tail's share of the information requirement is larger under warm Adam than under SGD by $`N(1-q)/q`$ (for example $`80`$ when $`N=20`$, $`q=0.2`$).
 - *Role.* It shows the size of the learner-relative amplification and why water-filling sends more queries to the tail under Adam.
 
-### §7 · Theorem B: Adam's second-moment channel — results
+**[Proposition 6.14](statements/06-14_convex_realizability_legal_pool.md#s6-14) · Convex realizability over a finite legal pool** — [statement](statements/06-14_convex_realizability_legal_pool.md) · [proof](proofs/06-14_convex_realizability_legal_pool.md) · [experiments](experiments/06-14_convex_realizability_legal_pool.md)
+- *What it says.* A positive mixture of a finite pool of verified messages matches a target vector of feature means exactly when the target lies in the convex hull of the pool's feature vectors, and then at most $`r+1`$ messages suffice (Carathéodory; [Rockafellar, 1970](#ref-rockafellar1970convex)). Outside the hull the distance to the hull is an exact error floor. Sparse realizations can inflate the density bound on which the spectral error bounds depend.
+- *Intuition.* A mixture can only average what the pool contains, and concentrating it on few messages is importance weighting with large weights.
+- *Role.* It replaces the generability assumption of [Theorem 6.5](statements/06-05_achievability.md#s6-5) for real distillation and supplies the legal set of Proposition 6.16 and the compilation step of [Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2).
+
+**[Proposition 6.15](statements/06-15_linear_gaussian_target.md#s6-15) · Linear-Gaussian target: exact risk, whitened response, one-query gain** — [statement](statements/06-15_linear_gaussian_target.md) · [proof](proofs/06-15_linear_gaussian_target.md) · [experiments](experiments/06-15_linear_gaussian_target.md)
+- *What it says.* In a linear-Gaussian model the minimax risk of estimating a vector of learning consequences is exactly a trace, attained by generalized least squares and spread over the eigen-directions of the information-whitened target; one more query reduces it by an explicit Sherman–Morrison amount.
+- *Intuition.* A large consequence that the evidence already identifies well is not worth querying; the whitened operator, not the raw response spectrum, measures query difficulty.
+- *Role.* The fully proved special case of query design in §6; greedy ranking by gain per cost is a one-step rule, not a budget-optimal one.
+
+**[Proposition 6.16](statements/06-16_information_compilation_radius.md#s6-16) · Information–compilation radius** — [statement](statements/06-16_information_compilation_radius.md) · [proof](proofs/06-16_information_compilation_radius.md) · [experiments](experiments/06-16_information_compilation_radius.md)
+- *What it says.* For a fixed, calibrated response interface, the worst-case distance between the best legal feedback and the consequences the evidence still allows is bounded below by half the diameter of those consequences (an information gap) and by their distance to what legal feedback can produce (a realizability gap); it is zero only when both vanish. Uncertainty the tests cannot see costs nothing. The problem is convex in the decision; its inner maximization is easy for finite scenario sets and a single ellipsoid, and hard for general boxes.
+- *Intuition.* The distiller commits to one legal feedback before knowing which target is true; spread-out targets and an unreachable target fail in different ways.
+- *Role.* It routes each gap to its remedy — acquisition, a larger pool, or nothing — in [Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), and it enters the composed guarantee of [Corollary 8.16](statements/08-16_composed_guarantee.md#s8-16).
+
+### §7 · Theorem B: Adam's memory channels — results
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "20px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 34, "padding": 8, "wrappingWidth": 260}}}%%
 flowchart LR
   T1["<b>Theorem 7.1</b><br/>State-channel<br/>decomposition"]:::b4
-  C2["<b>Cor. 7.2</b><br/>Stationary<br/>amplitude law"]:::b4
+  C2["<b>Cor. 7.2</b><br/>Stationary amplitude law<br/>(restricted model)"]:::b4
   P3["<b>Prop. 7.3</b><br/>Two proxy classes<br/>are inconsistent"]:::b4
+  P6["<b>Prop. 7.6</b><br/>Equal immediate parameters,<br/>different continuation"]:::b4
   T1 --> C2
   C2 --> P3
+  T1 --> P6
   classDef b4 fill:#f6e9f4,stroke:#9c3d8f,color:#111
 ```
 
 **[Theorem 7.1](statements/07-01_state_channel_decomposition.md#s7-1) · State-channel decomposition** — [statement](statements/07-01_state_channel_decomposition.md) · [proof](proofs/07-01_state_channel_decomposition.md) · [experiments](experiments/07-01_state_channel_decomposition.md)
 - *What it says.* For Adam/AdamW (bias correction, decoupled weight decay, $`\epsilon`$ and global-norm clipping included), the gradient of the continuation value with respect to $`(\theta,m,v)`$ is given by an explicit reverse costate recursion. The first-order value of a message then splits exactly into a parameter channel, a momentum channel and a second-moment channel. The last depends on the message only through $`g\odot g`$.
 - *Intuition.* A message changes not only the current step but also the running second moment, and through it every later step size. The second-moment channel is the price or benefit of that change.
-- *Role.* It makes the optimizer-state part of [Proposition 5.1](statements/05-01_optimizer_transformed_expansion.md#s5-1) computable for Adam. It is the object behind the amplitude law ([Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2)) and the failure of parameter-only influence scores ([Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes.md#s7-3)); with Corollary 7.2 it forms Theorem B.
+- *Role.* It makes the optimizer-state part of [Proposition 5.1](statements/05-01_optimizer_transformed_expansion.md#s5-1) computable for Adam. It is the object behind the restricted amplitude law ([Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2)) and the failure of parameter-only influence scores ([Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes.md#s7-3)); with [Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation.md#s7-6) it forms Theorem B.
 
-**[Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2) · Stationary amplitude law** — [statement](statements/07-02_stationary_amplitude_law.md) · [proof](proofs/07-02_stationary_amplitude_law.md) · [experiments](experiments/07-02_stationary_amplitude_law.md)
+**[Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2) · Stationary amplitude law (restricted mean-field model)** — [statement](statements/07-02_stationary_amplitude_law.md) · [proof](proofs/07-02_stationary_amplitude_law.md) · [experiments](experiments/07-02_stationary_amplitude_law.md)
 - *What it says.* At a warm stationary state, the mean-field response to a same-direction message of amplitude $`\lambda`$ (in units of the running RMS) is an explicit finite sum, valid for every $`\lambda`$.
   - For small increments it is a concave quadratic with optimum $`\lambda^\star=(1-\beta_1^{T+1})/(\rho\,\omega_T)`$ and sign change near $`2\lambda^\star`$, with an explicit error bound.
   - For very large amplitudes the direct effect saturates. A large message ends up worse than no message exactly when the signal-to-noise ratio $`\rho`$ exceeds $`\kappa_{\rm iso}(T)/\Lambda(T)`$.
 - *Intuition.* A big gradient inflates $`v`$ and so shrinks the following steps; beyond some size the shrinkage costs more than the big step gains. Under SGD there is no such effect: bigger is always better.
-- *Role.* The first quantitative statement that, under Adam, the value of a message is non-monotone in its magnitude. It tells the method to control message magnitude relative to the running second moment ([Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), step 4), and it predicts where linearized scores mislead.
+- *Role.* A mechanism hypothesis, proved in its model (stationary tail gradients independent of the parameters, $`\epsilon=0`$, no bias correction, the mean-field substitution). Its real-model prediction was not supported: the measured responses had the opposite sign and were far smaller ([Check 7.6](experiments/07-02_stationary_amplitude_law.md#c7-6)). The method uses it only to generate rescaled candidates, which are then measured ([Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), step 4).
 
 **[Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes.md#s7-3) · Inconsistency of two proxy classes** — [statement](statements/07-03_inconsistency_two_proxy_classes.md) · [proof](proofs/07-03_inconsistency_two_proxy_classes.md) · [experiments](experiments/07-03_inconsistency_two_proxy_classes.md)
 - *What it says.* A statistic that ignores the deployment task cannot rank feedback laws correctly for every task. In the regime of Corollary 7.2, parameter-only first-order scores rank two same-direction messages in the wrong order. Examples are TracIn-style scores with Adam steps and fixed-state Adam data Shapley. Cosine scores (LESS-type) cannot separate the two messages at all.
 - *Intuition.* The parameter-only score sees the bigger immediate step and misses the damage done through $`v`$; the cosine sees only direction, and the two messages point the same way.
-- *Role.* A proof, not just an empirical observation, that two widely used families of influence scores are not consistent rankers under Adam. It is one reason the method selects by measured consequence ([Remark 9.3](statements/09-03_derivation_design_rules.md#s9-3), Rule 2).
+- *Role.* A proof, not just an empirical observation, that two widely used families of influence scores are not consistent rankers under Adam in the model of Corollary 7.2, whose real-model prediction was not supported. It is one reason the method selects by measured consequence ([Remark 9.3](statements/09-03_derivation_design_rules.md#s9-3), Rule 2).
 
 **[Remark 7.4](statements/07-04_relation_prior_work_role_clipping.md#s7-4) · Relation to prior work; the role of clipping** — [statement](statements/07-04_relation_prior_work_role_clipping.md)
 - *What it says.* The closest analysis of AdamW's state dynamics (Liu & Li, 2026) gives no amplitude law, optimum or threshold; In-Run Data Shapley for Adam and TracIn-style scores with Adam steps are parameter-only scores, and LESS is a cosine score, so all three fall under Proposition 7.3(b). Global-norm clipping caps the amplitude $`\lambda`$ of every message and with it the second-moment harm; this is stated as a testable mechanism, not a result.
@@ -572,6 +663,11 @@ flowchart LR
 **[Remark 7.5](statements/07-05_where_first_order_rankers_fail.md#s7-5) · Where first-order rankers fail** — [statement](statements/07-05_where_first_order_rankers_fail.md) · [experiments](experiments/07-05_where_first_order_rankers_fail.md)
 - *What it says.* Where the second-moment channel carries a large share of the first-order difference between two candidates, the increments are large relative to $`v`$ and the response saturates, so the linearization overstates the $`v`$-channel harm. There every first-order score, including the full-state score with the exact continuation gradient, is unreliable, and candidates should be ranked by a finite paired-replacement measurement ([Theorem 8.8](statements/08-08_crn_paired_replacement_certificate.md#s8-8)) or the nonlinear amplitude formula.
 - *Role.* It limits first-order screening in the method to low-share pairs with a dominant margin ([Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), steps 4–5), and explains why first-order attribution that works under SGD can fail under Adam.
+
+**[Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation.md#s7-6) · Equal immediate parameters do not fix the continuation** — [statement](statements/07-06_equal_immediate_parameters_different_continuation.md) · [proof](proofs/07-06_equal_immediate_parameters_different_continuation.md) · [experiments](experiments/07-06_equal_immediate_parameters_different_continuation.md)
+- *What it says.* Without optimizer memory, equal parameters give equal futures. With Adam, once the momentum is nonzero the step is a two-to-one function of the gradient around its peak, so two gradients give identical immediate parameters and different moments. An exact rational instance from a standard Adam history gives different next steps; positive $`\epsilon`$ is covered by the implicit function theorem. In a warm state the momentum delivers only the fraction $`1-\beta_1`$ of a gradient's first-order displacement at once, and the second moment can change by much more than $`1-\beta_2`$ when the gradient is large relative to $`v`$.
+- *Intuition.* The parameters cannot tell the two messages apart; the moments can, and the next update reads them.
+- *Role.* With Theorem 7.1 it forms Theorem B. It separates interfaces that read only the immediate parameter change, as a cold-start mechanism illustration, not a separation from any particular data-selection method. Its real-model counterpart is a pre-registered optimizer-state transplant test whose result is not yet available.
 
 ### §8 · Verification and Theorem C — results
 
@@ -591,6 +687,16 @@ flowchart LR
   T8 --> C9
   T8 --> P10
   T3 --> T8
+  P12["<b>Prop. 8.12</b><br/>Finite-catalog<br/>spectral certificate"]:::b5
+  P13["<b>Prop. 8.13</b><br/>Shared features<br/>across checkpoints"]:::b5
+  P14["<b>Prop. 8.14</b><br/>Anchor reuse,<br/>drift certificate"]:::b5
+  P15["<b>Prop. 8.15</b><br/>Two-fidelity<br/>estimation"]:::b5
+  C16["<b>Cor. 8.16</b><br/>Composed guarantee"]:::b5
+  P12 --> P14
+  P13 --> P14
+  P12 --> P15
+  P14 --> C16
+  P15 --> C16
   classDef b5 fill:#e9f5f6,stroke:#1f7f8c,color:#111
 ```
 
@@ -624,12 +730,12 @@ flowchart LR
 
 **[Assumption 8.7](statements/08-07_certificate_assumptions.md#s8-7) · Independent replicas, bounded scores, surrogate alignment** — [statement](statements/08-07_certificate_assumptions.md)
 - *What it is.* Independence of replicas given the history, a known a-priori range of each paired score, and alignment of surrogate differences with task differences up to a factor and an error.
-- *Role.* These are the only assumptions of Theorem 8.8; the range and the alignment are exactly the two open problems of Remark 8.12.
+- *Role.* These are the only assumptions of Theorem 8.8; the range and the alignment are exactly the two open problems of Remark 8.17.
 
 **[Theorem 8.8](statements/08-08_crn_paired_replacement_certificate.md#s8-8) · CRN paired-replacement certificate; Theorem C** — [statement](statements/08-08_crn_paired_replacement_certificate.md) · [proof](proofs/08-08_crn_paired_replacement_certificate.md) · [experiments](experiments/08-08_crn_paired_replacement_certificate.md)
 - *What it says.* At an audited state, give each candidate one round and then run the same surrogate tail with the same random numbers for every candidate. The mean paired score difference estimates the finite effect of the replacement without bias, and an empirical Bernstein radius plus a surrogate-calibration term turns it into a certificate that holds for all candidate pairs at once.
 - *Intuition.* Instead of linearizing and then bounding the error of the linearization, measure the finite effect directly; sharing the random numbers cancels the tail noise that two independent runs would add.
-- *Role.* It replaces the oracle continuation gradient by a measurement, and it is the selection step of the method. Its rigor rests on a known score range and a calibrated surrogate, which are the open problems of Remark 8.12.
+- *Role.* It replaces the oracle continuation gradient by a measurement, and it is the selection step of the method. Its rigor rests on a known score range and a calibrated surrogate, which are the open problems of Remark 8.17.
 
 **[Corollary 8.9](statements/08-09_first_order_version_margin_criterion.md#s8-9) · The first-order version, its margin criterion, and its cap** — [statement](statements/08-09_first_order_version_margin_criterion.md) · [proof](proofs/08-09_first_order_version_margin_criterion.md) · [experiments](experiments/08-09_first_order_version_margin_criterion.md)
 - *What it says.* A first-order score ranks two candidates correctly whenever their first-order difference exceeds the second-order remainder. Measured by finite differences, the first-order certificate pays a finite-difference term and the remainder on top of the statistical radius, and it can never certify a pair whose first-order term is below the remainder, whatever the true gap.
@@ -643,11 +749,36 @@ flowchart LR
 
 **[Remark 8.11](statements/08-11_surrogate_calibration_and_transfer.md#s8-11) · Calibrating the surrogate; transfer along training** — [statement](statements/08-11_surrogate_calibration_and_transfer.md) · [experiments](experiments/08-11_surrogate_calibration_and_transfer.md)
 - *What it says.* The alignment constants are fitted by regressing paired full-tail task contrasts on surrogate scores; transferring them to new pairs is an exchangeability assumption, not a theorem; inside the adaptive audit the certified bound of Theorem 8.8 can replace the full-tail bound with Theorem 8.3(c) unchanged; using a selection later needs transport or a re-audit.
-- *Role.* It connects Theorem C to the safe adaptive audit and states the calibration-transfer condition that Remark 8.12 leaves open.
+- *Role.* It connects Theorem C to the safe adaptive audit and states the calibration-transfer condition that Remark 8.17 leaves open.
 
-**[Remark 8.12](statements/08-12_open_problems.md#s8-12) · Open problems** — [statement](statements/08-12_open_problems.md) · [experiments](experiments/08-12_open_problems.md)
-- *What it says.* Two open problems: a provable score range much smaller than the a-priori range, for example from a certified pathwise Lipschitz constant; and a testable calibration-transfer condition. Until both are settled, Theorem 8.8 is in practice an unbiased, low-variance ranking score, and a rigorous certificate only where the range and the calibration are justified independently.
-- *Role.* It states precisely what remains to make the measurable certificate both rigorous and useful.
+**[Proposition 8.12](statements/08-12_finite_catalog_spectral_certificate.md#s8-12) · Finite-catalog spectral certificate** — [statement](statements/08-12_finite_catalog_spectral_certificate.md) · [proof](proofs/08-12_finite_catalog_spectral_certificate.md) · [experiments](experiments/08-12_finite_catalog_spectral_certificate.md)
+- *What it says.* For a frozen catalog of tests and candidates with independent replicates per cell, entrywise Hoeffding errors become an operator-norm error of the same size, the estimated singular values move by at most that much, and the truncated interface keeps its residual bound up to twice that error; no spectral gap is needed. The number of continuation runs is set by the distinct continuation protocols, not by the number of metrics read off each run.
+- *Intuition.* Weights summing to one make the weighted Frobenius error at most the largest entry error; a gap matters only for naming individual singular vectors.
+- *Role.* The finite-sample version of [Theorem 4.9](statements/04-09_spectral_sufficiency.md#s4-9). At realistic replicate counts its radius exceeds the response scale: valid, vacuous.
+
+**[Proposition 8.13](statements/08-13_shared_features_across_checkpoints.md#s8-13) · Shared message features across checkpoints** — [statement](statements/08-13_shared_features_across_checkpoints.md) · [proof](proofs/08-13_shared_features_across_checkpoints.md) · [experiments](experiments/08-13_shared_features_across_checkpoints.md)
+- *What it says.* Message features may be learned from many checkpoints while the feedback difference changes with the state; the averaged error is then bounded by the full Hilbert–Schmidt tail of the stacked operator, not by its next singular value, which can be wrong by a factor up to the number of checkpoints. Averaged accuracy transfers to visited states only under domination of their law.
+- *Intuition.* A state-conditional input can align with each checkpoint's own dominant direction, so errors add over checkpoints.
+- *Role.* The correct norm for reusing an interface during continued training.
+
+**[Proposition 8.14](statements/08-14_anchor_reuse_drift_certificate.md#s8-14) · Anchor reuse and a paired drift certificate** — [statement](statements/08-14_anchor_reuse_drift_certificate.md) · [proof](proofs/08-14_anchor_reuse_drift_certificate.md) · [experiments](experiments/08-14_anchor_reuse_drift_certificate.md)
+- *What it says.* An interface estimated at an anchor checkpoint can be reused elsewhere at the price of the anchor's tail, its estimation error and the operator drift, with no spectral gap. The drift is bounded by the second moment of paired output differences on random messages, which gives a strict finite-sample certificate; a debiased product of two independent pairs removes that estimator's noise floor. At the evaluation noise measured on the real model the certificate is vacuous.
+- *Intuition.* Reuse is a triangle inequality; the drift is itself a response operator of score differences, but its bounded-range certificate pays for the full range.
+- *Role.* The per-checkpoint reuse step of maintaining sufficiency, and the drift term of Corollary 8.16.
+
+**[Proposition 8.15](statements/08-15_two_fidelity_response_estimation.md#s8-15) · Two-fidelity response estimation and its cost condition** — [statement](statements/08-15_two_fidelity_response_estimation.md) · [proof](proofs/08-15_two_fidelity_response_estimation.md) · [experiments](experiments/08-15_two_fidelity_response_estimation.md)
+- *What it says.* A cheap, biased but correlated estimate of a full continuation, corrected by a few paired full runs, is unbiased, with explicit variance, cost-optimal allocation and a necessary and sufficient condition for saving computation; with the optimal nested coefficient the classical multifidelity ratio applies ([Peherstorfer, Willcox & Gunzburger, 2016](#ref-peherstorfer2016optimal)). It reduces replicates inside a cell, never below one full continuation per cell.
+- *Intuition.* The cheap estimate carries the sampling; the full runs only estimate its error, which is small only if the two move together.
+- *Role.* The framework's one estimator aimed at cheaper catalogs; its premise, a strong short-versus-full correlation on the real learner, is untested.
+
+**[Corollary 8.16](statements/08-16_composed_guarantee.md#s8-16) · Composed guarantee from reuse, estimation and compilation** — [statement](statements/08-16_composed_guarantee.md) · [proof](proofs/08-16_composed_guarantee.md) · [experiments](experiments/08-16_composed_guarantee.md)
+- *What it says.* Interface reuse, response estimation, information acquisition and legal compilation enter one bound on the gap of a whole run, each through a measurable term, with the dynamic, terminal and exit terms of [Proposition 3.4](statements/03-04_joint_decomposition_approximate_value.md#s3-4) kept. With bounded-range concentration each step's terms are absolute precisions, so the bound grows with the number of steps even when each step's effect is tiny; at the measured scale it is far above the trivial bound.
+- *Intuition.* A certificate of a sum of many small effects built from absolute per-term precisions is a sum of many large radii.
+- *Role.* An error budget that says which term to reduce. Estimating the gain of one fixed pair, certifying every local response, and guaranteeing sufficiency for a class of future protocols are different problems with different costs; the realistic route to a non-vacuous version is a value model whose Bellman residuals are checked with one-step updates, to be compared with doubly robust evaluation ([Jiang & Li, 2016](#ref-jiang2016doubly)).
+
+**[Remark 8.17](statements/08-17_open_problems.md#s8-17) · Open problems** — [statement](statements/08-17_open_problems.md) · [experiments](experiments/08-17_open_problems.md)
+- *What it says.* Six open problems. For Theorem C: a provable score range much smaller than the a-priori range, and a testable calibration-transfer condition. For maintaining an interface during continued training: how much independent information one full continuation branch provides and which interventions identify closure; reuse across candidates and checkpoints without a full continuation per cell; certificates whose radius scales with the effect at affordable replicate counts; and the short-versus-full continuation correlation on real models.
+- *Role.* It separates what is proved (validity) from what is measured (vacuity at the current scale), and states what remains to make the certificates both rigorous and useful.
 
 ### §9 · Mechanism and method — results
 
@@ -656,7 +787,11 @@ flowchart LR
 flowchart LR
   P1["<b>Prop. 9.1</b><br/>Coupling width"]:::b6
   A2["<b>Algorithm 9.2</b><br/>CED"]:::b6
+  R5["<b>Remark 9.5</b><br/>Assumption audit"]:::b6
+  R6["<b>Remark 9.6</b><br/>Contribution units"]:::b6
   P1 --> A2
+  A2 --> R5
+  A2 --> R6
   classDef b6 fill:#fbeaea,stroke:#b53b3b,color:#111
 ```
 
@@ -666,17 +801,25 @@ flowchart LR
 - *Role.* A mechanism test with a strict null, and the reason a candidate feedback law is specified by the packets it emits, not by a bag of units ([Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), step 3).
 
 **[Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2) · Consequence-Calibrated Experience Distillation, CED** — [statement](statements/09-02_ced_algorithm.md) · [proof](proofs/09-02_ced_algorithm.md) · [experiments](experiments/09-02_ced_algorithm.md)
-- *What it says.* Record the complete optimizer state; acquire missing information first, spending queries where the learner-relative weight is high and teacher coverage is low; compile candidate feedback laws as packet laws; record each candidate's learner statistic and flag messages that are too large relative to the running second moment; measure each candidate's consequence at the actual state by CRN paired replacement, calibrated against a few full-tail audits; select by lower confidence bound, re-audit, freeze, then test method and policy transfer separately. Each output carries a stated guarantee (G1–G3) or is labelled empirical (G4).
+- *What it says.* Record the complete optimizer state; acquire missing information first, spending queries where the learner-relative weight is high and teacher coverage is low, and route each gap to its remedy with the information–compilation radius; compile candidate feedback laws as positive mixtures of the legal pool, reporting the density bound and the realizability residual; record each candidate's learner statistic, using the magnitude screen only to generate rescaled candidates; measure each candidate's consequence at the actual state by CRN paired replacement, calibrated against a few full-tail audits, reusing interfaces or using two-fidelity estimation only when their cost conditions are verified and keeping strict and diagnostic radii apart; select by lower confidence bound, re-audit, freeze, then test method and policy transfer separately. Each output carries a stated guarantee (G1–G3) or is labelled empirical (G4).
 - *Intuition.* Choose feedback by what happens after this learner, in its current state, consumes it, not by how good the feedback looks on its own.
-- *Role.* Where the framework lands: every step is required by a statement of §2–§8, and the planned real-model tests R0–R3 ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)) test those steps.
+- *Role.* Where the framework lands: every step is required by a statement of §2–§8. At the scales measured so far the strict certificates are vacuous, so in practice selections fall under (G4) unless a full-tail audit or a decisive strict radius is available; the real-model tests are described in [Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4).
 
 **[Remark 9.3](statements/09-03_derivation_design_rules.md#s9-3) · Derivation of the design rules** — [statement](statements/09-03_derivation_design_rules.md) · [proof](proofs/09-03_derivation_design_rules.md) · [experiments](experiments/09-03_derivation_design_rules.md)
-- *What it says.* Six rules behind CED, each a necessary condition for the corresponding guarantee and derived from cited statements: acquire before compiling; select by measured consequence; match the learner's statistic, not the raw gradient; fit response models with stable coefficients; account for coverage, certify by paired replacement and use first-order audits only where the margin dominates; freeze, then test transfer. In the controlled learner, the static proxies tested did not reliably select, while measured responses did.
+- *What it says.* Seven rules behind CED, each a necessary condition for the corresponding guarantee and derived from cited statements: acquire before compiling; select by measured consequence; match the learner's statistic, not the raw gradient; fit response models with stable coefficients; account for coverage, certify by paired replacement and use first-order audits only where the margin dominates; freeze, then test transfer; route each gap to its remedy (information, realizability, closure or estimation cost). In the controlled learner, the static proxies tested did not reliably select, while measured responses did.
 - *Role.* It explains why Algorithm 9.2 has the steps it has; each rule closes one way a method can claim more than it knows, and an ablation of the method should remove one rule at a time.
 
-**[Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4) · What the controlled evidence covers, and the planned real-model tests** — [statement](statements/09-04_scope_of_evidence.md)
-- *What it says.* All evidence in the framework is exact finite computation or a controlled small network; no statement is supported by a real-model or benchmark result. The pre-registered real-model tests on ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)) are R0 (warm-state conditions and response non-additivity), R1 (Theorem C: same-state ranking of four feedback laws by the CRN score), R2 (Theorem A: learner-relative query allocation against uniform and SGD-weighted allocation) and R3 (Theorem B: one batch at several magnitudes, clipping off and on).
-- *Role.* It marks the boundary of the claims and ties each planned test to the statement it tests, so real-model results can be read against predictions written in advance.
+**[Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4) · What the evidence covers: controlled checks and real-model tests** — [statement](statements/09-04_scope_of_evidence.md)
+- *What it says.* The controlled evidence is exact finite computation and small networks. The pre-registered real-model tests on ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)) are R0 (warm-state conditions and response non-additivity: the pre-registered warm criterion was mis-specified and failed; non-additivity met its criterion late in training only), R1 (Theorem C: one pair ranked by the diagnostic radius only, the strict certificate vacuous, two candidates pending), R2 (Theorem A query allocation, pending), R3 (the amplitude law: not supported) and the optimizer-state transplant test of Proposition 7.6 (pending). The new results of §3, §4, §6, §7 and §8 have synthetic support only.
+- *Role.* It marks the boundary of the claims and ties each test to the statement it tests, so results are read against predictions written in advance.
+
+**[Remark 9.5](statements/09-05_assumption_audit.md#s9-5) · Assumption audit** — [statement](statements/09-05_assumption_audit.md)
+- *What it says.* The main line needs only a finite budget, a measurable true kernel, bounded scores and a declared comparison scope. Every stronger condition is attached to the results that use it (affine learners, independent visits and mean field, stationarity and linear response, generable oracle laws, known score ranges and calibration), with the action taken when it fails, and some combinations of wishes cannot be had at once.
+- *Role.* It prevents the generality of the main line from being read as a claim that the method needs no structure.
+
+**[Remark 9.6](statements/09-06_contribution_units_prior_work.md#s9-6) · Contribution units and nearest prior work** — [statement](statements/09-06_contribution_units_prior_work.md)
+- *What it says.* Three composition claims (problem and representation; implementation and cost; acquisition and compilation), each set against the prior work that already owns part of the ground: machine teaching, including sequential teaching as optimal control ([Zhu, 2015](#ref-zhu2015machine); [Lessard, Zhang & Zhu, 2019](#ref-lessard2019optimal)), datamodels and TRAK ([Ilyas et al., 2022](#ref-ilyas2022datamodels); [Park et al., 2023](#ref-park2023trak)), predictive states and value-directed compression, gradient-based data selection, performance-difference identities, doubly robust evaluation ([Jiang & Li, 2016](#ref-jiang2016doubly)) and multifidelity Monte Carlo ([Peherstorfer, Willcox & Gunzburger, 2016](#ref-peherstorfer2016optimal)). No theorem shows an equal-cost advantage over existing data-selection methods.
+- *Role.* It turns the novelty question into tests: each unit names the decision it should change.
 
 ---
 
@@ -751,13 +894,16 @@ g_{t,z}(y)=\mathbb E_{\xi_t}\,V^0_{t+1}\big(U_t(z,y,\xi_t)\big).
 | $`N`$ | decisions in one deployment episode |
 | $`d`$ | linear statistics (features) |
 | $`r`$, $`M`$ in §8 | CRN replicas per audited state, number of candidate feedback laws |
+| $`r`$ in §4, §6 and Propositions 8.12–8.15 | retained modes of a response operator (rank of a linear interface) |
+| $`p`$, $`m`$ in §4 and Proposition 8.12 | declared tests, candidate messages or feedback providers in a finite catalog |
+| $`p_{\rm train}`$ | distinct continuation protocols needed by a catalog of tests |
 
 Replaying one block $`n`$ times is not $`n`$ independent blocks.
 
 **Conventions.**
 
 - Statements are numbered by section with one shared counter (Definition 5.4 is followed by Proposition 5.5).
-- *Theorem A* denotes Theorems 6.3 and 6.5, *Theorem B* Theorem 7.1 and Corollary 7.2, and *Theorem C* Theorem 8.8.
+- *Theorem A* denotes Theorems 6.3 and 6.5, *Theorem B* Theorem 7.1 and Proposition 7.6, and *Theorem C* Theorem 8.8. Corollary 7.2 is the restricted mean-field model of Theorem B.
 - Where a letter is reused locally, the section says so on first use; for example, $`s`$ counts absorbed gradient evaluations in §5 and denotes an agent state in §6.
 
 ---
@@ -767,23 +913,27 @@ Replaying one block $`n`$ times is not $`n`$ independent blocks.
 | Section | Statements | Status |
 |---|---|---|
 | §2 | [Theorem 2.2](statements/02-02_regret_decomposition_decision_ambiguity.md#s2-2), [Propositions 2.3–2.4](statements/02-03_robust_ambiguity_duality.md#s2-3), [Theorem 2.6](statements/02-06_passive_impossibility_active_attainability.md#s2-6), [Proposition 2.7](statements/02-07_compilation_cost.md#s2-7), [Lemma 2.9](statements/02-09_no_leakage_about_unrevealed_bits.md#s2-9), [Theorem 2.10](statements/02-10_few_shot_information_floor.md#s2-10), [Proposition 2.11](statements/02-11_shared_information_budget.md#s2-11) | proved |
-| §3 | [Proposition 3.1](statements/03-01_static_value_not_learning_value.md#s3-1), [Theorem 3.2](statements/03-02_continuation_response_characterization.md#s3-2) | proved |
+| §3 | [Proposition 3.1](statements/03-01_static_value_not_learning_value.md#s3-1), [Theorem 3.2](statements/03-02_continuation_response_characterization.md#s3-2), [Proposition 3.4](statements/03-04_joint_decomposition_approximate_value.md#s3-4) | proved; Theorem 3.2 and Proposition 3.4 are performance-difference identities |
 | §4 | [Theorems 4.2](statements/04-02_sufficiency_duality_transfer.md#s4-2), [4.4](statements/04-04_affine_learners_moment_order.md#s4-4), [4.5](statements/04-05_round_independent_bound_averaging_rates.md#s4-5), [Proposition 4.6](statements/04-06_exact_order_not_approximate_complexity.md#s4-6), [Theorem 4.7](statements/04-07_update_composition_amplifies_information_requirement.md#s4-7) | proved |
+| §4 | [Theorems 4.9–4.10](statements/04-09_spectral_sufficiency.md#s4-9), [Propositions 4.11–4.13](statements/04-11_static_not_dynamic_closure_error.md#s4-11) | proved; instances of classical low-rank approximation, realization and predictive-state theory; finite-dimensional versions are conditional on a finite closed test space |
 | §5 | [Propositions 5.1](statements/05-01_optimizer_transformed_expansion.md#s5-1), [5.3](statements/05-03_cold_start_adam_sign_quotient.md#s5-3), [5.5–5.9](statements/05-05_exact_first_order_statistic_adam.md#s5-5), [Theorem 5.10](statements/05-10_first_order_statistic_by_learner.md#s5-10) | proved (finite dimension, explicit assumptions); Proposition 5.1 is a standard tool |
-| §6 (Theorem A) | [Theorem 6.3](statements/06-03_learner_relative_lower_bound.md#s6-3), [Lemma 6.4](statements/06-04_design_minimax_equality.md#s6-4), [Theorem 6.5](statements/06-05_achievability.md#s6-5), [Corollaries 6.7–6.8](statements/06-07_aliasing_zero_value_replay.md#s6-7), [Proposition 6.10](statements/06-10_water_filling_allocation.md#s6-10), [Corollary 6.12](statements/06-12_learner_separations.md#s6-12) | proved (local asymptotic minimax for 6.3(b), 6.5) |
-| §6 | [Proposition 6.11](statements/06-11_learner_weights_sgd_warm_adam.md#s6-11) | proved to leading order in the stated visitation regimes |
-| §7 (Theorem B) | [Theorem 7.1](statements/07-01_state_channel_decomposition.md#s7-1), [Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes.md#s7-3) | proved |
-| §7 | [Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2) | proved in the stationary mean-field model: (a) exact formula, (b) quadratic law with an explicit error bound, (c) explicit limit |
+| §6 (Theorem A) | [Theorem 6.3](statements/06-03_learner_relative_lower_bound.md#s6-3), [Lemma 6.4](statements/06-04_design_minimax_equality.md#s6-4), [Theorem 6.5](statements/06-05_achievability.md#s6-5), [Corollaries 6.7–6.8](statements/06-07_aliasing_zero_value_replay.md#s6-7), [Proposition 6.10](statements/06-10_water_filling_allocation.md#s6-10), [Corollary 6.12](statements/06-12_learner_separations.md#s6-12) | proved (local asymptotic minimax for 6.3(b), 6.5); Theorem 6.5 assumes the oracle law can be generated |
+| §6 | [Proposition 6.11](statements/06-11_learner_weights_sgd_warm_adam.md#s6-11) | proved to leading order in the stated visitation regimes (restricted model) |
+| §6 | [Propositions 6.14–6.16](statements/06-14_convex_realizability_legal_pool.md#s6-14) | proved; Proposition 6.15 in the linear-Gaussian model, Proposition 6.16 for a fixed or calibrated response interface |
+| §7 (Theorem B) | [Theorem 7.1](statements/07-01_state_channel_decomposition.md#s7-1), [Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation.md#s7-6) | proved; Proposition 7.6 by exact construction |
+| §7 | [Corollary 7.2](statements/07-02_stationary_amplitude_law.md#s7-2), [Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes.md#s7-3) | proved in the stationary mean-field model: (a) exact formula, (b) quadratic law with an explicit error bound, (c) explicit limit; the model's real-model prediction was not supported |
 | §8 (Theorem C) | [Theorems 8.1–8.3](statements/08-01_stability_approximation_tradeoff.md#s8-1), [Proposition 8.4](statements/08-04_measuring_mean_increment_actual_states.md#s8-4), [Theorem 8.8](statements/08-08_crn_paired_replacement_certificate.md#s8-8), [Corollary 8.9](statements/08-09_first_order_version_margin_criterion.md#s8-9), [Proposition 8.10](statements/08-10_cost_and_crn.md#s8-10) | proved; the surrogate calibration of [Remark 8.11](statements/08-11_surrogate_calibration_and_transfer.md#s8-11) is an assumption |
+| §8 | [Propositions 8.12–8.15](statements/08-12_finite_catalog_spectral_certificate.md#s8-12), [Corollary 8.16](statements/08-16_composed_guarantee.md#s8-16) | proved; valid but, at the measured scale, vacuous strict bounds; the cost advantage of Proposition 8.15 is conditional |
 | §9 | [Proposition 9.1](statements/09-01_coupling_width.md#s9-1); [Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2) and its design rules | proved; design rules derived |
 
-**Open problems.**
+**Open problems.** They are stated precisely in [Remark 8.17](statements/08-17_open_problems.md#s8-17).
 
-- **A tight provable range for Theorem C.** The certificate is valid with the a-priori range of the surrogate. To be decisive it needs a provable range much smaller than that, for example from a pathwise Lipschitz bound on the reference tail ([Remark 8.12](statements/08-12_open_problems.md#s8-12)).
-- **Transfer of the surrogate calibration.** Theorem C uses a calibration $`(\alpha,\varepsilon_{\rm sur})`$ fitted on some candidate pairs. Extending it to new pairs needs a testable exchangeability condition, which is not yet available ([Remarks 8.11–8.12](statements/08-11_surrogate_calibration_and_transfer.md#s8-11)).
-- **Real-model evidence.** The experiments pages contain exact finite computations and controlled small networks. Tests of Theorems A–C on a real agent-distillation recipe are designed in [Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4); the first runs are under way and their results are not yet on these pages.
+- **A tight provable range for Theorem C.** The certificate is valid with the a-priori range of the surrogate. To be decisive it needs a provable range much smaller than that, for example from a pathwise Lipschitz bound on the reference tail.
+- **Transfer of the surrogate calibration.** Theorem C uses a calibration $`(\alpha,\varepsilon_{\rm sur})`$ fitted on some candidate pairs. Extending it to new pairs needs a testable exchangeability condition, which is not yet available ([Remarks 8.11 and 8.17](statements/08-11_surrogate_calibration_and_transfer.md#s8-11)).
+- **Estimation cost.** How much independent information one full continuation branch provides, and which interventions identify predictive closure; reuse across candidates and checkpoints without one full continuation per cell; certificates whose radius scales with the effect being certified; the correlation of short and full continuations on real models.
+- **Real-model evidence.** The real-model tests R0, R1 (partial) and R3 have results, reported as record checks on the experiments pages; R2 and the optimizer-state transplant test are pending ([Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4)). No real-model result yet supports a cost or accuracy advantage of the composed method.
 
-**Checks.** Every experiments page opens with a verdict table. One check fails its pre-set tolerance: a boundary setting of Corollary 7.2(a), recorded on the [experiments page of Corollary 7.2](experiments/07-02_stationary_amplitude_law.md).
+**Checks.** Every experiments page opens with a verdict table. One controlled check fails its pre-set tolerance: a boundary setting of Corollary 7.2(a), recorded on the [experiments page of Corollary 7.2](experiments/07-02_stationary_amplitude_law.md). Record checks reproduce the reported real-model numbers; whether those numbers support a statement is stated in each check's verdict.
 
 ## Reproducing the checks
 
@@ -793,6 +943,7 @@ From the repository root, CPU only:
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --output theory/independent_checks/results_independent_v014.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py --output theory/v015_checks/results_v015_independent.json
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/make_figures.py
 ```
 
@@ -804,6 +955,7 @@ Check code IDs on the experiments pages name the suite and the check:
 | `v015:` | exact finite checks `V1`–`V9` and controlled-network experiments `E0`–`E12` | `theory/v015_checks` |
 | `pkg:` | checks shipped with the revision package (`T01`–`T13` and named package checks) | `docs/direction/v014_handoff`, `docs/direction/v015_revision` |
 | `v016:` | checks of §5–§8 additions (`C1`–`C6b`) | `theory/v016_checks` |
+| `v017:` | synthetic checks of the response-operator, closure, compilation, Adam-memory and cost results (`C1`–`C22`) and record checks of the real-model runs (`R1`–`R5`, recomputed from `theory/v017_checks/records`) | `theory/v017_checks` |
 
 The page-rendering checker is described in [tools/README.md](tools/README.md); figure provenance is in [figures/README.md](figures/README.md).
 
@@ -836,9 +988,11 @@ Each statement was assembled from the source documents below; links go to the ex
 | [Theorem 8.3](statements/08-03_actual_state_adaptive_audit_fidelity.md#s8-3) | [v0.14.1 §11](../docs/direction/v015_revision/Environment_Information_Theory_EN.md#11-fidelity-improvement-and-adaptive-verification); [v0.15 §5](../docs/direction/v015_revision/Optimizer_State_and_Few_Shot_Theory_v015_EN.md#5-how-the-new-pieces-compose) |
 | [Proposition 8.4](statements/08-04_measuring_mean_increment_actual_states.md#s8-4), [Remark 8.5](statements/08-05_norms_constants.md#s8-5) | [OTLR §5](../docs/direction/v015_extension/Optimizer_Transformed_Linear_Response_EN.md#5-using-the-statistic-at-the-actual-states); [v0.16 revision draft](../docs/direction/2026-10-11_v016_revision_ZH.md) |
 | [Corollary 8.9](statements/08-09_first_order_version_margin_criterion.md#s8-9) | [v0.16 revision draft](../docs/direction/2026-10-11_v016_revision_ZH.md) |
-| [Definition 8.6 – Remark 8.12](statements/08-06_crn_paired_replacement_score.md#s8-6) | [v0.16 revision draft](../docs/direction/2026-10-11_v016_revision_ZH.md) |
+| [Definition 8.6 – Remark 8.17](statements/08-06_crn_paired_replacement_score.md#s8-6) | [v0.16 revision draft](../docs/direction/2026-10-11_v016_revision_ZH.md) |
 | [Proposition 9.1](statements/09-01_coupling_width.md#s9-1) | [v0.14.1 §12](../docs/direction/v015_revision/Environment_Information_Theory_EN.md#12-one-derived-mechanism-coupling-valid-experience-units) |
 | [Algorithm 9.2](statements/09-02_ced_algorithm.md#s9-2), [Remarks 9.3–9.4](statements/09-03_derivation_design_rules.md#s9-3) | [v0.14.1 §13](../docs/direction/v015_revision/Environment_Information_Theory_EN.md#13-the-derived-few-shot-method-consequence-calibrated-experience-distillation); [v0.15 §6](../docs/direction/v015_revision/Optimizer_State_and_Few_Shot_Theory_v015_EN.md#6-method-consequence-an-optimizer-aware-instance-of-ced); [v0.16 revision draft](../docs/direction/2026-10-11_v016_revision_ZH.md) |
+| [Proposition 3.4](statements/03-04_joint_decomposition_approximate_value.md#s3-4), [Definition 4.8 – Proposition 4.13](statements/04-08_response_operator.md#s4-8), [Lemma 6.4](statements/06-04_design_minimax_equality.md#s6-4) (singular designs), [Propositions 6.14–6.16](statements/06-14_convex_realizability_legal_pool.md#s6-14), [Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation.md#s7-6), [Propositions 8.12–8.15](statements/08-12_finite_catalog_spectral_certificate.md#s8-12), [Corollary 8.16](statements/08-16_composed_guarantee.md#s8-16), [Remarks 9.5–9.6](statements/09-05_assumption_audit.md#s9-5) | [learning-response revision (2026-10-13)](../docs/direction/2026-10-13_learning_response_framework_revision2_ZH.md); [its review with errata](../docs/direction/2026-10-13_learning_response_framework_review2_ZH.md) |
+| [Remark 9.4](statements/09-04_scope_of_evidence.md#s9-4) and the record checks `v017:R1`–`v017:R5` | [R0–R3 pre-registration](../docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md); [state-transplant pre-registration](../docs/direction/2026-10-14_T1_optimizer_state_transplant_prereg_ZH.md); run outputs copied to `theory/v017_checks/records` |
 
 ## References
 
@@ -847,6 +1001,10 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-chen2023symbolic"></a>
 
 **Xiangning Chen, Chen Liang, Da Huang, Esteban Real, Kaiyuan Wang, Hieu Pham, Xuanyi Dong, Thang Luong, Cho-Jui Hsieh, Yifeng Lu, Quoc V. Le (2023).** Symbolic discovery of optimization algorithms. *Advances in Neural Information Processing Systems 36 (NeurIPS)*, 49205–49233. arXiv [2302.06675](https://arxiv.org/abs/2302.06675).
+
+<a id="ref-eckart1936approximation"></a>
+
+**Carl Eckart, Gale Young (1936).** The approximation of one matrix by another of lower rank. *Psychometrika* 1, no. 3, 211–218. DOI [10.1007/BF02288367](https://doi.org/10.1007/BF02288367).
 
 <a id="ref-elfving1952optimum"></a>
 
@@ -864,6 +1022,18 @@ Works cited on this page. The complete list, with the pages that use each work, 
 
 **Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen (2022).** LoRA: Low-rank adaptation of large language models. *The Tenth International Conference on Learning Representations (ICLR)*. [openreview.net/forum?id=nZeVKeeFYf9](https://openreview.net/forum?id=nZeVKeeFYf9); arXiv [2106.09685](https://arxiv.org/abs/2106.09685).
 
+<a id="ref-ilyas2022datamodels"></a>
+
+**Andrew Ilyas, Sung Min Park, Logan Engstrom, Guillaume Leclerc, Aleksander Madry (2022).** Datamodels: Understanding predictions with data and data with predictions. *Proceedings of the 39th International Conference on Machine Learning (ICML)*, PMLR 162:9525–9587. [proceedings.mlr.press/v162/ilyas22a](https://proceedings.mlr.press/v162/ilyas22a.html); preprint arXiv [2202.00622](https://arxiv.org/abs/2202.00622) (titled "Datamodels: Predicting predictions from training data").
+
+<a id="ref-jiang2016doubly"></a>
+
+**Nan Jiang, Lihong Li (2016).** Doubly robust off-policy value evaluation for reinforcement learning. *Proceedings of the 33rd International Conference on Machine Learning (ICML)*, PMLR 48:652–661. [proceedings.mlr.press/v48/jiang16](https://proceedings.mlr.press/v48/jiang16.html).
+
+<a id="ref-kakade2002approximately"></a>
+
+**Sham Kakade, John Langford (2002).** Approximately optimal approximate reinforcement learning. *Proceedings of the 19th International Conference on Machine Learning (ICML)*, 267–274, Morgan Kaufmann. [dl.acm.org/doi/10.5555/645531.656005](https://dl.acm.org/doi/10.5555/645531.656005).
+
 <a id="ref-kingma2015adam"></a>
 
 **Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
@@ -872,9 +1042,29 @@ Works cited on this page. The complete list, with the pages that use each work, 
 
 **Pang Wei Koh, Percy Liang (2017).** Understanding black-box predictions via influence functions. *Proceedings of the 34th International Conference on Machine Learning (ICML)*, PMLR 70:1885–1894. [proceedings.mlr.press/v70/koh17a](https://proceedings.mlr.press/v70/koh17a.html).
 
+<a id="ref-lessard2019optimal"></a>
+
+**Laurent Lessard, Xuezhou Zhang, Xiaojin Zhu (2019).** An optimal control approach to sequential machine teaching. *Proceedings of the 22nd International Conference on Artificial Intelligence and Statistics (AISTATS)*, PMLR 89:2495–2503. [proceedings.mlr.press/v89/lessard19a](https://proceedings.mlr.press/v89/lessard19a.html).
+
 <a id="ref-li2019stochastic"></a>
 
 **Qianxiao Li, Cheng Tai, Weinan E (2019).** Stochastic modified equations and dynamics of stochastic gradient algorithms I: Mathematical foundations. *Journal of Machine Learning Research* 20, no. 40, 1–47. [jmlr.org/papers/v20/17-526](https://jmlr.org/papers/v20/17-526.html).
+
+<a id="ref-littman2001predictive"></a>
+
+**Michael L. Littman, Richard S. Sutton, Satinder Singh (2001).** Predictive representations of state. *Advances in Neural Information Processing Systems 14 (NIPS)*, MIT Press. [proceedings.neurips.cc/paper/2001/hash/1e4d36177d71bbb3558e43af9577d70e](https://proceedings.neurips.cc/paper_files/paper/2001/hash/1e4d36177d71bbb3558e43af9577d70e-Abstract.html).
+
+<a id="ref-park2023trak"></a>
+
+**Sung Min Park, Kristian Georgiev, Andrew Ilyas, Guillaume Leclerc, Aleksander Madry (2023).** TRAK: Attributing model behavior at scale. *Proceedings of the 40th International Conference on Machine Learning (ICML)*, PMLR 202:27074–27113. [proceedings.mlr.press/v202/park23c](https://proceedings.mlr.press/v202/park23c.html).
+
+<a id="ref-peherstorfer2016optimal"></a>
+
+**Benjamin Peherstorfer, Karen Willcox, Max Gunzburger (2016).** Optimal model management for multifidelity Monte Carlo estimation. *SIAM Journal on Scientific Computing* 38, no. 5 (section A, Methods and Algorithms for Scientific Computing). DOI [10.1137/15M1046472](https://doi.org/10.1137/15M1046472).
+
+<a id="ref-poupart2002value"></a>
+
+**Pascal Poupart, Craig Boutilier (2002).** Value-directed compression of POMDPs. *Advances in Neural Information Processing Systems 15 (NIPS)*, MIT Press. [proceedings.neurips.cc/paper/2002/hash/14ea0d5b0cf49525d1866cb1e95ada5d](https://proceedings.neurips.cc/paper_files/paper/2002/hash/14ea0d5b0cf49525d1866cb1e95ada5d-Abstract.html).
 
 <a id="ref-pruthi2020estimating"></a>
 
@@ -884,10 +1074,22 @@ Works cited on this page. The complete list, with the pages that use each work, 
 
 **Friedrich Pukelsheim (1993).** Optimal Design of Experiments. Wiley, New York (Wiley Series in Probability and Mathematical Statistics); reprinted as SIAM Classics in Applied Mathematics 50 (2006). DOI of the reprint [10.1137/1.9780898719109](https://doi.org/10.1137/1.9780898719109).
 
+<a id="ref-rockafellar1970convex"></a>
+
+**R. Tyrrell Rockafellar (1970).** Convex Analysis. Princeton University Press, Princeton, NJ (Princeton Mathematical Series 28). DOI [10.1515/9781400873173](https://doi.org/10.1515/9781400873173).
+
 <a id="ref-shridhar2021alfworld"></a>
 
 **Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
+<a id="ref-singh2004predictive"></a>
+
+**Satinder Singh, Michael R. James, Matthew R. Rudary (2004).** Predictive state representations: A new theory for modeling dynamical systems. *Proceedings of the 20th Conference on Uncertainty in Artificial Intelligence (UAI)*, 512–519, AUAI Press. arXiv [1207.4167](https://arxiv.org/abs/1207.4167).
+
 <a id="ref-wang2025data"></a>
 
 **Jiachen T. Wang, Prateek Mittal, Dawn Song, Ruoxi Jia (2025).** Data Shapley in one training run. *13th International Conference on Learning Representations (ICLR)*. arXiv [2406.11011](https://arxiv.org/abs/2406.11011).
+
+<a id="ref-zhu2015machine"></a>
+
+**Xiaojin Zhu (2015).** Machine teaching: An inverse problem to machine learning and an approach toward optimal education. *Proceedings of the 29th AAAI Conference on Artificial Intelligence (AAAI)* 29, no. 1. DOI [10.1609/aaai.v29i1.9761](https://doi.org/10.1609/aaai.v29i1.9761).

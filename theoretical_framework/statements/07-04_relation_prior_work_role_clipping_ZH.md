@@ -31,6 +31,7 @@
 
 - 它划定 §7 中哪些是新结论、哪些不是。
 - 它促使方法记录裁剪激活率并控制消息幅度（[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 4 步），也促成了真实模型检验 R3：比较裁剪开、关两种情况下的消息（[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)）。
+- 裁剪机制是在 [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 的区间里陈述的；那是一个受限的 mean-field 模型，它对真实模型的预测没有得到支持（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）。
 
 **用到.**
 

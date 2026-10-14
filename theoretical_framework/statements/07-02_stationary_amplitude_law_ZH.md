@@ -1,10 +1,10 @@
-# Corollary 7.2 · 平稳情形的幅度定律
+# Corollary 7.2 · 平稳情形的幅度定律（受限的 mean-field 模型）
 
 *陈述*
 
 [← 框架总图](../README_ZH.md) · [陈述](07-02_stationary_amplitude_law_ZH.md) · [证明](../proofs/07-02_stationary_amplitude_law_ZH.md) · [实验](../experiments/07-02_stationary_amplitude_law_ZH.md) · [English](07-02_stationary_amplitude_law.md)
 
-**一段话概括.** 在普通 SGD 下，有用方向上的梯度越大越好。Adam 下并非如此：大消息还会抬高 running 二阶矩 $`v`$，从而压低此后的步长。本推论在一切都能写成闭式的最简单区间里计算 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的状态通道分解：单个坐标、warm 的平稳 optimizer state、尾段梯度与参数无关。它给出任意幅度消息的精确 response、最优幅度、变号点，以及幅度很大时的判据。它与 Theorem 7.1 合称框架中的 **Theorem B**。
+**一段话概括.** 在普通 SGD 下，有用方向上的梯度越大越好。Adam 下并非如此：大消息还会抬高 running 二阶矩 $`v`$，从而压低此后的步长。本推论在一切都能写成闭式的最简单区间里计算 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的状态通道分解：单个坐标、warm 的平稳 optimizer state、尾段梯度与参数无关。它给出任意幅度消息的精确 response、最优幅度、变号点，以及幅度很大时的判据。它是二阶矩通道的一个受限模型，不属于框架的一般性结论：前提很强，而且它对真实模型的预测没有得到支持（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）。
 
 **本页用到的设定与记号.**
 
@@ -23,7 +23,7 @@
 
 <a id="s7-2"></a>
 
-**Corollary 7.2（平稳情形的幅度定律）.** 对坐标 $`i`$ 假设：
+**Corollary 7.2（平稳情形的幅度定律；受限的 mean-field 模型）.** 对坐标 $`i`$ 假设：
 
 - 尾段梯度 $`g_{k,i}`$ 与 $`\theta`$ 无关（线性 response 区间，$`J_k=0`$），平稳，均值 $`\bar g_i\ne0`$、平方的均值 $`\bar v_i>0`$；$`F`$ 关于 $`\theta_i`$ 是仿射的；
 - $`\epsilon=0`$，不做 bias correction，$`\lambda_{\rm wd}=0`$；
@@ -77,8 +77,10 @@ mean-field 一阶价值之差 $`\mathrm{Val}_i(\lambda)-\mathrm{Val}_i(0)`$ 满�
 
 **在框架中的作用.**
 
-- 这是框架中第一个定量说明 Adam 下消息价值关于幅度不单调的陈述。
-- 它要求方法相对于 running 二阶矩控制消息幅度（[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 4 步）；[Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 正是在这一设定下证明两类影响分数会排错。
+- 它是一个机制假说：在自己的模型里精确成立，出了这个模型就没有保证。这个模型是：单个坐标、warm 的平稳状态、线性 response（尾段梯度与 $`\theta`$ 无关，$`F`$ 是仿射的）、$`\epsilon=0`$、不做 bias correction，并用 $`\mathbb Em/\sqrt{\mathbb Ev}`$ 代替 $`\mathbb E[m/\sqrt v]`$ 的 mean-field 替换。每一条都是限制，不是训练过程的一般性质。
+- 它对真实模型的预测没有得到支持。在真实模型检验所用的状态上，把同一个 batch 按五个幅度施加：实测 response 在每个幅度上都为正，且都落在各自的诊断半径之内；而把保存的 optimizer state 代入 (a) 得到的预测为负，绝对值是实测的 28 到 339 倍（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）。最可能失效的前提是线性 response；这只是假说，并未单独检验。
+- 不依赖于它的结论：[Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的精确三通道分解，以及 [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6) 的精确记忆分离。两者合称 Theorem B，都不用上面这些前提。
+- 在它自己的模型里，这是框架中第一个定量说明 Adam 下消息价值关于幅度不单调的陈述；[Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 也正是在这一设定下证明两类影响分数会排错。方法对相对 running 二阶矩过大的消息做标记（[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 4 步），这个标记只是由该模型启发的筛查规则；排序交给有限测量（[Theorem 8.8](08-08_crn_paired_replacement_certificate_ZH.md#s8-8)）。
 
 **推导要点.**
 

@@ -1,0 +1,643 @@
+{
+  "meta": {
+    "seed": 20261014,
+    "python": "3.12.13",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "status": "PASS",
+    "failed": []
+  },
+  "checks": [
+    {
+      "id": "v017:C1.joint",
+      "item": "3.4",
+      "claim": "joint decomposition with an approximate value is exact; the absolute bound holds; the stopped (coverage) version holds",
+      "pass": true,
+      "values": {
+        "return_gap": 0.07616161014299472,
+        "certified_cut": 0.2,
+        "joint_identity_error": 1.3877787807814457e-17,
+        "absolute_bound": 0.17817790561575497,
+        "stopped_bound": 1.1974721780414335,
+        "exit_probability_reference": 0.6668561551530612,
+        "exit_probability_alternative": 0.4240913925533263,
+        "signed_response_term": 0.021068303951375676,
+        "signed_residual_difference": 0.05509330619161905
+      }
+    },
+    {
+      "id": "v017:C2.spectrum",
+      "item": "4.9",
+      "claim": "weighted centred spectral identity; HS^2 <= 1/4; best rank-r residual = sigma_{r+1}",
+      "pass": true,
+      "values": {
+        "spectral_identity_error": 2.8189256484623115e-18,
+        "best_rank_residual_error": 2.7755575615628914e-17,
+        "hilbert_schmidt_squared": 0.04417667780528689,
+        "density_difference_error": 1.734723475976807e-17,
+        "singular_values": [
+          0.11792730106088788,
+          0.1052619845719429,
+          0.0877128048444446,
+          0.08048749160222594,
+          0.05869619059324232,
+          0.030879366956753453,
+          0.024883599857166382
+        ]
+      }
+    },
+    {
+      "id": "v017:C3.positive",
+      "item": "4.9",
+      "claim": "r linear features cannot separate two positive laws whose response gap is >= a*sigma_{r+1}",
+      "pass": true,
+      "values": {
+        "feature_match_error": 2.7755575615628914e-16,
+        "response_gap": 0.09502352994467969,
+        "guaranteed_gap": 0.0804448332528858,
+        "smallest_probability": 0.010944466450540645
+      }
+    },
+    {
+      "id": "v017:C4.generic",
+      "item": "4.9",
+      "claim": "the generic dimension bound is attained-scale vacuous under the J-candidate mixture measure",
+      "pass": true,
+      "values": {
+        "rows": [
+          {
+            "J": 2,
+            "B_squared": 4.0,
+            "eps": 0.1,
+            "sufficient_dim": 99.99999999999999,
+            "input_dim": 1,
+            "vacuous": true
+          },
+          {
+            "J": 2,
+            "B_squared": 4.0,
+            "eps": 0.3,
+            "sufficient_dim": 11.11111111111111,
+            "input_dim": 1,
+            "vacuous": true
+          },
+          {
+            "J": 2,
+            "B_squared": 4.0,
+            "eps": 0.7,
+            "sufficient_dim": 2.0408163265306127,
+            "input_dim": 1,
+            "vacuous": true
+          },
+          {
+            "J": 5,
+            "B_squared": 10.0,
+            "eps": 0.1,
+            "sufficient_dim": 249.99999999999994,
+            "input_dim": 4,
+            "vacuous": true
+          },
+          {
+            "J": 5,
+            "B_squared": 10.0,
+            "eps": 0.3,
+            "sufficient_dim": 27.77777777777778,
+            "input_dim": 4,
+            "vacuous": true
+          },
+          {
+            "J": 5,
+            "B_squared": 10.0,
+            "eps": 0.7,
+            "sufficient_dim": 5.102040816326531,
+            "input_dim": 4,
+            "vacuous": true
+          },
+          {
+            "J": 20,
+            "B_squared": 40.0,
+            "eps": 0.1,
+            "sufficient_dim": 999.9999999999998,
+            "input_dim": 19,
+            "vacuous": true
+          },
+          {
+            "J": 20,
+            "B_squared": 40.0,
+            "eps": 0.3,
+            "sufficient_dim": 111.11111111111111,
+            "input_dim": 19,
+            "vacuous": true
+          },
+          {
+            "J": 20,
+            "B_squared": 40.0,
+            "eps": 0.7,
+            "sufficient_dim": 20.408163265306126,
+            "input_dim": 19,
+            "vacuous": true
+          },
+          {
+            "J": 100,
+            "B_squared": 200.0,
+            "eps": 0.1,
+            "sufficient_dim": 4999.999999999999,
+            "input_dim": 99,
+            "vacuous": true
+          },
+          {
+            "J": 100,
+            "B_squared": 200.0,
+            "eps": 0.3,
+            "sufficient_dim": 555.5555555555555,
+            "input_dim": 99,
+            "vacuous": true
+          },
+          {
+            "J": 100,
+            "B_squared": 200.0,
+            "eps": 0.7,
+            "sufficient_dim": 102.04081632653063,
+            "input_dim": 99,
+            "vacuous": true
+          }
+        ],
+        "smooth_example_singular_values": [
+          0.19211863916173247,
+          0.05976241123716155,
+          0.017582285489465048,
+          0.007363063797237387,
+          0.002028802671206479,
+          0.0009387394497978044
+        ],
+        "smooth_example_rank_tol_1e-10": 15
+      }
+    },
+    {
+      "id": "v017:C5.realization",
+      "item": "4.10",
+      "claim": "finite Hankel rank gives an exact linear predictive realization; the conditioned update is Bayes",
+      "pass": true,
+      "values": {
+        "hankel_rank_with_constant": 4,
+        "hidden_states": 4,
+        "max_prediction_error_longer_words": 3.9968028886505635e-15,
+        "conditioning_vs_bayes_error": 0.0
+      }
+    },
+    {
+      "id": "v017:C6.closure",
+      "item": "4.11",
+      "claim": "a statically sufficient feature set need not be closed; the finite-horizon closure recursion is exact",
+      "pass": true,
+      "values": {
+        "closure_defect": 0.5000000000000002,
+        "closed_test_rank": 3,
+        "future_gap_equal_current_value": 1.0,
+        "recursion_identity_error": 2.5153490401663703e-16,
+        "max_one_step_gain": 1.1259644543699106
+      }
+    },
+    {
+      "id": "v017:C7.bridge",
+      "item": "4.12",
+      "claim": "R = C T and ker R = ker T when C has full column rank; the residual version adds B*eps_pred",
+      "pass": true,
+      "values": {
+        "factorization_error": 1.3877787807814457e-16,
+        "kernel_equality_error": 1.363460262353203e-15,
+        "residual_lhs": 0.008376511071407317,
+        "residual_bound": 0.04472658264747452
+      }
+    },
+    {
+      "id": "v017:C8.gramian",
+      "item": "4.13",
+      "claim": "finite-horizon Hankel singular values equal sqrt eig(Wc^1/2 Wo Wc^1/2), without contraction",
+      "pass": true,
+      "values": {
+        "identity_error": 1.0130785099704553e-15,
+        "hankel_singular_values": [
+          4.746231177365882,
+          0.03707361279708029
+        ],
+        "max_one_step_gain": 1.282821179037119
+      }
+    },
+    {
+      "id": "v017:C9.rare",
+      "item": "4.9",
+      "claim": "an average guarantee does not control a rare test; no compression follows from boundedness alone",
+      "pass": true,
+      "values": {
+        "weighted_rms_error": 0.001,
+        "rare_test_error": 1.0,
+        "messages": 8,
+        "centred_rank": 7
+      }
+    },
+    {
+      "id": "v017:C10.realizable",
+      "item": "6.14",
+      "claim": "a target in the convex hull of a finite legal pool is realized with support <= r+1; sparse realizations can inflate the density bound",
+      "pass": true,
+      "values": {
+        "support": 5,
+        "carathéodory_bound": 5,
+        "feature_match_error": 8.326672684688674e-17,
+        "chi_density_dense_mixture": 0.8747522204074839,
+        "chi_density_sparse_realization": 2.7846149441165267,
+        "outside_hull_infeasible": true
+      }
+    },
+    {
+      "id": "v017:C11.gaussian",
+      "item": "6.15",
+      "claim": "GLS risk = tr(B I^-1) = sum of generalized eigenvalues; one-query reduction is Sherman-Morrison",
+      "pass": true,
+      "values": {
+        "risk": 0.4006227786405244,
+        "eigen_sum_error": 5.551115123125783e-17,
+        "one_query_reduction": 0.053749846595455376,
+        "sherman_morrison_error": 9.020562075079397e-17,
+        "monte_carlo_risk": 0.4576224396035173,
+        "exact_risk_unregularized": 0.4590875687396683
+      }
+    },
+    {
+      "id": "v017:C12.singular",
+      "item": "6.4",
+      "claim": "c-optimal design with singular information: primal = dual, attained",
+      "pass": true,
+      "values": {
+        "primal": 2.25,
+        "dual": 2.25,
+        "grid_minimum": 2.2500000000045,
+        "unidentified_nuisance_dimensions": 1
+      }
+    },
+    {
+      "id": "v017:C13.radius",
+      "item": "6.16",
+      "claim": "information-compilation radius: invisible uncertainty costs nothing, infeasibility still does; box uncertainty is maximized at a vertex",
+      "pass": true,
+      "values": {
+        "invisible_uncertainty_diameter": 0.0,
+        "infeasibility_error": 0.1,
+        "two_target_radius": 0.5,
+        "box_vertex_max": 5.736560981442788,
+        "box_sampled_max": 5.643605150393237,
+        "vertices": 16
+      }
+    },
+    {
+      "id": "v017:C14.memory",
+      "item": "7.6",
+      "claim": "standard Adam: two reachable feedbacks give equal immediate parameters and different next steps",
+      "pass": true,
+      "values": {
+        "ratio_squared": "1960/1249",
+        "exact_equal": true,
+        "checkpoint": [
+          -1.0,
+          0.09999999999999998,
+          0.0010000000000000009
+        ],
+        "theta2": -1.932179638811402,
+        "moments_a": [
+          0.13999999999999996,
+          0.0012490000000000012
+        ],
+        "moments_b": [
+          0.35620253164556953,
+          0.008085378785451057
+        ],
+        "theta3_gap": -0.07120270385561955,
+        "sigmoid_gap": -0.0036499387119213814,
+        "positive_eps_root": 2.66202547477908,
+        "positive_eps_next_gap": -0.07120270901118353,
+        "bias_correction_v_at_t2": 500.250125062538
+      }
+    },
+    {
+      "id": "v017:C15.adjoint",
+      "item": "7.1",
+      "claim": "complete AdamW one-step adjoint (Hessian, bias correction, eps, weight decay) = finite difference",
+      "pass": true,
+      "values": {
+        "finite_difference_error": 7.547140874502782e-11
+      }
+    },
+    {
+      "id": "v017:C16.warm",
+      "item": "7.6",
+      "claim": "warm relative change of v is (1-b2)(g^2/v-1); immediate share of first-order momentum displacement is 1-b1",
+      "pass": true,
+      "values": {
+        "identity_error": 2.0361316799277773e-16,
+        "immediate_share": 0.09999999999999998,
+        "share_after_10_steps": 0.6513215599,
+        "max_relative_change_in_sample": 0.11885372285113545
+      }
+    },
+    {
+      "id": "v017:C17.catalog",
+      "item": "8.12",
+      "claim": "estimated-spectrum residual <= sigma_{r+1} + 2 eps without a gap; catalog run counts",
+      "pass": true,
+      "values": {
+        "operator_noise": 0.0011479279300527978,
+        "entrywise_bound": 0.004,
+        "projection_residual": 0.06663632026704046,
+        "guaranteed": 0.07462312412698227,
+        "continuation_runs": {
+          "m20_n4_p_train1": 80,
+          "m20_n4_p_train10": 800
+        },
+        "hoeffding_radius_p10_m20": {
+          "n4": 1.059905468701217,
+          "n16": 0.5299527343506085,
+          "n64": 0.26497636717530426,
+          "n256": 0.13248818358765213
+        }
+      }
+    },
+    {
+      "id": "v017:C18.shared",
+      "item": "8.13",
+      "claim": "state-conditional inputs need the HS tail sum; the common-input operator bound fails",
+      "pass": true,
+      "values": {
+        "actual_rms": 1.0,
+        "invalid_common_input_bound": 0.7071067811865475,
+        "hs_bound": 0.9999999999999999,
+        "tail_identity_error": 5.329070518200751e-15
+      }
+    },
+    {
+      "id": "v017:C19.anchor",
+      "item": "8.14",
+      "claim": "anchor reuse bound; paired second moment bounds the operator drift; the debiased paired product",
+      "pass": true,
+      "values": {
+        "residual": 3.3745806705597876,
+        "bound": 3.476526235843025,
+        "operator_drift_squared": 0.09420775711777517,
+        "paired_second_moment": 0.32959357323156924,
+        "debiased_product_error": 1.1102230246251565e-16
+      }
+    },
+    {
+      "id": "v017:C20.scale",
+      "item": "8.14",
+      "claim": "at the measured evaluation noise the paired drift radius is near or above the trivial bound",
+      "pass": true,
+      "values": {
+        "W_bar_eval_noise_only": 0.00016666666666666666,
+        "rows": [
+          {
+            "pairs": 10,
+            "hoeffding_term": 0.5146997846583985,
+            "radius": 0.7175419509165057
+          },
+          {
+            "pairs": 40,
+            "hoeffding_term": 0.25734989232919925,
+            "radius": 0.5074608940557547
+          },
+          {
+            "pairs": 100,
+            "hoeffding_term": 0.16276236307187292,
+            "radius": 0.40364468253470104
+          },
+          {
+            "pairs": 1000,
+            "hoeffding_term": 0.05146997846583985,
+            "radius": 0.2272369801165878
+          }
+        ],
+        "pairs_for_radius_0.03": 4926121.518484744,
+        "estimator_floor_sqrt_W": 0.012909944487358056,
+        "trivial_hs_bound": 0.5
+      }
+    },
+    {
+      "id": "v017:C21.fidelity",
+      "item": "8.15",
+      "claim": "two-fidelity estimator is unbiased with variance v0/n0+v1/n1; optimal allocation; cost thresholds for fixed and optimal coefficients",
+      "pass": true,
+      "values": {
+        "variances": [
+          0.25,
+          0.25,
+          0.0025
+        ],
+        "cost_ratio_synthetic": 0.04019975124224178,
+        "fixed_coefficient_threshold_c1_full": 0.7662277660168378,
+        "fixed_coefficient_threshold_c1_1.1": 0.7874797872880345,
+        "nested_optimal_threshold": 0.5749595745760704,
+        "nested_optimal_threshold_cheap_reused": 0.3163450438806104,
+        "sqrt_c": 0.31622776601683794,
+        "nested_ratio_formula": {
+          "0.50": 1.0,
+          "0.60": 0.9795786553761645,
+          "0.80": 0.7275786553761644,
+          "0.90": 0.5191128775376239,
+          "0.99": 0.20623664377185416
+        },
+        "nested_ratio_bruteforce": {
+          "0.50": 1.0,
+          "0.60": 0.9795786553761643,
+          "0.80": 0.7275786553761642,
+          "0.90": 0.5191128775376238,
+          "0.99": 0.20623664377185363
+        },
+        "max_saving_with_one_full_run_per_cell_n4": 4
+      }
+    },
+    {
+      "id": "v017:C22.composed",
+      "item": "8.16",
+      "claim": "per-step absolute floor of the composed bound; signed-sum versus per-term certification counts",
+      "pass": true,
+      "values": {
+        "eps_n": 0.5781267909234067,
+        "drift_radius": 0.7175419509165057,
+        "per_step_floor": 2.591337483679825,
+        "signed_sum_var_mc": 1.0105754235199405,
+        "signed_sum_var_exact": 1.0,
+        "queries_per_unit_eps_signed": 400.0,
+        "queries_per_unit_eps_per_term_abs": 8000.0
+      }
+    },
+    {
+      "id": "v017:R1.r0a",
+      "item": "5.11",
+      "claim": "R0a: the pre-registered warm criterion fails at all six states; post-hoc ratio against the signed first-order term",
+      "pass": true,
+      "values": {
+        "rows": [
+          {
+            "state": "state-update-1",
+            "E_fd": 1.194725040915537,
+            "prereg_ratio": 35471.96909827122,
+            "prereg_pass": false,
+            "post_hoc_ratio": 29.67684519445619
+          },
+          {
+            "state": "state-update-4",
+            "E_fd": 0.03403750704560856,
+            "prereg_ratio": 2547.5024486760094,
+            "prereg_pass": false,
+            "post_hoc_ratio": 2.125386899276609
+          },
+          {
+            "state": "state-update-8",
+            "E_fd": 0.10440042651667987,
+            "prereg_ratio": 97.36886481378332,
+            "prereg_pass": false,
+            "post_hoc_ratio": 0.9842112347148088
+          },
+          {
+            "state": "checkpoint-tokens-31221",
+            "E_fd": 0.00033784334609250914,
+            "prereg_ratio": 19.005046675507245,
+            "prereg_pass": false,
+            "post_hoc_ratio": 0.09965411563233685
+          },
+          {
+            "state": "checkpoint-tokens-104070",
+            "E_fd": 0.00014780527873953515,
+            "prereg_ratio": 20.485739246112967,
+            "prereg_pass": false,
+            "post_hoc_ratio": 0.09715534683478913
+          },
+          {
+            "state": "checkpoint-tokens-416280",
+            "E_fd": 0.00017072334052389374,
+            "prereg_ratio": 4.086361085777477,
+            "prereg_pass": false,
+            "post_hoc_ratio": 0.08369709236102553
+          }
+        ]
+      }
+    },
+    {
+      "id": "v017:R2.r0b",
+      "item": "5.11",
+      "claim": "R0b: median response non-additivity at update 8 and at p10 (per-token surrogate)",
+      "pass": true,
+      "values": {
+        "update8_per_token": 0.1877282237682371,
+        "p10_per_token": 0.8548175409302563,
+        "update8_geo_prob": 0.19088572977122753,
+        "p10_geo_prob": 0.8857725976483524
+      }
+    },
+    {
+      "id": "v017:R3.r3",
+      "item": "7.2",
+      "claim": "R3: measured responses at five magnitudes lie inside their diagnostic radii and have the opposite sign to the restricted-model prediction",
+      "pass": true,
+      "values": {
+        "rows": [
+          {
+            "arm": "c0.5_noclip",
+            "c": 0.5,
+            "measured": 0.0004984998581704578,
+            "diagnostic_radius": 0.006368654547566045,
+            "prediction": -0.01907033308380932,
+            "inside": true,
+            "ratio_pred_over_measured": 38.255443349170186,
+            "opposite_sign": true
+          },
+          {
+            "arm": "c1_noclip",
+            "c": 1,
+            "measured": 0.0012305380037011954,
+            "diagnostic_radius": 0.007405298619451236,
+            "prediction": -0.03463314578144509,
+            "inside": true,
+            "ratio_pred_over_measured": 28.14471855178466,
+            "opposite_sign": true
+          },
+          {
+            "arm": "c2_noclip",
+            "c": 2,
+            "measured": 0.0010924401740603738,
+            "diagnostic_radius": 0.00439998805773834,
+            "prediction": -0.05436873202883611,
+            "inside": true,
+            "ratio_pred_over_measured": 49.76815510798985,
+            "opposite_sign": true
+          },
+          {
+            "arm": "c4_noclip",
+            "c": 4,
+            "measured": 0.0007261918587088932,
+            "diagnostic_radius": 0.00541263311780473,
+            "prediction": -0.07106646955261008,
+            "inside": true,
+            "ratio_pred_over_measured": 97.86183733725707,
+            "opposite_sign": true
+          },
+          {
+            "arm": "c8_noclip",
+            "c": 8,
+            "measured": 0.0002358543607773947,
+            "diagnostic_radius": 0.0058647123836888405,
+            "prediction": -0.0799941650236615,
+            "inside": true,
+            "ratio_pred_over_measured": 339.1676319233377,
+            "opposite_sign": true
+          }
+        ],
+        "ratio_range": [
+          28.14471855178466,
+          339.1676319233377
+        ]
+      }
+    },
+    {
+      "id": "v017:R4.r1",
+      "item": "8.8",
+      "claim": "R1: P1 versus P3 paired CRN score, diagnostic and a-priori (strict) radii",
+      "pass": true,
+      "values": {
+        "F_tilde_geo_prob": {
+          "S_hat": 0.001377938363494563,
+          "recomputed_mean": 0.001377938363494563,
+          "replicas": 64,
+          "positive_replicas": 57,
+          "diagnostic_radius": 0.0012055607767970924,
+          "strict_radius": 0.3250378739749158,
+          "B": 2.0
+        },
+        "F_tilde_per_token": {
+          "S_hat": 0.0015607151831636221,
+          "recomputed_mean": 0.0015607151831636221,
+          "replicas": 64,
+          "positive_replicas": 54,
+          "diagnostic_radius": 0.001499581364589677,
+          "strict_radius": 0.16281579060806287,
+          "B": 1.0
+        }
+      }
+    },
+    {
+      "id": "v017:R5.noise",
+      "item": "8.14",
+      "claim": "noise reference: one checkpoint, two identical servers, dev300 successes and task flips",
+      "pass": true,
+      "values": {
+        "tasks": 300,
+        "success_a": 241,
+        "success_b": 242,
+        "flips": 15,
+        "a_only": 7,
+        "b_only": 8,
+        "sd_of_score_difference_if_flips_symmetric": 0.012909944487358056
+      }
+    }
+  ]
+}

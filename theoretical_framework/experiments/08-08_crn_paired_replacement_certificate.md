@@ -10,7 +10,8 @@
   - As a ranker, the point estimate $`\hat S`$ has the wrong sign on 48 of 1,687 nonzero-gold pairs (2.8%).
   - Its measurement uses 7.0% of the trajectories of a full-tail paired audit at $`r=64`$, and 28.0% at $`r=256`$.
   - Common random numbers cut the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances).
-  - The strict certificate with the a-priori range $`B=2`$ certifies 0 pairs with the aligned surrogate, and 8 pairs with the calibrated surrogate at $`r=256`$; none is wrong. This is the gap recorded in [Remark 8.12](../statements/08-12_open_problems.md#s8-12).
+  - The strict certificate with the a-priori range $`B=2`$ certifies 0 pairs with the aligned surrogate, and 8 pairs with the calibrated surrogate at $`r=256`$; none is wrong. This is the gap recorded in [Remark 8.17](../statements/08-17_open_problems.md#s8-17).
+- **Real model, R1 (P1 against P3).** On the ALFWorld recipe, replaying the $`K=20`$ demonstrations (P1) scores above the student's own reward-filtered trajectories (P3) by $`+0.00138`$ on the geometric-probability surrogate (57 of 64 replicas positive). That exceeds the diagnostic radius 0.00121, but the strict radius with the a-priori range $`B=2`$ is 0.325: the ranking holds by the diagnostic radius only, and the strict certificate is valid but vacuous ([Check 8.17](#c8-17)).
 
 **Setting used on this page.**
 
@@ -84,12 +85,12 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 <a id="c8-14"></a>
 
-## Check 8.14 · Finite CRN paired replacement on the controlled panel (Theorem 8.8, Proposition 8.10, Remarks 8.11–8.12)
+## Check 8.14 · Finite CRN paired replacement on the controlled panel (Theorem 8.8, Proposition 8.10, Remarks 8.11 and 8.17)
 
 **Verdict.**
 
 - **No wrong strict certificate** at either replica count: the assertion of [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) passes.
-- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.12](../statements/08-12_open_problems.md#s8-12).
+- **The strict certificate is nearly empty.** With the a-priori range $`B=2`$, the aligned surrogate certifies 0 of 1,728 pairs and the calibrated short surrogate 0 ($`r=64`$) and 8 ($`r=256`$). The range term of the empirical Bernstein radius ([Maurer & Pontil, 2009](#ref-maurer2009empirical)) is 0.156 at $`r=256`$, against a median true gap of 0.0037. The zero-error statement is therefore nearly vacuous; this is the open problem of [Remark 8.17](../statements/08-17_open_problems.md#s8-17).
 - **As a ranker the measurement works.** The aligned point estimate $`\hat S`$ has the wrong sign on 48 of 1,687 nonzero-gold pairs (2.8%) at $`r=256`$, and on 65 (3.9%) at $`r=64`$.
 - **It is cheap.** Measurement takes 7.0% ($`r=64`$) and 28.0% ($`r=256`$) of the trajectories of a full-tail paired audit of the same panel.
 - **CRN pays.** Common random numbers ([Glasserman, 2004](#ref-glasserman2004monte)) reduce the variance of the paired difference to 0.12–0.15 of independent tails (ratio of summed variances); the median pair ratio is 0.0035.
@@ -98,7 +99,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 **Why.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) replaces the oracle continuation gradient by a measurable quantity: the effect of one finite replacement at the audited state, estimated with common random numbers. Its estimand is exact in expectation and needs no smoothness, so its only error terms are statistical ($`e_{\rm stat}`$) and surrogate calibration ($`\varepsilon_{\rm sur}`$). The check asks three questions:
 
 - whether any strict certificate is wrong (it must not be);
-- how much the a-priori range costs (Remark 8.12);
+- how much the a-priori range costs (Remark 8.17);
 - whether the calibration of Remark 8.11 transfers from calibration states to held-out states.
 
 **Setup.**
@@ -182,8 +183,8 @@ Support sharing executes 10 atom trajectories per replica for 9 candidate values
   - With $`M=8`$ and $`\delta=0.05`$ the range term is $`7B\cdot8.54/(3(r-1))`$: 0.633 at $`r=64`$ and 0.156 at $`r=256`$ for $`B=2`$. This is two orders of magnitude above the typical gap.
   - The variance term is already below the gap at $`r=64`$.
   - CRN reduces the variance by roughly an order of magnitude in aggregate, and by more than two orders of magnitude for the median aligned pair.
-- **Remark 8.12, first problem.** The bottleneck of the strict certificate is the a-priori range, not the variance. With the observed range the aligned surrogate would certify 45–57% of pairs without error, and 157–206 of the 396 reference rows against the oracle margin's 56. The observed range is not a proven bound. A provable range of that size, for example from a pathwise Lipschitz bound, is what is missing.
-- **Remark 8.12, second problem; Remark 8.11.** The calibrated short surrogate certifies wrongly 22–28 times under the observed range. Its calibration envelope, fitted on calibration states, does not transfer to every held-out state and recipe; half of the wrong certificates fall in the held-out learning-rate split (11 of 22 at $`r=64`$, 14 of 28 at $`r=256`$). Calibration transfer is therefore an assumption that must be tested, as Remark 8.11 states.
+- **Remark 8.17, first problem.** The bottleneck of the strict certificate is the a-priori range, not the variance. With the observed range the aligned surrogate would certify 45–57% of pairs without error, and 157–206 of the 396 reference rows against the oracle margin's 56. The observed range is not a proven bound. A provable range of that size, for example from a pathwise Lipschitz bound, is what is missing.
+- **Remark 8.17, second problem; Remark 8.11.** The calibrated short surrogate certifies wrongly 22–28 times under the observed range. Its calibration envelope, fitted on calibration states, does not transfer to every held-out state and recipe; half of the wrong certificates fall in the held-out learning-rate split (11 of 22 at $`r=64`$, 14 of 28 at $`r=256`$). Calibration transfer is therefore an assumption that must be tested, as Remark 8.11 states.
 
 The certificate results are panels B–D of [Figure 8.5](../experiments/08-09_first_order_version_margin_criterion.md#c8-16).
 
@@ -191,10 +192,43 @@ The certificate results are panels B–D of [Figure 8.5](../experiments/08-09_fi
 
 *Figure 8.5.* First-order certificate ([Check 8.16](../experiments/08-09_first_order_version_margin_criterion.md#c8-16)): the median radius components $`e_{\rm stat}`$, $`e_{\rm fd}`$ and $`e_2`$ against the median true gap; the remainder alone is comparable to the gap, so nothing is certified. Finite CRN paired replacement ([Check 8.14](../experiments/08-08_crn_paired_replacement_certificate.md#c8-14)): the certified fraction under the a-priori range $`B=2`$ (strict) and under the observed range (diagnostic only), with wrong certificates, for both surrogates and $`r\in\lbrace64,256\rbrace`$. The remaining panels show the distribution of the CRN variance ratio and the trajectory cost relative to the full-tail paired audit. Controlled small network. [PDF](../figures/fig8_5_certificate.pdf)
 
+<a id="c8-17"></a>
+
+## Check 8.17 · The certificate on the real model: R1, P1 against P3 (Theorem 8.8)
+
+**Verdict.**
+
+- On the bounded geometric-probability surrogate, $`\hat S^{\rm P1,P3}=+0.001378`$ with 57 of 64 replicas positive. The diagnostic radius (observed range in place of $`B`$) is 0.001206, so P1 ranks above P3 **by the diagnostic radius only**.
+- The strict radius of [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) with the a-priori range $`B=2`$ is 0.325, about 240 times the score: the strict certificate is **valid but vacuous**.
+- On the per-token log-likelihood surrogate, $`\hat S=+0.001561`$ (54 of 64 positive) against a diagnostic radius 0.001500: borderline. Its recorded radius 0.163 uses a caller-supplied range $`B=1`$; the log-likelihood has no a-priori bound, so this is not a strict certificate either.
+- The surrogate alignment $`(\alpha,\varepsilon_{\rm sur})`$ of [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer.md#s8-11) is not calibrated on the real model, so nothing is asserted about task success. The pre-registered prediction ordered P3 above P1; this pair goes against it on the surrogate.
+
+**Why.** The controlled panel of [Check 8.14](#c8-14) showed that the strict certificate is limited by the a-priori range, not by the variance. R1 is the first test of the same measurement on the real recipe: whether the paired score orders candidates consistently across replicas, and how far the strict radius is from the observed effect.
+
+**Setup.**
+
+- *Recipe.* ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)); the LoRA student and the AdamW reference training of [Remark 9.4](../statements/09-04_scope_of_evidence.md#s9-4). The audited state $`z_{10}`$ is the reference checkpoint after 104,070 supervised tokens (update 115), complete optimizer state included.
+- *Candidates.* P1: replay of the $`K=20`$ trusted demonstrations (the reference). P3: the student's own trajectories filtered by the environment reward (39 successes). P2 and P4 are pending, so $`M=1`$ pair here.
+- *Measurement.* $`r=64`$ independent replicas; in each, one round with each candidate's message, then the same $`T=10`$ reference tail updates for both (common random numbers, tail seed stream fixed in advance). Surrogate: teacher-forced score on 40 held-out successful teacher trajectories; geometric probability $`\tilde F\in(0,1]`$, so paired scores lie in $`[-1,1]`$ and $`B=2`$ is a valid a-priori range. $`\delta=0.05`$.
+- Records: merged results and per-replica rows under `theory/v017_checks/records/r1/`, recomputed by `v017:R4.r1`.
+
+**Result** (`theory/v017_checks/results_v017.json`, entry `v017:R4.r1`):
+
+| surrogate | $`\hat S^{\rm P1,P3}`$ | replicas positive | diagnostic radius | radius with stated $`B`$ | $`B`$ |
+|---|---:|---:|---:|---:|---|
+| geometric probability | +0.001378 | 57 / 64 | 0.001206 | 0.325 | 2, a-priori |
+| per-token log-likelihood | +0.001561 | 54 / 64 | 0.001500 | 0.163 | 1, caller-supplied, not a proven range |
+
+**Why it supports the statement.**
+
+- (a) is what makes the point estimate meaningful: the paired mean is an unbiased estimate of the finite surrogate contrast at $`z_{10}`$, and recomputing it from the 64 replica rows reproduces the recorded value exactly.
+- (b)–(c) are valid with $`B=2`$; the check shows their size on the real model. The range term dominates by more than two orders of magnitude, exactly the first open problem of [Remark 8.17](../statements/08-17_open_problems.md#s8-17); the missing calibration is the second.
+
 ## Reproduce
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6b,C5b --output theory/v016_checks/subset.json
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
 ```
 
 The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
@@ -203,6 +237,7 @@ The scripts use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([
 
 - `theory/v016_checks/results_v016.json`: checks `v016:C6b`, `v016:C5b`; raw companion `results_v016_raw.json.gz` (per-pair scores, radius components, replica outcomes; not committed); specification `theory/v016_checks/SPEC.md`; code `c5c6b.py`.
 - Figure: `../figures/fig8_5_certificate` (panels B–D).
+- `theory/v017_checks/results_v017.json`: entry `v017:R4.r1` ([Check 8.17](#c8-17)); code `theory/v017_checks/check_v017.py`, function `r_r1`; records `theory/v017_checks/records/r1/merge_p1p3_F_tilde_geo_prob.json`, `merge_p1p3_F_tilde_per_token.json` and `p1p3-0.jsonl`–`p1p3-3.jsonl`.
 
 ## References
 
@@ -223,6 +258,10 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-maurer2009empirical"></a>
 
 **Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 

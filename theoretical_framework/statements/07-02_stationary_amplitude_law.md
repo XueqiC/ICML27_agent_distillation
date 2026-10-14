@@ -1,10 +1,10 @@
-# Corollary 7.2 · Stationary amplitude law
+# Corollary 7.2 · Stationary amplitude law (restricted mean-field model)
 
 *Statement*
 
 [← Framework](../README.md) · [Statement](07-02_stationary_amplitude_law.md) · [Proof](../proofs/07-02_stationary_amplitude_law.md) · [Experiments](../experiments/07-02_stationary_amplitude_law.md) · [中文](07-02_stationary_amplitude_law_ZH.md)
 
-**In one paragraph.** Under plain SGD, a larger gradient in a useful direction is always better. Under Adam it is not: a large message also inflates the running second moment $`v`$, which shrinks the following steps. This corollary evaluates the state-channel decomposition of [Theorem 7.1](07-01_state_channel_decomposition.md#s7-1) in the simplest regime where everything can be computed in closed form: one coordinate, a warm stationary optimizer state, tail gradients that do not depend on the parameters. It gives the exact response to a message of any amplitude, an optimal amplitude, a sign change, and a criterion for very large amplitudes. Together with Theorem 7.1 it forms **Theorem B** of the framework.
+**In one paragraph.** Under plain SGD, a larger gradient in a useful direction is always better. Under Adam it is not: a large message also inflates the running second moment $`v`$, which shrinks the following steps. This corollary evaluates the state-channel decomposition of [Theorem 7.1](07-01_state_channel_decomposition.md#s7-1) in the simplest regime where everything can be computed in closed form: one coordinate, a warm stationary optimizer state, tail gradients that do not depend on the parameters. It gives the exact response to a message of any amplitude, an optimal amplitude, a sign change, and a criterion for very large amplitudes. It is a restricted model of the second-moment channel, not one of the framework's general claims: its premises are strong, and its real-model prediction was not supported ([Check 7.6](../experiments/07-02_stationary_amplitude_law.md#c7-6)).
 
 **Setting used on this page.**
 
@@ -23,7 +23,7 @@
 
 <a id="s7-2"></a>
 
-**Corollary 7.2 (Stationary amplitude law).** Assume, for a coordinate $`i`$:
+**Corollary 7.2 (Stationary amplitude law; restricted mean-field model).** Assume, for a coordinate $`i`$:
 
 - the tail gradients $`g_{k,i}`$ do not depend on $`\theta`$ (linear-response regime, $`J_k=0`$), are stationary with mean $`\bar g_i\ne0`$ and mean square $`\bar v_i>0`$, and $`F`$ is affine in $`\theta_i`$;
 - $`\epsilon=0`$, no bias correction, $`\lambda_{\rm wd}=0`$;
@@ -77,8 +77,10 @@ The same bound holds for the mean-field first-order value difference $`\mathrm{V
 
 **Role in the framework.**
 
-- It is the first quantitative statement in the framework that, under Adam, the value of a message is non-monotone in its magnitude.
-- It tells the method to control message magnitude relative to the running second moment ([Algorithm 9.2](09-02_ced_algorithm.md#s9-2), step 4), and it is the setting in which [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3) proves that two families of influence scores misrank.
+- It is a mechanism hypothesis that is exact inside its model and nowhere else. The model is one coordinate at a warm stationary state, linear response (tail gradients that do not depend on $`\theta`$, $`F`$ affine), $`\epsilon=0`$, no bias correction, and the mean-field substitution of $`\mathbb Em/\sqrt{\mathbb Ev}`$ for $`\mathbb E[m/\sqrt v]`$. Each of these is a restriction, not a property of training in general.
+- Its real-model prediction was not supported. At the state used by the real-model test, one batch was applied at five magnitudes: the measured responses were positive and inside their diagnostic radii at every magnitude, while the prediction obtained by plugging the saved optimizer state into (a) was negative and 28 to 339 times larger in absolute value ([Check 7.6](../experiments/07-02_stationary_amplitude_law.md#c7-6)). The most likely failed premise is linear response; that is a hypothesis, not a tested cause.
+- What does not depend on it: the exact three-channel decomposition of [Theorem 7.1](07-01_state_channel_decomposition.md#s7-1) and the exact memory separation of [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation.md#s7-6), which together form Theorem B and use none of these premises.
+- Inside its model it is the first quantitative statement in the framework that, under Adam, the value of a message is non-monotone in its magnitude, and it is the setting in which [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3) proves that two families of influence scores misrank. Where the method flags messages that are large relative to the running second moment ([Algorithm 9.2](09-02_ced_algorithm.md#s9-2), step 4), the flag is a screening heuristic motivated by this model; ranking is left to finite measurement ([Theorem 8.8](08-08_crn_paired_replacement_certificate.md#s8-8)).
 
 **Derivation outline.**
 

@@ -42,6 +42,7 @@
 - 它是一个证明，而不只是经验观察：Adam 下两类广泛使用的影响分数都不是一致的排序器。
 - 这是方法按实测后果选择反馈（[Remark 9.3](09-03_derivation_design_rules_ZH.md#s9-3)，Rule 2）、并在排序前标记大消息（[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 第 4 步）的原因之一。
 - 被证明的不一致性只限于这两类；对其他静态 proxy，框架只报告所测试的 proxy 没有可靠地选对。
+- (b) 是在 [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 的区间里证明的；那是一个受限的 mean-field 模型，它对真实模型的预测没有得到支持（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）。真实配方中是否会出现这种排错，本命题并不能确定。
 
 **推导要点.**
 

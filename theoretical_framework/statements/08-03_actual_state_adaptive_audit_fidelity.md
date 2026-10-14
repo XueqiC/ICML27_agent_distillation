@@ -78,7 +78,7 @@ L_E(\mathrm{adaptive})-L_E(0)\ge-\delta,\qquad L_E(\mathrm{adaptive})-L_E(0)\ge\
 
 [← Framework](../README.md) · Proofs · [Experiments](../experiments/08-03_actual_state_adaptive_audit_fidelity.md) · 中文
 
-This page contains Proposition 8.4 through Remark 8.12, including Theorem C; the sibling page supplies the preceding measurement, transport and adaptive-audit proofs and the shared setting.
+This page contains Proposition 8.4 through Remark 8.17, including Theorem C; the sibling page supplies the preceding measurement, transport and adaptive-audit proofs and the shared setting.
 
 **Derivation outline.**
 

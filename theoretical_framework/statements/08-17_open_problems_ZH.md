@@ -1,10 +1,10 @@
-# Remark 8.12 · 未解决的问题
+# Remark 8.17 · 未解决的问题
 
 *陈述*
 
-[← 框架总图](../README_ZH.md) · [陈述](../statements/08-12_open_problems_ZH.md) · [实验](../experiments/08-12_open_problems_ZH.md) · [English](08-12_open_problems.md)
+[← 框架总图](../README_ZH.md) · [陈述](../statements/08-17_open_problems_ZH.md) · [实验](../experiments/08-17_open_problems_ZH.md) · [English](08-17_open_problems.md)
 
-**一段话概括.** Theorem C 按所述形式是成立的，但实际中能否下结论取决于两个问题。这个 Remark 把它们记下来：一个远小于先验区间的、可证明的配对分数范围，以及一个可检验的条件，使 surrogate 的校准能迁移到新的候选对与后续状态。
+**一段话概括.** §8 的证书按所述形式都成立，但实际中能否下结论，取决于框架目前还回答不了的问题。其中两个关于 Theorem C：一个远小于先验区间的、可证明的配对分数范围，以及一个可检验的条件，使 surrogate 的校准能够迁移。另外四个关于在持续训练中维护 response 接口（[Propositions 8.12–8.15](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12)、[Corollary 8.16](08-16_composed_guarantee_ZH.md#s8-16)）：一条续训分支能提供多少独立信息；怎样在不给每格都做完整续训的情况下跨格复用；怎样得到半径随效应缩放的证书；以及在真实学习器上，短续训能否预测完整续训。
 
 **本页用到的设定与记号.**
 
@@ -60,19 +60,23 @@ Z^{jk}_\ell=\varphi_{\omega_\ell}(\Delta^j_\ell)-\varphi_{\omega_\ell}(\Delta^k_
 
 $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差别，以及尾段截短带来的差别。
 
-<a id="s8-12"></a>
+<a id="s8-17"></a>
 
-**Remark 8.12（未解决的问题）.**
+**Remark 8.17（未解决的问题）.**
 
 - **可证明的取值范围.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 在先验范围下成立（$`\tilde F\in[0,1]`$ 时 $`B\le2`$）。这时范围项的量级为 $`7B\log(4M^2/\delta)/(3r)`$，对任何负担得起的 $`r`$，都可能远大于相邻候选之间的差距。分数的观测范围不能代替它。缺的是一个可证明的、远小于先验范围的界，例如 [Proposition 8.10(c)](../statements/08-10_cost_and_crn_ZH.md#s8-10) 中的 pathwise Lipschitz 界，配上一个对真实训练尾段被证明的 $`\bar\lambda`$。
 - **校准的迁移.** 需要一个可检验的条件，使在校准对上拟合的 $`(\alpha,\varepsilon_{\rm sur})`$ 在新的候选对与之后的状态上仍然有效。
 - 在这两点解决之前，Theorem 8.8 在实践中是一个无偏、低方差的排序分数；只有当 $`B`$ 与 $`(\alpha,\varepsilon_{\rm sur})`$ 被独立论证时，它才是严格的证书。
+- **每条续训分支的信息量，以及闭合的识别.** 维数为 $`d`$ 的闭合预测测试空间并不需要 $`d`$ 个续训协议：一条分支可以输出多个指标，所以每条分支有 $`p`$ 个指标时，张成它至少需要 $`\lceil d/p\rceil`$ 个协议，而识别闭合需要扩展测试（[Proposition 4.12](04-12_response_predictive_state_factorization_ZH.md#s4-12)）。尚未解决：一条完整续训分支关于 response operator 及其闭合能提供多少独立信息，以及以最小成本识别闭合需要哪些干预。
+- **跨格复用.** [Proposition 8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15) 减少一格之内的复现，但每格（候选 × checkpoint × 协议）仍至少要一次完整续训。在格子之间共享校正或接口，需要矩阵补全那样的覆盖条件；只有低秩并不够（[Proposition 8.12](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12)）。
+- **随效应缩放的证书.** [Propositions 8.12](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12) 与 [8.14](08-14_anchor_reuse_drift_certificate_ZH.md#s8-14) 以及 [Corollary 8.16](08-16_composed_guarantee_ZH.md#s8-16) 的严格半径，是有界取值集中不等式给出的绝对精度，在实测量级下为空。尚未解决：在负担得起的续训次数下，构造半径随效应大小缩放的方差自适应或去偏配对证书。这里发现的"为空"是所述估计量的性质，并不证明这样的证书不存在。
+- **真实学习器上的短续训对比完整续训.** [Proposition 8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15) 的节省条件在成本比为十分之一时，若每个便宜输出都计费，需要约 0.787（固定系数）或 0.575（最优系数）的配对相关系数；若每对中的便宜输出被复用，则为 0.766 或约 0.316。真实模型上还没有测过这个相关系数。
 
-**说了什么.** 两个未解决问题：一个远小于先验区间的可证明分数范围（例如来自经过认证的 pathwise Lipschitz 常数）；一个可检验的校准迁移条件。两者都解决之前，Theorem 8.8 在实践中是一个无偏、低方差的排序分数；只有在范围与校准都独立得到论证时，它才是严格的证书。
+**说了什么.** 六个未解决问题。关于 Theorem C：一个远小于先验区间的可证明分数范围（例如来自经过认证的 pathwise Lipschitz 常数），以及一个可检验的校准迁移条件；两者都解决之前，Theorem 8.8 在实践中是一个无偏、低方差的排序分数，只有在范围与校准都独立得到论证时，它才是严格的证书。关于在持续训练中维护接口：一条分支提供的信息、跨格复用、随效应缩放的证书，以及真实的短续训–完整续训相关性。
 
-**直觉.** 瓶颈已经不是统计量，而是范围与校准。
+**直觉.** 瓶颈已经不是统计量，而是范围、校准和完整续训的次数。
 
-**在框架中的作用.** 它精确说明还缺什么，才能让可测量的证书既严格又有用。
+**在框架中的作用.** 它精确说明还缺什么，才能让可测量的证书既严格又有用；它也把已证明的东西（成立）与实测的东西（在当前量级下为空：[Check 8.17](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-17)、[Check 8.18](../experiments/08-12_finite_catalog_spectral_certificate_ZH.md#c8-18)、[Check 8.21](../experiments/08-14_anchor_reuse_drift_certificate_ZH.md#c8-21)、[Check 8.23](../experiments/08-16_composed_guarantee_ZH.md#c8-23)）分开。
 
 **用到.**
 
@@ -80,6 +84,9 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 - [Proposition 8.10](../statements/08-10_cost_and_crn_ZH.md#s8-10) — 通往可证明范围的 pathwise Lipschitz 途径
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer_ZH.md#s8-11) — 校准及其迁移
 - [Assumption 8.7](../statements/08-07_certificate_assumptions_ZH.md#s8-7) — 范围与对齐假设
+- [Proposition 4.12](04-12_response_predictive_state_factorization_ZH.md#s4-12) — 闭合与续训协议的个数
+- [Propositions 8.12–8.15](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12) — 目录、共享特征、漂移与双保真估计
+- [Corollary 8.16](08-16_composed_guarantee_ZH.md#s8-16) — 组合保证
 
 **被用于.**
 

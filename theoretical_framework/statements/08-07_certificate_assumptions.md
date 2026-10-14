@@ -64,7 +64,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 
 **What it is.** Independence of replicas given the history, a known a-priori range of each paired score, and alignment of surrogate differences with task differences up to a factor and an error.
 
-**Role in the framework.** These are the only assumptions of Theorem 8.8; the range and the alignment are exactly the two open problems of Remark 8.12.
+**Role in the framework.** These are the only assumptions of Theorem 8.8; the range and the alignment are exactly the two open problems of Remark 8.17.
 
 **Uses.**
 
@@ -75,7 +75,7 @@ $`\varepsilon_{\rm sur}`$ absorbs both the difference between the surrogate and 
 - [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) — the certificate
 - [Corollary 8.9](../statements/08-09_first_order_version_margin_criterion.md#s8-9) — first-order variant
 - [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer.md#s8-11) — how the alignment is calibrated
-- [Remark 8.12](../statements/08-12_open_problems.md#s8-12) — open problems about range and alignment
+- [Remark 8.17](../statements/08-17_open_problems.md#s8-17) — open problems about range and alignment
 
 ## Related work
 

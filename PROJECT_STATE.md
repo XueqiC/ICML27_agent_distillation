@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **00:5x CDT 10-14: framework v0.17 written and merged into theoretical_framework/** (user "你来写", 23:00 CDT 10-13). Basis: the
+  user's second revision + my review2 with errata. Title → "…for Continued Training"; response operator as the unifying object.
+  New items: Prop 3.4 (joint decomposition), Def 4.8–Prop 4.13 (response operator, spectral sufficiency, Hankel/PSR realization,
+  static≠dynamic closure, factorization through the next predictive state, finite-horizon Gramians), Props 6.14–6.16 (convex
+  realizability, linear-Gaussian target, information–compilation radius), Prop 7.6 (exact Adam memory construction), Props
+  8.12–8.15 + Cor 8.16 (catalog certificate, shared features, anchor reuse + drift certificate, two-fidelity, composed guarantee),
+  Remarks 9.5–9.6 (assumption audit, contribution units/prior work). Modified: Lemma 6.4 (singular designs), Thm 6.5 (generability
+  scope), Cor 7.2 → restricted mean-field model + R3 negative (Check 7.6), Theorem B = Thm 7.1 + Prop 7.6, Alg 9.2 (gap routing,
+  legal compilation, strict/diagnostic apart), Rule 7, Remark 9.4 rewritten with R0/R1/R3 results, Remark 8.12 → 8.17 (6 open
+  problems). New check suite theory/v017_checks (22 synthetic + 5 record checks recomputed from hpg outputs in records/; all PASS);
+  18 new references verified against primary records. Independent proof audit: 1 error (8.12(e) bias term with frozen estimated
+  triples), 1 gap (8.16 vacuity depended on undeclared B), 12 wording — all fixed EN+ZH. Validator: 452 files, 0 errors.
+  Note: R3 |prediction/measured| is 28–339× from the records (earlier "15–300×" was wrong).
 - **23:26 CDT 10-13: T1 optimizer-state transplant pilot SUBMITTED** (user approved "可以批" 23:00 CDT; prereg
   docs/direction/2026-10-14_T1_optimizer_state_transplant_prereg_ZH.md, 776819b). Tree 58e46e0 (ICML27_runs/58e46e0; Codex code
   train/transplant.py reviewed, CPU tests 35/35). Jobs: smoke 45867088 (0:50 limit; 4-update blocks, compose, 4-update post, scores)

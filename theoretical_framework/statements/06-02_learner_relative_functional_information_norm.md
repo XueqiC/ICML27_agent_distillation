@@ -76,7 +76,7 @@
 
 ## Related work
 
-- For $`n=0`$, $`\mathfrak n_{K,0}^2=c^\top(K\,I_D)^{-1}c`$ is the classical local asymptotic minimax bound on the variance of regular estimators of the smooth functional $`\Psi`$ ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); with queries the best design enters ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)).
+- For $`n=0`$, $`\mathfrak n_{K,0}^2=c^\top(K\,I_D)^{+}c`$ if $`c\in\mathrm{range}\,I_D`$ and $`+\infty`$ otherwise (the pseudo-inverse reduces to the ordinary inverse when $`I_D`$ is invertible; see [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)(b)–(c)). It is the classical local asymptotic minimax bound on the variance of regular estimators of the smooth functional $`\Psi`$ ([van der Vaart, 1998](#ref-vandervaart1998asymptotic)); with queries the best design enters ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)).
 - $`\Psi`$ adds, over audited checkpoints, inner products of a task gradient with the learner's update, the structure of gradient-tracing influence estimates such as TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)); here it is the quantity a distiller must reproduce, not a score for ranking data.
 
 ## References

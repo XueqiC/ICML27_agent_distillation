@@ -79,7 +79,7 @@ r\ \ge\ 1+\frac{7\log(4M^2/\delta)}{3\zeta}.
 
 若两臂用独立的尾段 $`\omega,\omega'`$（消息也独立），则 $`\varphi_\omega(\Delta^j)-\varphi_{\omega'}(\Delta^k)`$ 的方差为 $`\mathrm{Var}\,\varphi_\omega(\Delta^j)+\mathrm{Var}\,\varphi_{\omega'}(\Delta^k)\ge\mathbb E\,\mathrm{Var}(\varphi_\omega(\Delta^j)\mid\Delta^j)+\mathbb E\,\mathrm{Var}(\varphi_{\omega'}(\Delta^k)\mid\Delta^k)`$，其中含有尾段本身的噪声，不会随两个候选靠近而消失。若进一步 $`\sup_\omega\lambda_\omega\le\bar\lambda`$，且在耦合下几乎必然 $`\lVert\Delta^j-\Delta^k\rVert\le b_{jk}`$，则 $`B=2\bar\lambda b_{jk}`$ 是 [Assumption 8.7(B)](../statements/08-07_certificate_assumptions_ZH.md#s8-7) 中合法的取值范围。
 
-### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14) · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11–8.12）
+### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14) · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11 and 8.17）
 
 - **它对 Proposition 8.10 检验什么.** 在负担得起的副本数下半径中范围项的大小、common random numbers 带来的方差缩减，以及相对完整尾段配对 audit 的代价。
 - **设置.** 冻结的受控面板，1,728 个候选对（每个状态 $`M=8`$ 个候选，$`\delta=0.05`$，$`\log(4M^2/\delta)=8.54`$）；副本数 $`r\in\lbrace64,256\rbrace`$；一个与任务一致的 surrogate 与一个需校准的短尾段 surrogate；另外单独运行独立尾段作为方差对照。

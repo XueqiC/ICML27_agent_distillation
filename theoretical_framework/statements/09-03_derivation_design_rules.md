@@ -4,7 +4,7 @@
 
 [← Framework](../README.md) · [Statement](09-03_derivation_design_rules.md) · [Proof](../proofs/09-03_derivation_design_rules.md) · [Experiments](../experiments/09-03_derivation_design_rules.md) · [中文](09-03_derivation_design_rules_ZH.md)
 
-**In one paragraph.** [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) (CED) is the distillation method of the framework. This remark extracts the six design rules behind it and says, for each, which earlier statements force it. A rule here is a necessary condition: a method that claims the corresponding guarantee must follow it. The remark does not claim that following the rules makes an instance of CED beat a given baseline; that is an empirical question.
+**In one paragraph.** [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) (CED) is the distillation method of the framework. This remark extracts the seven design rules behind it and says, for each, which earlier statements force it. A rule here is a necessary condition: a method that claims the corresponding guarantee must follow it. The remark does not claim that following the rules makes an instance of CED beat a given baseline; that is an empirical question.
 
 **Setting used on this page.**
 
@@ -17,7 +17,7 @@
 
 <a id="s9-3"></a>
 
-**Remark 9.3 (Derivation of the design rules).** Algorithm 9.2 implements six rules. Each rule states what a method that claims the corresponding guarantee must do; the [proof page](../proofs/09-03_derivation_design_rules.md) gives the statements that force it. The rules are necessary conditions for those guarantees; they do not by themselves show that an instance of CED outperforms a given baseline.
+**Remark 9.3 (Derivation of the design rules).** Algorithm 9.2 implements seven rules. Each rule states what a method that claims the corresponding guarantee must do; the [proof page](../proofs/09-03_derivation_design_rules.md) gives the statements that force it. The rules are necessary conditions for those guarantees; they do not by themselves show that an instance of CED outperforms a given baseline.
 
 - **Rule 1 (Acquire before compiling).** Decision-relevant facts that the transcript does not determine can be supplied only by new permitted experiments; how much to acquire, and where, is set by the learner.
 - **Rule 2 (Select by measured consequence).** On a declared family, a selection rule is consistent with the learning-value ordering only if it is a function of the mean responses $`\lbrace\bar g_t(z,j)\rbrace_j`$, or of a statistic proved sufficient for them on that family.
@@ -29,6 +29,11 @@
   - (iii) the CRN paired-replacement certificate at audited states with a calibrated surrogate, extended along training only by transport terms or by re-auditing;
   - (iv) whole-run randomized comparisons of the frozen method, labelled empirical.
 - **Rule 6 (Freeze, then test transfer).** Selectors, features, cells, surrogates and candidates are frozen before the data that evaluates them; transfer is guaranteed only through a verified decomposition of the target responses and is otherwise measured. Method transfer and policy transfer are reported separately.
+- **Rule 7 (Route each gap to its remedy).** Before spending budget, classify what separates the available feedback from a sufficient one, and pay for the matching remedy only:
+  - an *information gap* (the declared tests cannot yet be predicted because the transcript leaves the target uncertain in directions the tests see) is closed by acquisition;
+  - a *realizability gap* (the target is determined but no mixture of the legal pool reaches it) is closed by enlarging the legal pool, not by more information;
+  - a *closure gap* (a summary that predicts the current tests does not predict them after the declared further updates) is closed by extending the tests or the recorded state;
+  - an *estimation-cost gap* (the response cannot be measured within budget) may be reduced by reusing an interface across checkpoints or by two-fidelity estimation, but only when the corresponding cost condition has been verified.
 
 **What it says.**
 
@@ -37,13 +42,14 @@
 - What must be matched is the optimizer's statistic at the complete state, including the message magnitude relative to the running RMS under warm Adam, not the raw gradient.
 - Fit response models with small coefficients on noisy features; certify by paired replacement or full-tail audits; account for coverage when moving to new states.
 - Freeze everything before the data that evaluates it, and report the two kinds of transfer separately.
+- Decide what kind of gap remains before buying anything: information, realizability, closure or estimation cost each have their own remedy, and the wrong remedy buys nothing.
 
-**Intuition.** Every shortcut a method might take (rewriting instead of acquiring, ranking by a static score, matching gradients, trusting an audit at states it never saw, tuning on the evaluation data) corresponds to an earlier statement that exhibits a case where the shortcut fails.
+**Intuition.** Every shortcut a method might take (rewriting instead of acquiring, ranking by a static score, matching gradients, trusting an audit at states it never saw, tuning on the evaluation data, querying for a target that no legal feedback can reach) corresponds to an earlier statement that exhibits a case where the shortcut fails.
 
 **Role in the framework.**
 
 - It is the bridge from the theory of §2–§8 to the method: each step of [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) implements one or more rules.
-- Its necessity claims are proved; its usefulness in practice is tested in the controlled learner ([experiments page](../experiments/09-03_derivation_design_rules.md)) and in the planned real-model tests ([Remark 9.4](09-04_scope_of_evidence.md#s9-4)).
+- Its necessity claims are proved; Rules 1–6 are probed in the controlled learner ([experiments page](../experiments/09-03_derivation_design_rules.md)), and the real-model tests are described in [Remark 9.4](09-04_scope_of_evidence.md#s9-4). Rule 7 has no check of its own; its parts are checked on the pages of the statements that force it.
 
 **Derivation outline.**
 
@@ -53,6 +59,7 @@
 - **Rule 4.** Measurement error on a feature costs the size of its coefficient ([Theorem 8.1](08-01_stability_approximation_tradeoff.md#s8-1)).
 - **Rule 5.** Dropping transport is invalid, full-tail audits are expensive, paired replacement is exact in expectation, and first-order scores certify only above their margin ([Theorems 8.2](08-02_frozen_finite_interface_selection_transport.md#s8-2), [8.3](08-03_actual_state_adaptive_audit_fidelity.md#s8-3), [8.8](08-08_crn_paired_replacement_certificate.md#s8-8), [Corollary 8.9](08-09_first_order_version_margin_criterion.md#s8-9)).
 - **Rule 6.** Audit events are simultaneous only over candidates fixed beforehand; transfer is guaranteed only through a verified decomposition of target responses ([Theorem 4.2](04-02_sufficiency_duality_transfer.md#s4-2)(c)); method transfer and policy transfer are different functionals.
+- **Rule 7.** The information–compilation radius is bounded below separately by the visible uncertainty and by the distance to the legal outputs, and unknowns in the kernel of the interface cost nothing ([Proposition 6.16](06-16_information_compilation_radius.md#s6-16)); a target is realizable only inside the convex hull of the pool ([Proposition 6.14](06-14_convex_realizability_legal_pool.md#s6-14)); current sufficiency does not imply sufficiency after further updates ([Proposition 4.11](04-11_static_not_dynamic_closure_error.md#s4-11)); reuse and two-fidelity estimation save compute only under their stated cost conditions ([Propositions 8.14](08-14_anchor_reuse_drift_certificate.md#s8-14) and [8.15](08-15_two_fidelity_response_estimation.md#s8-15)).
 
 **Uses.**
 
@@ -62,17 +69,20 @@
 - [Theorem 8.1](08-01_stability_approximation_tradeoff.md#s8-1): stable response models (Rule 4).
 - [Theorems 8.2](08-02_frozen_finite_interface_selection_transport.md#s8-2), [8.3](08-03_actual_state_adaptive_audit_fidelity.md#s8-3), [8.8](08-08_crn_paired_replacement_certificate.md#s8-8), [Corollary 8.9](08-09_first_order_version_margin_criterion.md#s8-9): the four forms of guarantee (Rule 5).
 - [Theorem 4.2](04-02_sufficiency_duality_transfer.md#s4-2): transfer needs a verified decomposition (Rule 6).
+- [Propositions 6.14](06-14_convex_realizability_legal_pool.md#s6-14) and [6.16](06-16_information_compilation_radius.md#s6-16), [Proposition 4.11](04-11_static_not_dynamic_closure_error.md#s4-11), [Propositions 8.14](08-14_anchor_reuse_drift_certificate.md#s8-14) and [8.15](08-15_two_fidelity_response_estimation.md#s8-15): routing gaps to remedies (Rule 7).
 
 **Used by.**
 
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2): each step implements these rules.
-- [Remark 9.4](09-04_scope_of_evidence.md#s9-4): the planned real-model tests.
+- [Remark 9.4](09-04_scope_of_evidence.md#s9-4): the real-model tests.
+- [Remark 9.5](09-05_assumption_audit.md#s9-5): the assumption audit.
 
 ## Related work
 
 - Rule 1 rests on the easy direction of Blackwell's comparison of experiments: a garbling of the transcript cannot add information ([Blackwell, 1953](#ref-blackwell1953equivalent)). Acquiring labels at the student's own states is the move of DAgger ([Ross et al., 2011](#ref-ross2011reduction)).
 - Rule 2 and Rule 3 are stated against first-order data scores: influence functions ([Koh & Liang, 2017](#ref-koh2017understanding)), TracIn ([Pruthi et al., 2020](#ref-pruthi2020estimating)) and LESS ([Xia et al., 2024](#ref-xia2024less)) rank training data by gradient statistics rather than by measured consequence at the complete learner state.
 - Rule 6 separates the data that tunes a method from the data that tests it, as the held-out safety test of high-confidence policy improvement does ([Thomas et al., 2015](#ref-thomas2015high)).
+- The realizability part of Rule 7 is the convex-hull criterion of convex analysis, with Carathéodory's bound on the support ([Rockafellar, 1970](#ref-rockafellar1970convex)).
 
 ## References
 
@@ -89,6 +99,10 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-pruthi2020estimating"></a>
 
 **Garima Pruthi, Frederick Liu, Satyen Kale, Mukund Sundararajan (2020).** Estimating training data influence by tracing gradient descent. *Advances in Neural Information Processing Systems 33 (NeurIPS)*, 19920–19930. arXiv [2002.08484](https://arxiv.org/abs/2002.08484).
+
+<a id="ref-rockafellar1970convex"></a>
+
+**R. Tyrrell Rockafellar (1970).** Convex Analysis. Princeton University Press, Princeton, NJ (Princeton Mathematical Series 28). DOI [10.1515/9781400873173](https://doi.org/10.1515/9781400873173).
 
 <a id="ref-ross2011reduction"></a>
 

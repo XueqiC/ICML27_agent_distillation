@@ -4,7 +4,7 @@
 
 [← Framework](../README.md) · [Statement](07-01_state_channel_decomposition.md) · [Proof](../proofs/07-01_state_channel_decomposition.md) · [Experiments](../experiments/07-01_state_channel_decomposition.md) · [中文](07-01_state_channel_decomposition_ZH.md)
 
-**In one paragraph.** Under Adam, one training message changes more than the parameters: it also changes the running moments $`m`$ and $`v`$, and through them every later step of training. This theorem computes, for Adam/AdamW with bias correction, decoupled weight decay, $`\epsilon`$ and global-norm clipping, the exact gradient of the eventual outcome with respect to the whole optimizer state, by a backward (costate) recursion along the rest of training. With that gradient, the first-order value of a message splits exactly into three parts: what it does through the parameters, through the momentum, and through the second moment. Together with [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) it forms **Theorem B** of the framework.
+**In one paragraph.** Under Adam, one training message changes more than the parameters: it also changes the running moments $`m`$ and $`v`$, and through them every later step of training. This theorem computes, for Adam/AdamW with bias correction, decoupled weight decay, $`\epsilon`$ and global-norm clipping, the exact gradient of the eventual outcome with respect to the whole optimizer state, by a backward (costate) recursion along the rest of training. With that gradient, the first-order value of a message splits exactly into three parts: what it does through the parameters, through the momentum, and through the second moment. Together with [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation.md#s7-6) it forms **Theorem B** of the framework.
 
 **Setting used on this page.**
 
@@ -87,7 +87,8 @@ Then:
 **Role in the framework.**
 
 - It makes the optimizer-state part of the first-order representation of [Proposition 5.1](05-01_optimizer_transformed_expansion.md#s5-1) computable for Adam.
-- [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) evaluates it in closed form; [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3) uses it to show that parameter-only and cosine influence scores are inconsistent; [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5) states where its first-order use fails.
+- With [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation.md#s7-6) it forms Theorem B: this theorem gives the exact first-order value of a message through the three channels, and Proposition 7.6 shows by an exact example that the momentum and second-moment channels cannot be dropped. Neither needs stationarity, linear response or a mean-field substitution.
+- [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) evaluates it in closed form in a restricted mean-field model, whose real-model prediction was not supported; [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3) uses it inside that model to show that parameter-only and cosine influence scores are inconsistent; [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5) states where its first-order use fails.
 
 **Derivation outline.**
 
@@ -102,7 +103,8 @@ Then:
 
 **Used by.**
 
-- [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2): closed-form amplitude law.
+- [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2): closed-form amplitude law in a restricted mean-field model.
+- [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation.md#s7-6): the channels in which two messages with equal parameter increments differ.
 - [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3): inconsistency of two proxy classes.
 - [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5): where first-order rankers fail.
 - [Algorithm 9.2](09-02_ced_algorithm.md#s9-2) and [Remark 9.3](09-03_derivation_design_rules.md#s9-3): magnitude control in the method.

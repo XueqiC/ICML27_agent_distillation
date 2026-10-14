@@ -1,14 +1,15 @@
-# Corollary 7.2 · Stationary amplitude law
+# Corollary 7.2 · Stationary amplitude law (restricted mean-field model)
 
 *Experiments*
 
 [← Framework](../README.md) · [Statement](../statements/07-02_stationary_amplitude_law.md) · [Proof](../proofs/07-02_stationary_amplitude_law.md) · [Experiments](07-02_stationary_amplitude_law.md) · [中文](07-02_stationary_amplitude_law_ZH.md)
 
-**What is tested here.** All three parts of the corollary, on exact one-dimensional Adam with stochastic gradients, against the finite response measured with common random numbers.
+**What is tested here.** All three parts of the corollary, on exact one-dimensional Adam with stochastic gradients, against the finite response measured with common random numbers; and, on the real model, the prediction obtained from (a).
 
 - **(a), exact mean-field response.** The formula matches the measured finite response within 2.7% of the response scale at all 213 grid points (**PASS**). The predicted zero crossing agrees with the measured one within 3.9% in 25 of the 26 settings where a crossing exists, and neither crosses in the other 7. One setting placed next to the crossing criterion ($`\beta_2=0.99`$, $`\rho=0.245`$, $`T=50`$) misses the 10% tolerance: predicted 68.6, measured $`77.0\pm4.0`$, relative error 10.9% (**FAIL**, reported as is).
 - **(b), quadratic law.** Inside its range the response error is at most 1.5% and $`2\lambda^\star`$ is within 0.6% of the measured crossing (**PASS**). Outside its range $`2\lambda^\star`$ underestimates the crossing by up to a factor 5.7, as the corollary warns.
 - **(c), large-amplitude criterion.** The sign of the exact limit classifies crossing versus no crossing correctly in 33/33 settings (**PASS**).
+- **Real model ([Check 7.6](#c7-6)).** The prediction of (a), computed before the measurement from the saved optimizer state of a warm checkpoint, is **not supported**: the measured responses to one batch at five magnitudes are positive and inside their diagnostic radii, the predictions negative and 28 to 339 times larger in absolute value.
 
 **Setting used on this page.**
 
@@ -34,6 +35,7 @@
 |---|---|---|---|
 | [Check 7.2](#c7-2) | (a) and (c) | `v016:C4.amplitude` | FAIL (1 of 26 crossings) |
 | [Check 7.3](#c7-3) | (b) | `v016:C4.amplitude` | PASS |
+| [Check 7.6](#c7-6) | the real-model prediction of (a) | `v017:R3.r3` | prediction not supported (record check PASS) |
 
 [Check 7.2](#c7-2) and [Check 7.3](#c7-3) share one code ID: its single FAIL assertion is the crossing comparison of [Check 7.2](#c7-2); every assertion of [Check 7.3](#c7-3) passes.
 
@@ -150,6 +152,38 @@
 
 **Limits.** As for [Check 7.2](#c7-2): the corollary's own one-coordinate, exogenous-gradient setting.
 
+<a id="c7-6"></a>
+
+## Check 7.6 · The real-model prediction of (a) at a warm checkpoint (Corollary 7.2(a))
+
+**Verdict.** The prediction is **not supported**. With clipping off, the measured response to one batch is positive at all five magnitudes and lies inside its diagnostic radius. The predicted response is negative at all five magnitudes, lies outside every measured interval, and is 28 to 339 times larger in absolute value. Under the rule written before the measurement, which required all five measured responses to be negative and beyond the diagnostic radius, the outcome is "not supported". The record check `v017:R3.r3`, which recomputes these numbers from the stored run outputs, passes.
+
+**Why.** Corollary 7.2(a) is exact inside its model. The real-model test asks whether that model predicts one real training step. The prediction was computed and written down before any measurement, by inserting the saved optimizer state into (a) coordinate by coordinate and summing over coordinates.
+
+**Setup.**
+
+- *State.* The warm checkpoint $`z_{10}`$ of the K20 Seed-SFT run on ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)), the starting state of the real-model tests; configurations are in the [pre-registration](../../docs/direction/2026-10-12_real_model_R0-R3_prereg_ZH.md) (in Chinese).
+- *Messages.* One fixed reference batch, its loss multiplied by $`c\in\lbrace0.5,1,2,4,8\rbrace`$, applied as one update with global-norm clipping turned off for that update. Only the magnitude changes, so every cosine score is the same across $`c`$. The comparator is a zero-gradient message. Two further arms keep clipping on ($`c=1`$ and $`c=4`$) and consume identical clipped gradients; comparing them is a mechanism check of [Remark 7.4](../statements/07-04_relation_prior_work_role_clipping.md#s7-4) and is not part of this check.
+- *Measurement.* After the message, $`T=10`$ reference tail updates with common random numbers across arms, in 16 independent replicas. The score $`\tilde F`$ is the per-token mean teacher-forced log-likelihood on 40 held-out teacher trajectories that never enter training (40 instead of the pre-registered 80, a deviation recorded before any measurement). $`\delta\tilde F(c)`$ is the mean paired difference against the zero message. The radius is the radius of [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate.md#s8-8) with the observed range of the paired scores in place of the a-priori range, which makes it a diagnostic, not a certificate.
+- *Prediction.* For every coordinate $`i`$, the bias-corrected $`m_i`$ and $`v_i`$ of the saved state are taken as the stationary tail mean and mean square; $`\rho_i=\lvert m_i\rvert/\sqrt{v_i}`$, $`\lambda_i(c)=c\,g_i\,\mathrm{sign}(m_i)/\sqrt{v_i}`$ and $`\alpha_i=-\partial_i\tilde F\,\mathrm{sign}(m_i)`$ are inserted into (a) with $`T=10`$, and the coordinate responses are summed. This uses every premise of the corollary: no evolving bias correction, $`\epsilon=0`$, the mean-field substitution, tail gradients that do not depend on $`\theta`$, and $`\tilde F`$ linearized at the restored state, with no cross-coordinate curvature.
+
+**Result.** Per-token score, clipping off.
+
+| $`c`$ | measured $`\delta\tilde F`$ | diagnostic radius | predicted $`\delta\tilde F`$ | measured inside radius | $`\lvert\text{predicted}/\text{measured}\rvert`$ |
+|---:|---:|---:|---:|---|---:|
+| 0.5 | +0.000498 | 0.00637 | −0.0191 | yes | 38 |
+| 1 | +0.001231 | 0.00741 | −0.0346 | yes | 28 |
+| 2 | +0.001092 | 0.00440 | −0.0544 | yes | 50 |
+| 4 | +0.000726 | 0.00541 | −0.0711 | yes | 98 |
+| 8 | +0.000236 | 0.00586 | −0.0800 | yes | 339 |
+
+- Every predicted value lies outside its measured interval $`\delta\tilde F\pm\text{radius}`$. The smallest predicted magnitude, $`0.0191`$ at $`c=0.5`$, is more than twice the largest radius, $`0.0074`$.
+- The sign of the true response is not determined, since every measured value is inside its radius. What the measurement does determine is that the response is far smaller than predicted and not clearly negative.
+
+**Why it supports the statement.** The check does not contradict the corollary's mathematics, whose premises are not those of the real step. It does show that the corollary does not predict a real training step at this state, which is why the statement page classifies it as a restricted model and keeps it out of Theorem B. The most likely failed premise is linear response: in the real network the tail gradients move with $`\theta`$, which the model holds fixed. This is a hypothesis; it was not tested separately.
+
+**Limits.** One state, one batch, five magnitudes, 16 replicas, and a surrogate score instead of task success. At this state the batch's direct effect on the surrogate is negative, so the prediction has no interior peak; a state with a positive direct effect would test the optimal amplitude, which this check does not.
+
 ## Reproduce
 
 From the repository root (CPU only):
@@ -162,6 +196,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - The amplitude group (`v016:C4.amplitude`) takes about 29 s on rai.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
 
+The real-model record check of [Check 7.6](#c7-6) recomputes the reported numbers from the stored run outputs:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
 The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
@@ -170,6 +210,7 @@ The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([V
 - `theory/v016_checks/results_v016_raw.json.gz` — raw arrays referenced by JSON pointers. Not committed; SHA-256 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`.
 - `theory/v016_checks/SPEC.md` (section on `v016:C4`), `check_v016.py` and its tests.
 - `figures/fig7_1_amplitude_law.{png,pdf}` and its spec in `figures/specs/`.
+- `theory/v017_checks/results_v017.json` — entry `v017:R3.r3` (function `r_r3` in `theory/v017_checks/check_v017.py`), computed from `theory/v017_checks/records/r3/r3_eval_summary.json` and `theory/v017_checks/records/r3/prediction.json`.
 
 ## References
 
@@ -182,6 +223,10 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-kingma2015adam"></a>
 
 **Diederik P. Kingma, Jimmy Ba (2015).** Adam: A method for stochastic optimization. *3rd International Conference on Learning Representations (ICLR)*. arXiv [1412.6980](https://arxiv.org/abs/1412.6980).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 

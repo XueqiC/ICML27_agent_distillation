@@ -4,7 +4,12 @@
 
 [← Framework](../README.md) · [Statement](../statements/07-01_state_channel_decomposition.md) · [Proof](../proofs/07-01_state_channel_decomposition.md) · [Experiments](07-01_state_channel_decomposition.md) · [中文](07-01_state_channel_decomposition_ZH.md)
 
-**What is tested here.** Part (a) of the theorem: that the backward costate recursion gives the exact gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$. The channel split (b) and the closed form (d) follow algebraically from (a). **Verdict: PASS.** The adjoint gradient matches central finite differences in all 1,024 directional comparisons, worst relative error $`2.8\times10^{-7}`$ (tolerance $`10^{-6}`$), across 256 configurations that include bias correction, decoupled weight decay, $`\epsilon>0`$ and active global-norm clipping.
+**What is tested here.** Part (a) of the theorem: that the backward costate recursion gives the exact gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$. The channel split (b) and the closed form (d) follow algebraically from (a). **Verdict: PASS.** The adjoint gradient matches central finite differences in all 1,024 directional comparisons, worst relative error $`2.8\times10^{-7}`$ (tolerance $`10^{-6}`$), across 256 configurations that include bias correction, decoupled weight decay, $`\epsilon>0`$ and active global-norm clipping. An independent one-step implementation of the recursion, written separately from that suite, agrees with central differences to $`7.5\times10^{-11}`$ ([Check 7.7](#c7-7)).
+
+| Check | Tests | Code ID | Result |
+|---|---|---|---|
+| [Check 7.1](#c7-1) | (a), full tails | `v016:C4.costate` | PASS |
+| [Check 7.7](#c7-7) | (a), one step, independent implementation | `v017:C15.adjoint` | PASS |
 
 **Setting used on this page.**
 
@@ -53,6 +58,27 @@ with $`D_1^{(k)}=\mathrm{diag}\big(q_{1,s_k}/(\sqrt{q_{2,s_k}v'_k}+\epsilon)\big
 
 **Limits.** The losses are smooth and low-dimensional; derivatives at a clipping threshold are excluded by design, as in the theorem.
 
+<a id="c7-7"></a>
+
+## Check 7.7 · One step of the costate recursion, independent implementation (Theorem 7.1)
+
+**Verdict.** PASS. The one-step costate map, with a nonzero Hessian, bias correction, $`\epsilon>0`$ and decoupled weight decay, agrees with central finite differences to $`7.5\times10^{-11}`$ (tolerance $`10^{-8}`$).
+
+**Why.** [Check 7.1](#c7-1) tests whole tails in one code base. This check re-derives one step of the recursion from scratch, in a separate suite, so that an error shared by the recursion and its test harness in that code base would show up here. One step is the building block: the recursion of [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1) composes it backwards.
+
+**Setup.**
+
+- One coordinate of AdamW at step counter $`s=5`$ with $`\beta_1=0.9`$, $`\beta_2=0.999`$, learning rate $`0.07`$, $`\epsilon=0.03`$ and decoupled weight decay $`0.1`$; state $`(\theta,m,v)=(0.7,0.2,0.8)`$.
+- The consumed gradient is $`g(\theta)=\theta-0.3`$, so the Hessian is $`1`$, not $`0`$.
+- A fixed next-state costate $`(\chi^\theta,\chi^m,\chi^v)=(0.4,-0.2,0.6)`$; the objective is its inner product with the next state $`(\theta',m',v')`$. Its exact gradient with respect to $`(\theta,m,v)`$ is one step of the recursion, with $`D_1`$, $`D_2`$ and $`J=1`$ as in the theorem.
+- Central differences with step $`10^{-6}`$ in each of the three coordinates; tolerance $`10^{-8}`$ on the Euclidean error.
+
+**Result.** Euclidean error between the recursion and the finite-difference gradient: $`7.5\times10^{-11}`$.
+
+**Why it supports the statement.** Every block of one step appears in the test: $`\partial m'/\partial m=\beta_1`$, $`\partial v'/\partial v=\beta_2`$, $`\partial\theta'/\partial m'=-\eta D_1`$, $`\partial\theta'/\partial v'=\eta D_2`$, the bias-correction factors inside $`D_1,D_2`$, the weight-decay factor $`1-\eta\lambda_{\rm wd}`$, and the Jacobian term through $`g(\theta)`$. A wrong block would give an error of the size of that block, far above the tolerance.
+
+**Limits.** One coordinate and one step; the composition over long tails is the subject of [Check 7.1](#c7-1).
+
 ## Reproduce
 
 From the repository root (CPU only):
@@ -65,6 +91,12 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - The costate group (`v016:C4.costate`) takes about 16 s on rai; the full suite without `--only` about 104 s.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
 
+The independent one-step check of [Check 7.7](#c7-7):
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
 The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)).
 
 ## Artifacts
@@ -72,6 +104,7 @@ The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([V
 - `theory/v016_checks/results_v016.json` — claim id `v016:C4.costate`: assertions, per-configuration errors.
 - `theory/v016_checks/results_v016_raw.json.gz` — raw arrays referenced by JSON pointers. Not committed; SHA-256 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`.
 - `theory/v016_checks/SPEC.md` (section on `v016:C4`), `check_v016.py` and its tests.
+- `theory/v017_checks/results_v017.json` — entry `v017:C15.adjoint` (function `c_adjoint` in `theory/v017_checks/check_v017.py`).
 
 ## References
 

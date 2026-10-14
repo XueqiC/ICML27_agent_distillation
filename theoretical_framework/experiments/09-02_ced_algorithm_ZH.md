@@ -4,7 +4,7 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/09-02_ced_algorithm_ZH.md) · [证明](../proofs/09-02_ced_algorithm_ZH.md) · [实验](09-02_ced_algorithm_ZH.md) · [English](09-02_ced_algorithm.md)
 
-**本页检验什么.** 整个算法还没有在真实模型上运行过；计划中的真实模型检验 R0–R3 列在 [Remark 9.4](../statements/09-04_scope_of_evidence_ZH.md#s9-4)。目前在一个受控小网络中检验的，是第 1 步与第 5 步所做的选择：按在记录下来的完整状态上实测的"更新加尾段"response 给候选排序，而不按静态统计量排序。
+**本页检验什么.** 整个算法还没有在真实模型上运行过；针对其各步骤的真实模型检验（R0–R3，部分已完成；另有一个已预注册的优化器状态移植检验）见 [Remark 9.4](../statements/09-04_scope_of_evidence_ZH.md#s9-4)。目前在一个受控小网络中检验的，是第 1 步与第 5 步所做的选择：按在记录下来的完整状态上实测的"更新加尾段"response 给候选排序，而不按静态统计量排序。
 
 - **实测 response 能选对；测试过的静态 proxy 不能.** 在冻结的留出面板上，测试过的五个静态 proxy 在留出的学习器状态上判错率为 0.359–0.547（随机 0.547），Spearman 至多 0.10。实测的 4 步尾段在每一种状态、$`\epsilon`$、学习率与 warmth 的变化下判错率至多 0.031、regret 为零。在一个留出的任务上，短尾段比随机选得差；只有全尾段在每个划分上都精确（[Check 9.4](09-03_derivation_design_rules_ZH.md#c9-4)）。
 - **warmth 必须记录，但 warm-up 救不了静态 proxy.** 学习率为 0 的矩 warm-up 压缩了候选之间的差别，但 10 种静态 proxy 与 warm-up 的组合中，没有一种同时改进 regret、判错率与 Spearman（[Check 9.5](09-03_derivation_design_rules_ZH.md#c9-5)）。

@@ -85,7 +85,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 **直觉.** 校准是 surrogate 与任务接上的地方；它需要检验，不能假定。
 
-**在框架中的作用.** 它把 Theorem C 接到安全的自适应 audit 上，并写出 Remark 8.12 留作未解决的校准迁移条件。
+**在框架中的作用.** 它把 Theorem C 接到安全的自适应 audit 上，并写出 Remark 8.17 留作未解决的校准迁移条件。
 
 **用到.**
 
@@ -96,7 +96,7 @@ $`\varepsilon_{\rm sur}`$ 同时吸收了 surrogate 与任务目标之间的差�
 
 **被用于.**
 
-- [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 校准迁移这一未解决问题
+- [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) — 校准迁移这一未解决问题
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) — 方法中的校准步骤
 
 ## Related work

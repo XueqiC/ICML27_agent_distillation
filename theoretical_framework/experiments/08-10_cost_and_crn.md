@@ -79,7 +79,7 @@ For example, $`M=8`$, $`\delta=0.05`$ and $`\zeta=0.2`$ give $`\log(4M^2/\delta)
 
 With independent tails $`\omega,\omega'`$ for the two arms (and independent messages), the variance of $`\varphi_\omega(\Delta^j)-\varphi_{\omega'}(\Delta^k)`$ is $`\mathrm{Var}\,\varphi_\omega(\Delta^j)+\mathrm{Var}\,\varphi_{\omega'}(\Delta^k)\ge\mathbb E\,\mathrm{Var}(\varphi_\omega(\Delta^j)\mid\Delta^j)+\mathbb E\,\mathrm{Var}(\varphi_{\omega'}(\Delta^k)\mid\Delta^k)`$, which contains the tail noise and does not vanish as the candidates approach each other. If moreover $`\sup_\omega\lambda_\omega\le\bar\lambda`$ and $`\lVert\Delta^j-\Delta^k\rVert\le b_{jk}`$ almost surely under the coupling, then $`B=2\bar\lambda b_{jk}`$ is a valid range in [Assumption 8.7(B)](../statements/08-07_certificate_assumptions.md#s8-7).
 
-### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate.md#c8-14) · Finite CRN paired replacement on the controlled panel (Theorem 8.8, Proposition 8.10, Remarks 8.11–8.12)
+### [Check 8.14](../experiments/08-08_crn_paired_replacement_certificate.md#c8-14) · Finite CRN paired replacement on the controlled panel (Theorem 8.8, Proposition 8.10, Remarks 8.11 and 8.17)
 
 - **What it tests for Proposition 8.10.** The size of the range term of the radius at affordable replica counts, the variance reduction from common random numbers, and the cost relative to a full-tail paired audit.
 - **Setup.** The frozen controlled panel of 1,728 candidate pairs ($`M=8`$ candidates per state, $`\delta=0.05`$, so $`\log(4M^2/\delta)=8.54`$), $`r\in\lbrace64,256\rbrace`$ replicas, an aligned and a calibrated short surrogate, and separately executed independent tails as the variance comparator.

@@ -4,7 +4,10 @@
 
 [← 框架总览](../README_ZH.md) · [陈述](../statements/06-04_design_minimax_equality_ZH.md) · [证明](../proofs/06-04_design_minimax_equality_ZH.md) · [实验](../experiments/06-04_design_minimax_equality_ZH.md) · [English](06-04_design_minimax_equality.md)
 
-**本页检验什么.** Lemma 6.4 由 [Check 6.1](../experiments/06-04_design_minimax_equality_ZH.md#c6-1) 检验：在 216 个实例上（包括奇异与不可辨识的情形），c-optimal design 的取值与对偶的信息范数一致，相对差至多 $`4.5\times10^{-13}`$。结论：PASS。
+**本页检验什么.** 两项检验。
+
+- [Check 6.1](../experiments/06-04_design_minimax_equality_ZH.md#c6-1)：在 216 个实例上（包括奇异与不可辨识的情形），c-optimal design 的取值与对偶的信息范数一致，相对差至多 $`4.5\times10^{-13}`$。结论：PASS。
+- [Check 6.7](../experiments/06-04_design_minimax_equality_ZH.md#c6-7)：一个**所有** design 都让某个参数方向不可辨识的实例，因此没有任何 $`A(\xi)`$ 可逆。伪逆形式的 design 取值与对偶都等于 $`2.25`$，并在预言的 design 处取到。结论：PASS。
 
 **本页用到的设定与记号.**
 
@@ -20,14 +23,30 @@
 - **learner-relative information norm** $`\mathfrak n_{K,n}(\theta)=\sup_{h\neq0}\lvert c(\theta)^\top h\rvert/\sqrt{\mathbb I_{K,n}(\theta;h)}`$，约定 $`0/0=0`$，$`a>0`$ 时 $`a/0=\infty`$。
 - **增长条件 (G)**：存在 $`N\to\infty`$ 与 $`0<a\le b<\infty`$，使对每个单位向量 $`h`$ 有 $`aN\le\mathbb I_{K,n}(\theta_0;h)\le bN`$。
 - **design.** approximate design $`\xi`$ 是查询空间上的概率测度，表示把 $`n`$ 次查询怎样分摊到各查询点上。$`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$ 是平均查询信息，$`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$ 是示范与查询合起来的总信息。
+- **奇异信息.** $`I_D(\theta)`$ 与每个 $`I_Q(\theta;x)`$ 都半正定，所以 $`A(\xi)`$ 半正定，可能奇异。对半正定矩阵 $`A`$，$`A^+`$ 是它的 Moore–Penrose 伪逆，$`\mathrm{range}(A)=(\ker A)^\perp`$。
 
-**被检验的陈述（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)）.** 设 $`\mathcal X_Q`$ 是紧度量空间，$`x\mapsto I_Q(\theta;x)`$ 连续。令 $`\xi`$ 取遍 $`\mathcal X_Q`$ 上的 Borel 概率测度（approximate design），$`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$，$`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$，并设对每个 $`\xi`$ 都有 $`A(\xi)\succ0`$。则
+**被检验的陈述（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)）.** 设 $`\mathcal X_Q`$ 是紧度量空间，$`x\mapsto I_Q(\theta;x)`$ 连续。令 $`\xi`$ 取遍 $`\mathcal X_Q`$ 上的 Borel 概率测度（approximate design），$`M(\xi)=\int I_Q(\theta;x)\,\xi(\mathrm dx)`$，$`A(\xi)=K\,I_D(\theta)+n\,M(\xi)`$；不要求任何 design 使 $`A(\xi)`$ 可逆。对半正定矩阵 $`A`$ 定义
 
 ```math
-\inf_\xi c^\top A(\xi)^{-1}c=\sup_{h\neq0}\frac{(c^\top h)^2}{K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h}=\mathfrak n_{K,n}^2 ,
+\Phi_c(A)=\begin{cases}c^\top A^+c, & c\in\mathrm{range}(A),\\ +\infty, & c\notin\mathrm{range}(A).\end{cases}
 ```
 
-并且下确界由某个 design $`\xi^*`$ 取到，它就是目标向量为 $`c=\sum_tJ_t^*g_t`$ 的 **c-optimal design**。当 $`n=0`$ 且 $`I_D`$ 奇异时：若 $`c\in\mathrm{range}(I_D)`$，等式以 $`c^\top(KI_D)^+c`$ 成立；否则两边都是 $`+\infty`$。
+则在约定 $`0/0=0`$、$`a>0`$ 时 $`a/0=+\infty`$ 之下，
+
+```math
+\inf_\xi\Phi_c\big(A(\xi)\big)=\sup_{h\neq0}\frac{(c^\top h)^2}{K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h}=\mathfrak n_{K,n}^2 ,
+```
+
+并且下确界由某个 design $`\xi^*`$ 取到，它就是目标向量为 $`c=\sum_tJ_t^*g_t`$ 的 **c-optimal design**。此外：
+
+- **(a) 可逆的 design.** 若对每个 $`\xi`$ 都有 $`A(\xi)\succ0`$，则 $`\Phi_c(A(\xi))=c^\top A(\xi)^{-1}c`$，等式就是经典的 c-optimal design 等式。
+- **(b) 取值何时有限.** 称 $`h`$ 为*未被照到的方向*，若 $`K\,h^\top I_Dh+n\sup_xh^\top I_Q(x)h=0`$。共同取值有限，当且仅当每个未被照到的方向都满足 $`c^\top h=0`$。此时 $`c\in\mathrm{range}\,A(\xi^*)`$，且 $`\xi^*`$ 可以让所有未被照到的方向都保持不可辨识。
+- **(c) 没有查询.** 当 $`n=0`$、$`K>0`$ 时：若 $`c\in\mathrm{range}(I_D)`$，取值为 $`c^\top(KI_D)^+c`$；否则为 $`+\infty`$。
+
+| Check | 检验内容 | Code ID | 结果 |
+|---|---|---|---|
+| [Check 6.1](#c6-1) | 满秩、奇异与不可辨识实例上的等式 | `v016:C2.design` | PASS |
+| [Check 6.7](#c6-7) | 所有 design 都奇异时的等式与可达性，(b) 部分 | `v017:C12.singular` | PASS |
 
 <a id="c6-1"></a>
 
@@ -64,6 +83,34 @@
 
 *Figure 6.1 中与本页有关的是 (b).* c-optimal design 的取值对照对偶的信息目标（Lemma 6.4），点落在对角线上；两侧都为无穷的 24 个设定只计数、不画出。(a)、(c) 分别对应 Theorems 6.3/6.5 与 Corollary 6.7。
 
+<a id="c6-7"></a>
+
+## Check 6.7 · 所有 design 都奇异：伪逆取值等于对偶（Lemma 6.4(b)）
+
+**结论.** PASS。没有任何 design 使 $`A(\xi)`$ 可逆，但取值 $`\inf_\xi\Phi_c(A(\xi))`$ 与对偶上确界完全一致（两边都是 $`2.25`$），最优 design 正是预言的那个，对所有 design 的网格搜索也从未低于它。
+
+**为什么做.** [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4) 的 (b) 部分去掉了"每个 design 都可逆"的要求。检验它的最小情形是：存在一个任何 design 都照不到的无关方向。原来的表述对这种情形根本不适用；引理则预言取值有限，因为目标在这个方向上没有分量。
+
+**设置.**
+
+- 参数 $`\theta\in\mathbb R^3`$，没有示范（$`K=0`$），查询预算为一个单位（$`n=1`$）。
+- 两个查询点：$`x_1`$ 的信息为 $`I_Q(x_1)=e_1e_1^\top`$，$`x_2`$ 的信息为 $`I_Q(x_2)=4\,e_2e_2^\top`$。design 在 $`x_1`$ 上放权重 $`p`$、在 $`x_2`$ 上放 $`1-p`$，于是 $`A(p)=\mathrm{diag}(p,\,4(1-p),\,0)`$；第三个坐标永远照不到。
+- 目标 $`c=(1,1,0)`$，所以未被照到的方向 $`e_3`$ 满足 $`c^\top h=0`$，并且当 $`0<p<1`$ 时 $`c\in\mathrm{range}\,A(p)`$。于是 $`\Phi_c(A(p))=1/p+1/(4(1-p))`$，在 $`p^*=2/3`$ 取最小值 $`9/4`$。
+- 对偶：$`\sup_h(c^\top h)^2/\max\lbrace h_1^2,4h_2^2\rbrace`$，在 $`h=(2,1,7)`$ 处求值；第三个坐标可以任取，因为它不进入任何一边。
+- 独立确认：在 $`p\in[0.001,0.999]`$ 的 10,001 个网格点上计算 $`\Phi_c(A(p))`$。
+
+**结果.**
+
+| 量 | 取值 |
+|---|---|
+| 原问题 $`c^\top A(p^*)^+c`$，$`p^*=2/3`$ | 2.25 |
+| 对偶，$`h=(2,1,7)`$ | 2.25 |
+| 对 design 网格取的最小值 | 2.2500000000045 |
+| $`A(p^*)`$ 的秩 | 2（共 3） |
+| 未被照到的方向 | 1 |
+
+**为什么支持 Lemma 6.4.** 原问题与对偶取值相等，同时证明了两者都是最优的；网格搜索确认没有 design 做得更好。最优 design 让 $`e_3`$ 保持不可辨识，却没有任何损失，这正是 (b) 部分的内容：目标不关心的方向永远不必辨识。
+
 ## 复现
 
 在仓库根目录（只用 CPU）：
@@ -73,13 +120,20 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pytest -q -p no:cacheprovider theory/v016_checks
 ```
 
-第一条命令把本页的检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。所有检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
+第一条命令把 [Check 6.1](#c6-1) 的 `v016` 检验组单独重跑到一个文件；不带 `--only` 运行 `theory/v016_checks/check_v016.py` 会重新生成完整结果文件（约 104 秒）。这些检验都在 CPU 上用 float64 运行，随机种子为 `numpy.SeedSequence([160160, group, subcase, ...])`（PCG64）。[Check 6.7](#c6-7) 属于 `v017` 检验集，几秒即可跑完：
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
+```
+
+检验用 NumPy（[Harris et al., 2020](#ref-harris2020array)）做线性代数和随机数，用 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）做优化和统计函数。
 
 ## 产物
 
 - `theory/v016_checks/results_v016.json`：claim id `v016:C2.design`，每项都含断言、最大残差、失败记录与数据行。
 - `theory/v016_checks/results_v016_raw.json.gz`：完整的数据行；不纳入 git，其 SHA-256 记录在主文件的 `raw_artifact` 下。
 - `theory/v016_checks/SPEC.md`（`v016:C2` 两节或一节）与 `theory/v016_checks/check_v016.py`。
+- `theory/v017_checks/results_v017.json`：条目 `v017:C12.singular`；`theory/v017_checks/check_v017.py` 中的函数 `c_singular`。
 - `figures/fig6_1_information_bound.png`（同目录下有 PDF 版本）
 
 ## 参考文献

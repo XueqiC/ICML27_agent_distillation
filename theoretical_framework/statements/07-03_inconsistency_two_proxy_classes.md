@@ -42,6 +42,7 @@
 - It is a proof, not only an empirical observation, that two widely used families of influence scores are not consistent rankers under Adam.
 - It is one reason the method selects feedback by measured consequence ([Remark 9.3](09-03_derivation_design_rules.md#s9-3), Rule 2) and flags large messages before ranking them ([Algorithm 9.2](09-02_ced_algorithm.md#s9-2), step 4).
 - Proved inconsistency is limited to these two classes; for other static proxies the framework reports only that the proxies tested did not reliably select.
+- Part (b) is proved in the regime of [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2), a restricted mean-field model whose real-model prediction was not supported ([Check 7.6](../experiments/07-02_stationary_amplitude_law.md#c7-6)); whether the misranking occurs in a real recipe is not established by this proposition.
 
 **Derivation outline.**
 

@@ -4,7 +4,11 @@
 
 [← Framework](../README.md) · [Statement](../statements/05-11_checking_warm_state_conditions.md) · [Experiments](../experiments/05-11_checking_warm_state_conditions.md) · [中文](05-11_checking_warm_state_conditions_ZH.md)
 
-**What is tested here.** One check, described in full on the page of Proposition 5.6, records warmth quantiles alongside the warm-affine bound; it illustrates why quantiles alone do not verify the condition.
+**What is tested here.** One check on the controlled network and two real-model checks.
+
+- [Check 5.9](../experiments/05-06_warm_adam_first_order_affine.md#c5-9), described in full on the page of Proposition 5.6, records warmth quantiles alongside the warm-affine bound; it illustrates why quantiles alone do not verify the condition.
+- [Check 5.19](#c5-19), real model: the pre-registered warm criterion **fails at all six measured states**, because its denominator cancels. Against the signed first-order term (post hoc, labelled so) the sensitivity-weighted frozen-denominator error is about 10% of the first-order term from the p03 checkpoint on, and larger than it early in training.
+- [Check 5.20](#c5-20), real model: the pre-registered criterion for response non-additivity is met at p10 (median 0.855) and narrowly missed at update 8 (0.188 against 0.2), with only four replicas.
 
 **Setting used on this page.**
 
@@ -45,6 +49,14 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 **Status labels.** `PASS` means the implemented consistency assertions passed. `INFO` marks an empirical diagnostic: each cell gets its own PASS, FAIL or UNAVAILABLE status, and the group as a whole makes no pass/fail claim. Unless a check says otherwise, every network is the controlled small network of `v014:C23`: one-hot context, 4 tanh units, a sigmoid output, mean cross-entropy, float64. None of these networks is a real model.
 
+**Real-model setting (for [Check 5.19](#c5-19) and [Check 5.20](#c5-20)).**
+
+- *Recipe.* ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)) Seed-SFT on 20 trusted demonstrations (seed 0); student `google/gemma-4-12B-it` with LoRA rank 16, $`\alpha=32`$, dropout 0 (65,568,768 trainable coordinates); AdamW, constant learning rate $`10^{-5}`$, $`\epsilon=10^{-8}`$, global gradient clipping at 1.0; at least 512 supervised tokens per update; 469 updates in the full run.
+- *States.* p03, p10 and p40 are the checkpoints after 31,221, 104,070 (update 115) and 416,280 supervised tokens.
+- *Surrogate.* $`\tilde F`$ is the mean teacher-forced log-likelihood on 40 held-out teacher-success trajectories that never enter training. The pre-registration specified 80; 40 were used to cut the scoring cost, a recorded deviation.
+- *Sensitivity proxy.* $`\hat L_i=\lvert\partial\tilde F/\partial\theta_i\rvert`$, a proxy for the sensitivity $`L_i`$ and not a Lipschitz bound.
+- Both checks were pre-registered with their criteria before any job ran. They are single-seed exploration runs.
+
 **Statement under test ([Remark 5.11](../statements/05-11_checking_warm_state_conditions.md#s5-11)).**
 
 - The warm-state error of Proposition 5.6 is the sensitivity-weighted sum $`\eta\sum_iL_iu_i\min\lbrace\kappa_i/2,1\rbrace`$ plus the term $`L_v\max_i\min\lbrace\kappa_i,\bar k\rbrace`$. A statement about quantiles of $`\kappa`$, such as "most coordinates have small warmth", does not verify either term: a few coordinates with large $`L_iu_i\kappa_i`$ can dominate the sum, and the second term depends on the maximum.
@@ -55,6 +67,8 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 | Check | Tests | Code ID | Result |
 |---|---|---|---|
 | [Check 5.9](../experiments/05-06_warm_adam_first_order_affine.md#c5-9) | [Proposition 5.6](../statements/05-06_warm_adam_first_order_affine.md#s5-6), [Remark 5.11](../statements/05-11_checking_warm_state_conditions.md#s5-11) | `v015:E8` (warm-affine part) | PASS |
+| [Check 5.19](#c5-19) | the sensitivity-weighted error on a real model | `v017:R1.r0a` | pre-registered criterion FAIL; post-hoc INFO |
+| [Check 5.20](#c5-20) | response non-additivity on a real model | `v017:R2.r0b` | INFO (criterion met at p10, missed at update 8) |
 
 ### [Check 5.9](../experiments/05-06_warm_adam_first_order_affine.md#c5-9) · Warm Adam is first-order affine in the consumed gradient (Proposition 5.6, Remark 5.11)
 
@@ -68,6 +82,64 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 - Trainable coordinates: 1–4 output-head coordinates; the rest are fixed.
 - Messages: 2–6 per panel.
 
+<a id="c5-19"></a>
+
+## Check 5.19 · The sensitivity-weighted frozen-denominator error on a real model (Remark 5.11)
+
+**Verdict.**
+
+- **Pre-registered criterion: FAIL at all six states.** The criterion was $`E_{\rm fd}\le0.1\times\lvert\sum_i\hat L_i\Delta\theta_i\rvert`$. Its denominator multiplies the nonnegative proxies $`\hat L_i`$ by signed steps $`\Delta\theta_i`$, so it cancels: at p10 it is $`7.2\times10^{-6}`$, about 200 times smaller than the signed first-order term. The criterion was mis-specified, and its failure is reported as such.
+- **Post hoc (labelled so).** Against the signed first-order term $`\lvert\sum_i(\partial\tilde F/\partial\theta_i)\Delta\theta_i\rvert`$ the ratio is about 0.1 at p03, p10 and p40 and above 1 in the first updates. The frozen-denominator description therefore carries an error of roughly 10% of the first-order term at warm checkpoints, which is not negligible.
+
+**Why.** [Remark 5.11](../statements/05-11_checking_warm_state_conditions.md#s5-11) says that the warm-state error is a sensitivity-weighted sum and that warmth quantiles do not check it. This is the first measurement of that sum on a real model.
+
+**Setup.**
+
+- Six states: after updates 1, 4 and 8, and the checkpoints p03, p10 and p40. The pre-registration listed nine; the probe's cold and warm-up states had not been saved, a recorded deviation.
+- At each state, one consumed batch: per coordinate, the warmth $`\kappa_i`$, the relative step $`u_i`$ and the realized step $`\Delta\theta_i`$, in float64; the gradient of $`\tilde F`$ gives $`\hat L_i`$.
+- $`E_{\rm fd}=\eta\sum_i\hat L_iu_i\min\lbrace\kappa_i/2,1\rbrace`$, the pre-registered ratio $`E_{\rm fd}/\lvert\sum_i\hat L_i\Delta\theta_i\rvert`$, and the post-hoc ratio $`E_{\rm fd}/\lvert\sum_i(\partial\tilde F/\partial\theta_i)\Delta\theta_i\rvert`$.
+
+**Result.**
+
+| State | $`E_{\rm fd}`$ | pre-registered ratio | criterion ($`\le0.1`$) | post-hoc ratio |
+|---|---|---|---|---|
+| update 1 | 1.19 | 35,472 | FAIL | 29.7 |
+| update 4 | 0.0340 | 2,548 | FAIL | 2.13 |
+| update 8 | 0.104 | 97.4 | FAIL | 0.984 |
+| p03 | $`3.38\times10^{-4}`$ | 19.0 | FAIL | 0.0997 |
+| p10 | $`1.48\times10^{-4}`$ | 20.5 | FAIL | 0.0972 |
+| p40 | $`1.71\times10^{-4}`$ | 4.09 | FAIL | 0.0837 |
+
+The stored warmth quantiles of the same runs (field `old_quantiles` of each record) put only 0.014% of the coordinates above $`\kappa=1`$ at p10, and the median warmth at $`3.1\times10^{-4}`$. Read by quantiles, the state looks fully warm; the weighted sum says the frozen-denominator error is still a tenth of the first-order effect.
+
+**Why it supports Remark 5.11.** The remark's central point is confirmed on a 12B model: quantiles of $`\kappa`$ suggested a negligible error, while the sensitivity-weighted sum, dominated by few coordinates, is about 10% of the first-order term. The check also documents a second lesson of the remark that the pre-registration missed: a first-order comparison term must keep the signs of the sensitivities, or it cancels.
+
+<a id="c5-20"></a>
+
+## Check 5.20 · Response non-additivity on a real model (Remark 5.11)
+
+**Verdict.** INFO. With the per-token surrogate of the pre-registration, the median response non-additivity is 0.855 at p10, above the pre-registered threshold 0.2 and inside the predicted interval $`0.631\pm0.25`$; at update 8 it is 0.188, just below the threshold and below the predicted interval. With four replicas the estimates are noisy.
+
+**Why.** [Remark 5.11](../statements/05-11_checking_warm_state_conditions.md#s5-11) separates non-additivity of the update map from non-additivity of the task response, and says the second must be measured on the response itself. This check does that with paired replacements at the real states.
+
+**Setup.**
+
+- States: update 8 and p10. Four disjoint pairs of batches $`(A,B)`$, the same as in the pilot probe.
+- For each pair, branches $`\lbrace0,A,B,A\cup B\rbrace`$: one replaced update followed by a common-random-number tail of $`T=10`$ reference updates, $`r=4`$ replicas ([Definition 8.6](../statements/08-06_crn_paired_replacement_score.md#s8-6)).
+- $`\delta\tilde F(X)=\tilde F(X)-\tilde F(0)`$ and $`\nu_{\rm resp}=\lvert\delta\tilde F(A\cup B)-w_A\delta\tilde F(A)-w_B\delta\tilde F(B)\rvert/\lvert\delta\tilde F(A\cup B)\rvert`$, with token weights $`w`$; the reported number is the median over the four pairs of the replica-mean value.
+- Pre-registered: criterion "median above 0.2 means non-additive at the response level"; prediction "median within 0.25 of the update map's value", which is 0.631 at p10 for clipped AdamW.
+
+**Result.**
+
+| State | median $`\nu_{\rm resp}`$, per-token (pre-registered surrogate) | median $`\nu_{\rm resp}`$, geometric token probability | criterion $`>0.2`$ |
+|---|---|---|---|
+| update 8 | 0.188 | 0.191 | not met (borderline) |
+| p10 | 0.855 | 0.886 | met |
+
+At p10 the mean effect of the union batch is smaller than the per-replica scatter of the paired scores, so $`\nu_{\rm resp}`$ is a ratio of small, noisy numbers; four replicas are too few to say more than the sign of the conclusion.
+
+**Why it supports Remark 5.11.** The measurement is possible, and it is on the response rather than on the update map, as the remark requires. It does not establish a precise value: the threshold verdicts at both states are within the noise that four replicas allow.
+
 ## Reproduce
 
 ```bash
@@ -75,6 +147,12 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py --only C1 --output /tmp/s5_c1.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
+```
+
+The two real-model checks recompute the reported numbers from the stored run outputs:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
 ```
 
 The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([Virtanen et al., 2020](#ref-virtanen2020scipy)). The linear programs of `v015:V2` and `v015:V8` are solved by `scipy.optimize.linprog` with the HiGHS solver ([Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)).
@@ -91,6 +169,7 @@ The checks use NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([V
 - `theory/v016_checks/results_v016.json`: claims `v016:C1.exact`, `v016:C1.moments` and `v016:C1.accumulation`. The full arrays are in `theory/v016_checks/results_v016_raw.json.gz`, which is gitignored; its SHA-256 is in `raw_artifact`.
 - `theory/independent_checks/results_independent_v014.json`: `controlled_neural`.
 - `docs/direction/v015_revision/results_v015.json`: package checks `pkg:T03`–`pkg:T08`.
+- `theory/v017_checks/results_v017.json`: entries `v017:R1.r0a` and `v017:R2.r0b`; functions `r_r0a` and `r_r0b` in `theory/v017_checks/check_v017.py`. The stored run outputs are in `theory/v017_checks/records/r0a/` (one JSON file per state, with per-block breakdowns and the stored warmth quantiles) and `theory/v017_checks/records/r0b/` (merged paired scores and per-pair, per-replica non-additivity).
 - Code:
   - `theory/v015_checks/otlr.py` (`check_V8`, `check_E10`, `check_E11`);
   - `theory/v015_checks/warmth.py` (`check_E8`);
@@ -117,6 +196,10 @@ Works cited on this page. The complete list, with the pages that use each work, 
 <a id="ref-loshchilov2019decoupled"></a>
 
 **Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 

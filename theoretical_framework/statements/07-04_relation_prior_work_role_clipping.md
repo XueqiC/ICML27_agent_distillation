@@ -31,6 +31,7 @@
 
 - It fixes what is and is not claimed as new in §7.
 - It motivates recording the clipping activation rate and controlling message magnitude in the method ([Algorithm 9.2](09-02_ced_algorithm.md#s9-2), step 4), and the real-model test R3, which compares messages with clipping on and off ([Remark 9.4](09-04_scope_of_evidence.md#s9-4)).
+- The clipping mechanism is stated in the regime of [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2), a restricted mean-field model whose real-model prediction was not supported ([Check 7.6](../experiments/07-02_stationary_amplitude_law.md#c7-6)).
 
 **Uses.**
 

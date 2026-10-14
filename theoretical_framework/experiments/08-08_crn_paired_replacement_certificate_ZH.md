@@ -10,7 +10,8 @@
   - 作为排序器，点估计 $`\hat S`$ 在 1,687 个 gold 非零的候选对中判错 48 个（2.8%）。
   - 测量所用的轨迹数，$`r=64`$ 时为全尾段配对 audit 的 7.0%，$`r=256`$ 时为 28.0%。
   - common random numbers 把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）。
-  - 用先验区间 $`B=2`$ 的严格证书：与任务一致的 surrogate 认证 0 对，需校准的 surrogate 在 $`r=256`$ 时认证 8 对，没有认证错误。这正是 [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) 记录的缺口。
+  - 用先验区间 $`B=2`$ 的严格证书：与任务一致的 surrogate 认证 0 对，需校准的 surrogate 在 $`r=256`$ 时认证 8 对，没有认证错误。这正是 [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) 记录的缺口。
+- **真实模型，R1（P1 对 P3）.** 在 ALFWorld 配方上，重放 $`K=20`$ 条示范（P1）比学生自己按奖励筛选的轨迹（P3）在几何概率 surrogate 上高 $`+0.00138`$（64 个副本中 57 个为正）。它超过诊断半径 0.00121，但用先验区间 $`B=2`$ 的严格半径是 0.325：这个排序只在诊断半径意义下成立，严格证书成立但为空（[Check 8.17](#c8-17)）。
 
 **本页用到的设定与记号.**
 
@@ -84,12 +85,12 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 
 <a id="c8-14"></a>
 
-## Check 8.14 · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11–8.12）
+## Check 8.14 · 受控面板上的有限 CRN 配对替换（Theorem 8.8、Proposition 8.10、Remarks 8.11 and 8.17）
 
 **结论.**
 
 - **没有错误的严格证书.** 两个副本数下都没有：[Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的断言通过。
-- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) 的未解决问题。
+- **严格证书几乎是空的.** 用先验区间 $`B=2`$ 时，与任务一致的 surrogate 在 1,728 对中认证 0 对，需校准的 short surrogate 在 $`r=64`$ 时认证 0 对、$`r=256`$ 时认证 8 对。$`r=256`$ 时 empirical Bernstein 半径（[Maurer & Pontil, 2009](#ref-maurer2009empirical)）的区间项为 0.156，而真实差距的中位数是 0.0037。因此"零错误"几乎是空洞的；这正是 [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) 的未解决问题。
 - **作为排序器，测量是有效的.** 与任务一致的点估计 $`\hat S`$ 在 $`r=256`$ 时于 1,687 个 gold 非零的候选对中判错 48 个（2.8%），$`r=64`$ 时判错 65 个（3.9%）。
 - **它便宜.** 测量所用轨迹数是同一面板上全尾段配对 audit 的 7.0%（$`r=64`$）和 28.0%（$`r=256`$）。
 - **CRN 有效.** common random numbers（[Glasserman, 2004](#ref-glasserman2004monte)）把配对差的方差降到独立尾段的 0.12–0.15 倍（方差之和的比值）；候选对比值的中位数为 0.0035。
@@ -98,7 +99,7 @@ L_F(P^j)-L_F(P^k)\ \ge\ \alpha\big(\hat S^{jk}-e^{jk}_{\rm stat}-\varepsilon_{\r
 **动机.** [Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 把 oracle 延续值梯度换成一个可测量的量：在被审计状态上一次有限替换的效应，用 common random numbers 估计。它的估计目标在期望上精确成立，也不需要光滑性，所以只有统计项（$`e_{\rm stat}`$）与 surrogate 校准项（$`\varepsilon_{\rm sur}`$）两类误差。这一检验回答三个问题：
 
 - 有没有错误的严格证书（必须没有）；
-- 先验区间的代价有多大（Remark 8.12）；
+- 先验区间的代价有多大（Remark 8.17）；
 - Remark 8.11 的校准能否从校准状态迁移到 held-out 状态。
 
 **设置.**
@@ -182,8 +183,8 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
   - $`M=8`$、$`\delta=0.05`$ 时区间项为 $`7B\cdot8.54/(3(r-1))`$：$`B=2`$ 时 $`r=64`$ 为 0.633，$`r=256`$ 为 0.156，比典型差距大两个数量级。
   - 方差项在 $`r=64`$ 时就已低于差距。
   - CRN 在总体上把方差降低约一个数量级，对中位数的 aligned 候选对则降低两个数量级以上。
-- **Remark 8.12 的第一个问题.** 严格证书的瓶颈是先验区间，不是方差。若用观测区间，aligned surrogate 能无错误地认证 45%–57% 的候选对，在 396 个参考行上认证 157–206 行，而 oracle margin 只有 56 行。观测区间不是被证明的界；缺的正是一个同样大小的可证明区间，例如由 pathwise Lipschitz 界得到的区间。
-- **Remark 8.12 的第二个问题；Remark 8.11.** 在观测区间下，需校准的 short surrogate 有 22–28 次认证错误。它在校准状态上拟合的误差包络，并不能迁移到每一个 held-out 状态与配方；一半的错误出现在 held-out 学习率这一 split（$`r=64`$ 时 22 个中的 11 个，$`r=256`$ 时 28 个中的 14 个）。因此正如 Remark 8.11 所说，校准迁移是一个必须检验的假设。
+- **Remark 8.17 的第一个问题.** 严格证书的瓶颈是先验区间，不是方差。若用观测区间，aligned surrogate 能无错误地认证 45%–57% 的候选对，在 396 个参考行上认证 157–206 行，而 oracle margin 只有 56 行。观测区间不是被证明的界；缺的正是一个同样大小的可证明区间，例如由 pathwise Lipschitz 界得到的区间。
+- **Remark 8.17 的第二个问题；Remark 8.11.** 在观测区间下，需校准的 short surrogate 有 22–28 次认证错误。它在校准状态上拟合的误差包络，并不能迁移到每一个 held-out 状态与配方；一半的错误出现在 held-out 学习率这一 split（$`r=64`$ 时 22 个中的 11 个，$`r=256`$ 时 28 个中的 14 个）。因此正如 Remark 8.11 所说，校准迁移是一个必须检验的假设。
 
 证书的结果见 [Figure 8.5](../experiments/08-09_first_order_version_margin_criterion_ZH.md#c8-16) 的 B–D 幅。
 
@@ -191,10 +192,43 @@ e_{\rm stat}=\sqrt{\frac{2\hat V\log(4M^2/\delta)}{r}}+\frac{7B\log(4M^2/\delta)
 
 *Figure 8.5.* 一阶证书（[Check 8.16](../experiments/08-09_first_order_version_margin_criterion_ZH.md#c8-16)）：半径各项 $`e_{\rm stat}`$、$`e_{\rm fd}`$、$`e_2`$ 的中位数对真实差距的中位数；仅余项一项就与差距同量级，所以什么都认证不了。有限 CRN 配对替换（[Check 8.14](../experiments/08-08_crn_paired_replacement_certificate_ZH.md#c8-14)）：先验区间 $`B=2`$（严格）与观测区间（仅诊断）下的认证比例及认证错误，两种 surrogate、$`r\in\lbrace64,256\rbrace`$。其余各幅是 CRN 方差比的分布，以及相对全尾段配对 audit 的轨迹成本。受控小网络。[PDF](../figures/fig8_5_certificate.pdf)
 
+<a id="c8-17"></a>
+
+## Check 8.17 · 真实模型上的证书：R1，P1 对 P3（Theorem 8.8）
+
+**结论.**
+
+- 在有界的几何概率 surrogate 上，$`\hat S^{\rm P1,P3}=+0.001378`$，64 个副本中 57 个为正。诊断半径（用观测区间代替 $`B`$）为 0.001206，所以 P1 排在 P3 之上**只在诊断半径意义下成立**。
+- 用先验区间 $`B=2`$ 时，[Theorem 8.8](../statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8) 的严格半径为 0.325，约为分数的 240 倍：严格证书**成立但为空**。
+- 在逐 token 对数似然 surrogate 上，$`\hat S=+0.001561`$（64 个中 54 个为正），诊断半径 0.001500：处在边缘。记录中的半径 0.163 用的是调用方给定的区间 $`B=1`$；对数似然没有先验界，所以这也不是严格证书。
+- [Remark 8.11](../statements/08-11_surrogate_calibration_and_transfer_ZH.md#s8-11) 的 surrogate 对齐 $`(\alpha,\varepsilon_{\rm sur})`$ 尚未在真实模型上校准，所以关于任务成功率不作任何断言。预先注册的预测把 P3 排在 P1 之上；在 surrogate 上，这一对与预测相反。
+
+**动机.** [Check 8.14](#c8-14) 的受控面板表明，严格证书的瓶颈是先验区间，而不是方差。R1 第一次在真实配方上检验同一种测量：配对分数在各副本之间能否一致地给候选排序，以及严格半径离观测到的效应有多远。
+
+**设置.**
+
+- *配方.* ALFWorld（[Shridhar et al., 2021](#ref-shridhar2021alfworld)）；LoRA 学生与 AdamW 参考训练见 [Remark 9.4](../statements/09-04_scope_of_evidence_ZH.md#s9-4)。被审计的状态 $`z_{10}`$ 是参考训练在 104,070 个监督 token（第 115 次更新）处的 checkpoint，包含完整的 optimizer state。
+- *候选.* P1：重放 $`K=20`$ 条可信示范（参考）。P3：学生自己按环境奖励筛选的轨迹（39 条成功）。P2 与 P4 尚未完成，所以这里 $`M=1`$ 对。
+- *测量.* $`r=64`$ 个独立副本；每个副本中，各候选用自己的消息走一轮，然后两者走同样的 $`T=10`$ 次参考尾段更新（common random numbers，尾段种子流事先固定）。surrogate：在 40 条留出的成功教师轨迹上的 teacher-forced 分数；几何概率 $`\tilde F\in(0,1]`$，所以配对分数在 $`[-1,1]`$ 中，$`B=2`$ 是有效的先验区间。$`\delta=0.05`$。
+- 记录：合并结果与逐副本行在 `theory/v017_checks/records/r1/` 下，由 `v017:R4.r1` 重新计算。
+
+**结果**（`theory/v017_checks/results_v017.json`，条目 `v017:R4.r1`）：
+
+| surrogate | $`\hat S^{\rm P1,P3}`$ | 为正的副本 | 诊断半径 | 按所给 $`B`$ 的半径 | $`B`$ |
+|---|---:|---:|---:|---:|---|
+| 几何概率 | +0.001378 | 57 / 64 | 0.001206 | 0.325 | 2，先验 |
+| 逐 token 对数似然 | +0.001561 | 54 / 64 | 0.001500 | 0.163 | 1，调用方给定，不是已证明的区间 |
+
+**为什么支持该陈述.**
+
+- (a) 让点估计有意义：配对均值是 $`z_{10}`$ 处有限 surrogate 对比的无偏估计；用 64 条副本记录重新计算，恰好得到记录的值。
+- (b)–(c) 在 $`B=2`$ 下成立；这个检验显示它们在真实模型上的大小。范围项比效应大两个数量级以上，这正是 [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) 的第一个未解决问题；缺少的校准是第二个。
+
 ## 复现
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v016_checks/check_v016.py --only C6b,C5b --output theory/v016_checks/subset.json
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
 ```
 
 这些脚本使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。
@@ -203,6 +237,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 
 - `theory/v016_checks/results_v016.json`：检验 `v016:C6b`、`v016:C5b`；raw companion `results_v016_raw.json.gz`（逐对分数、半径各项、副本结果；未提交）；规范 `theory/v016_checks/SPEC.md`；代码 `c5c6b.py`。
 - 图：`../figures/fig8_5_certificate`（面板 B–D）。
+- `theory/v017_checks/results_v017.json`：条目 `v017:R4.r1`（[Check 8.17](#c8-17)）；代码 `theory/v017_checks/check_v017.py`，函数 `r_r1`；记录 `theory/v017_checks/records/r1/merge_p1p3_F_tilde_geo_prob.json`、`merge_p1p3_F_tilde_per_token.json` 与 `p1p3-0.jsonl`–`p1p3-3.jsonl`。
 
 ## 参考文献
 
@@ -223,6 +258,10 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 <a id="ref-maurer2009empirical"></a>
 
 **Andreas Maurer, Massimiliano Pontil (2009).** Empirical Bernstein bounds and sample variance penalization. *Proceedings of the 22nd Conference on Learning Theory (COLT)*. arXiv [0907.3740](https://arxiv.org/abs/0907.3740).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 

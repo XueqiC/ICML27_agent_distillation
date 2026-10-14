@@ -99,7 +99,7 @@ r\ \ge\ 1+\frac{7\log(4M^2/\delta)}{3\zeta}.
 
 **被用于.**
 
-- [Remark 8.12](../statements/08-12_open_problems_ZH.md#s8-12) — 可证明范围这一未解决问题
+- [Remark 8.17](../statements/08-17_open_problems_ZH.md#s8-17) — 可证明范围这一未解决问题
 - [Algorithm 9.2](../statements/09-02_ced_algorithm_ZH.md#s9-2) — 方法的副本预算
 
 ## Related work

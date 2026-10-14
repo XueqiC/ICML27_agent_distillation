@@ -4,7 +4,11 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/05-11_checking_warm_state_conditions_ZH.md) · [实验](../experiments/05-11_checking_warm_state_conditions_ZH.md) · [English](05-11_checking_warm_state_conditions.md)
 
-**本页检验什么.** 一项检验（完整描述在 Proposition 5.6 的页面上）在 warm 仿射界旁边记录了 warmth 的分位数；它说明为什么只看分位数核对不了这个条件。
+**本页检验什么.** 一项受控网络上的检验，加两项真实模型检验。
+
+- [Check 5.9](../experiments/05-06_warm_adam_first_order_affine_ZH.md#c5-9)（完整描述在 Proposition 5.6 的页面上）在 warm 仿射界旁边记录了 warmth 的分位数；它说明为什么只看分位数核对不了这个条件。
+- [Check 5.19](#c5-19)，真实模型：预注册的 warm 判据**在全部六个测量状态上都不成立**，因为它的分母会抵消。与带符号的一阶项比较（事后，明确标注），按敏感度加权的冻结分母误差从 p03 checkpoint 起约为一阶项的 10%，训练初期则比一阶项还大。
+- [Check 5.20](#c5-20)，真实模型：response 非可加性的预注册判据在 p10 成立（中位数 0.855），在 update 8 以微弱差距不成立（0.188，阈值 0.2）；只有四个副本。
 
 **本页用到的设定.**
 
@@ -50,6 +54,14 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 
 除非另有说明，网络都是 `v014:C23` 的受控小网络：one-hot 上下文、4 个 tanh 单元、sigmoid 输出、平均 cross-entropy、float64。这些都不是真实模型。
 
+**真实模型设定（用于 [Check 5.19](#c5-19) 与 [Check 5.20](#c5-20)）.**
+
+- *配方.* ALFWorld（[Shridhar et al., 2021](#ref-shridhar2021alfworld)）上用 20 条可信示范（seed 0）做 Seed-SFT；学生为 `google/gemma-4-12B-it`，LoRA rank 16、$`\alpha=32`$、dropout 0（可训练坐标共 65,568,768 个）；AdamW，学习率常数 $`10^{-5}`$，$`\epsilon=10^{-8}`$，全局梯度裁剪 1.0；每个 update 至少 512 个监督 token；完整训练共 469 个 update。
+- *状态.* p03、p10、p40 分别是 31,221、104,070（第 115 个 update）、416,280 个监督 token 之后的 checkpoint。
+- *surrogate.* $`\tilde F`$ 是 40 条留出的 teacher 成功轨迹上的平均 teacher-forced log-likelihood，这些轨迹从不进入训练。预注册写的是 80 条；为降低打分成本实际用了 40 条，这是一处有记录的偏离。
+- *敏感度 proxy.* $`\hat L_i=\lvert\partial\tilde F/\partial\theta_i\rvert`$，是敏感度 $`L_i`$ 的 proxy，不是 Lipschitz 界。
+- 两项检验及其判据都在任何作业运行之前预注册。它们是探索阶段的单 seed 运行。
+
 **被检验的陈述（[Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11)）.**
 
 - Proposition 5.6 的 warm 状态误差，是按敏感度加权的和 $`\eta\sum_iL_iu_i\min\lbrace\kappa_i/2,1\rbrace`$，再加上 $`L_v\max_i\min\lbrace\kappa_i,\bar k\rbrace`$。关于 $`\kappa`$ 分位数的陈述（例如"大多数坐标的 warmth 很小"）对这两项都不构成验证：少数 $`L_iu_i\kappa_i`$ 很大的坐标就能主导这个和，而第二项取决于最大值。
@@ -60,6 +72,8 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 | 检验 | 检验对象 | 代码编号 | 结果 |
 |---|---|---|---|
 | [Check 5.9](../experiments/05-06_warm_adam_first_order_affine_ZH.md#c5-9) | [Proposition 5.6](../statements/05-06_warm_adam_first_order_affine_ZH.md#s5-6)、[Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11) | `v015:E8`（warm 仿射部分） | PASS |
+| [Check 5.19](#c5-19) | 真实模型上按敏感度加权的误差 | `v017:R1.r0a` | 预注册判据 FAIL；事后比较 INFO |
+| [Check 5.20](#c5-20) | 真实模型上 response 的非可加性 | `v017:R2.r0b` | INFO（p10 满足判据，update 8 未满足） |
 
 ### [Check 5.9](../experiments/05-06_warm_adam_first_order_affine_ZH.md#c5-9) · Warm Adam 关于 consumed gradient 一阶仿射（Proposition 5.6、Remark 5.11）
 
@@ -73,6 +87,64 @@ a_i=\sqrt{\frac{\beta_2v_i}{1-\beta_2^{\,t}}},\qquad\kappa_i(G)=\frac{(1-\beta_2
 - 可训练坐标：输出头的 1–4 个坐标，其余固定。
 - 消息：每个面板 2–6 条。
 
+<a id="c5-19"></a>
+
+## Check 5.19 · 真实模型上按敏感度加权的冻结分母误差（Remark 5.11）
+
+**结论.**
+
+- **预注册判据：六个状态全部 FAIL.** 判据是 $`E_{\rm fd}\le0.1\times\lvert\sum_i\hat L_i\Delta\theta_i\rvert`$。它的分母把非负的 proxy $`\hat L_i`$ 乘上带符号的步长 $`\Delta\theta_i`$，因而互相抵消：在 p10 它只有 $`7.2\times10^{-6}`$，比带符号的一阶项小约 200 倍。这个判据本身写错了，它的失败如实报告。
+- **事后比较（明确标注）.** 与带符号的一阶项 $`\lvert\sum_i(\partial\tilde F/\partial\theta_i)\Delta\theta_i\rvert`$ 相比，比值在 p03、p10、p40 约为 0.1，在最初几个 update 大于 1。所以在 warm checkpoint 上，冻结分母描述带有约为一阶项 10% 的误差，并不可以忽略。
+
+**为什么做.** [Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11) 指出 warm 状态的误差是一个按敏感度加权的和，warmth 的分位数核对不了它。这是这个和在真实模型上的第一次测量。
+
+**设置.**
+
+- 六个状态：update 1、4、8 之后，以及 checkpoint p03、p10、p40。预注册列了九个；probe 的 cold 与 warm-up 状态当时没有保存，这是一处有记录的偏离。
+- 在每个状态上取一个 consumed batch，逐坐标计算 warmth $`\kappa_i`$、相对步长 $`u_i`$ 与实际步长 $`\Delta\theta_i`$，全部用 float64；$`\tilde F`$ 的梯度给出 $`\hat L_i`$。
+- $`E_{\rm fd}=\eta\sum_i\hat L_iu_i\min\lbrace\kappa_i/2,1\rbrace`$，预注册比值 $`E_{\rm fd}/\lvert\sum_i\hat L_i\Delta\theta_i\rvert`$，事后比值 $`E_{\rm fd}/\lvert\sum_i(\partial\tilde F/\partial\theta_i)\Delta\theta_i\rvert`$。
+
+**结果.**
+
+| 状态 | $`E_{\rm fd}`$ | 预注册比值 | 判据（$`\le0.1`$） | 事后比值 |
+|---|---|---|---|---|
+| update 1 | 1.19 | 35,472 | FAIL | 29.7 |
+| update 4 | 0.0340 | 2,548 | FAIL | 2.13 |
+| update 8 | 0.104 | 97.4 | FAIL | 0.984 |
+| p03 | $`3.38\times10^{-4}`$ | 19.0 | FAIL | 0.0997 |
+| p10 | $`1.48\times10^{-4}`$ | 20.5 | FAIL | 0.0972 |
+| p40 | $`1.71\times10^{-4}`$ | 4.09 | FAIL | 0.0837 |
+
+同一批运行存下的 warmth 分位数（每条记录的 `old_quantiles` 字段）显示，在 p10 只有 0.014% 的坐标超过 $`\kappa=1`$，warmth 的中位数为 $`3.1\times10^{-4}`$。只看分位数，这个状态完全是 warm 的；加权和却说冻结分母误差仍有一阶效应的十分之一。
+
+**为什么支持 Remark 5.11.** 这个 remark 的核心论点在 12B 模型上得到确认：$`\kappa`$ 的分位数暗示误差可以忽略，而由少数坐标主导的敏感度加权和约为一阶项的 10%。这项检验还记下了预注册遗漏的另一点：用来比较的一阶项必须保留敏感度的符号，否则会抵消。
+
+<a id="c5-20"></a>
+
+## Check 5.20 · 真实模型上 response 的非可加性（Remark 5.11）
+
+**结论.** INFO。用预注册的 per-token surrogate，p10 的 response 非可加性中位数为 0.855，高于预注册阈值 0.2，并落在预测区间 $`0.631\pm0.25`$ 之内；update 8 为 0.188，略低于阈值，也低于预测区间。只有四个副本，估计噪声很大。
+
+**为什么做.** [Remark 5.11](../statements/05-11_checking_warm_state_conditions_ZH.md#s5-11) 把更新映射的非可加性与任务 response 的非可加性分开，并指出后者必须在 response 本身上测。这项检验在真实状态上用配对替换做了这件事。
+
+**设置.**
+
+- 状态：update 8 与 p10。四对互不相交的 batch $`(A,B)`$，与 pilot probe 相同。
+- 对每一对，分支为 $`\lbrace0,A,B,A\cup B\rbrace`$：替换一个 update，再接 $`T=10`$ 个参照 update 的共同随机数尾段，$`r=4`$ 个副本（[Definition 8.6](../statements/08-06_crn_paired_replacement_score_ZH.md#s8-6)）。
+- $`\delta\tilde F(X)=\tilde F(X)-\tilde F(0)`$，$`\nu_{\rm resp}=\lvert\delta\tilde F(A\cup B)-w_A\delta\tilde F(A)-w_B\delta\tilde F(B)\rvert/\lvert\delta\tilde F(A\cup B)\rvert`$，$`w`$ 为 token 权重；报告的是四对的副本均值取中位数。
+- 预注册：判据为"中位数大于 0.2 即在 response 层面非可加"；预测为"中位数落在更新映射取值的 ±0.25 内"，裁剪 AdamW 在 p10 的更新映射取值为 0.631。
+
+**结果.**
+
+| 状态 | 中位数 $`\nu_{\rm resp}`$，per-token（预注册的 surrogate） | 中位数 $`\nu_{\rm resp}`$，几何平均 token 概率 | 判据 $`>0.2`$ |
+|---|---|---|---|
+| update 8 | 0.188 | 0.191 | 不满足（处在边界） |
+| p10 | 0.855 | 0.886 | 满足 |
+
+在 p10，并集 batch 的平均效应小于配对分数在副本之间的离散，所以 $`\nu_{\rm resp}`$ 是两个很小且带噪声的数之比；四个副本只够说明结论的方向。
+
+**为什么支持 Remark 5.11.** 这种测量是可行的，而且测的是 response 而不是更新映射，正如该 remark 所要求的。它没有给出精确的值：两个状态上关于阈值的判断都落在四个副本所允许的噪声之内。
+
 ## 复现
 
 ```bash
@@ -80,6 +152,12 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v015_checks/check_v015.py
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/v016_checks/check_v016.py --only C1 --output /tmp/s5_c1.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theory/independent_checks/check_v014_independent.py --only C23 --output /tmp/s5_c23.json
 CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/verify_v015_extensions.py   # package checks T01–T13
+```
+
+两项真实模型检验从存下的运行输出重新计算所报告的数字：
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
 ```
 
 这些检查使用 NumPy（[Harris et al., 2020](#ref-harris2020array)）与 SciPy（[Virtanen et al., 2020](#ref-virtanen2020scipy)）。`v015:V2` 与 `v015:V8` 中的线性规划由 `scipy.optimize.linprog` 调用 HiGHS solver（[Huangfu & Hall, 2018](#ref-huangfu2018parallelizing)）求解。
@@ -96,6 +174,7 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/ver
 - `theory/v016_checks/results_v016.json`：claim 为 `v016:C1.exact`、`v016:C1.moments`、`v016:C1.accumulation`。完整数组在 `theory/v016_checks/results_v016_raw.json.gz` 中，该文件被 gitignore，SHA-256 记录在 `raw_artifact`。
 - `theory/independent_checks/results_independent_v014.json`：`controlled_neural`。
 - `docs/direction/v015_revision/results_v015.json`：package checks `pkg:T03`–`pkg:T08`。
+- `theory/v017_checks/results_v017.json`：条目 `v017:R1.r0a` 与 `v017:R2.r0b`；对应 `theory/v017_checks/check_v017.py` 中的函数 `r_r0a` 与 `r_r0b`。存下的运行输出在 `theory/v017_checks/records/r0a/`（每个状态一个 JSON 文件，含分块明细与存下的 warmth 分位数）与 `theory/v017_checks/records/r0b/`（合并后的配对分数，以及逐对、逐副本的非可加性）。
 - 代码：
   - `theory/v015_checks/otlr.py`（`check_V8`、`check_E10`、`check_E11`）；
   - `theory/v015_checks/warmth.py`（`check_E8`）；
@@ -122,6 +201,10 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python docs/direction/v015_revision/ver
 <a id="ref-loshchilov2019decoupled"></a>
 
 **Ilya Loshchilov, Frank Hutter (2019).** Decoupled weight decay regularization. *7th International Conference on Learning Representations (ICLR)*. arXiv [1711.05101](https://arxiv.org/abs/1711.05101).
+
+<a id="ref-shridhar2021alfworld"></a>
+
+**Mohit Shridhar, Xingdi Yuan, Marc-Alexandre Côté, Yonatan Bisk, Adam Trischler, Matthew Hausknecht (2021).** ALFWorld: Aligning text and embodied environments for interactive learning. *The Ninth International Conference on Learning Representations (ICLR)*. arXiv [2010.03768](https://arxiv.org/abs/2010.03768).
 
 <a id="ref-virtanen2020scipy"></a>
 
