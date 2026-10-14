@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:0x CDT 10-13: user shared the SECOND revision of that proposal** (docs/direction/2026-10-13_learning_response_framework_revision2_ZH.md,
+  doc-dated 10-14; adds §3.4 shared/anchor reuse R1–R4, §3.5 multifidelity R5–R10, §4.4 bridge R=C·T (R11), §5.3 exact Adam memory
+  counterexample + full AdamW adjoint R13–R15, §6.4 composed bound R19–R20, §8.5 information–compilation radius R16–R18, new neighbours
+  Lessard 2019 / Gunn 2026 / Saunshi 2022). My review: docs/direction/2026-10-13_learning_response_framework_review2_ZH.md.
+  All new derivations correct; Adam example re-derived exactly (ratio² = 1960/1249); appendix A and C scripts PASS, C output = appendix D.
+  Accepted their correction of my cost unit (m·n·p_train, not pmn → ~400 GPU-h/checkpoint for 20 cand × 4 reps). Main new findings:
+  R4 and R19–R20 are vacuous at our scale (dev300 eval noise SD 0.013; Hoeffding term → Δ̂ 0.72 at n=10 pairs, 0.40 at n=100,
+  ~5e6 pairs for 0.03; per-step β ≥ ~2.6 summed over steps); multifidelity cuts replicates per cell, not cells (≤ n_H-fold);
+  R8 needs short/full correlation ≳ 0.77; bridge needs closed tests (p_train ≥ d) — tension with the p_train=1 cost estimate;
+  Adam example is elementary + cold-start (t=2); E1 as designed unrealisable at 12B → proposed optimizer-state transplant.
+  Scores: novelty medium (organisational, no non-obvious composed result), completeness medium–high, rigor high, generality high.
+  Suggested: R16 routing first (offline on R1/R2 data, no GPU), an estimation-cost lower bound as the composed theorem; still not
+  merged into theoretical_framework (no user go-ahead).
 - **19:4x CDT 10-13: user shared a revision proposal "学习响应谱统一框架" (docs/direction/2026-10-13_learning_response_framework_revision_ZH.md,
   based on snapshot 8658698) and asked for an assessment (novelty/completeness/rigor/generality). My review
   (docs/direction/2026-10-13_learning_response_framework_review_ZH.md): rigor high (derivations checked; appendix script re-run PASS;
