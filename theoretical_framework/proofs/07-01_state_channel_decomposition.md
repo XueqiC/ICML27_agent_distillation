@@ -56,7 +56,7 @@ the parameter, momentum and second-moment channels; (c) the second-moment channe
 \chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F,\qquad \chi^v_{t+1}=\eta\sum_{k=t+1}^{R-1}\beta_2^{\,k-t}D_2^{(k)}\nabla F ;
 ```
 
-(e) for random tails whose branchwise costates are dominated, $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$ and (b) holds with $`\mathbb E_\omega\chi_{t+1,\omega}`$.
+(e) for random tails whose law does not depend on the state and whose branchwise costates are dominated, $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$ and (b) holds with $`\mathbb E_\omega\chi_{t+1,\omega}`$; (f) for finitely many branches with $`C^1`$ state-dependent probabilities $`p_\omega`$, $`\nabla V_{t+1}(z_t)=\sum_\omega p_\omega\chi_{t+1,\omega}+\sum_\omega V_{t+1,\omega}\nabla p_\omega`$, and (b) holds with this vector; a reparametrization by exogenous noise, with consumed gradients $`C^1`$ in $`\theta_k`$ alone, reduces to (e).
 
 **Proof.**
 
@@ -87,7 +87,11 @@ This is the stated recursion. When clipping is active, $`g=c\,r/\lVert r\rVert`$
 
 *(d)* With $`J_k=0`$ and $`\lambda_{\rm wd}=0`$, the $`\theta`$-row gives $`\chi^\theta_k=\chi^\theta_{k+1}=\nabla F`$ for every $`k`$. Then $`\chi^m_k=\beta_1\chi^m_{k+1}-\eta\beta_1D_1^{(k)}\nabla F`$ with $`\chi^m_R=0`$, and unrolling gives $`\chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F`$. The $`v`$-row is identical with coefficient $`+\eta\beta_2D_2^{(k)}`$.
 
-*(e)* Apply (a) on each branch and interchange $`\nabla`$ and $`\mathbb E_\omega`$, which is allowed for finitely many branches and, more generally, under domination of the branchwise costates. $`\square`$
+*(e)* The branch probabilities do not depend on $`z`$, so $`V_{t+1}(z)=\mathbb E_\omega V_{t+1,\omega}(z)`$ with a fixed law. Apply (a) on each branch and interchange $`\nabla`$ and $`\mathbb E_\omega`$, which is allowed for finitely many branches and, more generally, under domination of the branchwise costates.
+
+*(f)* Now $`V_{t+1}(z)=\sum_\omega p_\omega(z)V_{t+1,\omega}(z)`$, a finite sum of products of $`C^1`$ functions: $`V_{t+1,\omega}`$ is differentiable at $`z_t`$ with gradient $`\chi_{t+1,\omega}`$ by (a) applied to branch $`\omega`$, whose data are fixed once $`\omega`$ is fixed, and $`p_\omega`$ is $`C^1`$ by assumption. The product rule gives the stated formula. Differentiating $`\sum_\omega p_\omega\equiv1`$ gives $`\sum_\omega\nabla p_\omega=0`$, so a constant $`b`$ can be subtracted from every $`V_{t+1,\omega}`$, and $`\nabla p_\omega=p_\omega\nabla\log p_\omega`$ where $`p_\omega>0`$. The split (b) uses only $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$ and the block form of $`\Delta_t`$, so it holds with any expression for $`\nabla V_{t+1}(z_t)`$. In the product form, $`\pi_k(\omega_k\mid z_k)`$ is evaluated at the branch's state $`z_k`$, a $`C^1`$ function of the starting state by (a), so $`p_\omega`$ is $`C^1`$.
+
+For the reparametrized case, $`V_{t+1}(z)=\mathbb E_uV_{t+1,u}(z)`$ with a law that does not depend on $`z`$. For fixed $`u`$ every tail update is $`(\theta,m,v)\mapsto\Phi_k(\theta,m,v)`$ with $`g=g_k(\theta)`$ a $`C^1`$ function of $`\theta`$ alone, so the proof of (a) applies with $`J_k`$ the total derivative, and (e) follows. $`\square`$
 
 **Remarks on the proof.**
 

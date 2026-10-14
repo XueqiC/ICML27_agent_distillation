@@ -25,7 +25,14 @@
 
 - **(R) Realizability.** For every $`\theta'\in\Theta`$ the distiller can emit the oracle law $`P^*_{\theta'}`$ at the audited states, for example by running a simulator or the teacher model at $`\theta'`$, or by reweighting messages obtained from queries.
 - **(I) Identifiability.** Some design $`\xi_0`$ has $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$.
-- **(S) Smoothness.** $`\Psi\in C^2`$ near $`\theta_0`$ with $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$.
+- **(S) Smoothness.** $`\Psi\in C^2`$ on a convex neighbourhood $`U`$ of $`\theta_0`$, with $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$ on $`U`$.
+- **(T) Tail control.** Uniformly over $`\theta`$ in the shrinking neighbourhood of (E),
+
+```math
+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big]=o\big(N^{-1/2}\big).
+```
+
+  The Taylor bound of (S) controls the error only when the segment from $`\theta`$ to $`\hat\theta`$ stays in $`U`$; (T) controls the rest. It holds, for example, when $`\Psi`$ is bounded on $`\Theta`$: the neighbourhood of (E) shrinks to the interior point $`\theta_0`$, so for some $`r>0`$ Chebyshev's inequality and (E) give $`\mathsf P_\theta(\hat\theta\notin U)\le C/(r^2\lambda_{\min}(A(\xi_n)))=o(N^{-1/2})`$ (the proof shows $`\lambda_{\min}(A(\xi_n))\gg\sqrt N`$). Alternatively, use an estimator that takes values in $`U`$ by construction and is verified to satisfy (E).
 - **Design.** Use the regularized c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$, with $`\xi^*`$ from [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4), $`\varepsilon_n\to0`$ and $`\varepsilon_n\sqrt n\to\infty`$ (for example $`\varepsilon_n=n^{-1/4}`$).
 - **(E) Efficient two-stage estimation.** $`\xi_n`$ is computed at a consistent pilot estimate obtained from $`o(n)`$ queries and rounded to integer counts. The final estimator $`\hat\theta`$ satisfies, uniformly over $`\theta`$ in a shrinking neighbourhood of $`\theta_0`$ and with $`\xi_n`$ evaluated at the true $`\theta`$,
 
@@ -49,13 +56,21 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 
 **Classical tools.** Jensen's inequality and a second-order Taylor bound.
 
-**Proof.** By (R) the output $`P^*_{\hat\theta}`$ is available, and $`\mathrm{Err}_\theta(P^*_{\hat\theta})=\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$. By (S),
+**Proof.** By (R) the output $`P^*_{\hat\theta}`$ is available, and $`\mathrm{Err}_\theta(P^*_{\hat\theta})=\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$. If $`\mathfrak n_{K,n}(\theta)=\infty`$ there is nothing to prove, so let it be finite. Split on the event $`\lbrace\hat\theta\in U\rbrace`$:
+
+```math
+\mathbb E_\theta\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert=\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\in U\rbrace\big]+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big].
+```
+
+The second term is $`o(N^{-1/2})`$ by (T). On $`\lbrace\hat\theta\in U\rbrace`$, both $`\theta`$ (for $`N`$ large, since the neighbourhood of (E) shrinks to $`\theta_0`$) and $`\hat\theta`$ lie in the convex set $`U`$, so the segment between them does too, and Taylor's theorem with (S) gives
 
 ```math
 \lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\le\lvert c(\theta)^\top(\hat\theta-\theta)\rvert+\tfrac12H_\Psi\lVert\hat\theta-\theta\rVert^2 .
 ```
 
-- *Linear term.* $`A(\xi_n)=KI_D+n(1-\varepsilon_n)M(\xi^*)+n\varepsilon_nM(\xi_0)\succeq(1-\varepsilon_n)A(\xi^*)`$, hence $`c^\top A(\xi_n)^{-1}c\le c^\top A(\xi^*)^{-1}c/(1-\varepsilon_n)=\mathfrak n^2_{K,n}(1+o(1))`$ by [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4). By Jensen's inequality and (E), $`\mathbb E\lvert c^\top(\hat\theta-\theta)\rvert\le\mathfrak n_{K,n}(1+o(1))`$.
+Dropping the indicator, the first term is at most the expectation of the right-hand side.
+
+- *Linear term.* $`A(\xi_n)=KI_D+n(1-\varepsilon_n)M(\xi^*)+n\varepsilon_nM(\xi_0)\succeq(1-\varepsilon_n)A(\xi^*)`$, where $`A(\xi^*)`$ may be singular. $`A(\xi_n)`$ itself is invertible for $`N`$ large by the bound on $`\lambda_{\min}(A(\xi_n))`$ in the next item, so $`c^\top A(\xi_n)^{-1}c=\Phi_c(A(\xi_n))`$ with $`\Phi_c`$ as in [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4). By its variational form $`\Phi_c(A)=\sup_h(2c^\top h-h^\top Ah)`$, $`\Phi_c`$ is antitone in the Loewner order and $`\Phi_c(\alpha A)=\Phi_c(A)/\alpha`$ for $`\alpha>0`$. Hence $`\Phi_c(A(\xi_n))\le\Phi_c(A(\xi^*))/(1-\varepsilon_n)=\mathfrak n^2_{K,n}(1+o(1))`$, the equality being the value of the optimal design in Lemma 6.4. By Jensen's inequality and (E), $`\mathbb E\lvert c^\top(\hat\theta-\theta)\rvert\le\mathfrak n_{K,n}(1+o(1))`$.
 - *Quadratic term.* By (E) it is at most $`\tfrac12H_\Psi C/\lambda_{\min}(A(\xi_n))`$, and $`\lambda_{\min}(A(\xi_n))\ge\max\lbrace K\lambda_{\min}(I_D),\,n\varepsilon_n\lambda_0\rbrace`$. This is $`\gg\sqrt N`$:
   - if $`n\ge\delta N`$ for some $`\delta>0`$, then $`n\varepsilon_n\gg\sqrt n\ge\sqrt{\delta N}`$;
   - otherwise $`n=o(N)`$ along a subsequence, so for $`h\in\ker I_D`$ we would have $`\mathbb I_{K,n}(h)\le n\sup_xh^\top I_Qh=o(N)`$, contradicting (G); hence $`I_D\succ0`$, $`K`$ grows like $`N`$, and $`K\lambda_{\min}(I_D)\asymp N`$.
@@ -66,7 +81,7 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 **Comments.**
 
 - The regularization $`\varepsilon_n`$ matters: c-optimal designs are often supported on few query points, so $`A(\xi^*)`$ can be singular in directions that $`c`$ does not see, while the second-order term of $`\Psi`$ still needs $`\hat\theta`$ to be consistent in every direction.
-- In a Gaussian linear experiment, $`\Psi`$ is linear, the efficient estimator is exactly Gaussian, and the plug-in error is exactly $`\sqrt{2/\pi}\,\sqrt{c^\top A^{-1}c}`$, about $`0.80\,\mathfrak n_{K,n}`$ at the optimal design.
+- In a Gaussian linear experiment, $`\Psi`$ is linear (so (T) holds with $`U=\mathbb R^p`$), the efficient estimator is exactly Gaussian, and the plug-in error is exactly $`\sqrt{2/\pi}\,\sqrt{\Phi_c(A)}`$, about $`0.80\,\mathfrak n_{K,n}`$ at the optimal design.
 
 ## Related work
 

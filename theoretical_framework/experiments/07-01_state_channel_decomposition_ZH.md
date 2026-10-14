@@ -4,12 +4,13 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](../statements/07-01_state_channel_decomposition_ZH.md) · [证明](../proofs/07-01_state_channel_decomposition_ZH.md) · [实验](07-01_state_channel_decomposition_ZH.md) · [English](07-01_state_channel_decomposition.md)
 
-**本页检验什么.** 定理的 (a)：反向 costate 递推给出 continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的精确梯度。(b) 的通道拆分与 (d) 的闭式都是 (a) 的代数推论。**结论：通过.** 在全部 1,024 次方向比较中，adjoint 梯度都与中心差分一致，最大相对误差 $`2.8\times10^{-7}`$（容差 $`10^{-6}`$）。这些比较覆盖 256 组配置，包括 bias correction、decoupled weight decay、$`\epsilon>0`$ 与生效的全局范数裁剪。另有一个独立于该套件、单独写成的单步递推实现，与中心差分的误差为 $`7.5\times10^{-11}`$（[Check 7.7](#c7-7)）。
+**本页检验什么.** 定理的 (a)：反向 costate 递推给出 continuation value 关于完整 Adam/AdamW 状态 $`(\theta,m,v)`$ 的精确梯度。(b) 的通道拆分与 (d) 的闭式都是 (a) 的代数推论。**结论：通过.** 在全部 1,024 次方向比较中，adjoint 梯度都与中心差分一致，最大相对误差 $`2.8\times10^{-7}`$（容差 $`10^{-6}`$）。这些比较覆盖 256 组配置，包括 bias correction、decoupled weight decay、$`\epsilon>0`$ 与生效的全局范数裁剪。另有一个独立于该套件、单独写成的单步递推实现，与中心差分的误差为 $`7.5\times10^{-11}`$（[Check 7.7](#c7-7)）。(f) 中依赖状态采样下的梯度与中心差分相差 $`5.2\times10^{-11}`$，而只用 costate 平均则差 $`3.2\times10^{-3}`$（[Check 7.10](#c7-10)）。
 
 | 检验 | 检验对象 | 代码 ID | 结果 |
 |---|---|---|---|
 | [Check 7.1](#c7-1) | (a)，完整尾段 | `v016:C4.costate` | 通过 |
 | [Check 7.7](#c7-7) | (a)，单步，独立实现 | `v017:C15.adjoint` | 通过 |
+| [Check 7.10](#c7-10) | (f)，依赖状态的采样 | `v017:C23.sampling` | 通过 |
 
 **本页用到的设定与记号.**
 
@@ -79,6 +80,35 @@
 
 **局限.** 单个坐标、单步；长尾段上的复合由 [Check 7.1](#c7-1) 检验。
 
+<a id="c7-10"></a>
+
+## Check 7.10 · 依赖状态采样下的采样项（Theorem 7.1(f)）
+
+**结论.** 通过。尾段分支按依赖状态的概率抽取时，continuation value 的梯度等于 costate 平均加采样项，误差 $`5.2\times10^{-11}`$。只用 costate 平均，动量分量差 $`3.2\times10^{-3}`$，约为该分量的 13%。
+
+**为什么做.** (e) 要求尾段随机性的分布不依赖状态。之后某次更新的反馈若是看着学生挑选的，(f) 就要加上 $`\sum_\omega V_{t+1,\omega}\nabla p_\omega`$ 一项；本检验说明，只有两个分支时这一项也不能省，而且它只进入分支概率所依赖的那些块。
+
+**设置.**
+
+- 一维 Adam，带 bias correction，$`\beta_1=0.9`$、$`\beta_2=0.999`$、学习率 $`0.05`$、$`\epsilon=10^{-3}`$；尾段从步数计数器 $`7`$、状态 $`(\theta,m,v)=(0.3,0.1,0.05)`$ 开始。
+- 尾段第一次更新消耗两个数据点之一的梯度 $`\theta-a_\omega`$，$`a_0=-0.5`$ 或 $`a_1=1.2`$；分支 $`1`$ 的概率为 $`\sigma(2\theta+3m)`$，依赖参数与动量，不依赖 $`v`$。第二次更新消耗 $`\theta-0.4`$。得分为 $`F(\theta)=\sigma(2\theta)`$。
+- 各分支的值、它们的梯度和分支概率的梯度都用步长 $`10^{-6}`$ 的中心差分计算；完整的值 $`V=\sum_\omega p_\omega V_\omega`$ 也用同样方法求导。
+
+**结果.**
+
+| 量 | $`\theta`$ | $`m`$ | $`v`$ |
+|---|---|---|---|
+| continuation value 的梯度 | $`0.455851`$ | $`-0.024319`$ | $`0.013323`$ |
+| costate 平均 $`\sum_\omega p_\omega\chi_\omega`$ | $`0.453708`$ | $`-0.027533`$ | $`0.013323`$ |
+| 采样项 $`\sum_\omega V_\omega\nabla p_\omega`$ | $`0.002143`$ | $`0.003214`$ | $`0`$ |
+
+- (f) 中公式的误差：$`5.2\times10^{-11}`$（容差 $`10^{-7}`$）。只用 costate 平均的误差：$`3.2\times10^{-3}`$。
+- 把 $`V_\omega`$ 换成 $`V_\omega-b`$（$`b`$ 取各分支值的平均），或改用 score-function 形式 $`\mathbb E_\omega[V_\omega\nabla\log p_\omega]`$，采样项的变化不超过 $`7\times10^{-17}`$。
+
+**为什么支持该陈述.** 采样项的大小与效应同阶，不是舍入误差：去掉它，continuation gradient 的动量分量变化 13%。它的 $`v`$ 分量恰为零，因为唯一的一步采样只通过 $`\theta`$ 与 $`m`$ 看尾段起点的状态，分支概率不依赖 $`v`$，与 (f) 所述一致。若采样发生在之后的更新上，经由尾段动力学它就会依赖 $`v`$。
+
+**局限.** 只有两个分支、两次尾段更新，导数用有限差分计算；本检验验证的是乘积法则公式，不是从 rollout 估计采样项的估计量。
+
 ## 复现
 
 在仓库根目录下运行（仅 CPU）：
@@ -91,7 +121,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - costate 这一组（`v016:C4.costate`）在 rai 上约 16 秒；不加 `--only` 时整套约 104 秒。
 - 随机种子：`numpy.SeedSequence([160160, group, subcase, ...])`，PCG64，float64，单线程 BLAS。
 
-[Check 7.7](#c7-7) 的独立单步检验：
+[Check 7.7](#c7-7) 的独立单步检验与 [Check 7.10](#c7-10) 的采样检验：
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
@@ -104,7 +134,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory
 - `theory/v016_checks/results_v016.json`：claim id `v016:C4.costate`，含断言与逐配置误差。
 - `theory/v016_checks/results_v016_raw.json.gz`：原始数组，通过 JSON pointer 引用。未提交到 git；SHA-256 为 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`。
 - `theory/v016_checks/SPEC.md`（`v016:C4` 一节）、`check_v016.py` 及其测试。
-- `theory/v017_checks/results_v017.json`：条目 `v017:C15.adjoint`（`theory/v017_checks/check_v017.py` 中的函数 `c_adjoint`）。
+- `theory/v017_checks/results_v017.json`：条目 `v017:C15.adjoint` 与 `v017:C23.sampling`（`theory/v017_checks/check_v017.py` 中的函数 `c_adjoint` 与 `c_sampling`）。
 
 ## 参考文献
 

@@ -71,7 +71,17 @@ Then:
 \chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F,\qquad \chi^v_{t+1}=\eta\sum_{k=t+1}^{R-1}\beta_2^{\,k-t}D_2^{(k)}\nabla F .
 ```
 
-**(e) Random tails.** If the tail has finitely many random branches, each satisfying (D1)–(D2), or more generally if the branchwise costates are dominated so that differentiation and expectation commute, then $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$, and (b) holds with $`\mathbb E_\omega\chi_{t+1,\omega}`$.
+**(e) Exogenous random tails.** Suppose the law of the tail randomness $`\omega`$ does not depend on the learner state, as for a fixed data order or sampling that does not look at the learner. If the tail has finitely many random branches, each satisfying (D1)–(D2), or more generally if the branchwise costates are dominated so that differentiation and expectation commute, then $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$, and (b) holds with $`\mathbb E_\omega\chi_{t+1,\omega}`$.
+
+**(f) State-dependent sampling.** Suppose instead that the tail has finitely many branches $`\omega`$ whose probabilities $`p_\omega(z)`$ depend on the state the tail starts from, as when later feedback is chosen from the current student's own rollouts. Assume each branch satisfies (D1)–(D2) and each $`p_\omega`$ is $`C^1`$ at $`z_t`$; this holds, for example, when each sampling step draws $`\omega_k`$ with a probability $`\pi_k(\omega_k\mid z_k)`$ that is $`C^1`$ in the state, so that $`p_\omega(z)=\prod_k\pi_k(\omega_k\mid z_k)`$ along the branch. Then
+
+```math
+\nabla V_{t+1}(z_t)=\sum_\omega p_\omega(z_t)\,\chi_{t+1,\omega}+\sum_\omega V_{t+1,\omega}(z_t)\,\nabla p_\omega(z_t).
+```
+
+- The second term does not vanish in general, also with finitely many branches. Because $`\sum_\omega\nabla p_\omega=0`$, it equals $`\sum_\omega\big(V_{t+1,\omega}(z_t)-b\big)\nabla p_\omega(z_t)`$ for every constant $`b`$, and, when every $`p_\omega(z_t)>0`$, $`\mathbb E_\omega\big[V_{t+1,\omega}(z_t)\nabla\log p_\omega(z_t)\big]`$.
+- The three-channel split (b) holds with this vector in place of $`\chi_{t+1}`$: the channels are its $`\theta`$-, $`m`$- and $`v`$-blocks, and the sampling term enters every block on which the branch probabilities $`p_\omega`$ depend. Through the tail dynamics this can include all three: a sampling step that looks only at later parameters $`\theta_k`$ still makes $`p_\omega`$ depend on $`m_t`$ and $`v_t`$. What changes is the continuation gradient that weights the channels, not the decomposition.
+- If the state dependence can be reparametrized, (e) applies instead: the tail is driven by exogenous noise $`u`$ whose law does not depend on the state, and for each $`u`$ every consumed gradient $`g_k`$ is a $`C^1`$ function of $`\theta_k`$ alone, with $`J_k`$ its total derivative, which includes the dependence of the sampled data on $`\theta_k`$. Discrete sampling of trajectories or of feedback does not satisfy this, and (f) is then the version to use.
 
 **What it says.**
 
@@ -87,6 +97,7 @@ Then:
 **Role in the framework.**
 
 - It makes the optimizer-state part of the first-order representation of [Proposition 5.1](05-01_optimizer_transformed_expansion.md#s5-1) computable for Adam.
+- Its scope with respect to sampling: the costate average of (e) is the continuation gradient only when the tail randomness is exogenous. When later feedback is chosen from the student's own rollouts, the continuation gradient carries the sampling term of (f). The transplant test of [Remark 9.4](09-04_scope_of_evidence.md#s9-4) uses a tail with fixed batches, to which (e) with a single branch applies.
 - With [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation.md#s7-6) it forms Theorem B: this theorem gives the exact first-order value of a message through the three channels, and Proposition 7.6 shows by an exact example that the momentum and second-moment channels cannot be dropped. Neither needs stationarity, linear response or a mean-field substitution.
 - [Corollary 7.2](07-02_stationary_amplitude_law.md#s7-2) evaluates it in closed form in a restricted mean-field model, whose real-model prediction was not supported; [Proposition 7.3](07-03_inconsistency_two_proxy_classes.md#s7-3) uses it inside that model to show that parameter-only and cosine influence scores are inconsistent; [Remark 7.5](07-05_where_first_order_rankers_fail.md#s7-5) states where its first-order use fails.
 

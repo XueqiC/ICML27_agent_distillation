@@ -56,7 +56,7 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 \chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F,\qquad \chi^v_{t+1}=\eta\sum_{k=t+1}^{R-1}\beta_2^{\,k-t}D_2^{(k)}\nabla F ;
 ```
 
-(e) 随机尾段的各分支 costate 有控制函数时，$`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$，且 (b) 对 $`\mathbb E_\omega\chi_{t+1,\omega}`$ 成立。
+(e) 尾段随机性的分布不依赖状态、且各分支 costate 有控制函数时，$`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$，且 (b) 对 $`\mathbb E_\omega\chi_{t+1,\omega}`$ 成立；(f) 分支有限、分支概率 $`p_\omega`$ 依赖状态且为 $`C^1`$ 时，$`\nabla V_{t+1}(z_t)=\sum_\omega p_\omega\chi_{t+1,\omega}+\sum_\omega V_{t+1,\omega}\nabla p_\omega`$，且 (b) 对这个向量成立；用外生噪声重参数化、且被消耗的梯度只是 $`\theta_k`$ 的 $`C^1`$ 函数时，归结为 (e)。
 
 **证明.**
 
@@ -87,7 +87,11 @@ $`V_{t+1}(z)=F(\pi_\theta\,\Phi_{R-1}\circ\cdots\circ\Phi_{t+1}(z))`$，其中 $
 
 *(d)* $`J_k=0`$ 且 $`\lambda_{\rm wd}=0`$ 时，$`\theta`$ 行对每个 $`k`$ 给出 $`\chi^\theta_k=\chi^\theta_{k+1}=\nabla F`$。于是 $`\chi^m_k=\beta_1\chi^m_{k+1}-\eta\beta_1D_1^{(k)}\nabla F`$，且 $`\chi^m_R=0`$；展开递推得 $`\chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F`$。$`v`$ 行完全相同，只是系数换成 $`+\eta\beta_2D_2^{(k)}`$。
 
-*(e)* 对每个分支用 (a)，再交换 $`\nabla`$ 与 $`\mathbb E_\omega`$；分支有限时可以交换，更一般地在各分支 costate 有控制函数时也可以。$`\square`$
+*(e)* 分支概率不依赖 $`z`$，所以 $`V_{t+1}(z)=\mathbb E_\omega V_{t+1,\omega}(z)`$，其中分布固定。对每个分支用 (a)，再交换 $`\nabla`$ 与 $`\mathbb E_\omega`$；分支有限时可以交换，更一般地在各分支 costate 有控制函数时也可以。
+
+*(f)* 现在 $`V_{t+1}(z)=\sum_\omega p_\omega(z)V_{t+1,\omega}(z)`$，是有限个 $`C^1`$ 函数乘积之和：分支 $`\omega`$ 固定后其数据也固定，对它用 (a)，得 $`V_{t+1,\omega}`$ 在 $`z_t`$ 处可微、梯度为 $`\chi_{t+1,\omega}`$；$`p_\omega`$ 按假设为 $`C^1`$。由乘积法则即得所述公式。对 $`\sum_\omega p_\omega\equiv1`$ 求导得 $`\sum_\omega\nabla p_\omega=0`$，所以可以从每个 $`V_{t+1,\omega}`$ 中减去同一个常数 $`b`$；在 $`p_\omega>0`$ 处 $`\nabla p_\omega=p_\omega\nabla\log p_\omega`$。分解 (b) 只用到 $`\mathrm{Val}(g)=\langle\nabla V_{t+1}(z_t),\Delta_t(z_t,g)\rangle`$ 和 $`\Delta_t`$ 的分块形式，所以对 $`\nabla V_{t+1}(z_t)`$ 的任何表达式都成立。乘积形式中，$`\pi_k(\omega_k\mid z_k)`$ 在该分支的状态 $`z_k`$ 处取值，而由 (a)，$`z_k`$ 是起点状态的 $`C^1`$ 函数，所以 $`p_\omega`$ 为 $`C^1`$。
+
+重参数化的情形下，$`V_{t+1}(z)=\mathbb E_uV_{t+1,u}(z)`$，其分布不依赖 $`z`$。固定 $`u`$ 后，每次尾段更新都是 $`(\theta,m,v)\mapsto\Phi_k(\theta,m,v)`$，其中 $`g=g_k(\theta)`$ 只是 $`\theta`$ 的 $`C^1`$ 函数，所以 (a) 的证明在 $`J_k`$ 取全导数时照样成立，由此得到 (e)。$`\square`$
 
 **关于证明的说明.**
 

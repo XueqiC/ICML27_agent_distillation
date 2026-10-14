@@ -329,6 +329,41 @@
       }
     },
     {
+      "id": "v017:C23.sampling",
+      "item": "7.1",
+      "claim": "state-dependent tail sampling: grad V = sum_w p_w chi_w + sum_w V_w grad p_w; the costate average alone is wrong; any baseline gives the same sampling term",
+      "pass": true,
+      "values": {
+        "full_gradient_fd": [
+          0.45585118674251746,
+          -0.024318511981924473,
+          0.013323143976951002
+        ],
+        "costate_average": [
+          0.4537083191097323,
+          -0.027532813476786003,
+          0.013323143949798937
+        ],
+        "sampling_term": [
+          0.002142867628431633,
+          0.0032143014432263195,
+          0.0
+        ],
+        "error_formula": 5.163520999662552e-11,
+        "error_costate_average_alone": 0.0032143014948615295,
+        "baseline_invariance_error": 2.0816681711721685e-17,
+        "score_form_error": 6.938893903907228e-17,
+        "branch_probabilities": [
+          0.2890504973749961,
+          0.7109495026250039
+        ],
+        "branch_values": [
+          0.6406017047201773,
+          0.645815486773134
+        ]
+      }
+    },
+    {
       "id": "v017:C16.warm",
       "item": "7.6",
       "claim": "warm relative change of v is (1-b2)(g^2/v-1); immediate share of first-order momentum displacement is 1-b1",

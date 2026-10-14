@@ -25,7 +25,14 @@
 
 - **(R) 可实现性.** 对任意 $`\theta'\in\Theta`$，蒸馏器能在被审计状态上发出 oracle 律 $`P^*_{\theta'}`$，例如在 $`\theta'`$ 下运行模拟器或 teacher 模型，或对查询得到的消息重新加权。
 - **(I) 可辨识性.** 存在某个 design $`\xi_0`$，使 $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$。
-- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 附近属于 $`C^2`$，且 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 的一个凸邻域 $`U`$ 上属于 $`C^2`$，且在 $`U`$ 上 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(T) 尾部控制.** 对 (E) 中收缩邻域内的 $`\theta`$ 一致地有
+
+```math
+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big]=o\big(N^{-1/2}\big).
+```
+
+  只有当 $`\theta`$ 到 $`\hat\theta`$ 的线段留在 $`U`$ 内时，(S) 的 Taylor 界才控制得住误差；其余部分由 (T) 控制。例如 $`\Psi`$ 在 $`\Theta`$ 上有界时它成立：(E) 的邻域收缩到内点 $`\theta_0`$，所以存在 $`r>0`$，由 Chebyshev 不等式与 (E) 得 $`\mathsf P_\theta(\hat\theta\notin U)\le C/(r^2\lambda_{\min}(A(\xi_n)))=o(N^{-1/2})`$（证明中给出 $`\lambda_{\min}(A(\xi_n))\gg\sqrt N`$）。另一种做法是用一个按构造取值于 $`U`$、并经验证满足 (E) 的估计量。
 - **Design.** 使用正则化的 c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$，其中 $`\xi^*`$ 来自 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，$`\varepsilon_n\to0`$ 且 $`\varepsilon_n\sqrt n\to\infty`$（例如 $`\varepsilon_n=n^{-1/4}`$）。
 - **(E) 有效的两阶段估计.** $`\xi_n`$ 在一个用 $`o(n)`$ 次查询得到的相合 pilot 估计处计算，并舍入成整数次数。最终估计量 $`\hat\theta`$ 在 $`\theta_0`$ 的一个收缩邻域上对 $`\theta`$ 一致地满足（$`\xi_n`$ 在真值 $`\theta`$ 处取值）
 
@@ -77,7 +84,7 @@
 
 - 实际风险落在 $`\sqrt{2/\pi}\,\mathfrak n`$ 附近，即精确的高斯值；即使做了整数舍入，[Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5) 的上界常数 $`1`$ 仍有余量。
 - 在定理所取的位移处，Pinsker 两点界恰好等于 $`\mathfrak n/4`$，所以 [Theorem 6.3](../statements/06-03_learner_relative_lower_bound_ZH.md#s6-3) 中的常数 $`1/4`$ 正是证明给出的；同一点上精确的 TV 界稍大（$`0.31\,\mathfrak n`$）。
-- 局限：这个模型中 $`\Psi`$ 是线性的，实验是高斯的，所以 [Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5) 的二阶条件 (S) 与有效性条件 (E) 精确成立。本检验没有覆盖非线性 $`\Psi`$ 或非高斯实验。
+- 局限：这个模型中 $`\Psi`$ 是线性的，实验是高斯的，所以 [Theorem 6.5](../statements/06-05_achievability_ZH.md#s6-5) 的二阶条件 (S)、尾部条件 (T) 与有效性条件 (E) 精确成立。本检验没有覆盖非线性 $`\Psi`$ 或非高斯实验。
 
 ## 复现
 

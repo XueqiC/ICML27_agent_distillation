@@ -549,6 +549,49 @@ def c_adjoint():
     return e < 1e-8, {"finite_difference_error": e}
 
 
+@check("C23.sampling", "7.1", "state-dependent tail sampling: grad V = sum_w p_w chi_w + sum_w V_w grad p_w; "
+       "the costate average alone is wrong; any baseline gives the same sampling term")
+def c_sampling():
+    # One coordinate of Adam with bias correction and eps > 0. The first tail update consumes the gradient of
+    # one of two data points, drawn with a probability that depends on theta and on the momentum m;
+    # the second tail update is fixed. Final score F(theta) = sigmoid(2 theta).
+    targets, eta, eps, t0 = (-.5, 1.2), .05, 1e-3, 6
+
+    def branch_value(z, w):
+        st = adam_step(tuple(z), z[0] - targets[w], t0 + 1, eps, eta)
+        st = adam_step(st, st[0] - .4, t0 + 2, eps, eta)
+        return float(sigmoid(2 * st[0]))
+
+    def prob1(z):
+        return float(sigmoid(2. * z[0] + 3. * z[1]))
+
+    def value(z):
+        p1 = prob1(z)
+        return (1 - p1) * branch_value(z, 0) + p1 * branch_value(z, 1)
+
+    z, h = np.array([.3, .1, .05]), 1e-6
+    fd = lambda f: np.array([(f(z + h * e) - f(z - h * e)) / (2 * h) for e in np.eye(3)])
+    full = fd(value)
+    chi = [fd(lambda x, w=w: branch_value(x, w)) for w in (0, 1)]
+    g1 = fd(prob1)
+    p = np.array([1 - prob1(z), prob1(z)])
+    vw = np.array([branch_value(z, w) for w in (0, 1)])
+    dp = np.array([-g1, g1])
+    average = p[0] * chi[0] + p[1] * chi[1]
+    sampling = vw[0] * dp[0] + vw[1] * dp[1]
+    formula = average + sampling
+    base = vw.mean()
+    baselined = average + (vw[0] - base) * dp[0] + (vw[1] - base) * dp[1]
+    score_form = average + p[0] * vw[0] * (dp[0] / p[0]) + p[1] * vw[1] * (dp[1] / p[1])
+    e_formula, e_average = err(formula, full), err(average, full)
+    e_base, e_score = err(baselined, formula), err(score_form, formula)
+    ok = e_formula < 1e-7 and e_average > 1e-3 and e_base < 1e-12 and e_score < 1e-12 and abs(sampling[2]) < 1e-12
+    return ok, {"full_gradient_fd": full.tolist(), "costate_average": average.tolist(),
+                "sampling_term": sampling.tolist(), "error_formula": e_formula,
+                "error_costate_average_alone": e_average, "baseline_invariance_error": e_base,
+                "score_form_error": e_score, "branch_probabilities": p.tolist(), "branch_values": vw.tolist()}
+
+
 @check("C16.warm", "7.6", "warm relative change of v is (1-b2)(g^2/v-1); immediate share of first-order momentum displacement is 1-b1")
 def c_warm():
     rng = rng_for("warm")

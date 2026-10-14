@@ -27,7 +27,14 @@
 
 - **(R) 可实现性.** 对任意 $`\theta'\in\Theta`$，蒸馏器能在被审计状态上发出 oracle 律 $`P^*_{\theta'}`$，例如在 $`\theta'`$ 下运行模拟器或 teacher 模型，或对查询得到的消息重新加权。这是一条假设：在每个候选环境下都能生成 oracle 律。只能使用有限个已核验合法消息的蒸馏器通常做不到；它只能输出这个消息池的正权重混合，[Proposition 6.14](../statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14) 说明这种混合何时能匹配所需的特征均值、匹配不了时要付出什么。
 - **(I) 可辨识性.** 存在某个 design $`\xi_0`$，使 $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$。
-- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 附近属于 $`C^2`$，且 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 的一个凸邻域 $`U`$ 上属于 $`C^2`$，且在 $`U`$ 上 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(T) 尾部控制.** 对 (E) 中收缩邻域内的 $`\theta`$ 一致地有
+
+```math
+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big]=o\big(N^{-1/2}\big).
+```
+
+  只有当 $`\theta`$ 到 $`\hat\theta`$ 的线段留在 $`U`$ 内时，(S) 的 Taylor 界才控制得住误差；其余部分由 (T) 控制。例如 $`\Psi`$ 在 $`\Theta`$ 上有界时它成立：(E) 的邻域收缩到内点 $`\theta_0`$，所以存在 $`r>0`$，由 Chebyshev 不等式与 (E) 得 $`\mathsf P_\theta(\hat\theta\notin U)\le C/(r^2\lambda_{\min}(A(\xi_n)))=o(N^{-1/2})`$（证明中给出 $`\lambda_{\min}(A(\xi_n))\gg\sqrt N`$）。另一种做法是用一个按构造取值于 $`U`$、并经验证满足 (E) 的估计量。
 - **Design.** 使用正则化的 c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$，其中 $`\xi^*`$ 来自 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，$`\varepsilon_n\to0`$ 且 $`\varepsilon_n\sqrt n\to\infty`$（例如 $`\varepsilon_n=n^{-1/4}`$）。
 - **(E) 有效的两阶段估计.** $`\xi_n`$ 在一个用 $`o(n)`$ 次查询得到的相合 pilot 估计处计算，并舍入成整数次数。最终估计量 $`\hat\theta`$ 在 $`\theta_0`$ 的一个收缩邻域上对 $`\theta`$ 一致地满足（$`\xi_n`$ 在真值 $`\theta`$ 处取值）
 
@@ -59,7 +66,8 @@
 **推导要点.**
 
 - plug-in 输出的误差是 $`\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$，它不超过线性项 $`\lvert c^\top(\hat\theta-\theta)\rvert`$ 加一个二次余项。
-- 正则化 design 只让 $`c^\top A^{-1}c`$ 损失一个因子 $`1/(1-\varepsilon_n)`$，所以由 Jensen 不等式与 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，线性项为 $`\mathfrak n_{K,n}(1+o(1))`$。
+- 正则化 design 只让 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4) 的值 $`\Phi_c(A)`$ 损失一个因子 $`1/(1-\varepsilon_n)`$；c-optimal design 可以奇异，所以 $`\Phi_c`$ 用伪逆定义。于是由 Jensen 不等式，线性项为 $`\mathfrak n_{K,n}(1+o(1))`$。
+- Taylor 界只在 $`\hat\theta`$ 留在 $`\Psi`$ 光滑的邻域内这一事件上使用；由 (T)，其余事件的贡献是 $`o(N^{-1/2})`$。
 - 那一小部分非退化的 design 让 $`\hat\theta`$ 在每个方向上都相合，所以余项是 $`o(N^{-1/2})`$；单独的 c-optimal design 往往是奇异的（[Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)(b) 恰好允许这一点），保证不了这一点。
 
 **示例.** 在高斯线性实验中，最优 design 下 plug-in 误差恰为 $`\sqrt{2/\pi}\,\mathfrak n_{K,n}\approx0.80\,\mathfrak n_{K,n}`$，落在 $`[1/4,1]`$ 之内。

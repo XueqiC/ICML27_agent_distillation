@@ -4,7 +4,7 @@
 
 **核心问题.** 给定声明的任务、允许的实验和实际使用的学习过程，反馈来源之间的哪些差别会改变学生继续训练的结果？这些差别能否在有限预算内被识别、随着训练推进保持有效，并编译成合法的反馈？
 
-**统一的对象.** 在一个 checkpoint 上，[Theorem 3.2](statements/03-02_continuation_response_characterization_ZH.md#s3-2) 的 continuation response 定义了一个从反馈差异到声明测试的 *response operator*（[Definition 4.8](statements/04-08_response_operator_ZH.md#s4-8)）。它的奇异值按对测试的后果给反馈差异排序（[Theorem 4.9](statements/04-09_spectral_sufficiency_ZH.md#s4-9)，是 [Eckart & Young, 1936](#ref-eckart1936approximation) 的一个实例）。这个算子经过学习过程的下一步 predictive state 分解（[Proposition 4.12](statements/04-12_response_predictive_state_factorization_ZH.md#s4-12)）；现在充分的接口，继续训练之后未必仍然充分（[Proposition 4.11](statements/04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）。这些都是经典工具（低秩逼近、predictive state representation、value-directed compression）在完整学习过程上的应用；框架增加的是它们与信息获取、编译、复用和成本的组合，衡量这些主张的标准，是这种组合能否给出可检验的推论（[Remark 9.6](statements/09-06_contribution_units_prior_work_ZH.md#s9-6)）。
+**统一的对象.** 在一个 checkpoint 上，[Theorem 3.2](statements/03-02_continuation_response_characterization_ZH.md#s3-2) 的 continuation response 定义了一个从反馈差异到声明测试的 *response operator*（[Definition 4.8](statements/04-08_response_operator_ZH.md#s4-8)）。它的奇异值按对测试的后果给反馈差异排序（[Theorem 4.9](statements/04-09_spectral_sufficiency_ZH.md#s4-9)，是 [Eckart & Young, 1936](#ref-eckart1936approximation) 的一个实例）。这个算子经过学习过程的下一步 predictive state 分解（[Proposition 4.12](statements/04-12_response_predictive_state_factorization_ZH.md#s4-12)）；现在充分的接口，继续训练之后未必仍然充分（[Proposition 4.11](statements/04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）。这些都是经典工具（低秩逼近、predictive state representation、value-directed compression）在完整学习过程上的应用；框架增加的是对后续训练充分性的形式化，以及这些工具与信息获取、编译、复用和成本的组合，并给出条件性保证。这是理论贡献；真实规模上的估计效率和方法收益尚待验证（[Remark 9.6](statements/09-06_contribution_units_prior_work_ZH.md#s9-6)）。
 
 **中心结果.**
 
@@ -42,7 +42,7 @@
 - 本页每个陈述都在其所列假设下有证明。少数陈述只在明确给出的渐近区间内证明到首项，本页在相应位置注明。
 - 证明都是有限维的，或者带有明确的正则性假设。
 - 实验页上的检查是精确有限计算、受控小网络，以及记录检查：从真实模型检验存储下来的输出重新算出报告的数字。
-- 真实模型检验 R0、R1（部分）和 R3 已有结果；R2 与优化器状态移植检验还在进行（[Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4)）。主线需要的假设，以及只有受限模型才需要的假设，列在 [Remark 9.5](statements/09-05_assumption_audit_ZH.md#s9-5)。
+- 真实模型检验 R0、R1（部分）和 R3 已有结果；R2 与优化器状态移植检验还在进行（[Remark 9.4](statements/09-04_scope_of_evidence_ZH.md#s9-4)）。各层陈述（通用恒等式、条件性定理、在真实模型上运行的方法）各自需要的假设，以及只有受限模型才需要的假设，列在 [Remark 9.5](statements/09-05_assumption_audit_ZH.md#s9-5)。
 
 ---
 
@@ -250,8 +250,8 @@ flowchart TB
 - *Coupling width*：固定每个单元的边缘分布，只改变单元如何组成联合训练包；结果不变当且仅当包的回报在单元之间可加。一步 SGD 是严格的零假设。
 - *CED（Consequence-Calibrated Experience Distillation）*：记录完整学习器状态；在编译之前按学习器相对的设计获取缺失信息，并把每个缺口交给对应的补救（更多信息、更大的合法池，或更多测试与状态）；在合法池的凸包内编译候选；用 CRN 配对替换分数选择候选反馈律，用全尾段 audit 校准、计入覆盖，并把严格半径与诊断半径分开；冻结选择器，再检验迁移。
 - 每条设计规则都是某个已证明陈述的推论。
-- *假设审计*：主线只需要有限预算、可测的真实 kernel、有界的得分和声明的比较范围；更强的条件都属于具名的受限模型。
-- *贡献单元*：三条组合性主张，每条都列出必须与之比较的已有工作；没有任何定理表明在同等成本下优于现有的数据选择方法。
+- *假设审计*：通用恒等式只需要有限预算、可测的真实 kernel、有界的得分和声明的比较范围；条件性定理附加各自写明的条件；方法中条件未经验证的步骤只报告为经验结果。
+- *贡献单元*：三条问题形式化与组合层面的理论贡献，每条都列出必须与之比较的已有工作；目前还没有定理或实验表明在同等成本下优于现有的数据选择方法。
 - *证据范围*：新结果只有合成检验的支持；目前的真实模型检验支持了一些陈述，没有支持另一些，R2 与优化器状态移植检验仍在进行。
 
 ---
@@ -583,7 +583,7 @@ flowchart LR
 **[Theorem 6.5](statements/06-05_achievability_ZH.md#s6-5) · 可达性；标量情形紧到常数** — [陈述](statements/06-05_achievability_ZH.md) · [证明](proofs/06-05_achievability_ZH.md) · [实验](experiments/06-05_achievability_ZH.md)
 - *说了什么.* 用（略加正则化的）c-optimal 查询 design 估计环境，再在估计值处发出 oracle 律，误差可以达到 $`\mathfrak n_{K,n}(1+o(1))`$。与下界合起来，最优一阶误差被夹在 $`\mathfrak n_{K,n}/4`$ 与 $`\mathfrak n_{K,n}`$ 之间。
 - *直觉.* 信息一旦按正确的方向收集到，plug-in 蒸馏器最多只损失一个常数因子。
-- *作用.* 它是 Theorem A 的上半部分：信息范数就是衡量"一批经验对给定学习器是否充分"的正确尺度。它假设 oracle 律可以在估计值处生成；只能使用有限合法池的蒸馏器，要付 [Proposition 6.14](statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14) 的可实现性误差。
+- *作用.* 它是 Theorem A 的上半部分：信息范数就是衡量"一批经验对给定学习器是否充分"的正确尺度。它假设 oracle 律可以在估计值处生成，并假设一个尾部条件，用来控制估计值落到目标光滑区域之外时的误差；只能使用有限合法池的蒸馏器，要付 [Proposition 6.14](statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14) 的可实现性误差。
 
 **[Remark 6.6](statements/06-06_class_uniform_fidelity_ZH.md#s6-6) · 对声明类一致的 fidelity** — [陈述](statements/06-06_class_uniform_fidelity_ZH.md) · [证明](proofs/06-06_class_uniform_fidelity_ZH.md)
 - *说了什么.* 要求对整个声明任务类保真时，Theorem A 的上下界都能推广，两者至多相差 $`4d^{3/2}`$，$`d`$ 是该类的维数。
@@ -653,7 +653,7 @@ flowchart LR
 ```
 
 **[Theorem 7.1](statements/07-01_state_channel_decomposition_ZH.md#s7-1) · 状态通道分解** — [陈述](statements/07-01_state_channel_decomposition_ZH.md) · [证明](proofs/07-01_state_channel_decomposition_ZH.md) · [实验](experiments/07-01_state_channel_decomposition_ZH.md)
-- *说了什么.* 对 Adam/AdamW（含 bias correction、decoupled weight decay、$`\epsilon`$ 与全局范数裁剪），continuation value 关于 $`(\theta,m,v)`$ 的梯度由一个显式的反向 costate 递推给出。由此，一条消息的一阶价值精确分解为参数通道、动量通道和二阶矩通道三项，最后一项只通过 $`g\odot g`$ 依赖于消息。
+- *说了什么.* 对 Adam/AdamW（含 bias correction、decoupled weight decay、$`\epsilon`$ 与全局范数裁剪），continuation value 关于 $`(\theta,m,v)`$ 的梯度由一个显式的反向 costate 递推给出。由此，一条消息的一阶价值精确分解为参数通道、动量通道和二阶矩通道三项，最后一项只通过 $`g\odot g`$ 依赖于消息。对随机尾段，只有当尾段随机性不依赖 learner 状态时，各分支 costate 的平均才是 continuation gradient；之后的反馈从学生自己的 rollout 中采样时，要加上一个采样项，三通道分解不变。
 - *直觉.* 一条消息不只改变当前这一步，还改变 running second moment，进而改变此后每一步的步长。二阶矩通道就是这种改变带来的代价或收益。
 - *作用.* 让 [Proposition 5.1](statements/05-01_optimizer_transformed_expansion_ZH.md#s5-1) 中 optimizer state 那一部分在 Adam 下可以算出来。受限的幅度定律（[Corollary 7.2](statements/07-02_stationary_amplitude_law_ZH.md#s7-2)）和只看参数的影响分数为何失效（[Proposition 7.3](statements/07-03_inconsistency_two_proxy_classes_ZH.md#s7-3)），都建立在它上面；它与 [Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6) 合称 Theorem B。
 
@@ -827,11 +827,11 @@ flowchart LR
 - *作用.* 它标出结论的边界，并把每项检验与它所检验的陈述联系起来，使结果可以与事先写下的预测对照。
 
 **[Remark 9.5](statements/09-05_assumption_audit_ZH.md#s9-5) · 假设审计** — [陈述](statements/09-05_assumption_audit_ZH.md)
-- *说了什么.* 主线只需要有限预算、可测的真实 kernel、有界的得分和声明的比较范围。每个更强的条件都挂在用到它的结果上（仿射学习器、独立访问与 mean field、平稳性与线性 response、可生成的 oracle 律、已知的分数范围与校准），并写明它不成立时怎么处理；还有一些愿望组合不可能同时满足。
-- *作用.* 它防止把主线的一般性读成"方法不需要任何结构"。
+- *说了什么.* 分三层。通用恒等式只需要有限预算、可测的真实 kernel、有界的得分和声明的比较范围。条件性定理附加各自写明的条件（Theorem A 的 Fisher 正则性、可实现性、估计与尾部条件；证书的冻结候选、独立复现与已知取值范围；Theorem 7.1 中 costate 平均所需的外生尾段随机性），每个更强的条件都挂在用到它的结果上（仿射学习器、独立访问与 mean field、平稳性与线性 response、可生成的 oracle 律、校准），并写明它不成立时怎么处理。在真实模型上，条件未经验证的步骤只报告为经验结果。还有一些愿望组合不可能同时满足。
+- *作用.* 它防止把恒等式的一般性读成"定理或方法不需要任何结构"。
 
 **[Remark 9.6](statements/09-06_contribution_units_prior_work_ZH.md#s9-6) · 贡献单元与最近的已有工作** — [陈述](statements/09-06_contribution_units_prior_work_ZH.md)
-- *说了什么.* 三条组合性主张（问题与表示；实现与成本；获取与编译），每条都与已经占有部分地盘的已有工作对照：machine teaching，包括把顺序教学写成最优控制（[Zhu, 2015](#ref-zhu2015machine)；[Lessard, Zhang & Zhu, 2019](#ref-lessard2019optimal)），datamodels 与 TRAK（[Ilyas et al., 2022](#ref-ilyas2022datamodels)；[Park et al., 2023](#ref-park2023trak)），predictive state 与 value-directed compression，基于梯度的数据选择，performance-difference 恒等式，doubly robust 评估（[Jiang & Li, 2016](#ref-jiang2016doubly)），以及多保真 Monte Carlo（[Peherstorfer, Willcox & Gunzburger, 2016](#ref-peherstorfer2016optimal)）。没有任何定理表明在同等成本下优于现有的数据选择方法。
+- *说了什么.* 三条问题形式化与组合层面的理论贡献（问题与表示；实现与成本；获取与编译），每条都与已经占有部分地盘的已有工作对照：machine teaching，包括把顺序教学写成最优控制（[Zhu, 2015](#ref-zhu2015machine)；[Lessard, Zhang & Zhu, 2019](#ref-lessard2019optimal)），datamodels 与 TRAK（[Ilyas et al., 2022](#ref-ilyas2022datamodels)；[Park et al., 2023](#ref-park2023trak)），predictive state 与 value-directed compression，基于梯度的数据选择，performance-difference 恒等式，doubly robust 评估（[Jiang & Li, 2016](#ref-jiang2016doubly)），以及多保真 Monte Carlo（[Peherstorfer, Willcox & Gunzburger, 2016](#ref-peherstorfer2016optimal)）。目前还没有定理或实验表明在同等成本下优于现有的数据选择方法；真实规模上的估计效率和方法收益尚待验证。
 - *作用.* 它把新颖性问题变成检验：每个单元都写明它应当改变哪个决定。
 
 ---
@@ -968,7 +968,7 @@ CUDA_VISIBLE_DEVICES='' theory/.venv/bin/python theoretical_framework/figures/ma
 | `v015:` | 精确有限检验 `V1`–`V9` 与受控网络实验 `E0`–`E12` | `theory/v015_checks` |
 | `pkg:` | 修订包自带的检验（`T01`–`T13` 及具名的包内检验） | `docs/direction/v014_handoff`, `docs/direction/v015_revision` |
 | `v016:` | §5–§8 新增内容的检验（`C1`–`C6b`） | `theory/v016_checks` |
-| `v017:` | response operator、闭合、编译、Adam 记忆与成本结果的合成检验（`C1`–`C22`），以及真实模型运行的记录检查（`R1`–`R5`，由 `theory/v017_checks/records` 重新计算） | `theory/v017_checks` |
+| `v017:` | response operator、闭合、编译、Adam 记忆、采样与成本结果的合成检验（`C1`–`C23`），以及真实模型运行的记录检查（`R1`–`R5`，由 `theory/v017_checks/records` 重新计算） | `theory/v017_checks` |
 
 页面渲染检查工具见 [tools/README.md](tools/README.md)；图的数据来源见 [figures/README.md](figures/README.md)。
 

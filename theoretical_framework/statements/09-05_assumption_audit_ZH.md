@@ -4,18 +4,27 @@
 
 [← 框架总图](../README_ZH.md) · [陈述](09-05_assumption_audit_ZH.md) · [English](09-05_assumption_audit.md)
 
-**一段话概括.** 一个对任意可测学习器都成立的框架，若说不清每个有用的结论还需要哪些额外条件，对具体的学习器就几乎说不出什么。本 remark 把三件事分开。第一，主线需要的条件：很少，而且本来就是问题的一部分。第二，部分结果用到的更强条件：每一条都列出用到它的结果，以及它不成立时框架怎么做。第三，无论假设什么都无法同时得到的东西。本 remark 没有自己的证明页和实验页：每一行都指向证明或使用它的陈述。
+**一段话概括.** 一个对任意可测学习器都成立的框架，若说不清每个有用的结论还需要哪些额外条件，对具体的学习器就几乎说不出什么。本 remark 把陈述分成三层，并写明每层需要什么。通用表述层是精确的恒等式与定义，需要的条件很少，而且本来就是问题的一部分。条件性定理层各自附加条件，每一条都列出用到它的结果，以及它不成立时框架怎么做。实际方法层在真实模型上运行，凡条件未经验证的步骤都只报告为经验结果。最后列出无论假设什么都无法同时得到的东西。本 remark 没有自己的证明页和实验页：每一行都指向证明或使用它的陈述。
 
 **本页用到的设定与记号.**
 
-- *主线.* [Theorem 3.2](03-02_continuation_response_characterization_ZH.md#s3-2) 的精确后果恒等式，它的近似价值版本（[Proposition 3.4](03-04_joint_decomposition_approximate_value_ZH.md#s3-4)），response 算子及其谱（[Definition 4.8](04-08_response_operator_ZH.md#s4-8)、[Theorem 4.9](04-09_spectral_sufficiency_ZH.md#s4-9)），学习器相对的信息界（Theorem A），以及 §8 的有限证书。
-- *受限模型.* 在主线之外附加条件的模型，陈述在其中精确成立或在主阶成立；它的结论对真实系统是有待检验的机制假说。
+- *三层.*
+  - *通用表述层.* [Theorem 3.2](03-02_continuation_response_characterization_ZH.md#s3-2) 的精确后果恒等式及其近似价值版本（[Proposition 3.4](03-04_joint_decomposition_approximate_value_ZH.md#s3-4)），精确的 kernel，以及 response 算子与它的谱恒等式（[Definition 4.8](04-08_response_operator_ZH.md#s4-8)、[Theorem 4.9](04-09_spectral_sufficiency_ZH.md#s4-9)）。
+  - *条件性定理层.* 在各自写明的条件下成立的结果：学习器相对的信息界（Theorem A，[Theorems 6.3](06-03_learner_relative_lower_bound_ZH.md#s6-3) 与 [6.5](06-05_achievability_ZH.md#s6-5)），有限维 predictive state（[Theorem 4.10](04-10_hankel_rank_predictive_realization_ZH.md#s4-10)、[Proposition 4.12](04-12_response_predictive_state_factorization_ZH.md#s4-12)），§8 中以独立复现为条件的有限证书（[Assumption 8.7](08-07_certificate_assumptions_ZH.md#s8-7)），以及 surrogate 校准（[Remark 8.11](08-11_surrogate_calibration_and_transfer_ZH.md#s8-11)）。
+  - *实际方法层.* [Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 在真实模型上运行时的各个步骤。条件未经验证的步骤按其规则 (G4) 处理，只报告为经验结果。
+- *受限模型.* 在通用表述层之外附加条件的模型，陈述在其中精确成立或在主阶成立；它的结论对真实系统是有待检验的机制假说。
 
 <a id="s9-5"></a>
 
 **Remark 9.5（假设审计）.**
 
-**(a) 主线需要什么.** 有限的训练预算；每个声明的协议都有可测的真实条件 kernel（非线性更新、裁剪、冷启动 Adam、非平稳学习率与依赖状态的随机性都包括在内）；有界的任务得分；声明的比较范围（环境、初始状态分布、评测器与训练机制相同，或者把差异显式写出）。token 独立、梯度平稳、小步长、低秩、全局收缩、Fisher 正则性与已知的隐藏状态都不在其中。
+**(a) 每层需要什么.**
+
+- *通用表述层.* 有限的训练预算；每个声明的协议都有可测的真实条件 kernel（非线性更新、裁剪、冷启动 Adam、非平稳学习率与依赖状态的随机性都包括在内）；有界的任务得分；声明的比较范围（环境、初始状态分布、评测器与训练机制相同，或者把差异显式写出）。token 独立、梯度平稳、小步长、低秩、全局收缩、Fisher 正则性与已知的隐藏状态都不在其中。这四条足以支撑恒等式与定义，但它们本身既不让任何界变小，也不让任何保证可检验。
+- *条件性定理层.* 每个定理附加它写明的条件，与用到它们的结果一起列在 (b) 和 (d) 中。Theorem A 需要 [Theorem 6.3](06-03_learner_relative_lower_bound_ZH.md#s6-3)(b) 的 Fisher 正则性与增长条件 (G)；它的上界部分还需要可实现性、可辨识性、带尾部控制的光滑性以及高效估计量（[Theorem 6.5](06-05_achievability_ZH.md#s6-5)）。有限证书需要冻结的候选、独立的复现与已知的取值范围（[Assumption 8.7](08-07_certificate_assumptions_ZH.md#s8-7)）。只有当尾段随机性不依赖状态时，[Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的 continuation gradient 才是各分支 costate 的平均。
+- *实际方法层.* 在真实模型上，这些条件中有几条目前没有得到验证：先验取值范围使严格半径空泛，校准的迁移是假设，组合保证在测得的尺度上空泛。[Algorithm 9.2](09-02_ced_algorithm_ZH.md#s9-2) 中相应的步骤按 (G4) 报告为经验结果，不报告为已认证（[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)）。
+
+所以完整的方法需要的远不止通用表述层的四条；一般性属于恒等式，不属于保证。
 
 **(b) 更强的条件、用到它们的结果，以及条件不成立时怎么办.**
 
@@ -23,12 +32,14 @@
 |---|---|---|
 | 只用参数向量就是学习器状态 | 对带记忆的 optimizer 不成立 | 完整状态包括 $`m`$、$`v`$、时钟、缓冲区以及更新用到的历史（[Definition 1.3](../README_ZH.md#s1-3)）；参数相同的状态后续可以不同（[Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6)） |
 | 原始观察是 Markov 的 | 不必要 | 用完整历史或预测状态（[Theorem 4.10](04-10_hankel_rank_predictive_realization_ZH.md#s4-10)） |
-| 梯度、token 或重复数据相互独立 | 实践中通常过强 | 主线不用它；只在实验复现之间假设独立（[Assumption 8.7](08-07_certificate_assumptions_ZH.md#s8-7)、[Proposition 8.12](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12)） |
+| 梯度、token 或重复数据相互独立 | 实践中通常过强 | 通用表述层不用它；只在实验复现之间假设独立（[Assumption 8.7](08-07_certificate_assumptions_ZH.md#s8-7)、[Proposition 8.12](08-12_finite_catalog_spectral_certificate_ZH.md#s8-12)） |
 | 仿射平均学习器、独立的经验块、有限的决策次数 | 受限模型的条件 | 它们给出 [Theorems 4.4–4.5](04-04_affine_learners_moment_order_ZH.md#s4-4) 的精确矩阶与 cumulant 速率，作为可计算的例子；不推广到任意 optimizer |
-| 小学习率使完整状态的 Taylor 余项为二阶 | 一般不成立：optimizer state 可以按别的尺度变化 | 主线用精确 kernel；局部展开各自报告余项（[Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1)） |
+| 小学习率使完整状态的 Taylor 余项为二阶 | 一般不成立：optimizer state 可以按别的尺度变化 | 通用表述层用精确 kernel；局部展开各自报告余项（[Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1)） |
 | continuation 梯度冻结且与环境无关 | 对一阶目标成立，对真实收益的导数可能不够 | Theorem A 的目标是 [Definition 6.2](06-02_learner_relative_functional_information_norm_ZH.md#s6-2) 的一阶泛函；真实收益的导数还要对 response 机制本身求导 |
+| continuation 梯度是各分支 costate 的平均 | 仅当尾段随机性不依赖 learner 状态时成立 | 采样依赖状态时，梯度要加一个采样项（[Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1)(f)）；三通道分解本身不变 |
 | 每个设计的信息矩阵都正定 | 对线性目标过强 | 允许奇异设计，只要求目标方向可辨认（[Lemma 6.4](06-04_design_minimax_equality_ZH.md#s6-4)） |
 | 存在高效的两阶段估计量 | 实质性条件，c-optimal design 推不出它 | 线性高斯情形已证明（[Proposition 6.15](06-15_linear_gaussian_target_ZH.md#s6-15)）；一般情形是 [Theorem 6.5](06-05_achievability_ZH.md#s6-5) 的假设 |
+| 目标的局部光滑性控制 plug-in 误差 | 单靠它不够：估计值可能落到目标光滑的区域之外 | [Theorem 6.5](06-05_achievability_ZH.md#s6-5) 增加尾部条件 (T)；目标有界时它成立，也可以改用局部化到光滑区域的估计量 |
 | 估计点处的 oracle 律可以生成 | 对真实蒸馏很强 | 作为 Theorem 6.5 的假设写明；只有有限合法池时，用凸可实现性及其残差代替（[Proposition 6.14](06-14_convex_realizability_legal_pool_ZH.md#s6-14)） |
 | 访问独立、坐标独立、频繁访问区间、mean field | 受限模型的条件 | [Proposition 6.11](06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11) 的学习器权重在这些区间里主阶成立，被当作可计算的分配规则使用，其用处由 R2 检验（[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4)） |
 | Adam 处于平稳点 $`m=\mathbb Eg`$、$`v=\mathbb Eg^2`$；尾段梯度与参数无关；终点得分仿射；$`\mathbb E[m/\sqrt v]`$ 用 $`\mathbb Em/\sqrt{\mathbb Ev}`$ 代替；没有 bias correction、$`\epsilon=0`$、没有 decay | 受限的 mean-field 模型；比值期望的替换不是恒等式 | [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 在该模型中证明；它在真实模型上的预测与实测符号相反（[Check 7.6](../experiments/07-02_stationary_amplitude_law_ZH.md#c7-6)）；一般的机制是 [Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1) 的精确分解 |
@@ -56,7 +67,7 @@
 
 **(d) 关于 response 算子、闭合、复用、估计成本、编译与记忆的结果需要什么.**
 
-| 结果 | 需要什么 | 是否属于主线 | 不成立时 |
+| 结果 | 需要什么 | 是否属于通用表述层 | 不成立时 |
 |---|---|---|---|
 | 有限维分解与线性预测实现（[Proposition 4.12](04-12_response_predictive_state_factorization_ZH.md#s4-12)、[Theorem 4.10](04-10_hankel_rank_predictive_realization_ZH.md#s4-10)） | 声明的未来测试空间有限维，并由所选测试张成 | 否；是精确有限表示的条件，可能很强 | 用残差版本；扩充测试或状态；不作一般的低维主张 |
 | 对自适应未来协议的充分性 | 条件化算子在观察分支上闭合 | 只在支持自适应协议时需要 | 缩小协议类，或为遗漏的分支付误差 |
@@ -64,18 +75,18 @@
 | 锚点迁移（[Proposition 8.14](08-14_anchor_reuse_drift_certificate_ZH.md#s8-14)） | 可控制的 response 漂移；可恢复的分叉；独立的配对复现 | 是该证书的操作条件 | 建新锚点，或把迁移报告为未认证；不默认全局平滑 |
 | 记忆构造（[Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6)） | 指定的可达历史、可实现的梯度、非零的分母 | 构造实例的条件 | 只说明存在性与机制；真实模型上效应的大小另行测量（[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4) 中的 T1） |
 | 完整的一步伴随（[Theorem 7.1](07-01_state_channel_decomposition_ZH.md#s7-1)） | 更新与 continuation value 局部可微 | 否；是解释性的导数 | 不可微处用精确 response；有限变化保留余项 |
-| 无偏的两保真度估计（[Proposition 8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15)） | 两组相互独立；便宜输出的边缘分布相同；估计量与分配已冻结 | 对该估计量是；条件寻常，但必须落实 | 在独立数据上确认，或另行证明自适应估计量的性质 |
+| 无偏的两保真度估计（[Proposition 8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15)） | 两组相互独立；便宜输出的边缘分布相同；估计量与分配已冻结 | 否；是该估计量的寻常条件，但必须落实 | 在独立数据上确认，或另行证明自适应估计量的性质 |
 | 两保真度估计更便宜 | 它的成本条件、足够的复用，pilot 与拟合都计费 | 否；是有待检验的条件 | 直接用完整续训，不主张便宜 |
 | 信息—编译半径（[Proposition 6.16](06-16_information_compilation_radius_ZH.md#s6-16)） | 有效的置信集合、紧的合法可行集、固定或已校准的 response 接口 | 是该条件性模型的适用范围 | 对接口与目标用联合不确定集合，并支付校准误差 |
 | 推广到新任务、新候选或新检查点 | 覆盖，或有效的迁移控制 | 不能从通过旧目录自动得到 | 增加确认数据，或缩小保证的范围 |
 
 这些结果都没有引入全局梯度平稳、Hessian 为零、所有动态收缩、默认低秩、免费的精确 response、普遍的校准迁移，或任意 oracle 律可以生成这样的假设。受限模型中的较强条件保留为受限条件，没有通过改名变成一般事实。
 
-**说了什么.** 主线只需要有限预算、可测的真实 kernel、有界得分与声明的比较范围。每一条更强的条件都挂在用到它的结果上，并写明它不成立时框架怎么做；有些愿望的组合则根本无法同时满足。
+**说了什么.** 通用表述层（恒等式与定义）只需要有限预算、可测的真实 kernel、有界得分与声明的比较范围。Theorem A、有限证书和其他条件性定理附加各自写明的条件，每一条都挂在用到它的结果上，并写明它不成立时怎么做。在真实模型上，方法中条件未经验证的步骤只报告为经验结果。有些愿望的组合则根本无法同时满足。
 
 **在框架中的作用.**
 
-- 它告诉读者每个结论要付出哪些假设，防止把主线的一般性误读成"方法不需要任何结构"。
+- 它告诉读者每个结论要付出哪些假设，防止把通用表述层的一般性误读成"定理或方法不需要任何结构"。
 - 它与 [Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4) 对应：那里说证据支持哪些预测，这里说这些预测依赖哪些假设。
 
 **用到.** 每一行都引用证明或使用它的陈述；主要有 [Theorem 3.2](03-02_continuation_response_characterization_ZH.md#s3-2)、[Theorem 4.9](04-09_spectral_sufficiency_ZH.md#s4-9)、[Proposition 4.11](04-11_static_not_dynamic_closure_error_ZH.md#s4-11)、[Theorem 6.5](06-05_achievability_ZH.md#s6-5)、[Proposition 6.14](06-14_convex_realizability_legal_pool_ZH.md#s6-14)、[Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2)、[Assumption 8.7](08-07_certificate_assumptions_ZH.md#s8-7) 与 [Proposition 8.15](08-15_two_fidelity_response_estimation_ZH.md#s8-15)。
@@ -87,7 +98,7 @@
 
 ## 相关工作
 
-- 主线的恒等式属于 performance-difference 一族（[Kakade & Langford, 2002](#ref-kakade2002approximately)）；它们组织误差，但本身不让误差变小。
+- 通用表述层的恒等式属于 performance-difference 一族（[Kakade & Langford, 2002](#ref-kakade2002approximately)）；它们组织误差，但本身不让误差变小。
 - 预测状态表示（[Littman, Sutton & Singh, 2001](#ref-littman2001predictive)）把有限维测试空间作为建模条件；这里同样的条件保留为条件，而不作为默认。
 
 ## 参考文献

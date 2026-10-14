@@ -27,7 +27,14 @@
 
 - **(R) Realizability.** For every $`\theta'\in\Theta`$ the distiller can emit the oracle law $`P^*_{\theta'}`$ at the audited states, for example by running a simulator or the teacher model at $`\theta'`$, or by reweighting messages obtained from queries. This is an assumption that the oracle law can be generated at every candidate environment. A distiller restricted to a finite pool of verified legal messages generally cannot do so; it must output a positive mixture of the pool, and [Proposition 6.14](../statements/06-14_convex_realizability_legal_pool.md#s6-14) states when that mixture matches the required feature means and what is paid when it cannot.
 - **(I) Identifiability.** Some design $`\xi_0`$ has $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$.
-- **(S) Smoothness.** $`\Psi\in C^2`$ near $`\theta_0`$ with $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$.
+- **(S) Smoothness.** $`\Psi\in C^2`$ on a convex neighbourhood $`U`$ of $`\theta_0`$, with $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$ on $`U`$.
+- **(T) Tail control.** Uniformly over $`\theta`$ in the shrinking neighbourhood of (E),
+
+```math
+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big]=o\big(N^{-1/2}\big).
+```
+
+  The Taylor bound of (S) controls the error only when the segment from $`\theta`$ to $`\hat\theta`$ stays in $`U`$; (T) controls the rest. It holds, for example, when $`\Psi`$ is bounded on $`\Theta`$: the neighbourhood of (E) shrinks to the interior point $`\theta_0`$, so for some $`r>0`$ Chebyshev's inequality and (E) give $`\mathsf P_\theta(\hat\theta\notin U)\le C/(r^2\lambda_{\min}(A(\xi_n)))=o(N^{-1/2})`$ (the proof shows $`\lambda_{\min}(A(\xi_n))\gg\sqrt N`$). Alternatively, use an estimator that takes values in $`U`$ by construction and is verified to satisfy (E).
 - **Design.** Use the regularized c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$, with $`\xi^*`$ from [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4), $`\varepsilon_n\to0`$ and $`\varepsilon_n\sqrt n\to\infty`$ (for example $`\varepsilon_n=n^{-1/4}`$).
 - **(E) Efficient two-stage estimation.** $`\xi_n`$ is computed at a consistent pilot estimate obtained from $`o(n)`$ queries and rounded to integer counts. The final estimator $`\hat\theta`$ satisfies, uniformly over $`\theta`$ in a shrinking neighbourhood of $`\theta_0`$ and with $`\xi_n`$ evaluated at the true $`\theta`$,
 
@@ -59,7 +66,8 @@ and the last term is $`o(\mathfrak n_{K,n}(\theta))`$ whenever $`c(\theta)\neq0`
 **Derivation outline.**
 
 - The error of the plug-in output is $`\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$, bounded by the linear term $`\lvert c^\top(\hat\theta-\theta)\rvert`$ plus a quadratic remainder.
-- The regularized design loses only a factor $`1/(1-\varepsilon_n)`$ in $`c^\top A^{-1}c`$, so the linear term is $`\mathfrak n_{K,n}(1+o(1))`$ by Jensen's inequality and [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4).
+- The regularized design loses only a factor $`1/(1-\varepsilon_n)`$ in the value $`\Phi_c(A)`$ of [Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4), which is defined with a pseudo-inverse because the c-optimal design may be singular; so the linear term is $`\mathfrak n_{K,n}(1+o(1))`$ by Jensen's inequality.
+- The Taylor bound is used only on the event that $`\hat\theta`$ stays in the neighbourhood where $`\Psi`$ is smooth; (T) makes the complementary event contribute $`o(N^{-1/2})`$.
 - The small nondegenerate component makes $`\hat\theta`$ consistent in every direction, so the remainder is $`o(N^{-1/2})`$; c-optimal designs alone are often singular ([Lemma 6.4](../statements/06-04_design_minimax_equality.md#s6-4)(b) allows exactly that) and would not guarantee this.
 
 **Illustration.** In a Gaussian linear experiment the plug-in error is exactly $`\sqrt{2/\pi}\,\mathfrak n_{K,n}\approx0.80\,\mathfrak n_{K,n}`$ at the optimal design, inside the band $`[1/4,1]`$.

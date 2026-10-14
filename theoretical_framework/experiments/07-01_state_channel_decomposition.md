@@ -4,12 +4,13 @@
 
 [← Framework](../README.md) · [Statement](../statements/07-01_state_channel_decomposition.md) · [Proof](../proofs/07-01_state_channel_decomposition.md) · [Experiments](07-01_state_channel_decomposition.md) · [中文](07-01_state_channel_decomposition_ZH.md)
 
-**What is tested here.** Part (a) of the theorem: that the backward costate recursion gives the exact gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$. The channel split (b) and the closed form (d) follow algebraically from (a). **Verdict: PASS.** The adjoint gradient matches central finite differences in all 1,024 directional comparisons, worst relative error $`2.8\times10^{-7}`$ (tolerance $`10^{-6}`$), across 256 configurations that include bias correction, decoupled weight decay, $`\epsilon>0`$ and active global-norm clipping. An independent one-step implementation of the recursion, written separately from that suite, agrees with central differences to $`7.5\times10^{-11}`$ ([Check 7.7](#c7-7)).
+**What is tested here.** Part (a) of the theorem: that the backward costate recursion gives the exact gradient of the continuation value with respect to the complete Adam/AdamW state $`(\theta,m,v)`$. The channel split (b) and the closed form (d) follow algebraically from (a). **Verdict: PASS.** The adjoint gradient matches central finite differences in all 1,024 directional comparisons, worst relative error $`2.8\times10^{-7}`$ (tolerance $`10^{-6}`$), across 256 configurations that include bias correction, decoupled weight decay, $`\epsilon>0`$ and active global-norm clipping. An independent one-step implementation of the recursion, written separately from that suite, agrees with central differences to $`7.5\times10^{-11}`$ ([Check 7.7](#c7-7)). Part (f), the gradient under state-dependent sampling, matches central differences to $`5.2\times10^{-11}`$, while the costate average alone is off by $`3.2\times10^{-3}`$ ([Check 7.10](#c7-10)).
 
 | Check | Tests | Code ID | Result |
 |---|---|---|---|
 | [Check 7.1](#c7-1) | (a), full tails | `v016:C4.costate` | PASS |
 | [Check 7.7](#c7-7) | (a), one step, independent implementation | `v017:C15.adjoint` | PASS |
+| [Check 7.10](#c7-10) | (f), state-dependent sampling | `v017:C23.sampling` | PASS |
 
 **Setting used on this page.**
 
@@ -79,6 +80,35 @@ with $`D_1^{(k)}=\mathrm{diag}\big(q_{1,s_k}/(\sqrt{q_{2,s_k}v'_k}+\epsilon)\big
 
 **Limits.** One coordinate and one step; the composition over long tails is the subject of [Check 7.1](#c7-1).
 
+<a id="c7-10"></a>
+
+## Check 7.10 · The sampling term under state-dependent sampling (Theorem 7.1(f))
+
+**Verdict.** PASS. With a tail branch drawn with a probability that depends on the state, the gradient of the continuation value equals the costate average plus the sampling term to $`5.2\times10^{-11}`$. The costate average alone misses the momentum component by $`3.2\times10^{-3}`$, about 13% of that component.
+
+**Why.** Part (e) needs tail randomness whose law does not depend on the state. When the feedback of a later update is chosen by looking at the student, part (f) adds the term $`\sum_\omega V_{t+1,\omega}\nabla p_\omega`$; this check shows that the term is needed even with two branches, and that it enters only the blocks on which the branch probability depends.
+
+**Setup.**
+
+- One coordinate of Adam with bias correction, $`\beta_1=0.9`$, $`\beta_2=0.999`$, learning rate $`0.05`$ and $`\epsilon=10^{-3}`$; the tail starts at step counter $`7`$ from $`(\theta,m,v)=(0.3,0.1,0.05)`$.
+- The first tail update consumes the gradient $`\theta-a_\omega`$ of one of two data points, $`a_0=-0.5`$ or $`a_1=1.2`$; branch $`1`$ is drawn with probability $`\sigma(2\theta+3m)`$, which depends on the parameter and on the momentum but not on $`v`$. The second tail update consumes $`\theta-0.4`$. The score is $`F(\theta)=\sigma(2\theta)`$.
+- Branch values, their gradients and the gradient of the branch probability are computed by central differences with step $`10^{-6}`$; the full value $`V=\sum_\omega p_\omega V_\omega`$ is differentiated the same way.
+
+**Result.**
+
+| Quantity | $`\theta`$ | $`m`$ | $`v`$ |
+|---|---|---|---|
+| gradient of the continuation value | $`0.455851`$ | $`-0.024319`$ | $`0.013323`$ |
+| costate average $`\sum_\omega p_\omega\chi_\omega`$ | $`0.453708`$ | $`-0.027533`$ | $`0.013323`$ |
+| sampling term $`\sum_\omega V_\omega\nabla p_\omega`$ | $`0.002143`$ | $`0.003214`$ | $`0`$ |
+
+- Error of the formula of (f): $`5.2\times10^{-11}`$ (tolerance $`10^{-7}`$). Error of the costate average alone: $`3.2\times10^{-3}`$.
+- Replacing $`V_\omega`$ by $`V_\omega-b`$ with $`b`$ the mean branch value, and the score-function form $`\mathbb E_\omega[V_\omega\nabla\log p_\omega]`$, change the sampling term by at most $`7\times10^{-17}`$.
+
+**Why it supports the statement.** The sampling term is of the size of the effect, not of rounding: dropping it changes the momentum component of the continuation gradient by 13%. Its $`v`$-component is exactly zero because the only sampling step looks at the starting state through $`\theta`$ and $`m`$, so the branch probability does not depend on $`v`$, as (f) states. A sampling step at a later update would make it depend on $`v`$ through the tail dynamics.
+
+**Limits.** Two branches and two tail updates, with derivatives by finite differences; the check verifies the product-rule formula, not an estimator of the sampling term from rollouts.
+
 ## Reproduce
 
 From the repository root (CPU only):
@@ -91,7 +121,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python -m pyt
 - The costate group (`v016:C4.costate`) takes about 16 s on rai; the full suite without `--only` about 104 s.
 - Seeds: `numpy.SeedSequence([160160, group, subcase, ...])`, PCG64, float64, single BLAS thread.
 
-The independent one-step check of [Check 7.7](#c7-7):
+The independent one-step check of [Check 7.7](#c7-7) and the sampling check of [Check 7.10](#c7-10):
 
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 theory/.venv/bin/python theory/v017_checks/check_v017.py
@@ -104,7 +134,7 @@ The check uses NumPy ([Harris et al., 2020](#ref-harris2020array)) and SciPy ([V
 - `theory/v016_checks/results_v016.json` — claim id `v016:C4.costate`: assertions, per-configuration errors.
 - `theory/v016_checks/results_v016_raw.json.gz` — raw arrays referenced by JSON pointers. Not committed; SHA-256 `1777069872ea80c09dfd5260d610871b68e41a10721eba2826dcd4d647874f69`.
 - `theory/v016_checks/SPEC.md` (section on `v016:C4`), `check_v016.py` and its tests.
-- `theory/v017_checks/results_v017.json` — entry `v017:C15.adjoint` (function `c_adjoint` in `theory/v017_checks/check_v017.py`).
+- `theory/v017_checks/results_v017.json` — entries `v017:C15.adjoint` and `v017:C23.sampling` (functions `c_adjoint` and `c_sampling` in `theory/v017_checks/check_v017.py`).
 
 ## References
 

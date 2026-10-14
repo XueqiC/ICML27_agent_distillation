@@ -71,7 +71,17 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 \chi^m_{t+1}=-\eta\sum_{k=t+1}^{R-1}\beta_1^{\,k-t}D_1^{(k)}\nabla F,\qquad \chi^v_{t+1}=\eta\sum_{k=t+1}^{R-1}\beta_2^{\,k-t}D_2^{(k)}\nabla F .
 ```
 
-**(e) 随机尾段.** 若尾段只有有限多个随机分支、每个分支都满足 (D1)–(D2)，或者更一般地，各分支的 costate 有可积的控制函数、使求导与期望可交换，则 $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$，且 (b) 对 $`\mathbb E_\omega\chi_{t+1,\omega}`$ 成立。
+**(e) 外生的随机尾段.** 设尾段随机性 $`\omega`$ 的分布不依赖 learner 状态，例如数据顺序固定，或者采样不看 learner。若尾段只有有限多个随机分支、每个分支都满足 (D1)–(D2)，或者更一般地，各分支的 costate 有可积的控制函数、使求导与期望可交换，则 $`\nabla V_{t+1}(z_t)=\mathbb E_\omega\chi_{t+1,\omega}`$，且 (b) 对 $`\mathbb E_\omega\chi_{t+1,\omega}`$ 成立。
+
+**(f) 依赖状态的采样.** 反过来，设尾段有有限多个分支 $`\omega`$，其概率 $`p_\omega(z)`$ 依赖尾段起点的状态，例如之后的反馈从当前学生自己的 rollout 中挑选。假设每个分支都满足 (D1)–(D2)，且每个 $`p_\omega`$ 在 $`z_t`$ 处为 $`C^1`$；例如每一步采样以概率 $`\pi_k(\omega_k\mid z_k)`$ 抽出 $`\omega_k`$，且 $`\pi_k`$ 对状态为 $`C^1`$，则沿该分支有 $`p_\omega(z)=\prod_k\pi_k(\omega_k\mid z_k)`$，条件成立。此时
+
+```math
+\nabla V_{t+1}(z_t)=\sum_\omega p_\omega(z_t)\,\chi_{t+1,\omega}+\sum_\omega V_{t+1,\omega}(z_t)\,\nabla p_\omega(z_t).
+```
+
+- 第二项一般不为零，分支有限时也一样。由于 $`\sum_\omega\nabla p_\omega=0`$，对任意常数 $`b`$，它等于 $`\sum_\omega\big(V_{t+1,\omega}(z_t)-b\big)\nabla p_\omega(z_t)`$；当每个 $`p_\omega(z_t)>0`$ 时，它等于 $`\mathbb E_\omega\big[V_{t+1,\omega}(z_t)\nabla\log p_\omega(z_t)\big]`$。
+- 三通道分解 (b) 仍然成立，只是用这个向量代替 $`\chi_{t+1}`$：三个通道是它的 $`\theta`$、$`m`$、$`v`$ 三块，采样项进入分支概率 $`p_\omega`$ 所依赖的每一块。经由尾段动力学，三块都可能被涉及：某一步采样即使只看之后的参数 $`\theta_k`$，也会让 $`p_\omega`$ 依赖 $`m_t`$ 与 $`v_t`$。变的是给三个通道加权的 continuation gradient，不是分解本身。
+- 若状态依赖可以重参数化，则改用 (e)：尾段由分布不依赖状态的外生噪声 $`u`$ 驱动，且对每个 $`u`$，每个被消耗的梯度 $`g_k`$ 都只是 $`\theta_k`$ 的 $`C^1`$ 函数，$`J_k`$ 取它的全导数，其中包含被采样数据对 $`\theta_k`$ 的依赖。离散地采样轨迹或反馈不满足这一条，这时应当用 (f)。
 
 **说了什么.**
 
@@ -87,6 +97,7 @@ D_1^{(k)}=\mathrm{diag}\Big(\frac{q_{1,s_k}}{\sqrt{q_{2,s_k}v'_k}+\epsilon}\Big)
 **在框架中的作用.**
 
 - 它让 [Proposition 5.1](05-01_optimizer_transformed_expansion_ZH.md#s5-1) 一阶表示中 optimizer state 的那一部分在 Adam 下可以计算。
+- 关于采样的适用范围：只有尾段随机性是外生的时候，(e) 中 costate 的平均才是 continuation gradient。之后的反馈从学生自己的 rollout 中挑选时，continuation gradient 带有 (f) 的采样项。[Remark 9.4](09-04_scope_of_evidence_ZH.md#s9-4) 中的状态移植检验，尾段批次固定，适用只有一个分支的 (e)。
 - 它与 [Proposition 7.6](07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6) 合称 Theorem B：本定理给出一条消息经三个通道的精确一阶价值，Proposition 7.6 用一个精确的例子说明动量通道与二阶矩通道不能丢掉。两者都不需要平稳性、线性 response 或 mean-field 替换。
 - [Corollary 7.2](07-02_stationary_amplitude_law_ZH.md#s7-2) 在一个受限的 mean-field 模型里把它算成闭式，该模型对真实模型的预测没有得到支持；[Proposition 7.3](07-03_inconsistency_two_proxy_classes_ZH.md#s7-3) 在该模型里用它说明只看参数的影响分数与余弦分数不一致；[Remark 7.5](07-05_where_first_order_rankers_fail_ZH.md#s7-5) 指出它的一阶用法在哪里失效。
 

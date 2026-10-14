@@ -17,6 +17,20 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **11:3x CDT 10-14: framework v0.17.1 — the user's review of v0.17 (16:19 UTC msg, "作为后续工作的统一底稿，不再推倒重写").**
+  The user re-ran the 22+5 checks (PASS) and asked for local fixes only, freezing the main structure:
+  (1) Thm 7.1(e) now holds only for exogenous tail randomness; the new 7.1(f) covers state-dependent sampling:
+  grad V = sum p chi + sum V grad p, with baseline and score forms. Check 7.10 (v017:C23.sampling): the costate
+  average alone misses 13% of the momentum component. (2) Thm 6.5: new (T) tail control (from (E) plus Chebyshev
+  when Psi is bounded); the proof splits on theta_hat in U; the linear term uses Phi_c (pseudo-inverse).
+  (3) Remark 9.5 has three layers: general identities / conditional theorems / practical method (G4); new rows
+  for (T) and sampling. (4) The T1 prereg gets an addendum (written before any T1 job ran): the negative wording,
+  M=M_m+M_v+I cancellation, channel readings beyond the prereg are exploratory, T1 does not test the adjoint/R15,
+  positive != deployment gain. Mirrored in 9.4 and the 7.6 experiments page. (5) Remark 9.6 + README: formulation +
+  composition + conditional guarantees are theoretical contributions; the open items are efficiency at real scale
+  and the method's benefit. User's next priority after R2/T1: one real result showing a decision changed by the
+  connections (info-compilation radius guiding a decision, OR the response interface saving compute on held-out
+  candidates/checkpoints). hpg tunnel was down 04:40–11:21 CDT; all T1/R2/R1 jobs still PENDING (QOSGrpCpuLimit).
 - **00:5x CDT 10-14: framework v0.17 written and merged into theoretical_framework/** (user "你来写", 23:00 CDT 10-13). Basis: the
   user's second revision + my review2 with errata. Title → "…for Continued Training"; response operator as the unifying object.
   New items: Prop 3.4 (joint decomposition), Def 4.8–Prop 4.13 (response operator, spectral sufficiency, Hankel/PSR realization,

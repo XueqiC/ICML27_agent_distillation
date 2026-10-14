@@ -110,6 +110,7 @@ The state-transplant test ([pre-registration](../../docs/direction/2026-10-14_T1
 
 - At a warm checkpoint of the ALFWorld ([Shridhar et al., 2021](#ref-shridhar2021alfworld)) distillation recipe, a reference branch and an alternative-feedback branch run the same number of updates. Their parameters, momentum and second moment are then recombined in a 2×2 design: the reference parameters continued with the reference or the alternative momentum, and with the reference or the alternative second moment, plus a duplicate reference arm and the natural alternative state.
 - All arms continue with the same reference updates; the primary readout is a held-out surrogate score, and the decision threshold was fixed before any training.
+- How the result will be read (fixed before any run): a negative result means that, at this checkpoint, with this feedback block and the fixed reference tail, the net effect of transplanting both moments did not exceed the threshold. The net effect is the sum of the momentum effect, the second-moment effect and their interaction, so cancellation can make it small while the channels are not; channel interpretations beyond the pre-registration are exploratory. The test measures a finite intervention effect, not the adjoint prediction of [Theorem 7.1](../statements/07-01_state_channel_decomposition.md#s7-1), and a positive result does not by itself show a deployment gain.
 - Its result is not yet available. This page will report it, positive or negative, when the run is complete.
 
 ## Reproduce

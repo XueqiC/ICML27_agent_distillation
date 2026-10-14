@@ -25,7 +25,14 @@
 
 - **(R) 可实现性.** 对任意 $`\theta'\in\Theta`$，蒸馏器能在被审计状态上发出 oracle 律 $`P^*_{\theta'}`$，例如在 $`\theta'`$ 下运行模拟器或 teacher 模型，或对查询得到的消息重新加权。
 - **(I) 可辨识性.** 存在某个 design $`\xi_0`$，使 $`\lambda_{\min}(M(\xi_0))=\lambda_0>0`$。
-- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 附近属于 $`C^2`$，且 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(S) 光滑性.** $`\Psi`$ 在 $`\theta_0`$ 的一个凸邻域 $`U`$ 上属于 $`C^2`$，且在 $`U`$ 上 $`\lVert\nabla^2\Psi\rVert\le H_\Psi`$。
+- **(T) 尾部控制.** 对 (E) 中收缩邻域内的 $`\theta`$ 一致地有
+
+```math
+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big]=o\big(N^{-1/2}\big).
+```
+
+  只有当 $`\theta`$ 到 $`\hat\theta`$ 的线段留在 $`U`$ 内时，(S) 的 Taylor 界才控制得住误差；其余部分由 (T) 控制。例如 $`\Psi`$ 在 $`\Theta`$ 上有界时它成立：(E) 的邻域收缩到内点 $`\theta_0`$，所以存在 $`r>0`$，由 Chebyshev 不等式与 (E) 得 $`\mathsf P_\theta(\hat\theta\notin U)\le C/(r^2\lambda_{\min}(A(\xi_n)))=o(N^{-1/2})`$（证明中给出 $`\lambda_{\min}(A(\xi_n))\gg\sqrt N`$）。另一种做法是用一个按构造取值于 $`U`$、并经验证满足 (E) 的估计量。
 - **Design.** 使用正则化的 c-optimal design $`\xi_n=(1-\varepsilon_n)\xi^*+\varepsilon_n\xi_0`$，其中 $`\xi^*`$ 来自 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，$`\varepsilon_n\to0`$ 且 $`\varepsilon_n\sqrt n\to\infty`$（例如 $`\varepsilon_n=n^{-1/4}`$）。
 - **(E) 有效的两阶段估计.** $`\xi_n`$ 在一个用 $`o(n)`$ 次查询得到的相合 pilot 估计处计算，并舍入成整数次数。最终估计量 $`\hat\theta`$ 在 $`\theta_0`$ 的一个收缩邻域上对 $`\theta`$ 一致地满足（$`\xi_n`$ 在真值 $`\theta`$ 处取值）
 
@@ -49,13 +56,21 @@
 
 **用到的经典工具.** Jensen 不等式与二阶 Taylor 界。
 
-**证明.** 由 (R)，输出 $`P^*_{\hat\theta}`$ 是可得的，且 $`\mathrm{Err}_\theta(P^*_{\hat\theta})=\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$。由 (S)，
+**证明.** 由 (R)，输出 $`P^*_{\hat\theta}`$ 是可得的，且 $`\mathrm{Err}_\theta(P^*_{\hat\theta})=\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert`$。若 $`\mathfrak n_{K,n}(\theta)=\infty`$，无需证明，故设它有限。按事件 $`\lbrace\hat\theta\in U\rbrace`$ 拆分：
+
+```math
+\mathbb E_\theta\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert=\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\in U\rbrace\big]+\mathbb E_\theta\big[\lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\,\mathbf 1\lbrace\hat\theta\notin U\rbrace\big].
+```
+
+由 (T)，第二项是 $`o(N^{-1/2})`$。在 $`\lbrace\hat\theta\in U\rbrace`$ 上，$`\theta`$（$`N`$ 足够大时，因为 (E) 的邻域收缩到 $`\theta_0`$）与 $`\hat\theta`$ 都在凸集 $`U`$ 内，两者之间的线段也在 $`U`$ 内，于是由 Taylor 定理与 (S)，
 
 ```math
 \lvert\Psi(\hat\theta)-\Psi(\theta)\rvert\le\lvert c(\theta)^\top(\hat\theta-\theta)\rvert+\tfrac12H_\Psi\lVert\hat\theta-\theta\rVert^2 .
 ```
 
-- *线性项.* $`A(\xi_n)=KI_D+n(1-\varepsilon_n)M(\xi^*)+n\varepsilon_nM(\xi_0)\succeq(1-\varepsilon_n)A(\xi^*)`$，因此由 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4)，$`c^\top A(\xi_n)^{-1}c\le c^\top A(\xi^*)^{-1}c/(1-\varepsilon_n)=\mathfrak n^2_{K,n}(1+o(1))`$。由 Jensen 不等式与 (E)，$`\mathbb E\lvert c^\top(\hat\theta-\theta)\rvert\le\mathfrak n_{K,n}(1+o(1))`$。
+去掉示性函数，第一项不超过右边的期望。
+
+- *线性项.* $`A(\xi_n)=KI_D+n(1-\varepsilon_n)M(\xi^*)+n\varepsilon_nM(\xi_0)\succeq(1-\varepsilon_n)A(\xi^*)`$，其中 $`A(\xi^*)`$ 可以奇异。由下一条中 $`\lambda_{\min}(A(\xi_n))`$ 的下界，$`N`$ 足够大时 $`A(\xi_n)`$ 本身可逆，所以 $`c^\top A(\xi_n)^{-1}c=\Phi_c(A(\xi_n))`$，$`\Phi_c`$ 如 [Lemma 6.4](../statements/06-04_design_minimax_equality_ZH.md#s6-4) 所定义。由它的变分形式 $`\Phi_c(A)=\sup_h(2c^\top h-h^\top Ah)`$，$`\Phi_c`$ 关于 Loewner 序单调递减，且对 $`\alpha>0`$ 有 $`\Phi_c(\alpha A)=\Phi_c(A)/\alpha`$。因此 $`\Phi_c(A(\xi_n))\le\Phi_c(A(\xi^*))/(1-\varepsilon_n)=\mathfrak n^2_{K,n}(1+o(1))`$，其中的等式是 Lemma 6.4 中最优 design 的值。由 Jensen 不等式与 (E)，$`\mathbb E\lvert c^\top(\hat\theta-\theta)\rvert\le\mathfrak n_{K,n}(1+o(1))`$。
 - *二次项.* 由 (E)，它不超过 $`\tfrac12H_\Psi C/\lambda_{\min}(A(\xi_n))`$，而 $`\lambda_{\min}(A(\xi_n))\ge\max\lbrace K\lambda_{\min}(I_D),\,n\varepsilon_n\lambda_0\rbrace`$。这个量远大于 $`\sqrt N`$：
   - 若对某个 $`\delta>0`$ 有 $`n\ge\delta N`$，则 $`n\varepsilon_n\gg\sqrt n\ge\sqrt{\delta N}`$；
   - 否则沿某个子列 $`n=o(N)`$，于是对 $`h\in\ker I_D`$ 有 $`\mathbb I_{K,n}(h)\le n\sup_xh^\top I_Qh=o(N)`$，与 (G) 矛盾；所以 $`I_D\succ0`$，$`K`$ 与 $`N`$ 同阶，$`K\lambda_{\min}(I_D)\asymp N`$。
@@ -66,7 +81,7 @@
 **附注.**
 
 - 正则化 $`\varepsilon_n`$ 是必要的：c-optimal design 往往只支撑在少数查询点上，$`A(\xi^*)`$ 在 $`c`$ 看不到的方向上可以奇异；而 $`\Psi`$ 的二阶项仍然要求 $`\hat\theta`$ 在每个方向上相合。
-- 在高斯线性实验中，$`\Psi`$ 是线性的，有效估计量精确服从高斯分布，plug-in 误差恰为 $`\sqrt{2/\pi}\,\sqrt{c^\top A^{-1}c}`$；在最优 design 处约为 $`0.80\,\mathfrak n_{K,n}`$。
+- 在高斯线性实验中，$`\Psi`$ 是线性的（所以 (T) 在 $`U=\mathbb R^p`$ 时成立），有效估计量精确服从高斯分布，plug-in 误差恰为 $`\sqrt{2/\pi}\,\sqrt{\Phi_c(A)}`$；在最优 design 处约为 $`0.80\,\mathfrak n_{K,n}`$。
 
 ## 相关工作
 
