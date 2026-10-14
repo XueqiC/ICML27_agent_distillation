@@ -4,21 +4,44 @@
 
 **核心问题.** 给定声明的任务、允许的实验和实际使用的学习过程，反馈来源之间的哪些差别会改变学生继续训练的结果？这些差别能否在有限预算内被识别、随着训练推进保持有效，并编译成合法的反馈？
 
-**统一的对象.** 在一个 checkpoint 上，[Theorem 3.2](statements/03-02_continuation_response_characterization_ZH.md#s3-2) 的 continuation response 定义了一个从反馈差异到声明测试的 *response operator*（[Definition 4.8](statements/04-08_response_operator_ZH.md#s4-8)）。它的奇异值按对测试的后果给反馈差异排序（[Theorem 4.9](statements/04-09_spectral_sufficiency_ZH.md#s4-9)，是 [Eckart & Young, 1936](#ref-eckart1936approximation) 的一个实例）。这个算子经过学习过程的下一步 predictive state 分解（[Proposition 4.12](statements/04-12_response_predictive_state_factorization_ZH.md#s4-12)）；现在充分的接口，继续训练之后未必仍然充分（[Proposition 4.11](statements/04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）。这些都是经典工具（低秩逼近、predictive state representation、value-directed compression）在完整学习过程上的应用；框架增加的是对后续训练充分性的形式化，以及这些工具与信息获取、编译、复用和成本的组合，并给出条件性保证。这是理论贡献；真实规模上的估计效率和方法收益尚待验证（[Remark 9.6](statements/09-06_contribution_units_prior_work_ZH.md#s9-6)）。
+**框架流程.** 框架从一个固定的蒸馏场景出发：一个预训练学生，每个任务族 $`K`$ 条可信示范，一份额外实验预算，以及一个固定的训练配方。它先问现有数据能否确定该怎么做，补上缺失的信息又要付出多少代价（§2）。接着，它把"反馈让学生学到什么"归结为 continuation response：收到一条消息、执行实际更新、再把训练走完之后的期望最终回报（§3）。在一个 checkpoint 上，这些 response 构成一个 response operator。它决定两个反馈来源需要在哪些统计量上一致，也决定这种一致在继续训练之后是否仍然成立（§4）。然后，框架对实际使用的 optimizer 算出反馈必须携带的统计量（§5），并依次回答三个问题：需要多少信息、投在哪个方向（Theorem A，§6）；一条消息怎样通过 Adam 的记忆起作用（Theorem B，§7）；怎样用有限次测量为一次选择出具证书，并在候选与 checkpoint 之间复用（Theorem C，§8）。最后，§9 把这些结果组装成方法 CED：先获取信息，再在合法反馈池内编译，按实测后果选择并认证。§9 还审计各结果依赖的假设，并说明证据覆盖了什么。
 
 **中心结果.**
 
-- **Theorem A（§6，learner-relative information bound）.** 对任何蒸馏器（包括 replay、改写、合成），最小可达的一阶误差由示范与查询关于一个学习器相关泛函的 Fisher information 决定。这个泛函的梯度 $`c=\sum_tJ_t^{*}g_t`$ 把学习器的 Jacobian 与任务的 continuation 梯度合在一起。在可辨识性与增长条件下，这个界在常数因子内可以由正则化的 Elfving c-optimal 查询设计达到（[Elfving, 1952](#ref-elfving1952optimum)），设计矩阵允许奇异。如果只有一个有限的合法反馈池，达到这个界的蒸馏器要额外付一项可实现性误差（[Proposition 6.14](statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14)），而一个信息—编译半径把"缺信息"和"反馈无法实现"区分开（[Proposition 6.16](statements/06-16_information_compilation_radius_ZH.md#s6-16)）。因此，同一批示范可以对一个学习器充分、对另一个不充分。
-- **Theorem B（§7，Adam 的记忆通道）.** 在 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）下，一条消息的一阶价值精确分解为参数通道、动量通道与二阶矩通道，costate 由一个精确的反向递推给出。两条可达的反馈可以给出完全相同的即时参数，后续却不同，所以只读即时参数变化的接口是不充分的（[Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6)）。闭式的幅度定律（[Corollary 7.2](statements/07-02_stationary_amplitude_law_ZH.md#s7-2)）只在受限的平稳 mean-field 模型中成立；它在真实模型上的预测没有得到支持。
-- **Theorem C（§8，可审计的证书）.** 对一轮训练做 common random numbers（CRN）配对替换（CRN 是模拟中经典的方差缩减手段，[Glasserman, 2004](#ref-glasserman2004monte)），可以直接测得一个反馈律的有限效应。由此得到的证书既不需要 continuation value 的梯度，也不需要曲率常数，半径只含统计项与 surrogate 校准项。§8 把它推广到有限目录、跨 checkpoint 共享的接口、双保真估计，以及一个组合保证。这些严格界都成立；但在目前测到的尺度上，它们是空的（vacuous）。诊断半径单独报告，并注明是诊断性的。
+**Theorem A · 学习器相对的信息界（§6）**
+- *目标泛函.* 数据必须携带关于一个学习器相关泛函的信息。这个泛函的梯度 $`c=\sum_tJ_t^{*}g_t`$ 把学习器的 Jacobian 与任务的 continuation 梯度合在一起。
+- *下界.* 对任何蒸馏器（包括 replay、改写、合成），最小可达的一阶误差由示范与查询关于这个泛函的 Fisher information 决定（[Theorem 6.3](statements/06-03_learner_relative_lower_bound_ZH.md#s6-3)）。
+- *可达.* 在可辨识性、增长、光滑性、尾部控制与有效估计的条件下，正则化的 Elfving c-optimal 查询设计（[Elfving, 1952](#ref-elfving1952optimum)）在常数因子内达到这个界，设计矩阵允许奇异（[Theorem 6.5](statements/06-05_achievability_ZH.md#s6-5)）。
+- *有限合法池.* 如果只有一个有限的合法反馈池，达到这个界的蒸馏器要额外付一项可实现性误差（[Proposition 6.14](statements/06-14_convex_realizability_legal_pool_ZH.md#s6-14)）。一个信息—编译半径把"缺信息"和"反馈无法实现"区分开（[Proposition 6.16](statements/06-16_information_compilation_radius_ZH.md#s6-16)）。
+- *含义.* 同一批示范可以对一个学习器充分，对另一个不充分。
 
-这三条建立在 §2–§5 的基础上：
-- regret 的精确分解，以及获取缺失信息的代价；
-- 以 continuation response 作为充分性的对象；
-- 充分性的复杂度（现在包括 response 谱与 predictive closure）；
-- 每种 optimizer 让反馈必须携带的统计量。
+**Theorem B · Adam 的记忆通道（§7）**
+- *精确分解.* 在 Adam（[Kingma & Ba, 2015](#ref-kingma2015adam)）下，一条消息的一阶价值精确分解为参数、动量、二阶矩三个通道，costate 由一个精确的反向递推给出。尾段的采样概率依赖学习器状态时，还要加一个采样项（[Theorem 7.1](statements/07-01_state_channel_decomposition_ZH.md#s7-1)）。
+- *即时参数不充分.* 两条可达的反馈可以给出完全相同的即时参数，后续却不同。所以，只读即时参数变化的接口是不充分的（[Proposition 7.6](statements/07-06_equal_immediate_parameters_different_continuation_ZH.md#s7-6)）。
+- *受限模型.* 闭式的幅度定律（[Corollary 7.2](statements/07-02_stationary_amplitude_law_ZH.md#s7-2)）只在受限的平稳 mean-field 模型中成立；它在真实模型上的预测没有得到支持。
 
-§9 由以上全部结果推出方法 CED，审计所依赖的假设，并说明证据覆盖了什么。
+**Theorem C · 可审计的证书（§8）**
+- *直接测量.* 对一轮训练做 common random numbers（CRN）配对替换，可以直接测得一个反馈律的有限效应。CRN 是模拟中经典的方差缩减手段（[Glasserman, 2004](#ref-glasserman2004monte)）。
+- *证书.* 这个证书既不需要 continuation value 的梯度，也不需要曲率常数，半径只含统计项与 surrogate 校准项（[Theorem 8.8](statements/08-08_crn_paired_replacement_certificate_ZH.md#s8-8)）。
+- *推广.* 同样的证书逻辑推广到有限目录、跨 checkpoint 共享的接口、锚点复用、双保真估计（[Propositions 8.12–8.15](statements/08-12_finite_catalog_spectral_certificate_ZH.md#s8-12)），以及对整次训练的一个组合保证（[Corollary 8.16](statements/08-16_composed_guarantee_ZH.md#s8-16)）。
+- *现状.* 这些严格界都成立，但在目前测到的尺度上是空的（vacuous）。诊断半径单独报告，并注明是诊断性的。
+
+**基础（§2–§5）**
+- *信息获取（§2）.* regret 精确分解为表示、信息、算法三项。信息缺口只能靠新的实验补上，代价大约是 $`\log(1/\delta)/\Delta^2`$ 次查询。
+- *充分性的对象（§3）.* 充分性的对象是 continuation response（[Theorem 3.2](statements/03-02_continuation_response_characterization_ZH.md#s3-2)），而不是 teacher 质量、策略价值或梯度均值。
+- *response operator 与闭合（§4）.*
+  - 在一个 checkpoint 上，response 定义一个从反馈差异到声明测试的 response operator（[Definition 4.8](statements/04-08_response_operator_ZH.md#s4-8)）。
+  - 它的奇异值按对测试的后果给反馈差异排序，这是 [Eckart & Young, 1936](#ref-eckart1936approximation) 的一个实例（[Theorem 4.9](statements/04-09_spectral_sufficiency_ZH.md#s4-9)）。
+  - 这个算子经过下一步 predictive state 分解（[Proposition 4.12](statements/04-12_response_predictive_state_factorization_ZH.md#s4-12)）。现在充分的接口，继续训练之后未必仍然充分（[Proposition 4.11](statements/04-11_static_not_dynamic_closure_error_ZH.md#s4-11)）。
+- *optimizer 统计量（§5）.* 每种 optimizer 都决定反馈必须携带的统计量。在一阶意义下，它是完整学习器状态（参数加 optimizer state）的平均增量。
+
+**方法与边界（§9）**
+- *方法.* 由以上全部结果推出方法 CED（[Algorithm 9.2](statements/09-02_ced_algorithm_ZH.md#s9-2)）。
+- *假设.* 通用恒等式、条件性定理和在真实模型上运行的方法，各自需要哪些假设，列在 [Remark 9.5](statements/09-05_assumption_audit_ZH.md#s9-5)。
+- *贡献的性质.*
+  - 所用工具是经典的：低秩逼近、predictive state representation、value-directed compression、CRN、最优设计。
+  - 框架增加的是对后续训练充分性的形式化，以及这些工具与信息获取、编译、复用和成本的组合，并给出条件性保证。这是理论贡献。
+  - 真实规模上的估计效率和方法收益尚待验证（[Remark 9.6](statements/09-06_contribution_units_prior_work_ZH.md#s9-6)）。
 
 **怎么读这一页.** 本页按"先整体、后局部"的顺序展开，类似广度优先搜索。
 
