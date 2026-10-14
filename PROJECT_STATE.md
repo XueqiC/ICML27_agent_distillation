@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **23:26 CDT 10-13: T1 optimizer-state transplant pilot SUBMITTED** (user approved "可以批" 23:00 CDT; prereg
+  docs/direction/2026-10-14_T1_optimizer_state_transplant_prereg_ZH.md, 776819b). Tree 58e46e0 (ICML27_runs/58e46e0; Codex code
+  train/transplant.py reviewed, CPU tests 35/35). Jobs: smoke 45867088 (0:50 limit; 4-update blocks, compose, 4-update post, scores)
+  → main 45867089 afterok (6:30; B0/B1 = first 100 updates of reference / A3_n100 from z10, compose T10/T01/T11, 6 posts of the
+  fixed reference plan 216→469, 7 surrogate40 scores, summary.json with the pre-registered verdict) → eval 45867090 afterok (dev300
+  for T00, T11). Out: $B/reports/runs/r03/{t1_smoke,t1,t1_eval}. Est. ~4.2 + 0.8 + 0.3 GPU-h; committed total ≈ 34 ≤ 40.
 - **22:5x CDT 10-13: user rebutted six points of my review2; I accept all six** (errata appended to review2):
   closure dim d does not imply p_train ≥ d (≥ ⌈d/p⌉ to span); R³ is the per-term |·|-sum certification scheme, not a lower bound
   (signed sum O(σ²R²/ε²); random factorial design also R²); R4 noise floor is that estimator's (paired U-statistic removes it,
