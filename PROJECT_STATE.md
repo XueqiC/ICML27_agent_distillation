@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:5x CDT 10-13: user rebutted six points of my review2; I accept all six** (errata appended to review2):
+  closure dim d does not imply p_train ≥ d (≥ ⌈d/p⌉ to span); R³ is the per-term |·|-sum certification scheme, not a lower bound
+  (signed sum O(σ²R²/ε²); random factorial design also R²); R4 noise floor is that estimator's (paired U-statistic removes it,
+  still vacuous at n=10–100); my "0.73–0.76" optimal-α threshold was an arithmetic error (forgot α²) → nested MFMC threshold
+  0.575 at c=0.1; R16 inner max over a box is convex maximisation (2^r vertices, r ≤ 6 → enumerable); warm-Adam Δv/v =
+  (1−β₂)(g²/v−1), not 0.1%. Also: keep strict bounds strict-but-vacuous; value-model route must compare with DR-OPE (Jiang–Li 2016).
+  User's priorities: (1) tighten certificate wording; (2) check whether R16 is feasible from existing logs; (3) warm-checkpoint
+  state transplant (2×2 m/v arms) + short-vs-full correlation; (4) cost lower bounds per explicit decision target; R2 as planned;
+  title "continued / post-checkpoint training". Findings: R1 jsonl keeps only per-(candidate, replica) aggregates over the 40
+  surrogate trajectories (geo_prob/per_token/per_traj/macro), no per-item outputs, and no logged "target feedback" for 𝓜 →
+  R16 not credible from current logs. continue_from_state restores the full optimizer.pt, so m/v transplant is mechanically easy.
 - **22:0x CDT 10-13: user shared the SECOND revision of that proposal** (docs/direction/2026-10-13_learning_response_framework_revision2_ZH.md,
   doc-dated 10-14; adds §3.4 shared/anchor reuse R1–R4, §3.5 multifidelity R5–R10, §4.4 bridge R=C·T (R11), §5.3 exact Adam memory
   counterexample + full AdamW adjoint R13–R15, §6.4 composed bound R19–R20, §8.5 information–compilation radius R16–R18, new neighbours
