@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:1x CDT 10-14: user "不是必要的都可以撤了" + "作业改小以后再并行提交".** Cancelled the whole IPR r5 chain (14 jobs,
+  45470256-69) and ETO tp6 dpo3/eval (45058904/05). ETO tp6 x3 45058903 had already COMPLETED (11 min) after the
+  BadConstraints fix; its output stays in place. Kept (necessary): R1 p2p4 x4 (p2p4-0 RUNNING since 13:01 CDT, GPU 100%),
+  R2 A1_n100/A3_n100 + evals, 4 held R2 arms (budget decision pending; note A2_n100/A2_n400/A3_n400 still have 1:30 limits),
+  T1. **T1 split into parallel stage jobs** (prereg addendum 2, tree a68f109, Python identical to 58e46e0, stub dry-run on rai):
+  smoke 45867088 (gate) → B0 45924339 / B1 45924340 / A0 45924341 → 6 arm jobs 45924342-47 (compose+post+score)
+  → summary 45924348 (CPU, hpg-milan); dev300 T00 45924349, T11 45924350. ~5.7 GPU-h; ~2 h wall-clock once slots free.
 - **12:0x CDT 10-14: pending requests resized to measured usage** (user: "我们以后申请的量应该按照实际估算"). sacct 10-01..10-14:
   1-GPU continuation jobs (r0/r1/r3/gradstats/pilot, 20 jobs) 1.0 busy core, peak RSS ~23G; evals (53) 1.8-2.2 cores, <=23G;
   IPR r4 sft 4.0 cores/24G; IPR/ETO explore 1.2-2.6 cores/<=15G; ETO 2-GPU DPO 2.0 cores, 99.5G; IPR 4-GPU DPO OOM at 160G.
