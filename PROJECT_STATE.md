@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **17:0x CDT 10-14: tunnel back (down 13:41–~17:00 CDT). R1 p2p4-0 45729774 COMPLETED 2:28:22 (limit 2:30), 32 P2 rows.**
+  Shards 0/2 are P2 (~4.3 min/item), 1/3 are P4; crn_tail has no resume, so shard 2 (45729776, 2:30) was cancelled before
+  start and resubmitted from its SubmitLine with --time=03:15:00 → **45950751**. Pending: p2p4-1 45729775, p2p4-2 45950751,
+  p2p4-3 45729777, R2 A1_n100/A3_n100, T1 smoke → stages (all QOSGrpGRES/Dependency; dept GPU full). README top reorganized
+  (d8a3452, user: framework-flow paragraph instead of 'unifying object'; central results as blocks).
 - **13:1x CDT 10-14: user "不是必要的都可以撤了" + "作业改小以后再并行提交".** Cancelled the whole IPR r5 chain (14 jobs,
   45470256-69) and ETO tp6 dpo3/eval (45058904/05). ETO tp6 x3 45058903 had already COMPLETED (11 min) after the
   BadConstraints fix; its output stays in place. Kept (necessary): R1 p2p4 x4 (p2p4-0 RUNNING since 13:01 CDT, GPU 100%),
