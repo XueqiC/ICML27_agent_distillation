@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **19:4x CDT 10-13: user shared a revision proposal "学习响应谱统一框架" (docs/direction/2026-10-13_learning_response_framework_revision_ZH.md,
+  based on snapshot 8658698) and asked for an assessment (novelty/completeness/rigor/generality). My review
+  (docs/direction/2026-10-13_learning_response_framework_review_ZH.md): rigor high (derivations checked; appendix script re-run PASS;
+  §11 evidence numbers match the repo), generality high but non-predictive, completeness medium (no estimation-cost theory, no
+  cross-checkpoint reuse, no separation vs LESS/TRAK), novelty low–medium (classical instantiations; Thm 4 = simulation lemma,
+  response matrix ≈ counterfactual datamodels; machine teaching uncovered in old and new). Flaw: §2.1 existence bound vacuous under
+  its own mixture measure (B²=2J → r+1 ≥ J/(2ε²)). Recommended: absorb the rigor fixes (assumption audit, Thm B → conditional + R3
+  negative, R0 prereg failure, Thm 4 into §8, singular-design Lemma 6.4, convex realizability); do not recentre the paper on the
+  response spectrum unless a learner-specific structural theorem or a cost-matched separation result is added. Awaiting the user.
 - **03:45 CDT 10-13: R2 A1_n100 45733057 TIMEOUT at its 1:30 limit (123/395 updates, no checkpoint) — R2 cost was underestimated ~8x.**
   Cause (engineering, not the method): an extra-pool update is token-matched (~515 supervised tokens) but each teacher label is a
   single Action turn (~8.5 supervised tokens) with the full student prefix, so one extra update = ~60 full-context forward/backward
