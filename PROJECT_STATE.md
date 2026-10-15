@@ -17,6 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **04:41 CDT 10-15: R1 p2p4-1 45729775 (P4) RUNNING since 04:31 CDT on c1107a-s15, GPU 78%, 3/32 rows at 04:40 (~3 min/item → ETA ~06:10 CDT, limit 2:30).** Still pending (QOSGrpGRES; both accounts full): p2p4-2 45950751, p2p4-3 45729777, R2 A1_n100/A3_n100, T1 smoke → stages.
 - **21:xx CDT 10-14: P1 empirical findings (user: 'empirical findings…以图的形式'), commit 3a627e6, docs/proposals/P1_empirical_findings*.md.**
   Existing data only: A AgentEvol Δ −54..+24 over 13 sets; B dose grid 11/12 runs below base at 36k–77k tokens (post-hoc window);
   C R1 static loss/grad 16–24× for P2 but post-clip update norms equal, P2≈P1>P3 (P2 interim 32/64); D K5s0 (no cool demo) cool
