@@ -17,6 +17,34 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **12:5x CDT 10-15: tunnel back (down ~05:40–12:49 CDT; user "vpn"/"恢复了"). 12 jobs COMPLETED overnight, all exit 0.**
+  - **R1 FULL 4-WAY PRE-REGISTERED RANKING (written before any R1 continuation): P2 > P1 > P4 > P3** (Ŝ, F_tilde_geo_prob,
+    B=2, δ=0.05; cross-run merge of p1p3-0..3 + p2p4-0..3, 256 rows, provenance/comparability checks passed, tail seeds equal per
+    replica; merge on rai CPU with HEAD crn_tail (cross-run mode 2f9e108); out $B/reports/runs/r03/r1/merge_all_F_tilde_{geo_prob,per_token}.json).
+    Per-token: P2 > P4 > P1 > P3 (only P1/P4 swap). Paired Ŝ (geo-prob): P2−P1 +0.00035 (40/64 >0, paired t 3.0), P2−P4 +0.00039
+    (46/64, t 4.0), P2−P3 +0.00172 (60/64, t 12), P1−P3 +0.00138 (57/64), P4−P3 +0.00134 (56/64), P4−P1 −0.00004 (31/64, t −0.4).
+    **No pair is certified under the 4-way merge**: diagnostic radii 0.0012–0.0019 (union over 6 pairs; P1−P3 was diagnostic-certified
+    in the 2-way merge at 0.00121, now 0.00169 > 0.00138); strict a-priori radius 0.49 (vacuous). Task certificate not asserted (α/ε_sur
+    uncalibrated). Predictions: P2 first ✓; P4−P1 within diagnostic radius ✓ (Cor 6.7); P3 between ✗ (P3 last). Static scores: grad-norm
+    mean P2 94 > P1 27 > P4 22 > P3 4.2 → same order as Ŝ(geo-prob); loss P2 2.05 > P4 0.23 > P1 0.21 > P3 0.13 → same order as per-token
+    Ŝ. So in R1 the static rankers order the 4 candidates like the certificate; they miss the magnitude (P2's 3.5× grad over P1 buys
+    1/4 of the P1−P3 gap). R1 continuation (3 arms ~14 GPU-h + evals) still exceeds the 40 cap → NOT submitted; needs the user.
+  - **R2 n=100 (dev300): A0 = cold p40 241/242, A1_n100 221, A3_n100 170. PRIMARY CRITERION FAILS IN THE OPPOSITE DIRECTION:**
+    A3−A1 = −51 (discordant 10 vs 61, exact McNemar p = 4.6e-10). A1 vs cold −20 (23 vs 43, p = .019/.013 vs servers a/b); A3 vs cold
+    −71 (p < 1e-11). Both evals passed the HF-equivalence check; 0 errors/overflow; all failures hit the 40-step limit. Per type
+    (cold_a/A1/A3): look_at 27/35/35, simple 62/60/54, clean 43/38/21, cool 36/23/7, heat 30/20/13, two 43/45/40. A3 inadmissible
+    1.39/episode vs 0.63 (A1), 0.61 (cold). Predicted (Prop 6.10 scale-free) A3 0.0464 < A1 0.0582 < A0 → observed order is the
+    reverse (Spearman on 3 arms = wrong sign; 7-arm criterion not computable, 4 arms held).
+    Mechanism evidence: reference part identical in A1/A3 (297 updates, same replaced indices, seed 1202); only the extra pool differs.
+    A3 water-filling (W∝d, k_s) put 56/100 queries in look_at (K20 coverage k=10, three bins k=0), 0 in clean, 5 heat, 12 cool; A1
+    spread 10–22 per type. Each of ~99 single-Action labels (~8.5 sup. tokens) is repeated ~60× (token-matched 515-token extra updates,
+    98 of 395 updates) → ~5,900 extra examples per arm; A3 extra-pool loss 0.194 vs A1 0.158. A3's drop is in the types it did NOT query
+    (clean −17, cool −16 vs A1) while its heavily queried type gains nothing over A1 (35 = 35): cross-cluster interference, i.e. the
+    state-owned / additive-coverage assumption of Props 6.10–6.11 fails badly on the real model (prereg already flagged it as a proxy).
+    Design confound (mine, same for all arms): replacement removes 25% of replay + heavy label repetition; A1 < cold says the insertion
+    scheme itself hurts at n=100. Held arms (A1_n400 45733059, A2_n100 61, A2_n400 63, A3_n400 67 + evals) stay held → user decision.
+  - T1: smoke, B0, B1, A0, T00 COMPLETED; T00p RUNNING since 12:45 CDT (GPU 100%); T10/T01/T11/N1 → summary → dev300 T00/T11 pending.
+  - GPU-h of jobs finished since 10-13 03:45: 18.35 (R1 shards 6.6, R2 A1/A3 + evals 9.6, T1 so far 2.1) → cumulative ≈ 33.6 + T1 rest ~2.6.
 - **04:41 CDT 10-15: R1 p2p4-1 45729775 (P4) RUNNING since 04:31 CDT on c1107a-s15, GPU 78%, 3/32 rows at 04:40 (~3 min/item → ETA ~06:10 CDT, limit 2:30).** Still pending (QOSGrpGRES; both accounts full): p2p4-2 45950751, p2p4-3 45729777, R2 A1_n100/A3_n100, T1 smoke → stages.
 - **21:xx CDT 10-14: P1 empirical findings (user: 'empirical findings…以图的形式'), commit 3a627e6, docs/proposals/P1_empirical_findings*.md.**
   Existing data only: A AgentEvol Δ −54..+24 over 13 sets; B dose grid 11/12 runs below base at 36k–77k tokens (post-hoc window);
