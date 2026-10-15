@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **21:xx CDT 10-14: P1 empirical findings (user: 'empirical findings…以图的形式'), commit 3a627e6, docs/proposals/P1_empirical_findings*.md.**
+  Existing data only: A AgentEvol Δ −54..+24 over 13 sets; B dose grid 11/12 runs below base at 36k–77k tokens (post-hoc window);
+  C R1 static loss/grad 16–24× for P2 but post-clip update norms equal, P2≈P1>P3 (P2 interim 32/64); D K5s0 (no cool demo) cool
+  0–3/25 through 400k tokens vs 7–13 with one demo; E AdamW memory share 0.72–1.00, ν 0.45–0.63 vs SGD 0.02–0.04, mw32 −13 @p40 p=.015.
+  Scripts analysis/p1_findings/{build_data,plot}.py (R1 rows + probe copied from hpg to scratchpad; rerun needs --r1-dir/--probe).
 - **19:xx CDT 10-14: two method proposals written (user: 'propose 两个ICML级别的方法'), commit 6ac88ba, docs/proposals/.**
   P1 RCD: shared flaws of all agent-distillation methods (static valuation / evidence-vs-processing + learner-blind
   allocation / parameter-snapshot learner) → one general fix over any baseline's generator; E1–E7, E1+E6 first (reuse z10/R1).
