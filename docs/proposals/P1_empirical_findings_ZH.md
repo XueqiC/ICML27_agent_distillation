@@ -2,7 +2,7 @@
 
 [English](P1_empirical_findings.md) · [Proposal 1（RCD）](P1_response_calibrated_distillation_ZH.md) · [理论框架](../../theoretical_framework/README_ZH.md)
 
-*状态：2026-10-14。本页所有数字都来自已经跑完的真实模型实验，没有为本页新跑任何计算。图和数字可以用 [`analysis/p1_findings/build_data.py`](../../analysis/p1_findings/build_data.py) 与 [`plot.py`](../../analysis/p1_findings/plot.py) 重新生成，数据快照在 [`figs/p1_findings_data.json`](figs/p1_findings_data.json)。每个 finding 都写明证据强度与局限；标为"中期"或"探索性"的数字不是预注册结论。*
+*状态：2026-10-15（Finding C 已包含 R1 的全部四个候选；R2 的结果在[最后一节](#not-yet)）。本页所有数字都来自已经跑完的真实模型实验，没有为本页新跑任何计算。图和数字可以用 [`analysis/p1_findings/build_data.py`](../../analysis/p1_findings/build_data.py) 与 [`plot.py`](../../analysis/p1_findings/plot.py) 重新生成，数据快照在 [`figs/p1_findings_data.json`](figs/p1_findings_data.json)。每个 finding 都写明证据强度与局限；标为"中期"或"探索性"的数字不是预注册结论。*
 
 ---
 
@@ -21,7 +21,7 @@
 |---|---|---|---|
 | [A](#finding-a) | 缺陷 1 · 价值 | 同一个"只保留成功轨迹"的规则，在 13 个 support set 上让结果变化 −54 到 +24 | 中强：效应远超噪声；但每组只有一个训练 seed |
 | [B](#finding-b) | 缺陷 1 + 3 | 同一批正确示范，训练早期让学生变差、之后才变好；拐点由学生训练到哪里决定 | 强：12 个 run 里 11 个出现；窗口是看过数据后划的 |
-| [C](#finding-c) | 缺陷 1（+ optimizer） | 静态"学习信号"大 24 倍的数据，实测后果并不更大；optimizer 先把三者的更新拉平了 | 中：只有一个状态、未校准的 surrogate，P2 只有一半副本 |
+| [C](#finding-c) | 缺陷 1（+ optimizer） | 静态信号最多差 22 倍，optimizer 把更新拉平，实测后果最多只差 0.0017；loss 最低的数据反而最差 | 中：只有一个状态、未校准的 surrogate，没有一对被认证 |
 | [D](#finding-d) | 缺陷 2 · 信息 | 示范里缺的任务类型，重复训练 40 万 token 也补不上；有 1 条示范，曲线就起来了 | cool 类型上强，look-at 类型上弱 |
 | [E](#finding-e) | 缺陷 3 · 时间 | 学生不只是参数：72–100% 的更新来自 optimizer 记忆，两个 batch 的作用不可加，只改 optimizer state 就让结果差 13 个任务 | (a)(b) 强；(c) 单 seed，p=0.015 |
 
@@ -100,49 +100,55 @@
 
 ## Finding C · 静态"学习信号"的大小不等于后果
 
-**一句话.** 在同一个学生状态上比较三类数据：按 loss 和梯度这类静态量，teacher 修正（P2）的学习信号是其他两类的 4 到 24 倍。但裁剪先把三者的更新拉成几乎一样大；实测后果 P2 与 replay（P1）相同，而 loss 最低、最"好学"的自生成成功轨迹（P3）反而最差。
+**一句话.** 在同一个学生状态上比较四类数据：它们的静态量最多相差 16 倍（loss）和 22 倍（梯度），但裁剪先把四者的更新拉成一样大，实测后果最多只差 0.0017。两派静态标准给出相反的次序："可学性"把次序完全排反，"信息量"排对了次序，却把大小估错了。
 
 **静态方法怎么想.**
 - "可学性"派（挑学生最熟悉、loss 最低的数据）选 P3。
-- "信息量"派（难例挖掘，或者在学生出错的地方纠正，DAgger/LEAP 的思路）选 P2，并预期它的效果远大于其他两类。
+- "信息量"派（难例挖掘，或者在学生出错的地方纠正，DAgger/LEAP 的思路）选 P2，并预期它的效果远大于其他几类。
+- teacher 改写（P4）看起来比单纯 replay 更好，因为 teacher 改进了推理文字。
 
 **实验设置.** 这是预注册的 R1（[Remark 9.4](../../theoretical_framework/statements/09-04_scope_of_evidence_ZH.md#s9-4)）。
 - 状态：$`z_{10}`$，即 K20 s0 Seed-SFT 的第 115 次更新（p10）的完整状态。
 - 测量：把下一次参照更新换成某个候选的一个 batch，再用 common random numbers 跑 10 次参照尾段更新。同一个副本内，各候选共享尾段 seed。然后用 surrogate $`\tilde F`$ 打分：40 条留出的 teacher 成功轨迹的几何平均 token 概率。
 - 候选与 baseline 家族的对应：
   - P1 = 重放 $`K=20`$ 条示范（BC/SFT）；
-  - P2 = teacher 在学生出错状态上的修正（DAgger/LEAP）；
-  - P3 = 环境验证成功的自生成轨迹（AgentEvol/RFT）。
-- 副本数：P1、P3 各 64 个。P2 目前只完成 64 个中的 32 个，是中期结果；剩下一半正在排队。
+  - P2 = teacher 在学生访问到的状态上的修正（DAgger/LEAP；600 次 teacher 调用得到 591 条修正）；
+  - P3 = 环境验证成功的自生成轨迹（AgentEvol/RFT）；
+  - P4 = 由 teacher 改写 thought、动作不变的 $`K=20`$ 条示范（改写/反思类方法）。
+- 副本数：每个候选 64 个。P1/P3 与 P2/P4 是两个独立作业，尾段 seed 相同；合并时检查两次运行可比（同一 checkpoint、代码、surrogate 与配方）。
 - 每个 batch 都记录三个静态量：学生 loss（token NLL）、裁剪前的梯度范数、裁剪后的参数更新范数。
 
 **结果.**
 
 ![Finding C](figs/p1_finding_C_r1.png)
 
-- **静态量**（P3 / P1 / P2）：
-  - 学生 loss：0.13 / 0.21 / 2.05；
-  - 裁剪前梯度范数：4.2 / 27.2 / 100.6；
-  - 裁剪后更新范数：0.0211 / 0.0217 / 0.0206（95–100% 的 batch 触发了裁剪）。
-- **实测后果**（相对 P1）：
-  - P3 为 −0.0014。64 个副本里只有 7 个高于 P1；超过诊断半径 0.0012，但严格半径是 0.325。
-  - P2 为 +0.0002 ± 0.0002（中期，32 个副本，18 个高于 P1），在噪声内。
+- **静态量**（P3 / P1 / P4 / P2）：
+  - 学生 loss：0.13 / 0.21 / 0.23 / 2.05；
+  - 裁剪前梯度范数：4 / 27 / 22 / 94；
+  - 裁剪后更新范数：0.0211 / 0.0217 / 0.0210 / 0.0207（95–100% 的 batch 触发了裁剪）。
+- **实测后果**（相对 P1，单位 $`10^{-3}`$）：
+  - P3：−1.38，64 个副本里 7 个高于 P1；
+  - P4：−0.04，31 个高于 P1；
+  - P2：+0.35，40 个高于 P1。
+  - 所以预注册的排序是 P2 > P1 > P4 > P3。换成 per-token 指标，只有 P1 与 P4 互换。
+  - 在四方合并下，没有一对超出它的诊断半径（1.2–1.9；半径同时覆盖全部 6 对）。严格半径是 0.49，没有信息量。
 - **三种静态标准的排序**：
-  - "可学性"给出 P3 > P1 > P2，与实测正好相反：P3 最差。
-  - "信息量"给出 P2 ≫ P1 > P3。次序部分一致，但量级完全不对：P2 的梯度是 P1 的 3.7 倍，实测却与 P1 没有差别。
-  - "来源"（teacher 来源优于学生自生成）在这里与实测一致。但它也是一个静态标准，这次碰巧对了；事先无法知道哪个静态标准会对。
+  - "可学性"（loss 最低者优先）给出 P3 > P1 > P4 > P2：与实测完全相反。
+  - "信息量"（梯度最大者优先）给出 P2 > P1 > P4 > P3：次序相同，但大小差得很远。从 P3 到 P1（梯度 4 → 27）值 1.38；从 P1 到 P2（27 → 94）只值 0.35，是前者的四分之一，而且没有被认证。
+  - "来源"（teacher 来源优于学生自生成）也一致。它同样是一个静态标准，这次碰巧对了；事先无法知道这几个标准里哪个会对。
+- **改写：** P4 改变了学生训练的文字，却没有改变"该做哪个动作"的信息，它的后果与 replay 相同。这正是 [Corollary 6.7](../../theoretical_framework/statements/06-07_aliasing_zero_value_replay_ZH.md#s6-7) 对后处理的预测。
 
 **为什么支持缺陷 1.**
 - 静态量描述的是这条数据"本身"有多大的信号，而后果要经过学习器才能确定。
-- 第一步，optimizer 就把信号重塑了：裁剪把三种很不一样的梯度变成同样大的更新，Adam 又按坐标归一化。
+- 第一步，optimizer 就把信号重塑了：裁剪把四种很不一样的梯度变成同样大的更新，Adam 又按坐标归一化。
 - 再往后，后果取决于状态与后续训练（[Theorem 3.2](../../theoretical_framework/statements/03-02_continuation_response_characterization_ZH.md#s3-2)）。
+- 即使次序对了，大小也要紧：决定买多少次 teacher 调用，要看后果有多大，而不是排第几。这里 600 次 teacher 调用换来的、相对免费 replay 的领先，只有 replay 与自生成数据之间差距的四分之一。
 
 **局限.**
-- surrogate 没有校准，而且按构造就偏向 teacher 来源的数据，因为它打分的是 teacher 轨迹的似然。所以 P3 的劣势可能有一部分来自 surrogate 的偏向。
-- 只有一个状态 $`z_{10}`$。
-- P2 是中期结果。
-- 只有诊断性的半径。
-- 任务层面的续训还没有跑。
+- surrogate 没有校准，而且按构造就偏向 teacher 来源的数据，因为它打分的是 teacher 轨迹的似然。所以 P3 的劣势和 P2 的领先，都可能有一部分来自这个偏向。
+- 只有一个状态 $`z_{10}`$，尾段只有 10 次更新。
+- 没有一对被认证，连诊断半径也没有。P2 − P1 的配对 $`t`$ 是 3.0，但这是正态近似，不是预注册的证书。
+- 预注册的任务层面续训还没有跑（超出了已批准的 GPU 预算）。在 R2 里（见[最后一节](#not-yet)），与 P2 同类的 teacher 动作混入完整续训后，dev300 比不查询低了 20 个任务。插入方式不同，所以这不是对 R1 的检验，但它提醒我们：surrogate 上的正负号不一定能搬到任务上。
 
 <a id="finding-d"></a>
 
@@ -174,7 +180,7 @@
 
 **局限.**
 - 只有 3 个自然出现的"缺一类"情形，其中 look-at 的样本小。
-- 我们还没有直接测改写与反思（P4 改写候选正在排队）。
+- 改写只在 surrogate 层面测过：Finding C 中，teacher 改写示范（P4）在一个状态上的后果与 replay 相同。
 - 理论上 heat、clean 的示范可以迁移到 cool，这里没有发生；这个事实只对这个学生和配方成立。
 - "所有剂量中的最好成绩"是在 dev 上挑最大值，偏乐观。
 
@@ -220,22 +226,32 @@
 
 ---
 
+<a id="not-yet"></a>
+
 ## 还没有被支持的部分，以及怎样补强
 
 | 缺陷的哪一部分 | 现状 | 补强实验 |
 |---|---|---|
-| 缺陷 2 · 新证据要按学习器分配 | 只有分配计划：在 24 个状态簇上，SGD 权重与 Adam 权重在 $`n=100`$ 和 $`n=400`$ 时分别把 57 个和 211 个状态送到不同的簇；还没有结果 | R2 正在运行（主判据已预注册） |
-| 缺陷 2 · 改写、反思补不了信息 | Finding D 只测了 replay | R1 的 P4（teacher 改写示范）正在排队；Proposal 1 的 E2 直接比较改写与等成本的新查询 |
+| 缺陷 2 · 新证据要按学习器分配 | **在 $`n=100`$ 时被否定.** 预注册的 R2 检验结果方向相反（见下文） | 测量跨簇的响应，而不是假设各簇独立；R2 其余 4 个臂暂停 |
+| 缺陷 2 · 改写、反思补不了信息 | 只在 surrogate 层面得到支持：一个状态上 P4 = replay（Finding C） | 任务层面的比较；Proposal 1 的 E2 直接比较改写与等成本的新查询 |
 | Finding A 中训练随机性的占比 | 每组一个训练 seed | 对 3 个 support set 各补 2 个训练 seed |
 | Finding B 的窗口是事后划的 | 一个训练 seed，checkpoint 稀 | 在 2–10 万 token 之间加密 checkpoint，并预注册窗口 |
-| Finding C 的 surrogate 偏向 | 未校准 | 跑完 P2、P4 的另一半副本；用全尾段任务评测校准 surrogate（Proposal 1 的 E1） |
+| Finding C 的 surrogate 偏向 | 未校准；4 个候选已全部完成，没有一对被认证 | 用全尾段任务评测校准 surrogate（R1 的续训；Proposal 1 的 E1） |
 | Finding D 的受控版本 | 只有自然实验 | 固定其余 4 条示范，只增减 1 条 cool 示范；再比较 cool 状态上的 teacher 查询与改写 5 条示范（等成本） |
 | Finding E(c) 的稳健性 | 单 seed | T1，以及 mw32 的第二个训练 seed |
+
+**R2，$`n=100`$：按学习器加权的分配更差，而不是更好.** 预注册见 [R0–R3 计划的附录 B](../direction/2026-10-12_real_model_R0-R3_prereg_ZH.md)。
+- *设置.* 每个臂从 $`z_{10}`$ 续训到 p40 的 token 预算。剩余更新中每 4 个有 1 个，把参照 batch 换成 teacher 在学生访问到的 100 个状态上给出的动作。这些状态按两种规则分到 24 个簇（任务类型 × 步数段）：A1 均匀分配；A3 用 warm Adam 权重 $`W_s\propto d(s)`$ 和示范覆盖 $`k_s`$ 做 water-filling。不查询的参照（A0）就是 cold p40。评测用 dev300（噪声参照：两台相同 server 之间有 15 题翻转）。
+- *预测.* A3 > A1 > A0，依据是 [Proposition 6.10](../../theoretical_framework/statements/06-10_water_filling_allocation_ZH.md#s6-10) 的预测误差 0.046 < 0.058。
+- *结果.* A0 241，A1 221，A3 170。A3 − A1 = −51（不一致任务 10 对 61，McNemar $`p=5\times10^{-10}`$）；A1 − A0 = −20（$`p=0.02`$）。正负号和次序都与预测相反。
+- *错在哪里.* A1 与 A3 训练中的参照部分完全相同，只有那 100 个被查询的状态不同。A3 把 100 次查询中的 56 次放在 look-at 任务上（示范覆盖最少的地方），clean 任务上一次也没有。look-at 的成功数并没有高过 A1（35 对 35）；clean、cool、heat 的成功数却掉了（从 A1 的 38/23/20 掉到 A3 的 21/7/13），而 A3 在这几类上几乎没花查询。查询改变的是它们根本没碰过的簇。
+- *意味着什么.* [Proposition 6.10–6.11](../../theoretical_framework/statements/06-11_learner_weights_sgd_warm_adam_ZH.md#s6-11) 假设每个簇有自己的参数，于是一次查询只降低它所在簇的误差。预注册时已经写明，这个假设在真实模型上不成立，闭式只当 proxy 用。结果说明这个偏差并不小：跨簇的作用占了主导。所以按学习器分配必须测量跨簇的响应（Proposal 1 的 D2 用 CRN 测量正是这样做），而不能用闭式权重。还有一个对所有臂都成立的混杂因素：约 100 条单动作标签每条重复约 60 次，A1 < A0 说明这种插入方式本身就有害。
 
 ## 数据来源
 
 - dev140 评测：hpg 上 `$B/reports/runs/eval/{seedsft-sweep-bi*, baselines}` 的 rai 副本（`reports/runs/eval/hpg-*`）。
-- R1：`$B/reports/runs/r03/r1/{p1p3-*.jsonl, p2p4-0.jsonl, merge_p1p3_*.json}`。
+- R1：`$B/reports/runs/r03/r1/{p1p3-*.jsonl, p2p4-*.jsonl, merge_all_F_tilde_*.json}`。
+- R2：`$B/reports/runs/r03/r2/{A1_n100, A3_n100, eval_A1_n100, eval_A3_n100}`，分配结果在 `$B/reports/runs/r03/allocations_scalefree/`；不查询的参照是 dev300 上的 cold p40（`$B/reports/runs/r03/noise/{a,b}`）。
 - Adam probe：`$B/reports/runs/pilot-warm-1010/probe/cold.json`。
 - 只记在 `notes/exp_log.md` 里的数字，在 `build_data.py` 中逐条注明出处：pilot-warm-1010 的配对计数、LEAP $`K=50/100`$ 的逐轮结果，以及 ETO 起点为 p40 时的 loss 与梯度。
 

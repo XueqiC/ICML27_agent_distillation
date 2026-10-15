@@ -12,8 +12,8 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 FIGS = os.path.join(REPO, 'docs', 'proposals', 'figs')
 D = json.load(open(os.path.join(FIGS, 'p1_findings_data.json')))
 
-# Palette: dataviz reference instance (validated: categorical slots 1-3 light; blue ordinal ramp; blue<->red diverging)
-BLUE, ORANGE, AQUA = '#2a78d6', '#eb6834', '#1baf7a'
+# Palette: dataviz reference instance (validated: categorical slots 1-4 light; blue ordinal ramp; blue<->red diverging)
+BLUE, ORANGE, AQUA, YELLOW = '#2a78d6', '#eb6834', '#1baf7a', '#eda100'
 UP, DOWN, NEUTRAL = '#2a78d6', '#e34948', '#8a8984'
 INK, INK2, GRID, SURFACE = '#0b0b0b', '#52514e', '#e4e3df', '#fcfcfb'
 RAMP = {5: '#86b6ef', 10: '#5598e7', 20: '#2a78d6', 50: '#1c5cab', 100: '#104281'}
@@ -120,47 +120,48 @@ def fig_b():
 # Finding C: static size of the learning signal versus the measured consequence (R1, state z10) ----------------------
 def fig_c():
     st = D['r1']['static']
-    cands = ['P3', 'P1', 'P2']
+    cands = ['P3', 'P1', 'P4', 'P2']
     names = {'P1': 'P1 replay of\nK=20 demos', 'P2': 'P2 teacher corrections\non student states',
-             'P3': 'P3 self-generated\nsuccesses'}
-    cols = {'P1': BLUE, 'P2': ORANGE, 'P3': AQUA}
-    fig, axes = plt.subplots(1, 4, figsize=(17, 5.4), gridspec_kw={'width_ratios': [1, 1, 1, 1.5]})
+             'P3': 'P3 self-generated\nsuccesses', 'P4': 'P4 teacher rewrites\nof the demos'}
+    cols = {'P1': BLUE, 'P2': ORANGE, 'P3': AQUA, 'P4': YELLOW}
+    fig, axes = plt.subplots(1, 4, figsize=(18, 5.6), gridspec_kw={'width_ratios': [1, 1, 1, 1.6]})
     panels = [('student_loss', '(a) student loss\n(token NLL)', '{:.2f}'),
-              ('pre_clip_grad_norm', '(b) gradient norm\nbefore clipping', '{:.1f}'),
-              ('update_norm', '(c) parameter update norm\nafter clipping', '{:.4f}')]
+              ('pre_clip_grad_norm', '(b) gradient norm\nbefore clipping', '{:.0f}'),
+              ('update_norm', '(c) parameter update norm\nafter clipping', '{:.3f}')]
     for ax, (key, title, fmt) in zip(axes[:3], panels):
         vals = [st[c][key] for c in cands]
-        ax.bar(range(3), vals, color=[cols[c] for c in cands], width=0.65)
+        ax.bar(range(4), vals, color=[cols[c] for c in cands], width=0.68)
         for i, v in enumerate(vals):
-            ax.text(i, v, fmt.format(v), ha='center', va='bottom', fontsize=13)
-        ax.set_xticks(range(3), cands)
+            ax.text(i, v, fmt.format(v), ha='center', va='bottom', fontsize=12)
+        ax.set_xticks(range(4), cands)
         ax.set_title(title)
         ax.set_ylim(0, max(vals) * 1.22)
     ax = axes[3]
     pr = D['r1']['paired']
-    rows = [('P3', pr['F_tilde_geo_prob:P3-P1']), ('P1', None), ('P2', pr['F_tilde_geo_prob:P2-P1'])]
-    for i, (c, p) in enumerate(rows):
-        if p is None:
+    radii = D['r1']['merge_all_geo_prob_vs_P1']
+    for i, c in enumerate(cands):
+        if c == 'P1':
             ax.scatter([i], [0], color=cols[c], s=90, zorder=3)
+            ax.text(i, 0.25, 'reference', ha='center', va='bottom', fontsize=12, color=INK2)
             continue
+        p = pr[f'F_tilde_geo_prob:{c}-P1']
+        r = radii[f'{c}-P1']['radius_observed_range_DIAGNOSTIC'] * 1e3  # plotted in units of 1e-3
+        ax.add_patch(plt.Rectangle((i - 0.32, -r), 0.64, 2 * r, color=NEUTRAL, alpha=0.18, linewidth=0, zorder=1))
         jitter = [(j % 9 - 4) * 0.035 for j in range(len(p['Z']))]
-        ax.scatter([i + t for t in jitter], p['Z'], color=cols[c], s=16, alpha=0.45, zorder=2)
-        ax.errorbar([i], [p['mean']], yerr=[2 * p['se']], color=INK, capsize=7, marker='D', markersize=8, zorder=4,
-                    linewidth=2)
-        note = '\n(interim: half)' if c == 'P2' else ''
-        ax.text(i + 0.18, p['mean'], f"{p['mean']:+.4f}\n{len(p['Z'])} replicas{note}", va='center', fontsize=12)
-    radius = D['r1']['merge_p1p3_geo_prob']['radius_observed_range_DIAGNOSTIC']
-    ax.axhspan(-radius, radius, color=NEUTRAL, alpha=0.15, linewidth=0)
-    ax.text(2.85, radius + 0.0001, 'diagnostic radius\n(P3 vs P1, 64 replicas)', ha='right', va='bottom', fontsize=11,
-            color=INK2)
+        ax.scatter([i + t for t in jitter], [z * 1e3 for z in p['Z']], color=cols[c], s=16, alpha=0.45, zorder=2)
+        ax.errorbar([i], [p['mean'] * 1e3], yerr=[2 * p['se'] * 1e3], color=INK, capsize=7, marker='D', markersize=8,
+                    zorder=4, linewidth=2)
+        ax.text(i + 0.2, p['mean'] * 1e3, f"{p['mean'] * 1e3:+.2f}\n{p['positive']}/64 > 0", va='center', fontsize=11)
+    ax.text(3.95, -3.2, 'grey box: diagnostic radius of that pair\n(4-way merge); no pair is outside it', ha='right',
+            va='bottom', fontsize=11, color=INK2)
     ax.axhline(0, color=INK2, linewidth=1.2)
-    ax.set_xticks(range(3), cands)
-    ax.set_xlim(-0.5, 2.9)
-    ax.set_ylabel('surrogate score minus P1\n(paired by tail seed)')
-    ax.set_title('(d) measured consequence at z10\n(CRN replacement, 10-update tail)')
+    ax.set_xticks(range(4), cands)
+    ax.set_xlim(-0.5, 4.0)
+    ax.set_ylabel('surrogate score minus P1, ×10⁻³\n(paired by tail seed)')
+    ax.set_title('(d) measured consequence at z10\n(CRN replacement, 10-update tail, 64 replicas)')
     handles = [plt.Line2D([], [], color=cols[c], marker='s', linestyle='', markersize=12, label=names[c].replace('\n', ' '))
-               for c in ['P1', 'P2', 'P3']]
-    fig.legend(handles=handles, loc='lower center', ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.06))
+               for c in ['P1', 'P2', 'P3', 'P4']]
+    fig.legend(handles=handles, loc='lower center', ncol=4, frameon=False, bbox_to_anchor=(0.5, -0.06))
     fig.tight_layout(rect=(0, 0.06, 1, 1))
     save(fig, 'p1_finding_C_r1')
 

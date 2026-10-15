@@ -2,7 +2,7 @@
 
 [中文版](P1_empirical_findings_ZH.md) · [Proposal 1 (RCD)](P1_response_calibrated_distillation.md) · [Theoretical framework](../../theoretical_framework/README.md)
 
-*Status: 2026-10-14. Every number on this page comes from real-model experiments that have already finished; nothing was run for this page. The figures and numbers can be regenerated with [`analysis/p1_findings/build_data.py`](../../analysis/p1_findings/build_data.py) and [`plot.py`](../../analysis/p1_findings/plot.py), and the data snapshot is [`figs/p1_findings_data.json`](figs/p1_findings_data.json). Each finding states its strength of evidence and its limits; numbers marked "interim" or "exploratory" are not pre-registered conclusions.*
+*Status: 2026-10-15 (Finding C now has all four R1 candidates; the R2 result is in the [last section](#not-yet)). Every number on this page comes from real-model experiments that have already finished; nothing was run for this page. The figures and numbers can be regenerated with [`analysis/p1_findings/build_data.py`](../../analysis/p1_findings/build_data.py) and [`plot.py`](../../analysis/p1_findings/plot.py), and the data snapshot is [`figs/p1_findings_data.json`](figs/p1_findings_data.json). Each finding states its strength of evidence and its limits; numbers marked "interim" or "exploratory" are not pre-registered conclusions.*
 
 ---
 
@@ -21,7 +21,7 @@
 |---|---|---|---|
 | [A](#finding-a) | Flaw 1 · value | One "keep only successful trajectories" rule changes the outcome by −54 to +24 tasks across 13 support sets | Medium-strong: effects far beyond noise; one training seed per set |
 | [B](#finding-b) | Flaws 1 + 3 | The same correct demonstrations first make the student worse, then better; where the turn happens is set by how far the student has trained | Strong: 11 of 12 runs; the window was drawn after seeing the data |
-| [C](#finding-c) | Flaw 1 (+ optimizer) | Data with a 24× larger static "learning signal" has no larger measured consequence; the optimizer first equalizes the three updates | Medium: one state, an uncalibrated surrogate, half the P2 replicas |
+| [C](#finding-c) | Flaw 1 (+ optimizer) | Static signals differ by up to 22×, the optimizer equalizes the updates, and the measured consequences differ by at most 0.0017; the lowest-loss data comes out worst | Medium: one state, an uncalibrated surrogate, no pair certified |
 | [D](#finding-d) | Flaw 2 · information | A task type missing from the demonstrations stays at base level through 400k tokens of training; one demonstration of it makes it rise | Strong on cool tasks, weak on look-at tasks |
 | [E](#finding-e) | Flaw 3 · time | The student is more than its parameters: 72–100% of each update comes from optimizer memory, the effects of two batches do not add, and changing only the optimizer state moves the outcome by 13 tasks | (a)(b) strong; (c) one seed, p = 0.015 |
 
@@ -100,49 +100,55 @@ The three flaws are defined in [Proposal 1, §3](P1_response_calibrated_distilla
 
 ## Finding C · The size of a static "learning signal" is not the consequence
 
-**In one sentence.** At one student state we compared three kinds of data. By static quantities such as loss and gradient, teacher corrections (P2) carry 4 to 24 times the learning signal of the other two. But clipping first makes all three updates almost the same size. The measured consequence of P2 equals that of replay (P1), and the self-generated successes with the lowest loss, the most "learnable" data (P3), come out worst.
+**In one sentence.** At one student state we compared four kinds of data. Their static quantities differ by up to 16× (loss) and 22× (gradient), but clipping first makes all four updates the same size, and the measured consequences differ by at most 0.0017. The two static schools give opposite orders: "learnability" gets the order exactly backwards, and "informativeness" gets the order right but the sizes wrong.
 
 **What the static view expects.**
 - The "learnability" school (pick the data the student finds most familiar, i.e. lowest loss) chooses P3.
-- The "informativeness" school (hard-example mining, or correcting the student where it errs, as in DAgger/LEAP) chooses P2 and expects it to have a far larger effect than the other two.
+- The "informativeness" school (hard-example mining, or correcting the student where it errs, as in DAgger/LEAP) chooses P2 and expects it to have a far larger effect than the others.
+- Teacher rewrites (P4) look like better data than plain replay, because the teacher has improved the reasoning text.
 
 **Setting.** This is the pre-registered R1 ([Remark 9.4](../../theoretical_framework/statements/09-04_scope_of_evidence.md#s9-4)).
 - State: $`z_{10}`$, the complete state at update 115 (p10) of the K20 s0 Seed-SFT run.
 - Measurement: replace the next reference update by one batch of a candidate, then run 10 reference tail updates with common random numbers. Within a replica, all candidates share the tail seed. The result is scored by the surrogate $`\tilde F`$, the geometric-mean token probability of 40 held-out teacher successes.
 - Candidates and the baseline families they stand for:
   - P1 = replay of the $`K=20`$ demonstrations (BC/SFT);
-  - P2 = teacher corrections at the student's failure states (DAgger/LEAP);
-  - P3 = environment-verified self-generated successes (AgentEvol/RFT).
-- Replicas: 64 each for P1 and P3. P2 has 32 of its 64 replicas so far, so its numbers are interim; the other half is queued.
+  - P2 = teacher corrections at the states the student visits (DAgger/LEAP; 591 corrections from 600 teacher calls);
+  - P3 = environment-verified self-generated successes (AgentEvol/RFT);
+  - P4 = the $`K=20`$ demonstrations with their thoughts rewritten by the teacher, actions unchanged (rewriting/reflection methods).
+- Replicas: 64 per candidate. P1/P3 and P2/P4 ran as two separate jobs with the same tail seeds; the merge checks that the two runs are comparable (same checkpoint, code, surrogate and recipe).
 - Three static quantities are recorded for every batch: the student loss (token NLL), the gradient norm before clipping, and the parameter update norm after clipping.
 
 **Results.**
 
 ![Finding C](figs/p1_finding_C_r1.png)
 
-- **Static quantities** (P3 / P1 / P2):
-  - student loss: 0.13 / 0.21 / 2.05;
-  - gradient norm before clipping: 4.2 / 27.2 / 100.6;
-  - update norm after clipping: 0.0211 / 0.0217 / 0.0206 (clipping was active on 95–100% of batches).
-- **Measured consequence** (relative to P1):
-  - P3 is −0.0014, with only 7 of 64 replicas above P1. This exceeds the diagnostic radius 0.0012, while the strict radius is 0.325.
-  - P2 is +0.0002 ± 0.0002 (interim, 32 replicas, 18 above P1), within noise.
+- **Static quantities** (P3 / P1 / P4 / P2):
+  - student loss: 0.13 / 0.21 / 0.23 / 2.05;
+  - gradient norm before clipping: 4 / 27 / 22 / 94;
+  - update norm after clipping: 0.0211 / 0.0217 / 0.0210 / 0.0207 (clipping was active on 95–100% of batches).
+- **Measured consequence** (relative to P1, in units of $`10^{-3}`$):
+  - P3: −1.38, with 7 of 64 replicas above P1;
+  - P4: −0.04, with 31 of 64 above P1;
+  - P2: +0.35, with 40 of 64 above P1.
+  - The pre-registered ranking is therefore P2 > P1 > P4 > P3. On the per-token metric only P1 and P4 swap.
+  - No pair lies outside its diagnostic radius in the 4-way merge (1.2–1.9; the radius covers all 6 pairs at once). The strict radius is 0.49, i.e. vacuous.
 - **Rankings by three static criteria:**
-  - Learnability gives P3 > P1 > P2, exactly opposite to the measurement: P3 comes out worst.
-  - Informativeness gives P2 ≫ P1 > P3. The order partly agrees, but the magnitude is completely off: P2's gradient is 3.7 times P1's, yet the measured consequence is no different.
-  - Source (teacher-sourced over self-generated) agrees with the measurement here. It is also a static criterion that happened to be right this time; there is no way to know in advance which static criterion will be right.
+  - Learnability (lowest loss first) gives P3 > P1 > P4 > P2: exactly the reverse of the measurement.
+  - Informativeness (largest gradient first) gives P2 > P1 > P4 > P3: the same order, but the sizes are far off. Going from P3 to P1 (gradient 4 → 27) is worth 1.38; going from P1 to P2 (27 → 94) is worth 0.35, a quarter of that, and not certified.
+  - Source (teacher-sourced over self-generated) also agrees. It is a static criterion that happened to be right here; there is no way to know in advance which of these will be right.
+- **Rewriting:** P4 changes the text the student trains on but not the information about which action to take, and its consequence equals that of replay. This is what [Corollary 6.7](../../theoretical_framework/statements/06-07_aliasing_zero_value_replay.md#s6-7) predicts for post-processing.
 
 **Why this supports Flaw 1.**
 - Static quantities describe how large a signal the data carries in itself; the consequence is only settled after the data passes through the learner.
-- In the very first step, the optimizer reshapes the signal: clipping turns three very different gradients into equally sized updates, and Adam then normalizes per coordinate.
+- In the very first step, the optimizer reshapes the signal: clipping turns four very different gradients into equally sized updates, and Adam then normalizes per coordinate.
 - After that, the consequence depends on the state and on the rest of training ([Theorem 3.2](../../theoretical_framework/statements/03-02_continuation_response_characterization.md#s3-2)).
+- The sizes matter even when the order is right: deciding how many teacher calls to buy needs the size of the consequence, not its rank. Here 600 teacher calls bought a lead over free replay that is a quarter of the gap between replay and self-generated data.
 
 **Limits.**
-- The surrogate is uncalibrated and favours teacher-sourced data by construction, since it scores the likelihood of teacher trajectories. Part of P3's deficit may come from that bias.
-- Only one state, $`z_{10}`$.
-- P2 is interim.
-- Only diagnostic radii are available.
-- Task-level continuations have not been run yet.
+- The surrogate is uncalibrated and favours teacher-sourced data by construction, since it scores the likelihood of teacher trajectories. Part of P3's deficit, and part of P2's lead, may come from that bias.
+- Only one state, $`z_{10}`$, and a 10-update tail.
+- No pair is certified, even by the diagnostic radius. The paired $`t`$ of P2 − P1 is 3.0, but that is a normal approximation and was not the pre-registered certificate.
+- The pre-registered task-level continuations have not been run (they exceed the approved GPU budget). In R2 ([last section](#not-yet)), teacher actions of the same kind as P2, mixed into a full continuation, lowered dev300 by 20 tasks relative to no queries. The insertion scheme is different, so this is not a test of R1, but it is a warning that the surrogate's sign need not carry over to tasks.
 
 <a id="finding-d"></a>
 
@@ -174,7 +180,7 @@ The three flaws are defined in [Proposal 1, §3](P1_response_calibrated_distilla
 
 **Limits.**
 - There are only 3 natural "missing type" cases, and the look-at sample is small.
-- Rewriting and reflection have not been tested directly yet (the P4 rewrite candidate is queued).
+- Rewriting was tested only at the surrogate level: in Finding C, teacher rewrites of the demonstrations (P4) have the same consequence as replay at one state.
 - Demonstrations of heat or clean tasks could in principle transfer to cool; that did not happen here, and the fact holds for this student and recipe.
 - "Best result over all doses" picks a maximum on dev, so it is optimistic.
 
@@ -220,22 +226,32 @@ The three flaws are defined in [Proposal 1, §3](P1_response_calibrated_distilla
 
 ---
 
+<a id="not-yet"></a>
+
 ## What is not supported yet, and how to strengthen it
 
 | Part of a flaw | Status | Strengthening experiment |
 |---|---|---|
-| Flaw 2 · new evidence should be allocated by learner | Only the allocation plans: over 24 state clusters, SGD weights and Adam weights send 57 (at $`n=100`$) and 211 (at $`n=400`$) states to different clusters; no outcomes yet | R2 is running (primary criterion pre-registered) |
-| Flaw 2 · rewriting and reflection add no information | Finding D tests only replay | R1's P4 (teacher rewrites of demonstrations) is queued; Proposal 1's E2 compares rewrites with new queries at equal cost |
+| Flaw 2 · new evidence should be allocated by learner | **Contradicted at $`n=100`$.** The pre-registered R2 test went the opposite way (see below) | Measure the response across clusters instead of assuming clusters are independent; the 4 remaining R2 arms are on hold |
+| Flaw 2 · rewriting and reflection add no information | Supported at the surrogate level only: P4 = replay at one state (Finding C) | Task-level comparison; Proposal 1's E2 compares rewrites with new queries at equal cost |
 | Finding A · how much is training randomness | One training seed per set | Two more training seeds for each of 3 support sets |
 | Finding B · the window was drawn after the fact | One training seed, sparse checkpoints | Denser checkpoints between 20k and 100k tokens, with the window pre-registered |
-| Finding C · surrogate bias | Uncalibrated | Finish the other half of P2 and P4; calibrate the surrogate with full-tail task evaluations (Proposal 1's E1) |
+| Finding C · surrogate bias | Uncalibrated; all 4 candidates done, no pair certified | Calibrate the surrogate with full-tail task evaluations (the R1 continuations; Proposal 1's E1) |
 | Finding D · a controlled version | Only a natural experiment | Hold the other 4 demonstrations fixed and add or remove one cool demonstration; then compare teacher queries on cool states with rewrites of the 5 demonstrations at equal cost |
 | Finding E(c) · robustness | One seed | T1, and a second training seed for mw32 |
+
+**R2 at $`n=100`$: learner-weighted allocation did worse, not better.** Pre-registered in [Appendix B of the R0–R3 plan](../direction/2026-10-12_real_model_R0-R3_prereg_ZH.md).
+- *Setting.* Starting from $`z_{10}`$, each arm continues to the p40 token budget. In one of every four remaining updates, the reference batch is replaced by teacher actions at 100 states the student visits. The states are spread over 24 clusters (task type × step range) by one of two rules: A1 spreads them uniformly; A3 uses water-filling with the warm-Adam weight $`W_s\propto d(s)`$ and the demonstrations' coverage $`k_s`$. The no-query reference (A0) is the cold p40. Evaluation is dev300 (noise reference: 15 tasks flip between two identical servers).
+- *Prediction.* A3 > A1 > A0, from the predicted errors 0.046 < 0.058 of [Proposition 6.10](../../theoretical_framework/statements/06-10_water_filling_allocation.md#s6-10).
+- *Result.* A0 241, A1 221, A3 170. A3 − A1 = −51 (10 vs 61 discordant tasks, McNemar $`p=5\times10^{-10}`$); A1 − A0 = −20 ($`p=0.02`$). Both the sign and the order are the reverse of the prediction.
+- *Where it went wrong.* The reference part of training is identical in A1 and A3; only the 100 queried states differ. A3 put 56 of its 100 queries into look-at tasks (where the demonstrations cover least) and none into clean tasks. Look-at success did not rise above A1 (35 vs 35). Clean, cool and heat success fell (from 38/23/20 under A1 to 21/7/13 under A3), although A3 spent few or no queries there. The queries moved results in clusters they never touched.
+- *What it means.* [Propositions 6.10–6.11](../../theoretical_framework/statements/06-11_learner_weights_sgd_warm_adam.md#s6-11) assume each cluster owns its parameters, so that a query only reduces the error of its own cluster. The pre-registration already said this assumption fails on a real model and treated the closed form as a proxy. The result shows the failure is not small: the cross-cluster effects dominate. A learner-relative allocation therefore has to measure the response across clusters, as Proposal 1's D2 does with the CRN measurement, instead of using a closed-form weight. One more confound applies to every arm: each of the ~100 single-action labels is repeated about 60 times, and A1 < A0 shows the insertion scheme itself hurts.
 
 ## Data sources
 
 - dev140 evaluations: rai copies (`reports/runs/eval/hpg-*`) of `$B/reports/runs/eval/{seedsft-sweep-bi*, baselines}` on hpg.
-- R1: `$B/reports/runs/r03/r1/{p1p3-*.jsonl, p2p4-0.jsonl, merge_p1p3_*.json}`.
+- R1: `$B/reports/runs/r03/r1/{p1p3-*.jsonl, p2p4-*.jsonl, merge_all_F_tilde_*.json}`.
+- R2: `$B/reports/runs/r03/r2/{A1_n100, A3_n100, eval_A1_n100, eval_A3_n100}`, allocations in `$B/reports/runs/r03/allocations_scalefree/`; the no-query reference is the cold p40 on dev300 (`$B/reports/runs/r03/noise/{a,b}`).
 - Adam probe: `$B/reports/runs/pilot-warm-1010/probe/cold.json`.
 - Numbers recorded only in `notes/exp_log.md` are cited line by line in `build_data.py`: the paired counts of pilot-warm-1010, LEAP's per-iteration results at $`K=50/100`$, and ETO's loss and gradient when started from p40.
 

@@ -2,7 +2,7 @@
 
 Inputs
 - reports/runs/eval/...: rai copies of the hpg dev140 evaluations (Seed-SFT sweep, AgentGym BC/AgentEvol).
-- --r1-dir: R1 rows copied from $B/reports/runs/r03/r1 (p1p3-*.jsonl, p2p4-0.jsonl, merge_p1p3_*.json).
+- --r1-dir: R1 rows copied from $B/reports/runs/r03/r1 (p1p3-*.jsonl, p2p4-*.jsonl, merge_all_F_tilde_geo_prob.json).
 - --probe: $B/reports/runs/pilot-warm-1010/probe/cold.json (Adam response probe).
 Numbers that exist only in notes/exp_log.md (paired counts of pilot-warm-1010, LEAP K50/K100) are copied below with
 their log line, not recomputed.
@@ -105,7 +105,8 @@ def leap():
 
 def r1(r1_dir):
     rows = [json.loads(line) for f in sorted(glob.glob(os.path.join(r1_dir, 'p1p3-*.jsonl'))) +
-            [os.path.join(r1_dir, 'p2p4-0.jsonl')] for line in open(f)]
+            sorted(glob.glob(os.path.join(r1_dir, 'p2p4-*.jsonl'))) for line in open(f)]
+    assert len(rows) == 256, len(rows)  # 4 candidates x 64 replicas
     by = {(r['candidate_id'], r['replica']): r for r in rows}
     static = {}
     for c in sorted({c for c, _ in by}):
@@ -119,15 +120,19 @@ def r1(r1_dir):
                      'clip_active': st.mean(1.0 if m['clip_active'] else 0.0 for m in msgs)}
     paired = {}
     for metric in ['F_tilde_geo_prob', 'F_tilde_per_token']:
-        for k in ['P3', 'P2']:
+        for k in ['P3', 'P4', 'P2']:
             reps = sorted(r for c, r in by if c == k)
             assert all(by[('P1', r)]['tail_seed'] == by[(k, r)]['tail_seed'] for r in reps)
             z = [by[(k, r)][metric] - by[('P1', r)][metric] for r in reps]  # candidate minus replay
             paired[f'{metric}:{k}-P1'] = {'replicas': reps, 'Z': z, 'mean': st.mean(z),
                                           'se': st.stdev(z) / math.sqrt(len(z)), 'positive': sum(v > 0 for v in z)}
-    merge = json.load(open(os.path.join(r1_dir, 'merge_p1p3_F_tilde_geo_prob.json')))['pairs'][0]
-    return {'static': static, 'paired': paired,
-            'merge_p1p3_geo_prob': {k: merge[k] for k in ['S_hat', 'radius_a_priori', 'radius_observed_range_DIAGNOSTIC']}}
+    # 4-way cross-run merge (crn_tail merge, items_p1p3 + items_p2p4): the pre-registered ranking and per-pair radii
+    merge = json.load(open(os.path.join(r1_dir, 'merge_all_F_tilde_geo_prob.json')))
+    pairs = {f"{p['k']}-{p['j']}": {k: p[k] for k in ['S_hat', 'radius_a_priori', 'radius_observed_range_DIAGNOSTIC']}
+             for p in merge['pairs'] if p['j'] == 'P1'}  # S_hat(j, k) estimates F(j) - F(k); keep k minus P1 by sign
+    for v in pairs.values():
+        v['S_hat'] = -v['S_hat']
+    return {'static': static, 'paired': paired, 'ranking_geo_prob': merge['ranking'], 'merge_all_geo_prob_vs_P1': pairs}
 
 
 def probe(path):
