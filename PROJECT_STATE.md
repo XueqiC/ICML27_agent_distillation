@@ -17,6 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:4x CDT 10-15: T1 arms T00p/T10/T01 COMPLETED (~26 min each); T11 RUNNING (GPU 100%); N1 → summary → eval T11 pending. eval T00 dev300 242/300 (descriptive; = cold p40 241/242).** Primary T1 readout (surrogate F channels M, M_m, M_v, P, δ_num) comes from the summary job.
 - **12:5x CDT 10-15: tunnel back (down ~05:40–12:49 CDT; user "vpn"/"恢复了"). 12 jobs COMPLETED overnight, all exit 0.**
   - **R1 FULL 4-WAY PRE-REGISTERED RANKING (written before any R1 continuation): P2 > P1 > P4 > P3** (Ŝ, F_tilde_geo_prob,
     B=2, δ=0.05; cross-run merge of p1p3-0..3 + p2p4-0..3, 256 rows, provenance/comparability checks passed, tail seeds equal per
