@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **14:4x CDT 10-15: T1 PRIMARY READOUT — POSITIVE per prereg (|M| > τ).** T11/N1/summary COMPLETED (exit 0). Surrogate40 F_tilde_geo_prob after the
+  same 254-update reference tail (216–469): T00 = T00′ = A0 = 0.487964 → δ_num = 0 (T00/T00′ adapters bitwise identical), τ = 0.0012 (floor).
+  M = F(T11)−F(T00) = +0.0143; M_m = −0.0149; M_v = +0.0356; I = −0.0064; P = F(N1)−F(T11) = −0.0040; total N1−T00 = +0.0103.
+  Prereg wording: memory channel has a measurable effect at z10 / feedback block B1 / fixed reference tail; channel split descriptive only;
+  NOT a test of Thm 7.1 adjoint prediction, NOT deployment benefit (addendum). Exploratory (outside prereg): β2 = 0.999 → 0.999^254 ≈ 0.78 of
+  the v difference survives the tail, β1 = 0.9 → m difference gone after ~20 updates, so M_m acts via early θ divergence; δ_num = 0 measures
+  repeatability only, not sensitivity of a deterministic 254-update tail to any same-size (m,v) perturbation (no such control was run).
+  Prereg next step = propose replication at a second branch point (needs approval; ~4 GPU-h > remaining ~3.7). eval-T11 45924350 PENDING (QOSGrpGRES).
+  GPU-h since 12:5x: T1 tails ×5 + eval T00 = 2.46 → cumulative ≈ 36.1 (+ eval T11 ~0.26) of 40.
 - **13:4x CDT 10-15: T1 arms T00p/T10/T01 COMPLETED (~26 min each); T11 RUNNING (GPU 100%); N1 → summary → eval T11 pending. eval T00 dev300 242/300 (descriptive; = cold p40 241/242).** Primary T1 readout (surrogate F channels M, M_m, M_v, P, δ_num) comes from the summary job.
 - **12:5x CDT 10-15: tunnel back (down ~05:40–12:49 CDT; user "vpn"/"恢复了"). 12 jobs COMPLETED overnight, all exit 0.**
   - **R1 FULL 4-WAY PRE-REGISTERED RANKING (written before any R1 continuation): P2 > P1 > P4 > P3** (Ŝ, F_tilde_geo_prob,
