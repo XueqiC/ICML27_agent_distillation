@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **19:xx CDT 10-14: two method proposals written (user: 'propose 两个ICML级别的方法'), commit 6ac88ba, docs/proposals/.**
+  P1 RCD: shared flaws of all agent-distillation methods (static valuation / evidence-vs-processing + learner-blind
+  allocation / parameter-snapshot learner) → one general fix over any baseline's generator; E1–E7, E1+E6 first (reuse z10/R1).
+  P2 RE-JEPA: six WM conditions (response equivalence not realism, trust region, closure, no free information, legality,
+  Prop 8.15 cost threshold ρ>0.77 at 1/10 cost) + JEPA design + X1–X7, X1 first (TextWorld engine injection). No GPU used;
+  phases B/C need budget approval. User directives: shared flaw + general fix, not per-method patches; method sections only.
 - **17:0x CDT 10-14: tunnel back (down 13:41–~17:00 CDT). R1 p2p4-0 45729774 COMPLETED 2:28:22 (limit 2:30), 32 P2 rows.**
   Shards 0/2 are P2 (~4.3 min/item), 1/3 are P4; crn_tail has no resume, so shard 2 (45729776, 2:30) was cancelled before
   start and resubmitted from its SubmitLine with --time=03:15:00 → **45950751**. Pending: p2p4-1 45729775, p2p4-2 45950751,
