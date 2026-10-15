@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **16:4x CDT 10-15: T1 eval T11 COMPLETED → dev300 224/300 vs T00 242 (−18; descriptive only per prereg). All T1 jobs terminal.**
+  54 flips (18 T11-only / 36 T00-only) vs same-checkpoint server reference 15–20 flips (noise a, noise b, T00 are one bitwise-identical
+  adapter; net ≤1). Per type T00→T11: look_at +3, clean −6, cool −7, heat −7, others ≈0 — the R2 A3_n100 pattern, from optimizer state
+  alone (θ held at θ0). Sign is OPPOSITE to surrogate M = +0.0143: surrogate40 says the transplant helps, dev300 says it hurts (cf. Remark
+  8.11, α/ε_sur uncalibrated). Exploratory, not a prereg readout. Open (needs user): random-perturbation arm (tail + score + dev300
+  ~0.75 GPU-h) to separate feedback-specific memory from generic divergence; optional dev300 for N1/T10/T01 (~0.28 each).
+  Cumulative GPU-h ≈ 36.4 of 40. Still pending on hpg: only the held R2 arms (4 held + 4 eval deps).
 - **14:4x CDT 10-15: T1 PRIMARY READOUT — POSITIVE per prereg (|M| > τ).** T11/N1/summary COMPLETED (exit 0). Surrogate40 F_tilde_geo_prob after the
   same 254-update reference tail (216–469): T00 = T00′ = A0 = 0.487964 → δ_num = 0 (T00/T00′ adapters bitwise identical), τ = 0.0012 (floor).
   M = F(T11)−F(T00) = +0.0143; M_m = −0.0149; M_v = +0.0356; I = −0.0064; P = F(N1)−F(T11) = −0.0040; total N1−T00 = +0.0103.
