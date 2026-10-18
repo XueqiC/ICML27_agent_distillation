@@ -8,8 +8,8 @@
 
 ## Contents
 
-1. [Setting and scope](#1-setting)
-2. [The baselines, by their papers' method sections](#2-methods)
+1. [Task and experimental setting](#1-setting) (task, [benchmark](#1-2-benchmark), demonstrations, infrastructure)
+2. [Methods: principles and how each was run](#2-methods) ([recipes](#2-2-recipes))
 3. [Overall results](#3-results)
 4. [Where they fail on the benchmark](#4-where)
 5. [Why: mechanisms traced to first principles](#5-why)
@@ -19,23 +19,86 @@
 
 <a id="1-setting"></a>
 
-## 1. Setting and scope
+## 1. Task and experimental setting
 
-- **Environment.** ALFWorld, six task types. The evaluation set dev140 is all 140 valid_seen tasks: pick-and-place 35, look-at-in-light 13, clean 27, heat 16, cool 25, pick-two 24. The sealed valid_unseen split is never read.
-- **Student and teacher.** Gemma-4-12B-it as the student; untrained, it solves **62** dev140 tasks ("base"). The black-box teacher gpt-6-luna solves **114**.
-- **Trusted demonstrations.** $`K\in\lbrace1,2,5,10,20,50,100\rbrace`$ executed, verified teacher trajectories, sampled stratified by task type, with up to 3 support seeds (s0–s2) per $`K`$.
-- **Noise reference.** The same adapter served on two identically configured servers differs by about **±7** dev140 tasks. Below, "beyond noise" always means beyond this.
-- **Protocol shared by all methods** (fixed by the user on 10-04): every method sees only the $`K`$ demonstrations. Exploration happens only on those same $`K`$ training tasks. There are no outside task pools, and no teacher calls except where the method itself calls the teacher (LEAP). Every baseline is a port of its official code, with deviations registered in `baselines/*/DEVIATIONS.md`. Original batch sizes shrink with data size by the registered rule $`b'=\min(b,\max(1,\lfloor N/8\rfloor))`$.
-- **Plain-SFT reference (Seed-SFT).** This is our own behaviour-cloning recipe on the same demonstrations, not a paper's method: LoRA r16, AdamW, constant learning rate 1e-5, clipping 1.0. Each run follows a fixed schedule up to 40 passes or 400k tokens, whichever is longer. "End of schedule" is the last checkpoint of that pre-set schedule, not a checkpoint picked on dev.
+### 1.1 The task
+
+- **Goal.** Train a small open student to replace a black-box teacher agent on ALFWorld household tasks, starting from a few trusted teacher demonstrations. The harness, prompt, action format and environment stay fixed. A method may change only the student's weights; Kang's method also changes its decoding.
+- **Teacher.** gpt-6-luna, called through an API. Only its sampled text is available: no logits, no weights. It solves **114** of the 140 development tasks.
+- **Student.** Gemma-4-12B-it (revision `707f0a3b`), with thinking mode off and at most 1,024 output tokens per step. Untrained, it solves **62** of the 140 development tasks ("base").
+- **Trusted demonstrations.** $`K`$ teacher trajectories on TRAIN tasks. Each was executed in the environment and kept only if the environment confirmed success. $`K`$ counts trajectories, not tasks or tokens.
+- **What else a method may use** (fixed by the user on 10-04):
+  - Exploration happens only on the same $`K`$ training tasks; there is no outside task pool.
+  - The teacher is called only where the method's design calls for it, which here means only LEAP.
+  - The sealed test set is never used.
+- **Measured outcome.** Success on the development set dev140 ([§1.2](#1-2-benchmark)).
+
+<a id="1-2-benchmark"></a>
+
+### 1.2 The benchmark: ALFWorld
+
+- **What it is.** ALFWorld (Shridhar et al., ICLR 2021) is the text version of the ALFRED household benchmark, built on TextWorld. Each game is a room in an AI2-THOR scene with objects, receptacles and a goal written in PDDL. We use ALFWorld 0.4.2 with TextWorld 1.7.0.
+- **Six task types** (ALFRED's seventh type, with a movable receptacle, is not part of ALFWorld's text tasks):
+
+| Type | What the agent must do | dev140 tasks |
+|---|---|---|
+| pick-and-place | find object X and put it in or on receptacle Y | 35 |
+| look-at-in-light | find X, hold it, and switch on a desk or floor lamp | 13 |
+| clean | find X, clean it at the sink, put it in Y | 27 |
+| heat | find X, heat it with the microwave, put it in Y | 16 |
+| cool | find X, cool it with the fridge, put it in Y | 25 |
+| pick-two | find two instances of X and put both in Y | 24 |
+
+- **An episode.**
+  - The agent first sees a text description of the room and the goal, for example "Your task is to: put a clean mug in coffeemachine."
+  - Each turn the agent writes a thought and one action, in the format `Thought: … / Action: …`. The last action line is parsed.
+  - Actions are text commands: `go to`, `open`, `close`, `take X from Y`, `move X to Y`, `clean/heat/cool X with Y`, `use`, `examine`, `look`, `inventory`.
+  - The harness lists the admissible actions every turn. An inadmissible action leaves the state unchanged.
+  - An unparseable reply gets a feedback turn, which counts toward the step limit.
+- **Success.** The environment checks the goal condition after every action. The episode ends on success or after 40 policy turns. The reward is binary.
+- **Scale and splits.** These counts are after our eligibility check: the game file exists and the task type is supported.
+
+| Split | Games | Scene groups | Our use |
+|---|---|---|---|
+| train | 3,553 | 1,465 | the pool the $`K`$ demonstrations are drawn from, and the only tasks methods may explore on |
+| valid_seen | 140 | 137 | **dev140**: development evaluation, every number on this page |
+| valid_unseen | 134 | 47 | sealed test set, never read in this phase |
+
+- **Metric.**
+  - The primary metric is the number of dev140 tasks solved (out of 140), with one greedy episode per task. An episode whose outcome is unknown counts as a failure.
+  - Secondary measures: success per task type, inadmissible actions per episode, steps, and how far a failed episode got ([§4.2](#4-where)).
+- **Noise reference.** The same adapter, served on two identically configured servers, differs by about **±7** tasks on dev140. Serving is not bitwise reproducible across servers, even in batch-invariant mode. Differences within this range are not read.
+
+### 1.3 Demonstrations and support sets
+
+- **Collection.** The teacher plays TRAIN tasks in the same ReAct format. A trajectory is kept only if the environment replay confirms success. When the teacher fails, another task of the same type replaces it; the K = 100 set for s0 took 117 tasks and 156 attempts.
+- **Selection.**
+  - Demonstrations are stratified by task type with fixed quotas: at K = 20, heat 4, clean 4, pick-and-place 3, look-at 3, pick-two 3 and cool 3.
+  - There is one trial per scene group.
+  - There are three independent support seeds, s0–s2.
+- **Nesting.** Within a support seed the sets are nested: K5 ⊂ K10 ⊂ K20 ⊂ K100, and K1, K2 and K50 are subsets of K100.
+- **Coverage gaps.** K = 5 has fewer demonstrations than there are task types, so each K5 set misses one type: s0 has no cool, s1 no pick-and-place, s2 no look-at.
+- **Size.** One pass over K20 s0 is about 10.4k supervised tokens.
+
+### 1.4 Training and evaluation infrastructure
+
+- **Hardware.** Training runs on B200 GPUs (HiPerGator).
+- **Equivalence gate.** Before evaluation, every adapter or checkpoint passes a gate: HF and vLLM token log-probabilities on fixed prompts must agree within a fixed tolerance. Cells that fail the gate and have no valid re-evaluation are dropped.
+- **Serving.** Evaluation uses vLLM batch-invariant serving and greedy decoding with seed 0. Every pre-registered checkpoint or iterate is evaluated; nothing is selected on dev140.
+- **Shared port rules for baselines.**
+  - Each baseline is a port of its official code. Every deviation is registered in `baselines/*/DEVIATIONS.md`.
+  - Original batch sizes shrink with data size by $`b'=\min(b,\max(1,\lfloor N/8\rfloor))`$.
 - **Evidence levels.**
-  - Task-level (dev140): Seed-SFT, Kang, AgentGym BC / AgentEvol, LEAP privileged and LEAP 0% privileged.
-  - Process-level only: ETO and IPR. Their chains were withdrawn on 10-14 before any dev140 evaluation, so for them we report only what their training rounds produced.
+  - Task-level (dev140): Seed-SFT, Kang, AgentGym BC / AgentEvol, and LEAP privileged / 0% privileged.
+  - Process-level only: ETO and IPR. Their chains were withdrawn on 10-14 before any dev140 evaluation.
 
 **Not a reproduction of the papers' regimes.** The original papers train on full training sets, on the order of thousands of expert trajectories, and explore over many training tasks. Here, evidence is scarce by design. The results below show how each method's principle behaves when evidence is scarce. They do not contradict the gains the papers report in their own regime.
 
 <a id="2-methods"></a>
 
-## 2. The baselines, by their papers' method sections
+## 2. Methods: principles and how each was run
+
+### 2.1 Principles, by the papers' method sections
 
 The methods differ mainly in **where the training signal comes from**. That gives four families:
 
@@ -75,7 +138,93 @@ What each method assumes, in one line each:
 - **C** assumes "expert beats own failure" tells the student what to change.
 - **D** assumes teacher corrections at the student's own states supply what the demonstrations lack.
 
-**Dose of each training stage in this protocol** (K = 20, support set s0; *measured* from training states and iteration records):
+<a id="2-2-recipes"></a>
+
+### 2.2 How each method was run here
+
+All supervised losses below are computed on every assistant turn (thought, action and turn-end token). System text and observations are masked, so they carry no loss.
+
+**Seed-SFT (our plain-SFT reference; not a paper's method)**
+- **Data.** The $`K`$ demonstrations only.
+- **Model.** LoRA r16, α32, no dropout, on the q/k/v/o/gate/up/down projections of the language model. The base weights stay frozen in bf16.
+- **Optimizer.** AdamW (0.9, 0.999, 1e-8), constant learning rate 1e-5, no warmup, gradient clipping 1.0, training seed 0.
+- **Batching.** One update packs whole episodes until it holds at least 512 supervised tokens; episodes are never split. At K20 s0 this gives 469 updates over 40 passes, about 888 tokens per update.
+- **Schedule.**
+  - Checkpoints at 3, 5, 10, 20, 30 and 40 passes, and at 100k, 200k and 400k supervised tokens; training runs to the largest of these.
+  - All checkpoints are evaluated: 21 runs (7 values of $`K`$ × 3 support seeds).
+  - Reported here: "end of schedule" (the last checkpoint) and "5 passes".
+
+**AgentGym BC and AgentEvol (Xi et al. 2024)**
+- **BC (iteration 0).**
+  - Full fine-tuning of all text parameters (FSDP2, fp32 master weights, bf16 compute).
+  - AdamW, learning rate 1e-5 with linear decay, 10% warmup (integer floor), weight decay 0, clipping 1.0.
+  - 1 epoch, global batch 32 shrunk to $`b'`$.
+- **AgentEvol (iterations 1–3).** Each round:
+  - The current iterate plays each of the $`K`$ training tasks once, with greedy decoding.
+  - Trajectories with reward above 0.99 are kept, the first success per task.
+  - The kept trajectories are prepended to the previous data, with no deduplication across rounds.
+  - The model is **retrained from the base model** on the merged data with the BC recipe.
+- **Evaluation.** BC and every iterate on dev140.
+- **Cells.** 13 support sets: $`K\in\lbrace5,10,20\rbrace`$ × s0–s2, plus $`K\in\lbrace1,2,50,100\rbrace`$ with s0.
+
+**Kang et al. 2025: SFT + SAG**
+- **SFT.**
+  - LoRA r64, α128, dropout 0.05, on the q/k/v/o/gate/up/down projections of the language model.
+  - Learning rate 2e-4 with linear decay, no warmup, weight decay 0, clipping 1.0.
+  - 2 epochs, batch 8 trajectories shrunk to $`b'`$.
+- **Not reproduced.** No first-thought prefix: its end-to-end generation workflow is not released.
+- **SAG at test time.**
+  - 8 samples per step (temperature 0.4, top-p 0.8).
+  - Keep the samples whose parsed action is admissible, then take a majority vote on the action string.
+  - On a tie, the earliest group wins. If no sample is valid, sample 0 is used.
+- **Ablation.** Greedy decoding of the same adapter.
+- **Cells.** 21 (7 values of $`K`$ × 3 support seeds), plus training seeds 1 and 2 at K20 s0.
+
+**ETO (Song et al. 2024)**
+- **SFT.** Full fine-tuning, learning rate 2e-5 cosine, 3% warmup, 3 epochs.
+- **Each iteration (3 planned).**
+  - The current model plays each training task once, greedily.
+  - Each failed task gives one pair: the expert demonstration is chosen, the student's trajectory rejected. Successful tasks are skipped.
+  - DPO against a frozen reference, which is the model at the start of the iteration. Iteration 1 uses β 0.1 and learning rate 1e-6; iterations 2–3 use β 0.5 and 5e-7. Constant learning rate with 10% warmup, 3 epochs, no SFT term.
+- **Run.** K20 s0 only. The chain completed SFT, explore-1, DPO-1, explore-2, DPO-2 and explore-3, and was withdrawn on 10-14 before DPO-3 and before the dev140 evaluation.
+
+**IPR (Xiong et al. 2024)**
+- **SFT.** As for ETO (learning rate 2e-5 cosine, 3 epochs).
+- **Expert values.** After each expert action, the SFT model writes 5 completions (temperature 1, top-p 1). Their mean final reward is that step's value.
+- **Exploration and student values.** Each iteration replays $`j`$ expert actions, then the current model continues greedily. The student's first action is valued by 5 completions of the SFT model.
+- **Pairs.** Trajectory level at $`j=0`$, by final reward. Continuation level at $`j\ge1`$, when the values differ by more than 0.01.
+- **Loss.** DPO (β 0.1) plus NLL on the chosen side. Learning rate 3e-6, constant with 10% warmup, 3 epochs. The reference is the SFT model. 6 iterations were planned.
+- **Run.** K20 s0. The first DPO round ran out of memory; the rerun chain was withdrawn on 10-14 before any DPO round finished. There is no dev140 result.
+
+**LEAP (Choudhury & Sodhi 2025): privileged and 0%-privileged**
+- **Iteration 0 (BC).**
+  - The $`K`$ demonstrations become step-level examples: one per step, with the full history as context.
+  - LoRA r128, α64, dropout 0.05, on q_proj and v_proj.
+  - Learning rate 3e-5 cosine, 10 warmup steps, clipping 0.3, 1 epoch, global batch 32 shrunk to $`b'`$.
+- **Privileged state.**
+  - For each training task, ALFWorld's hand-coded expert is executed.
+  - The teacher then extracts, with the official template, the essential objects, the critical locations and an optimal action sequence.
+  - Tasks where the expert fails get no privileged state and receive no correction.
+- **Each iteration (3).**
+  - The current model plays each training task once, greedily.
+  - For each failed rollout, the teacher (gpt-6-luna) sees the trajectory and the privileged state. It returns a corrected thought and action for every step, using the official template.
+  - The corrections become labels at the student's original histories. Inadmissible corrected actions are kept, as in the official code.
+- **Aggregation.** The data of iterations $`0..i`$ are each subsampled to the smallest set and merged. A new LoRA is trained on the previous merged model.
+- **0% privileged.** The official realizability-ablation template, with no privileged state; everything else is identical.
+- **Runs.**
+  - Privileged at $`K\in\lbrace1,2,5,10,20,50,100\rbrace`$, s0.
+  - 0% privileged at K20 s0.
+  - At K1 and K5 a round produced no usable correction, and the run stopped there.
+
+**Dose controls.** The method ingredient was also applied to a well-trained student: Seed-SFT K20 s0 after 40 passes, as the starting point. ETO and LEAP produced process data; it is reported in [§5.4](#m4) and [§5.5](#m5).
+
+**Not run.**
+- WKM and STeCa: the official code is incomplete.
+- Other surveyed methods: no released training code, or they need the teacher's logits (`reports/baseline_survey_1004_ZH.md`).
+
+### 2.3 Dose of each training stage
+
+K = 20, support set s0; *measured* from training states and iteration records.
 
 | Stage | Parameters trained | Learning rate | Optimizer updates | Supervised tokens |
 |---|---|---|---|---|
@@ -100,9 +249,11 @@ Every baseline stage is one to two orders of magnitude shorter than the plain-SF
 
 ## 3. Overall results
 
-![Figure 1](figs/bl_fig1_ladder.png)
+![Figure 1](figs/bl_fig0_overall.png)
 
-*Figure 1. Dev140 successes against $`K`$. Lines are medians over support sets, dots are single cells. Blue is Seed-SFT at the end of its schedule, orange is the baseline. Grey band: base ± noise; dotted line: teacher. LEAP at $`K=1`$ and $`K=5`$ stopped early because rounds produced no usable correction; its $`K=20,50,100`$ values come from the run log.*
+*Figure 1. Overall dev140 results of every evaluated method against the number of demonstrations $`K`$. Lines are medians over support sets, faint dots are single cells. Grey band: untrained base ± noise; dotted line: teacher. The hollow marker is LEAP 0% privileged (K20 only).*
+- *LEAP at $`K=1`$ and $`K=5`$ stopped early because a round produced no usable correction. Its $`K=20,50,100`$ values come from the run log.*
+- *ETO and IPR have no dev140 result, so they are not plotted.*
 
 **Table 1.** Dev140 successes, median [min–max] over support sets (*measured*). Base 62, teacher 114.
 
@@ -116,8 +267,9 @@ Every baseline stage is one to two orders of magnitude shorter than the plain-SF
 | 50 | 112 [109–113] | 90 [89–104] | 93 | 102 | 81 | — |
 | 100 | 110 [105–111] | 102 [67–108] | 102 | 96 | 82 | — |
 
-What the table says (*measured*):
+What the figure and table say (*measured*):
 - **No baseline's median exceeds plain SFT at the end of its schedule, at any $`K`$.** The closest are AgentEvol at $`K=50`$ (102 vs 112) and Kang/AgentGym BC at $`K=100`$ (102 vs 110).
+- **Up to $`K=20`$, every baseline median stays near or below the untrained base**, except Kang at $`K=10`$ and $`K=20`$ (80 and 75). They separate from the base only at $`K\ge50`$.
 - **Many baseline cells are below the untrained base by more than noise** (54 or fewer of 140):
   - 26 of 52 AgentGym cells (all iterates);
   - 4 of 24 Kang cells;
@@ -129,6 +281,10 @@ What the table says (*measured*):
   - LEAP privileged, last iterate (local cells): 17 vs 122.
   - Kang beats Seed-SFT in only two cells: K2 s2 (73 vs 59) and K20 s2 (110 vs 98).
 - **ETO and IPR** have no dev140 result. [§5.4](#m4) reports what their training rounds produced.
+
+![Figure 1b](figs/bl_fig1_ladder.png)
+
+*Figure 1b. The same data, one panel per baseline. Each panel shows the baseline in orange against Seed-SFT at the end of its schedule in blue, on the same support sets.*
 
 <a id="4-where"></a>
 

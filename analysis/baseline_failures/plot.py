@@ -118,6 +118,62 @@ def fig1_ladder():
     save(fig, 'bl_fig1_ladder')
 
 
+def fig0_overall():
+    """All methods in one panel: median over support sets (line) and single cells (dots), with direct labels."""
+    sft = defaultdict(list)
+    for c in seedsft_end():
+        sft[c['K']].append(c['successes'])
+    series = [('Seed-SFT (end of schedule)', sft, BLUE, 'o'),
+              ('Kang SFT + SAG', {K: [c['successes'] for c in select('Kang', K, decoding='sag', training_seed=0)] for K in KS},
+               ORANGE, 's'),
+              ('AgentGym BC', {K: [c['successes'] for c in select('AgentGym', K, iteration=0)] for K in KS}, AQUA, '^'),
+              ('AgentEvol (iteration 3)', {K: [c['successes'] for c in select('AgentGym', K, iteration=3)] for K in KS},
+               '#eda100', 'D'),
+              ('LEAP privileged (last iterate)', leap_last(), '#e87ba4', 'v')]
+    fig, ax = plt.subplots(figsize=(15, 8.6))
+    refs(ax)
+    offsets = [0.94, 0.97, 1.0, 1.03, 1.06]
+    ends = []
+    for (name, vals, color, marker), dx in zip(series, offsets):
+        ks = [K for K in KS if vals.get(K)]
+        med = [st.median(vals[K]) for K in ks]
+        ax.plot([k * dx for k in ks], med, color=color, lw=2.6, marker=marker, ms=10, zorder=3,
+                markeredgecolor='white', markeredgewidth=1.2, label=name)
+        for K in ks:
+            if len(vals[K]) > 1:
+                ax.scatter([K * dx] * len(vals[K]), vals[K], s=28, color=color, alpha=0.35, zorder=2, edgecolor='none')
+        ends.append([med[-1], name, color])
+    lz = D['log_only']['leap_dev140']['LEAP 0% privileged K20'][-1]
+    ax.scatter([20 * 1.09], [lz], s=90, marker='v', facecolor='white', edgecolor='#e87ba4', linewidth=2, zorder=4)
+    ax.annotate('LEAP 0% privileged', (20 * 1.09, lz), (24, lz - 14), fontsize=12, color=INK2,
+                arrowprops=dict(arrowstyle='-', color=GREY, lw=1))
+    ends.sort(key=lambda e: e[0])
+    for i in range(1, len(ends)):  # keep the right-hand labels at least 5 tasks apart
+        ends[i][0] = max(ends[i][0], ends[i - 1][0] + 5.5)
+    for y, name, color in ends:
+        ax.text(100 * 1.17, y, name, color=color if color in (BLUE, ORANGE) else INK, fontsize=13, va='center',
+                fontweight='bold')
+        if color not in (BLUE, ORANGE):  # low-contrast hues: keep the label in ink, mark the colour beside it
+            ax.scatter([100 * 1.13], [y], s=70, color=color, marker='s', zorder=4)
+    ax.text(1.0, TEACHER + 2, f'teacher {TEACHER}', color=INK2, fontsize=12, va='bottom')
+    ax.text(100 * 1.13, BASE, f'untrained base {BASE}\n(grey band: ± {NOISE} noise)', color=INK2, fontsize=12,
+            va='center')
+    ax.set_xscale('log')
+    ax.set_xticks(KS)
+    ax.set_xticklabels([str(k) for k in KS])
+    ax.set_xlim(0.85, 300)
+    ax.set_ylim(0, 140)
+    ax.set_xlabel('K (trusted teacher demonstrations)')
+    ax.set_ylabel('dev140 successes (of 140)')
+    ax.grid(axis='y', color=BAND, lw=1)
+    for s in ['top', 'right']:
+        ax.spines[s].set_visible(False)
+    ax.legend(loc='upper left', bbox_to_anchor=(0.0, 1.0), ncol=3, frameon=False, fontsize=12)
+    ax.set_title('Overall dev140 results of every evaluated method (lines: median over support sets; dots: single cells)',
+                 loc='left', fontsize=15)
+    save(fig, 'bl_fig0_overall')
+
+
 def pooled(cells, field):
     tot = Counter()
     for c in cells:
@@ -309,6 +365,7 @@ def fig5_behaviour():
 
 
 if __name__ == '__main__':
+    fig0_overall()
     fig1_ladder()
     fig2_types()
     fig3_stages()
