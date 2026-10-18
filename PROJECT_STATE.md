@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:5x CDT 10-18: baseline failure analysis delivered (user: list every baseline's principle, find where each fails on the benchmark, explain by first principles; analysis only, no method).**
+  docs/analysis/baseline_failure_analysis{,_ZH}.md + 5 figs (faad17b); scripts analysis/baseline_failures/{build_data,plot}.py (255 dev140 cells, 244 with episodes).
+  Key: no baseline median beats Seed-SFT end-of-schedule at any K; 26/52 AgentGym, 4/24 Kang, 4/23 LEAP cells below base−7; heat/cool are the weak types;
+  mechanisms: epoch-fixed dose (BC stages 10–30 updates vs 469), no new information except LEAP, static success selection (AgentEvol −54..+24),
+  DPO saturation on ≤K pairs (ETO 2/20→1/20 train re-solves), LEAP corrections few/partly inadmissible and dose-confounded, SAG = greedy mode.
+  Checked and excluded: kept successes carrying inadmissible actions; thought-text drift. Summary sent in 2 Discord msgs (1561453463588704296/…495444574478).
+  hpg tunnel back 10-18 ~13:36 CDT (user "hpg好了"); only held R2 arms remain on hpg. Pending user decisions unchanged (R2 held arms, R1 continuation, P1 D1/D2, T1 control arm).
 - **16:4x CDT 10-15: T1 eval T11 COMPLETED → dev300 224/300 vs T00 242 (−18; descriptive only per prereg). All T1 jobs terminal.**
   54 flips (18 T11-only / 36 T00-only) vs same-checkpoint server reference 15–20 flips (noise a, noise b, T00 are one bitwise-identical
   adapter; net ≤1). Per type T00→T11: look_at +3, clean −6, cool −7, heat −7, others ≈0 — the R2 A3_n100 pattern, from optimizer state
