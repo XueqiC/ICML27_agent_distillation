@@ -9,7 +9,7 @@
 ## Contents
 
 1. [Task and experimental setting](#1-setting) (task, [benchmark](#1-2-benchmark), demonstrations, infrastructure)
-2. [Methods: principles and how each was run](#2-methods) ([recipes](#2-2-recipes))
+2. [Methods](#2-methods): [Seed-SFT](#m-seedsft), [AD](#m-ad), [AgentGym/AgentEvol](#m-agentgym), [ETO](#m-eto), [IPR](#m-ipr), [LEAP](#m-leap), [described but not run](#m-notrun)
 3. [Overall results](#3-results)
 4. [Where they fail on the benchmark](#4-where)
 5. [Why: mechanisms traced to first principles](#5-why)
@@ -23,7 +23,7 @@
 
 ### 1.1 The task
 
-- **Goal.** Train a small open student to replace a black-box teacher agent on ALFWorld household tasks, starting from a few trusted teacher demonstrations. The harness, prompt, action format and environment stay fixed. A method may change only the student's weights; Kang's method also changes its decoding.
+- **Goal.** Train a small open student to replace a black-box teacher agent on ALFWorld household tasks, starting from a few trusted teacher demonstrations. The harness, prompt, action format and environment stay fixed. A method may change only the student's weights; AD's method also changes its decoding.
 - **Teacher.** gpt-6-luna, called through an API. Only its sampled text is available: no logits, no weights. It solves **114** of the 140 development tasks.
 - **Student.** Gemma-4-12B-it (revision `707f0a3b`), with thinking mode off and at most 1,024 output tokens per step. Untrained, it solves **62** of the 140 development tasks ("base").
 - **Trusted demonstrations.** $`K`$ teacher trajectories on TRAIN tasks. Each was executed in the environment and kept only if the environment confirmed success. $`K`$ counts trajectories, not tasks or tokens.
@@ -89,161 +89,254 @@
   - Each baseline is a port of its official code. Every deviation is registered in `baselines/*/DEVIATIONS.md`.
   - Original batch sizes shrink with data size by $`b'=\min(b,\max(1,\lfloor N/8\rfloor))`$.
 - **Evidence levels.**
-  - Task-level (dev140): Seed-SFT, Kang, AgentGym BC / AgentEvol, and LEAP privileged / 0% privileged.
+  - Task-level (dev140): Seed-SFT, AD, AgentGym BC / AgentEvol, and LEAP privileged / 0% privileged.
   - Process-level only: ETO and IPR. Their chains were withdrawn on 10-14 before any dev140 evaluation.
 
 **Not a reproduction of the papers' regimes.** The original papers train on full training sets, on the order of thousands of expert trajectories, and explore over many training tasks. Here, evidence is scarce by design. The results below show how each method's principle behaves when evidence is scarce. They do not contradict the gains the papers report in their own regime.
 
 <a id="2-methods"></a>
 
-## 2. Methods: principles and how each was run
+## 2. Methods
 
-### 2.1 Principles, by the papers' method sections
+Each subsection gives the method's full pipeline, following its paper's method section and including the key formulas, then the implementation details used here.
 
-The methods differ mainly in **where the training signal comes from**. That gives four families:
+Notation and conventions:
+- A trajectory is $`\tau=(h_t,a_t)_t`$, with history $`h_t`$ and reply $`a_t`$ (thought plus action).
+- Every supervised loss is computed on all assistant turns (thought, action and turn-end token). System text and observations are masked.
+- "Updates" are optimizer steps; the numbers quoted are for K = 20, support set s0. They measure the amount of training each stage gives the student.
 
-| Family | Method (paper) | Signal | Objective | Iteration | Run here |
-|---|---|---|---|---|---|
-| A · Imitate the demonstrations | Behaviour cloning (Seed-SFT; AgentGym BC) | Teacher trajectories | Token log-likelihood of teacher actions and thoughts | None | Yes |
-| | Kang et al. 2025, agent distillation | Teacher agent trajectories; first-thought prefix (FTP) to improve them; self-consistent action generation (SAG) at test time | SFT; at test time, sample $`N`$ actions, drop invalid ones, majority vote | None | Yes, without FTP (its generation workflow is not released) |
-| B · Learn from your own successes | AgentGym / AgentEvol (Xi et al. 2024) | The student's own rollouts, filtered by environment reward | Reward-weighted (binary reward: success-filtered) likelihood on demonstrations ∪ own successes, retrained from the base model each iteration | BC, then 3 rounds of explore → filter → retrain | Yes |
-| C · Contrast with your own failures | ETO (Song et al. 2024) | Expert trajectory vs the student's failed trajectory on the same task | DPO on trajectory pairs, after SFT | Explore → pair → DPO, repeated | Process only |
-| | IPR (Xiong et al. 2024) | Expert step vs the student's step on expert prefixes, valued by Monte Carlo rollouts | Outcome DPO + step DPO + NLL on the chosen side | Repeated | Process only |
-| D · Teacher corrects the student's states | LEAP (Choudhury & Sodhi 2025), a DAgger-type method | A teacher with privileged state relabels every step of the student's failed rollouts | SFT on the aggregate of demonstrations and corrections | BC, then 3 correction rounds; new LoRA on the merged model each round | Yes, privileged and 0%-privileged ablation |
-| Not run (official code incomplete) | WKM (Qiao et al. 2024) | Knowledge synthesized by contrasting expert and sampled trajectories | Separate knowledge model guides the agent | — | No |
-| | STeCa (Wang et al. 2025) | Monte Carlo step rewards locate deviated steps; LLM reflection rewrites them | SFT on calibrated trajectories | — | No |
+<a id="m-seedsft"></a>
 
-The objectives, in the form used below:
+### 2.1 Seed-SFT (our plain-SFT reference; not a paper's method)
 
-- Behaviour cloning on a dataset $`D`$ of trajectories $`\tau=(h_t,a_t)_t`$:
+**Pipeline.**
+- Behaviour cloning on the $`K`$ demonstrations $`D_0`$:
 
 ```math
-\mathcal L_{\rm BC}(\theta)=-\sum_{\tau\in D}\sum_t\log\pi_\theta(a_t\mid h_t).
+\mathcal L_{\rm BC}(\theta)=-\sum_{\tau\in D_0}\sum_t\log\pi_\theta(a_t\mid h_t).
 ```
 
-- AgentEvol, round $`m`$: $`F_m=\lbrace\tau\sim\pi_{\theta_m}\text{ on the }K\text{ training tasks}: r(\tau)=1\rbrace`$, $`D_{m+1}=F_m\cup D_m`$, and $`\theta_{m+1}`$ minimizes $`\mathcal L_{\rm BC}`$ on $`D_{m+1}`$ **starting from the base model**.
-- ETO and IPR use the DPO loss on a pair (chosen $`y^+`$, rejected $`y^-`$) with frozen reference $`\pi_{\rm ref}`$. IPR adds an NLL term on $`y^+`$. The loss is
+- Checkpoints are saved along a fixed schedule and every checkpoint is evaluated. Nothing else is added: no exploration and no new teacher calls.
+
+**Implementation details.**
+- **Model.** LoRA r16, α32, no dropout, on the q/k/v/o/gate/up/down projections of the language model. The base stays frozen in bf16.
+- **Optimizer.** AdamW (0.9, 0.999, 1e-8), constant learning rate 1e-5, no warmup, clipping 1.0, training seed 0.
+- **Batching.** Each update packs whole episodes until it holds at least 512 supervised tokens; episodes are never split.
+- **Schedule.**
+  - Checkpoints at 3, 5, 10, 20, 30 and 40 passes and at 100k, 200k and 400k tokens; training runs to the largest.
+  - At K = 20, 40 passes are **469 updates** (416k tokens), and 5 passes are about 59 updates.
+- **Runs.** 21 (7 values of $`K`$ × 3 support seeds). Reported: "end of schedule" (last checkpoint) and "5 passes".
+
+<a id="m-ad"></a>
+
+### 2.2 AD: agent distillation (Kang et al., 2025)
+
+**Pipeline.**
+- **Data.** The teacher agent solves tasks with reason–act–observe loops, and its trajectories are collected. The paper improves them with a *first-thought prefix* (FTP): the teacher's first reasoning step is prompted as a prefix before it acts.
+- **Training.** SFT of the student on these trajectories with $`\mathcal L_{\rm BC}`$.
+- **Test time: self-consistent action generation (SAG).**
+  - At each step, sample $`N`$ candidate replies.
+  - Keep those whose action is valid. In the paper, valid means the code executes; here it means the parsed action is admissible.
+  - Return the majority action:
+
+```math
+a_t=\arg\max_{a\in\mathcal A_t}\ \sum_{j=1}^{N}\mathbb 1\big[a^{(j)}=a\big],\qquad a^{(j)}\sim\pi_\theta(\cdot\mid h_t).
+```
+
+**Implementation details.**
+- **Data.** The $`K`$ demonstrations. **No FTP**: the end-to-end generation workflow is not released.
+- **Model.** LoRA r64, α128, dropout 0.05, on the q/k/v/o/gate/up/down projections of the language model.
+- **Optimizer.** Learning rate 2e-4 with linear decay, no warmup, weight decay 0, clipping 1.0.
+- **Schedule.** 2 epochs, batch 8 trajectories shrunk to $`b'`$: **20 updates** at K = 20; 2, 4, 10, 20, 20, 18 and 26 at $`K=1,2,5,10,20,50,100`$.
+- **SAG.**
+  - $`N=8`$ samples at temperature 0.4, top-p 0.8.
+  - On a tie, the earliest group wins. If no sample is admissible, sample 0 is used.
+- **Ablation.** Greedy decoding of the same adapter.
+- **Cells.** 21 (7 values of $`K`$ × 3 support seeds), plus training seeds 1 and 2 at K20 s0.
+
+<a id="m-agentgym"></a>
+
+### 2.3 AgentGym BC and AgentEvol (Xi et al., 2024)
+
+**Pipeline.**
+- **BC.** $`\theta_0`$ minimizes $`\mathcal L_{\rm BC}`$ on $`D_0`$.
+- **AgentEvol, round $`m=0,1,2`$.**
+  - **Explore.** The current policy $`\pi_{\theta_m}`$ plays the training tasks.
+  - **Filter.** Keep the successful trajectories:
+
+```math
+F_m=\lbrace\tau\sim\pi_{\theta_m}:\ r(\tau)=1\rbrace,\qquad D_{m+1}=F_m\cup D_m .
+```
+
+  - **Learn.** Retrain **from the base model** on $`D_{m+1}`$. The paper's objective is reward-weighted likelihood, $`\max_\theta\sum_{\tau\in D_{m+1}}r(\tau)\log\pi_\theta(\tau)`$; with a binary reward this is BC on the kept trajectories.
+- Every iterate is evaluated.
+
+**Implementation details.**
+- **Exploration.** One greedy rollout per training task per round, only on the $`K`$ training tasks. Kept: reward above 0.99, first success per task. $`F_m`$ is prepended to $`D_m`$, with no deduplication across rounds.
+- **Model.** Full fine-tuning of all text parameters (FSDP2, fp32 master weights, bf16 compute).
+- **Optimizer.** AdamW, learning rate 1e-5 with linear decay, 10% warmup (integer floor), weight decay 0, clipping 1.0.
+- **Schedule.** 1 epoch per stage, global batch 32 shrunk to $`b'`$.
+  - BC: **10 updates** at K = 20; 1 update at K = 1.
+  - Each AgentEvol round: 8–10 updates at K = 20.
+- **Cells.** 13 support sets: $`K\in\lbrace5,10,20\rbrace`$ × s0–s2, plus $`K\in\lbrace1,2,50,100\rbrace`$ with s0.
+
+<a id="m-eto"></a>
+
+### 2.4 ETO (Song et al., 2024)
+
+**Pipeline.**
+- **SFT.** Behaviour cloning on $`D_0`$.
+- **Each round: explore → pair → DPO.**
+  - **Explore.** The current model plays the training tasks.
+  - **Pair.** Each failed task gives one pair: the expert trajectory $`y^+`$ is chosen, the student's failed trajectory $`y^-`$ rejected.
+  - **DPO** against a frozen reference $`\pi_{\rm ref}`$:
 
 ```math
 \ell=-\log\sigma(\beta\Delta),\qquad \Delta=\log\frac{\pi_\theta(y^+)}{\pi_{\rm ref}(y^+)}-\log\frac{\pi_\theta(y^-)}{\pi_{\rm ref}(y^-)},\qquad \nabla_\theta\ell=-\beta\,\sigma(-\beta\Delta)\,\nabla_\theta\Delta .
 ```
 
-- IPR's step value is a Monte Carlo average over $`n=5`$ completions: $`\hat Q(h_t,a)=\frac1n\sum_{i=1}^n r(\tau_i)`$. A step pair is formed when the expert's value exceeds the student's by more than 0.01.
-- LEAP, round $`i`$: for each failed student rollout, the teacher sees the student's history plus privileged facts (object locations and an expert plan) and returns a corrected thought and action for every step. The round trains on the aggregate of rounds $`0..i`$, each subsampled to the smallest round's size.
-- Kang's SAG at each step: sample $`N=8`$ actions at temperature 0.4, keep the admissible ones, and return the most frequent.
+**Implementation details.**
+- **SFT.** Full fine-tuning, learning rate 2e-5 cosine, 3% warmup, 3 epochs: **30 updates** at K = 20.
+- **Pairs.** One greedy rollout per training task; successful tasks are skipped.
+- **DPO.**
+  - The reference is the model at the start of the round.
+  - Round 1: β 0.1, learning rate 1e-6. Rounds 2–3: β 0.5, learning rate 5e-7.
+  - Constant learning rate with 10% warmup, 3 epochs, no SFT term. Round 1 at K20 s0 had 18 pairs and **27 updates**.
+- **Run.** K20 s0 only. SFT, explore-1, DPO-1, explore-2, DPO-2 and explore-3 completed. The chain was withdrawn on 10-14 before DPO-3 and before the dev140 evaluation.
 
-What each method assumes, in one line each:
-- **A** assumes the demonstrations carry what the student needs.
-- **B** assumes a successful trajectory is good training data.
-- **C** assumes "expert beats own failure" tells the student what to change.
-- **D** assumes teacher corrections at the student's own states supply what the demonstrations lack.
+<a id="m-ipr"></a>
 
-<a id="2-2-recipes"></a>
+### 2.5 IPR (Xiong et al., 2024)
 
-### 2.2 How each method was run here
+**Pipeline.**
+- **SFT.** Behaviour cloning on $`D_0`$.
+- **Step values by Monte Carlo.** After an action $`a`$ at history $`h_t`$, the SFT model writes $`n`$ completions:
 
-All supervised losses below are computed on every assistant turn (thought, action and turn-end token). System text and observations are masked, so they carry no loss.
+```math
+\hat Q(h_t,a)=\frac1n\sum_{i=1}^n r(\tau_i).
+```
 
-**Seed-SFT (our plain-SFT reference; not a paper's method)**
-- **Data.** The $`K`$ demonstrations only.
-- **Model.** LoRA r16, α32, no dropout, on the q/k/v/o/gate/up/down projections of the language model. The base weights stay frozen in bf16.
-- **Optimizer.** AdamW (0.9, 0.999, 1e-8), constant learning rate 1e-5, no warmup, gradient clipping 1.0, training seed 0.
-- **Batching.** One update packs whole episodes until it holds at least 512 supervised tokens; episodes are never split. At K20 s0 this gives 469 updates over 40 passes, about 888 tokens per update.
-- **Schedule.**
-  - Checkpoints at 3, 5, 10, 20, 30 and 40 passes, and at 100k, 200k and 400k supervised tokens; training runs to the largest of these.
-  - All checkpoints are evaluated: 21 runs (7 values of $`K`$ × 3 support seeds).
-  - Reported here: "end of schedule" (the last checkpoint) and "5 passes".
+- **Each round.**
+  - Along each expert trajectory, the current model takes over after $`j`$ expert actions.
+  - The student's step and the expert's step at the same prefix are both valued with $`\hat Q`$.
+  - A pair is formed when the values differ by more than a threshold; the higher-valued side is chosen.
+  - At $`j=0`$, whole trajectories are compared by their final reward.
+- **Loss.** Outcome-level DPO plus step-level DPO plus NLL on the chosen side:
 
-**AgentGym BC and AgentEvol (Xi et al. 2024)**
-- **BC (iteration 0).**
-  - Full fine-tuning of all text parameters (FSDP2, fp32 master weights, bf16 compute).
-  - AdamW, learning rate 1e-5 with linear decay, 10% warmup (integer floor), weight decay 0, clipping 1.0.
-  - 1 epoch, global batch 32 shrunk to $`b'`$.
-- **AgentEvol (iterations 1–3).** Each round:
-  - The current iterate plays each of the $`K`$ training tasks once, with greedy decoding.
-  - Trajectories with reward above 0.99 are kept, the first success per task.
-  - The kept trajectories are prepended to the previous data, with no deduplication across rounds.
-  - The model is **retrained from the base model** on the merged data with the BC recipe.
-- **Evaluation.** BC and every iterate on dev140.
-- **Cells.** 13 support sets: $`K\in\lbrace5,10,20\rbrace`$ × s0–s2, plus $`K\in\lbrace1,2,50,100\rbrace`$ with s0.
+```math
+\mathcal L_{\rm IPR}=\mathcal L_{\rm DPO}^{\rm traj}+\mathcal L_{\rm DPO}^{\rm step}-\sum\log\pi_\theta(y^+).
+```
 
-**Kang et al. 2025: SFT + SAG**
-- **SFT.**
-  - LoRA r64, α128, dropout 0.05, on the q/k/v/o/gate/up/down projections of the language model.
-  - Learning rate 2e-4 with linear decay, no warmup, weight decay 0, clipping 1.0.
-  - 2 epochs, batch 8 trajectories shrunk to $`b'`$.
-- **Not reproduced.** No first-thought prefix: its end-to-end generation workflow is not released.
-- **SAG at test time.**
-  - 8 samples per step (temperature 0.4, top-p 0.8).
-  - Keep the samples whose parsed action is admissible, then take a majority vote on the action string.
-  - On a tie, the earliest group wins. If no sample is valid, sample 0 is used.
-- **Ablation.** Greedy decoding of the same adapter.
-- **Cells.** 21 (7 values of $`K`$ × 3 support seeds), plus training seeds 1 and 2 at K20 s0.
-
-**ETO (Song et al. 2024)**
-- **SFT.** Full fine-tuning, learning rate 2e-5 cosine, 3% warmup, 3 epochs.
-- **Each iteration (3 planned).**
-  - The current model plays each training task once, greedily.
-  - Each failed task gives one pair: the expert demonstration is chosen, the student's trajectory rejected. Successful tasks are skipped.
-  - DPO against a frozen reference, which is the model at the start of the iteration. Iteration 1 uses β 0.1 and learning rate 1e-6; iterations 2–3 use β 0.5 and 5e-7. Constant learning rate with 10% warmup, 3 epochs, no SFT term.
-- **Run.** K20 s0 only. The chain completed SFT, explore-1, DPO-1, explore-2, DPO-2 and explore-3, and was withdrawn on 10-14 before DPO-3 and before the dev140 evaluation.
-
-**IPR (Xiong et al. 2024)**
-- **SFT.** As for ETO (learning rate 2e-5 cosine, 3 epochs).
-- **Expert values.** After each expert action, the SFT model writes 5 completions (temperature 1, top-p 1). Their mean final reward is that step's value.
-- **Exploration and student values.** Each iteration replays $`j`$ expert actions, then the current model continues greedily. The student's first action is valued by 5 completions of the SFT model.
-- **Pairs.** Trajectory level at $`j=0`$, by final reward. Continuation level at $`j\ge1`$, when the values differ by more than 0.01.
-- **Loss.** DPO (β 0.1) plus NLL on the chosen side. Learning rate 3e-6, constant with 10% warmup, 3 epochs. The reference is the SFT model. 6 iterations were planned.
+**Implementation details.**
+- **SFT.** As for ETO: **30 updates** at K = 20.
+- **Monte Carlo values.** $`n=5`$ completions at temperature 1, top-p 1. The pair threshold is 0.01.
+- **DPO.** β 0.1, learning rate 3e-6 constant with 10% warmup, 3 epochs. The reference is the SFT model. Round 1 had 84 pairs and **27 updates**.
+- **Rollouts per round.** 1,910 expert Monte Carlo, 382 exploration and 1,910 student Monte Carlo rollouts.
 - **Run.** K20 s0. The first DPO round ran out of memory; the rerun chain was withdrawn on 10-14 before any DPO round finished. There is no dev140 result.
 
-**LEAP (Choudhury & Sodhi 2025): privileged and 0%-privileged**
-- **Iteration 0 (BC).**
-  - The $`K`$ demonstrations become step-level examples: one per step, with the full history as context.
+<a id="m-leap"></a>
+
+### 2.6 LEAP (Choudhury & Sodhi, 2025): privileged and 0%-privileged
+
+**Pipeline.**
+- **BC.** Behaviour cloning on $`D_0`$, as step-level examples $`(h_t,a_t)`$.
+- **Privileged state.** For each training task, an expert run yields facts the student cannot see: essential objects, critical locations and an optimal action sequence.
+- **Each round $`i`$.**
+  - **Roll out.** The current model plays the training tasks.
+  - **Correct.** For each failed rollout, a teacher that sees the student's history and the privileged state relabels every step: $`a_t^\star=T(h_t,\text{priv})`$.
+  - **Aggregate.** $`D_i=\lbrace(h_t,a_t^\star)\rbrace`$. Train on the aggregate of rounds $`0..i`$, each subsampled to the smallest round's size:
+
+```math
+\mathcal L_i(\theta)=-\sum_{(h,a)\in D_0\cup\cdots\cup D_i}\log\pi_\theta(a\mid h).
+```
+
+- **0%-privileged ablation.** The same loop, with a teacher prompt that contains no privileged state. This is the paper's realizability ablation.
+
+**Implementation details.**
+- **BC.** One example per step, with the full history as context.
   - LoRA r128, α64, dropout 0.05, on q_proj and v_proj.
-  - Learning rate 3e-5 cosine, 10 warmup steps, clipping 0.3, 1 epoch, global batch 32 shrunk to $`b'`$.
-- **Privileged state.**
-  - For each training task, ALFWorld's hand-coded expert is executed.
-  - The teacher then extracts, with the official template, the essential objects, the critical locations and an optimal action sequence.
-  - Tasks where the expert fails get no privileged state and receive no correction.
-- **Each iteration (3).**
-  - The current model plays each training task once, greedily.
-  - For each failed rollout, the teacher (gpt-6-luna) sees the trajectory and the privileged state. It returns a corrected thought and action for every step, using the official template.
-  - The corrections become labels at the student's original histories. Inadmissible corrected actions are kept, as in the official code.
-- **Aggregation.** The data of iterations $`0..i`$ are each subsampled to the smallest set and merged. A new LoRA is trained on the previous merged model.
-- **0% privileged.** The official realizability-ablation template, with no privileged state; everything else is identical.
+  - Learning rate 3e-5 cosine, 10 warmup steps, clipping 0.3, 1 epoch, global batch 32 shrunk to $`b'`$: **12 updates** at K = 20.
+- **Privileged state.** ALFWorld's hand-coded expert is executed, and the teacher extracts the facts with the official template. Tasks where the expert fails get no privileged state and no correction.
+- **Corrections.**
+  - gpt-6-luna, official correction template.
+  - Labels are placed at the student's original histories. Inadmissible corrected actions are kept, as in the official code.
+- **Rounds.**
+  - 3 rounds, each training a new LoRA on the previous merged model.
+  - Updates per round: 27/48/72/95 at K = 50 and 55/108/158/90 at K = 100.
 - **Runs.**
   - Privileged at $`K\in\lbrace1,2,5,10,20,50,100\rbrace`$, s0.
   - 0% privileged at K20 s0.
   - At K1 and K5 a round produced no usable correction, and the run stopped there.
 
-**Dose controls.** The method ingredient was also applied to a well-trained student: Seed-SFT K20 s0 after 40 passes, as the starting point. ETO and LEAP produced process data; it is reported in [§5.4](#m4) and [§5.5](#m5).
+**Runs started from a well-trained student.** The ETO and LEAP loops were also started from Seed-SFT K20 s0 after 40 passes. Their process data are in [§5.4](#m4) and [§5.5](#m5).
 
-**Not run.**
-- WKM and STeCa: the official code is incomplete.
-- Other surveyed methods: no released training code, or they need the teacher's logits (`reports/baseline_survey_1004_ZH.md`).
+<a id="m-notrun"></a>
 
-### 2.3 Dose of each training stage
+### 2.7 Related methods described but not run
 
-K = 20, support set s0; *measured* from training states and iteration records.
+These were not run here, so there is no measured result for them. Each entry gives the pipeline from the paper's method section, why it was not run, and which mechanism of [§5](#5-why) applies by construction (*derived*).
 
-| Stage | Parameters trained | Learning rate | Optimizer updates | Supervised tokens |
-|---|---|---|---|---|
-| Seed-SFT, end of schedule (40 passes) | LoRA r16 | 1e-5 constant | **469** | 416k |
-| Seed-SFT, 5 passes | LoRA r16 | 1e-5 constant | ≈59 | 52k |
-| AgentGym BC (1 epoch) | all text parameters | 1e-5 linear | **10** | 10.4k |
-| AgentEvol, each round (retrained from base) | all text parameters | 1e-5 linear | 8–10 | 12.6–16.2k |
-| Kang SFT (2 epochs) | LoRA r64 | 2e-4 linear | **20** | 20.8k |
-| ETO / IPR SFT (3 epochs) | all text parameters | 2e-5 cosine | 30 | — |
-| ETO DPO round 1 (18 pairs, 3 epochs) | all text parameters | 1e-6, β 0.1 | 27 | — |
-| IPR DPO round 1 (84 pairs, 3 epochs) | all text parameters | 3e-6, β 0.1 | 27 | — |
-| LEAP iteration 0 (382 step examples, 1 epoch) | LoRA r128 (q, v) | 3e-5 cosine | 12 | — |
+**Structured Agent Distillation, SAD (Liu et al., 2025)**
+- **Pipeline.**
+  - Teacher ReAct trajectories are split by rule into reasoning spans and action spans, with masks $`m_r`$ and $`m_a`$.
+  - The student matches the teacher's token distributions separately on each span:
 
-Across all $`K`$:
-- Kang's SFT is 2, 4, 10, 20, 20, 18 and 26 updates at $`K=1,2,5,10,20,50,100`$.
-- AgentGym BC is 1 update at $`K=1`$ and about 9–10 updates from $`K=20`$ on.
-- LEAP's rounds are 27/48/72/95 updates at $`K=50`$ and 55/108/158/90 at $`K=100`$.
+```math
+\mathcal L=\lambda_r\sum_t m_r(t)\,\mathrm{KL}\big(p_T(x_t)\,\Vert\,p_S(x_t)\big)+\lambda_a\sum_t m_a(t)\,\mathrm{KL}\big(p_T(x_t)\,\Vert\,p_S(x_t)\big).
+```
 
-Every baseline stage is one to two orders of magnitude shorter than the plain-SFT schedule. The recipes fix the dose in epochs. With few demonstrations, an epoch is only a handful of updates.
+  - Training follows a curriculum ordered by a complexity score that combines reasoning length, action length and teacher entropy.
+- **Why not run.**
+  - It needs the teacher's token distributions $`p_T`$, which a black-box teacher does not provide.
+  - With hard labels instead, it reduces to span-weighted SFT (family A).
+  - No code is released.
+- **Mechanisms.** §5.1 (training amount) and §5.2 (no new information beyond the demonstrations).
+
+**AgentDistill (Qiu et al., 2025)**
+- **Pipeline.** Training-free.
+  - The teacher solves tasks and writes executable tool modules (MCPs). Those from successful runs are kept.
+  - The kept MCPs are abstracted into task-agnostic form, clustered by function, and consolidated into one "MCP box".
+  - The student calls the box's tools at inference; its weights are not changed ($`\nabla_\theta\pi_S=0`$). The box is chosen to maximize $`\mathbb E_{(x,y)}\big[\mathbb 1\lbrace\pi_S(x;\mathcal B)=y\rbrace\big]`$.
+- **Why not run.** Our protocol fixes the harness and the action set. The method's whole channel, adding new tools, is outside it, and there is no student training to compare.
+- **Mechanisms.** Not applicable.
+
+**Chain-of-Agents, CoA (Li et al., 2025)**
+- **Pipeline.**
+  - The execution of a multi-agent system (the teacher) is recorded as a single trajectory of states, activated agents and observations.
+  - Trajectories are filtered: at least 5 tool interactions, correctness checked, reflective ones kept, error-correcting ones upsampled.
+  - Agentic SFT masks observations: $`\mathcal L_{\rm SFT}=-\sum_{t\notin\mathcal O}\log\pi_\theta(\tau_t\mid\tau_{<t},q)`$.
+  - This is followed by agentic RL (DAPO) with verifiable rewards on hard queries.
+- **Why not run.**
+  - Our teacher is a single agent in a fixed harness, so the distillation stage reduces to filtered SFT on teacher trajectories (family A).
+  - The RL stage trains on the student's own rewards and is outside this comparison of distillation methods.
+- **Mechanisms.** The SFT stage: §5.1 and §5.2. The success filter: §5.3.
+
+**Harness-Aware Distillation, HAD (Choi et al., 2026, arXiv 2610.02858)**
+- **Pipeline (on-policy, black-box teacher).**
+  - The student rolls out with the shared harness.
+  - At each visited state, the teacher is queried twice: with the harness information ($`\tilde a_t`$) and without it ($`a_t`$).
+  - The student is trained on the teacher's response, and on an action preference for "with harness" over "without", scored under the student's own reasoning $`\tilde z_t`$. Pairs whose preferred action contradicts the harness records are masked out ($`m_t`$):
+
+```math
+\Delta_t=\tfrac{1}{\lvert\tilde a_t\rvert}\log\pi_\theta(\tilde a_t\mid\tilde x_t,\tilde z_t)-\tfrac{1}{\lvert a_t\rvert}\log\pi_\theta(a_t\mid\tilde x_t,\tilde z_t),\qquad
+\mathcal L_{\rm HAD}=\mathbb E\big[\ell_{\rm dist,t}+\lambda\,m_t\,(-\log\sigma(\beta\Delta_t))\big].
+```
+
+- **Why not run.** No official code when the baselines were chosen (10-04 rule: official code only). It was submitted on 10-02.
+- **Mechanisms.** Like LEAP, it adds teacher labels at student states (§5.5). Like ETO and IPR, its preference term can saturate (§5.4).
+
+**Black-box on-policy distillation, GAD (Ye et al., 2025)**
+- **Pipeline (teacher text only).**
+  - The student is a generator $`G`$. A discriminator $`D`$ is trained to score teacher responses above student responses with a Bradley–Terry loss, $`\min_D\mathbb E\big[-\log\sigma\big(D(y_T)-D(G(x))\big)\big]`$.
+  - The student maximizes $`\mathbb E[D(G(x))]`$ with GRPO, after an SFT warm-up on teacher responses.
+- **Why not run.** It is designed for single-turn instruction following, not multi-turn agents, and was not part of the 10-04 baseline set.
+- **Mechanisms.** Its reward is learned from the same teacher texts (§5.2). Its on-policy RL stage is not covered by the measurements here.
+
+**WKM (Qiao et al., 2024) and STeCa (Wang et al., 2025)**
+- **WKM.** Synthesizes task and state knowledge by contrasting expert and sampled trajectories, and trains a separate knowledge model that guides the agent.
+- **STeCa.** Locates deviated steps with Monte Carlo step rewards and rewrites them by LLM reflection, then runs SFT on the calibrated trajectories.
+- **Why not run.** Both official repositories are incomplete.
+- **Mechanisms.** Both are post-processing of existing evidence (§5.2).
 
 <a id="3-results"></a>
 
@@ -257,7 +350,7 @@ Every baseline stage is one to two orders of magnitude shorter than the plain-SF
 
 **Table 1.** Dev140 successes, median [min–max] over support sets (*measured*). Base 62, teacher 114.
 
-| K | Seed-SFT end | Kang SFT+SAG | AgentGym BC | AgentEvol it. 3 | LEAP priv. last iterate | LEAP 0% |
+| K | Seed-SFT end | AD (SFT+SAG) | AgentGym BC | AgentEvol it. 3 | LEAP priv. last iterate | LEAP 0% |
 |---|---|---|---|---|---|---|
 | 1 | 57 [55–67] | 51 [50–53] | 50 | 47 | 66 (stopped at it. 0) | — |
 | 2 | 70 [59–86] | 62 [51–73] | 48 | 55 | 60 | — |
@@ -268,18 +361,18 @@ Every baseline stage is one to two orders of magnitude shorter than the plain-SF
 | 100 | 110 [105–111] | 102 [67–108] | 102 | 96 | 82 | — |
 
 What the figure and table say (*measured*):
-- **No baseline's median exceeds plain SFT at the end of its schedule, at any $`K`$.** The closest are AgentEvol at $`K=50`$ (102 vs 112) and Kang/AgentGym BC at $`K=100`$ (102 vs 110).
-- **Up to $`K=20`$, every baseline median stays near or below the untrained base**, except Kang at $`K=10`$ and $`K=20`$ (80 and 75). They separate from the base only at $`K\ge50`$.
+- **No baseline's median exceeds plain SFT at the end of its schedule, at any $`K`$.** The closest are AgentEvol at $`K=50`$ (102 vs 112) and AD/AgentGym BC at $`K=100`$ (102 vs 110).
+- **Up to $`K=20`$, every baseline median stays near or below the untrained base**, except AD at $`K=10`$ and $`K=20`$ (80 and 75). They separate from the base only at $`K\ge50`$.
 - **Many baseline cells are below the untrained base by more than noise** (54 or fewer of 140):
   - 26 of 52 AgentGym cells (all iterates);
-  - 4 of 24 Kang cells;
+  - 4 of 24 AD cells;
   - 4 of 23 LEAP-privileged iterates (counting the logged $`K=20,50,100`$ runs).
 - **The tasks a baseline solves are mostly a subset of what plain SFT solves on the same support set.**
   - AgentGym BC: 125 baseline-only vs 500 Seed-SFT-only solved tasks, summed over 13 sets.
   - AgentEvol it. 3: 102 vs 579.
-  - Kang: 243 vs 550.
+  - AD: 243 vs 550.
   - LEAP privileged, last iterate (local cells): 17 vs 122.
-  - Kang beats Seed-SFT in only two cells: K2 s2 (73 vs 59) and K20 s2 (110 vs 98).
+  - AD beats Seed-SFT in only two cells: K2 s2 (73 vs 59) and K20 s2 (110 vs 98).
 - **ETO and IPR** have no dev140 result. [§5.4](#m4) reports what their training rounds produced.
 
 ![Figure 1b](figs/bl_fig1_ladder.png)
@@ -301,9 +394,9 @@ What the figure and table say (*measured*):
   - At K = 20, plain SFT at the end of its schedule reaches 58% heat and 61% cool, close to the teacher's 75% and 60%.
   - The baselines stay much lower at K = 20:
     - LEAP (privileged 12/12%, 0% privileged 6/8%) and Seed-SFT at 5 passes (2/1%) remain at base level on both types;
-    - AgentGym BC reaches 29/25% and Kang 42/27%;
+    - AgentGym BC reaches 29/25% and AD 42/27%;
     - AgentEvol after three rounds reaches 65% heat but only 21% cool.
-  - At K = 100 the gaps shrink: AgentGym BC 62/64%, Kang 48/57%, plain SFT 58/56%.
+  - At K = 100 the gaps shrink: AgentGym BC 62/64%, AD 48/57%, plain SFT 58/56%.
 - **Pick-two** is the other weak type. AgentGym BC gets 18% of it at K = 20, AgentEvol 35%, LEAP 29–33%, while Seed-SFT end gets 82%.
 
 ### 4.2 By subgoal: search first, then the transform step
@@ -316,11 +409,11 @@ What the figure and table say (*measured*):
   - In every method, the largest failure class is **never taking the target object**. This is 56% of the base model's failures and 81% of the teacher's 26 failures.
   - What separates methods is how many episodes end there:
     - teacher 15% of all episodes, Seed-SFT end 14%;
-    - Kang 19%, AgentEvol 25%, LEAP privileged 24%;
+    - AD 19%, AgentEvol 25%, LEAP privileged 24%;
     - AgentGym BC 30%, base 31%, LEAP 0% 31%, Seed-SFT 5 passes 35%.
 - **Failing heat or cool tasks split between search and the transform step.** Base: 59% search, 41% took the object but never heated or cooled it.
   - LEAP privileged at K = 20: 64% of its heat/cool failures take the object and never heat or cool it. LEAP 0% privileged: 50%.
-  - AgentGym BC: 30%. Kang: 35%.
+  - AgentGym BC: 30%. AD: 35%.
 - **Interpretation.** Two different gaps are visible.
   - *Locating objects* is hard even for the teacher.
   - *Knowing the transform procedure* (go to the microwave or fridge with the object, then heat or cool it) is a gap the demonstrations close only with enough training. Plain SFT closes it by the end of its schedule; the short baseline stages mostly do not.
@@ -334,7 +427,7 @@ What the figure and table say (*measured*):
 | Teacher | 0.59 | 100% | 4% |
 | Base | 2.37 | 100% | 28% |
 | Seed-SFT end | 0.78 | 100% | 25% |
-| Kang SFT+SAG | 1.05 | 100% | 47% |
+| AD (SFT+SAG) | 1.05 | 100% | 47% |
 | AgentGym BC | 3.09 | 100% | 52% |
 | AgentEvol it. 3 | 3.40 | 99% | 65% |
 | AgentEvol it. 3, K = 5 / K = 10 | 8.93 / 12.13 | 100% | 67% / 61% |
@@ -365,7 +458,7 @@ What the figure and table say (*measured*):
     - the rest stay within noise.
   - **LEAP** is flat at $`K\le20`$ (−6 to +2). It rises at $`K=50`$ (+29) and $`K=100`$ (+33), but from iteration-0 values below base (52 and 49).
   - **Spread from sources other than the method**, at K = 20 unless noted:
-    - Kang's three training seeds on one support set: 63/74/86;
+    - AD's three training seeds on one support set: 63/74/86;
     - AgentGym BC on three support sets: 23/59/93;
     - plain SFT at the end of its schedule on three support sets: 98/110/115.
   - **Identical-data retrains.** The design of AgentEvol provides two natural replicates.
@@ -380,7 +473,7 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 
 <a id="m1"></a>
 
-### 5.1 The dose is fixed in epochs, so with few demonstrations the student is barely trained
+### 5.1 The training amount is fixed in epochs, so with few demonstrations the student is barely trained
 
 - **Principle.**
   - A training recipe fixes the number of epochs. The number of optimizer updates is epochs × N/b'. With N = K demonstrations, that is a handful.
@@ -392,17 +485,17 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 
 - **What follows (derived).**
   - Every trained coordinate moves by about $`\eta`$ in the first updates, whatever the strength of the signal. Only the direction comes from the few trajectories in the batch.
-  - Under full-parameter fine-tuning (AgentGym, ETO, IPR), that is a move of size $`\eta`$ on every one of the student's text parameters. Under LoRA (Kang, LEAP, plain SFT) the move is confined to the rank-r adapter.
+  - Under full-parameter fine-tuning (AgentGym, ETO, IPR), that is a move of size $`\eta`$ on every one of the student's text parameters. Under LoRA (AD, LEAP, plain SFT) the move is confined to the rank-r adapter.
   - A few such moves change the model, but they have not yet fitted what the demonstrations teach.
 - **Evidence (measured).**
   - AgentGym BC at K = 1 is a single update on 902 tokens. Its four retrains score 50/52/50/47 against base 62.
   - Plain SFT at 3–5 passes (35–59 updates at K = 20) scores 45–57, also below base. By 40 passes it scores 98–115 ([Finding B](../proposals/P1_empirical_findings.md#finding-b) shows the same dip-then-rise in every run).
-  - At K = 20 the baselines' BC stages are 10 (AgentGym), 12 (LEAP), 20 (Kang) and 30 (ETO/IPR) updates. Their scores at that stage are 23–93 (AgentGym), 58 (LEAP iteration 0, logged) and 63–110 (Kang). That is the same range, or below, as plain SFT at comparable passes.
+  - At K = 20 the baselines' BC stages are 10 (AgentGym), 12 (LEAP), 20 (AD) and 30 (ETO/IPR) updates. Their scores at that stage are 23–93 (AgentGym), 58 (LEAP iteration 0, logged) and 63–110 (AD). That is the same range, or below, as plain SFT at comparable passes.
   - LEAP's iteration 0 at $`K=50`$ and $`K=100`$ (27 and 55 updates) scores 52 and 49, below base.
 - **Applies to.** The BC stage of every baseline, and therefore the starting point of their iterative stages.
 - **Does not explain.**
   - It does not say what the iterative components add. A short BC stage only means they start from a weak, high-variance student.
-  - Kang at $`K\ge50`$ (18–26 updates, learning rate 2e-4) reaches 89–108. A larger learning rate partly offsets the short schedule.
+  - AD at $`K\ge50`$ (18–26 updates, learning rate 2e-4) reaches 89–108. A larger learning rate partly offsets the short schedule.
 
 <a id="m2"></a>
 
@@ -455,7 +548,7 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 ### 5.4 Contrastive objectives on a handful of pairs saturate and give little to learn
 
 - **Principle.**
-  - The DPO gradient is weighted by $`\sigma(-\beta\Delta)`$ (see the formula in [§2](#2-methods)). Once a pair is separated, the weight goes to zero and the pair stops teaching.
+  - The DPO gradient is weighted by $`\sigma(-\beta\Delta)`$ (see the formula in [§2.4](#m-eto)). Once a pair is separated, the weight goes to zero and the pair stops teaching.
   - A pair exists only where the student fails a training task that the expert solved. So the number of pairs per round is at most the number of failed training tasks, at most $`K`$.
   - The chosen side of an ETO pair is the demonstration already used in SFT. The rejected side is the student's whole failed trajectory, so its correct early steps are pushed down too, because $`\Delta`$ sums log-probabilities over all of its tokens.
 - **Evidence (measured; no dev140 for ETO or IPR).**
@@ -474,7 +567,7 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 
 <a id="m5"></a>
 
-### 5.5 Teacher corrections bring new information, but few of them, partly invalid, and confounded with dose
+### 5.5 Teacher corrections bring new information, but few of them, partly invalid, and confounded with the amount of training
 
 - **Principle.**
   - Corrections at the student's own states are the one source of new labels in this protocol.
@@ -491,12 +584,12 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
   - **Privileged vs 0% privileged at K = 20:** 60 vs 58, both at base. LEAP's realizability control made no difference at this $`K`$; the 8/4/4 corrections are too few to move the student.
   - **K = 50 and K = 100.**
     - The iterations add +29 and +33. They start from 52 and 49, below base, and end at 81 and 82, below plain SFT at the end of its schedule (112 and 110).
-    - Over the same rounds the updates per round grow from 27 to 95 (K = 50) and from 55 to 158, then 90 (K = 100). This is the same direction as plain SFT climbing out of its low-dose dip (K = 50: 49–57 at 3 passes, 104–114 at 10 passes).
+    - Over the same rounds the updates per round grow from 27 to 95 (K = 50) and from 55 to 158, then 90 (K = 100). This is the same direction as plain SFT climbing out of its early dip (K = 50: 49–57 at 3 passes, 104–114 at 10 passes).
     - These runs cannot separate the effect of the corrections from the effect of more training.
   - **On a well-trained student (Seed-SFT p40 as the starting point),** LEAP's first round had 6 failed rollouts, all excluded for lacking privileged state. It produced 0 corrections and stopped.
   - **Our own DAgger-type test (R2, dev300, not LEAP).** 100 teacher actions at student states, mixed into the continuation of a well-trained student, *lowered* success by 20 tasks (uniform allocation) and 71 (learner-weighted allocation). Each single-action label was repeated about 60 times, which is a confound ([last section of the findings](../proposals/P1_empirical_findings.md#not-yet)).
 - **Applies to.** LEAP and DAgger-type correction methods.
-- **Does not explain.** Whether corrections in larger numbers, with the dose held fixed, would beat plain SFT. That was not tested.
+- **Does not explain.** Whether corrections in larger numbers, with the amount of training held fixed, would beat plain SFT. That was not tested.
 
 <a id="m6"></a>
 
@@ -507,26 +600,26 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
   - Voting changes the outcome only when the mode is invalid (it is filtered out) or when sampling noise would otherwise pick a minority action.
   - In ALFWorld the admissible actions are listed every turn, so validity is rarely the problem. The errors are semantic: wrong place, wrong order, wrong object.
 - **Evidence (measured).**
-  - Kang at K = 20 s0: SAG 63 vs greedy 66. Inadmissible actions fall from 5.34 to 1.64 per episode.
+  - AD at K = 20 s0: SAG 63 vs greedy 66. Inadmissible actions fall from 5.34 to 1.64 per episode.
   - SAG on plain SFT (K = 20 s0, p40): 115 vs 115, with inadmissible actions falling from 0.76 to 0.46.
-  - Kang's training-seed spread (63/74/86) is far larger than any SAG effect.
+  - AD's training-seed spread (63/74/86) is far larger than any SAG effect.
 - **Applies to.** Test-time self-consistency in environments that already enforce validity.
-- **Does not explain.** In Kang's original setting, code execution errors make validity filtering useful. That setting is not tested here.
+- **Does not explain.** In AD's original setting, code execution errors make validity filtering useful. That setting is not tested here.
 
 <a id="m7"></a>
 
 ### 5.7 In this regime the variance of the recipe is larger than most method effects
 
 - **Measured.** At K = 20, outcome spreads from sources that are not the method are:
-  - 23 tasks across training seeds (Kang);
+  - 23 tasks across training seeds (AD);
   - 70 across support sets (AgentGym BC);
   - 17 across support sets (plain SFT end);
   - 5–10 across identical-data retrains (AgentEvol);
   - 7 across servers.
 - **Derived.**
   - A single-cell difference between two methods is readable only if it exceeds these spreads.
-  - Against them, AgentEvol's collapses and LEAP's K = 50/100 gains stand out. Kang's SAG effect, LEAP's privileged-vs-0% difference and most AgentEvol rounds do not.
-- **Measured.** The spread is recipe-specific, not just a matter of little data. On the same three K = 20 support sets, plain SFT (LoRA r16, learning rate 1e-5) spreads by 3–17 at every dose from 3 to 40 passes. AgentGym BC (full-parameter, 10 updates) spreads by 70; Kang (LoRA r64, learning rate 2e-4) by 47 across support sets and 23 across training seeds.
+  - Against them, AgentEvol's collapses and LEAP's K = 50/100 gains stand out. AD's SAG effect, LEAP's privileged-vs-0% difference and most AgentEvol rounds do not.
+- **Measured.** The spread is recipe-specific, not just a matter of little data. On the same three K = 20 support sets, plain SFT (LoRA r16, learning rate 1e-5) spreads by 3–17 at every checkpoint from 3 to 40 passes. AgentGym BC (full-parameter, 10 updates) spreads by 70; AD (LoRA r64, learning rate 2e-4) by 47 across support sets and 23 across training seeds.
 - **Interpretation.** This fits §5.1. Full-parameter fine-tuning moves every weight by about $`\eta`$ in each early update, and a larger learning rate scales every move. LoRA confines each move to a rank-r subspace. A few large, sign-like moves fitted to very little data land in very different places depending on the data and their order.
 
 <a id="m8"></a>
@@ -548,13 +641,13 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 
 | What goes wrong on ALFWorld | Mechanism | Methods | Strength of evidence |
 |---|---|---|---|
-| BC stages at or below base; plain SFT reaches the teacher only with a long schedule | §5.1: the dose is fixed in epochs; Adam's early updates are sign-like, with size set by $`\eta`$ | All baselines' first stage | Strong (dose recorded for every stage; plain-SFT dose curve on 21 runs) |
-| Heat and cool stay near base; types missing from the demonstrations stay at base | §5.2: no new information without new evidence; §5.1: procedure not yet fitted | AgentEvol, ETO, IPR (and WKM/STeCa by construction); short BC stages | Strong for the missing-type case; medium for heat/cool (also dose) |
+| BC stages at or below base; plain SFT reaches the teacher only with a long schedule | §5.1: the training amount is fixed in epochs; Adam's early updates are sign-like, with size set by $`\eta`$ | All baselines' first stage | Strong (training amount recorded for every stage; plain-SFT checkpoints on 21 runs) |
+| Heat and cool stay near base; types missing from the demonstrations stay at base | §5.2: no new information without new evidence; §5.1: procedure not yet fitted | AgentEvol, ETO, IPR (and WKM/STeCa by construction); short BC stages | Strong for the missing-type case; medium for heat/cool (also training amount) |
 | AgentEvol collapses at small K (−54 to −11) and gains in a few sets | §5.3: a success bit says nothing about the effect on this student; plus §5.7 | AgentEvol (any static selector) | Strong for "sign not determined"; the mechanism of each drop not identified |
 | Inadmissible actions and loops grow in degenerate iterates | Not a copy of kept successes (checked); co-occurs with §5.3/§5.7 instability | AgentEvol at K ≤ 10 | Measured; cause beyond instability unidentified |
 | Preference rounds produce few pairs and vanishing gradients; training-task success does not rise | §5.4: pairs ≤ failed training tasks; DPO saturation; whole-trajectory rejection | ETO, IPR | Process-level only |
-| Corrections too few at K ≤ 20; gains at K ≥ 50 confounded with dose; some labels invalid | §5.5 | LEAP | Medium (no dose-matched control) |
-| Test-time voting does not change success | §5.6: the vote estimates the same mode greedy returns | Kang SAG | Strong at K = 20 (two students) |
+| Corrections too few at K ≤ 20; gains at K ≥ 50 confounded with the amount of training; some labels invalid | §5.5 | LEAP | Medium (no control matched in training amount) |
+| Test-time voting does not change success | §5.6: the vote estimates the same mode greedy returns | AD SAG | Strong at K = 20 (two students) |
 | Large spread across seeds, support sets and identical retrains | §5.7 | All, most in short-schedule recipes | Strong |
 | Optimizer state discarded every round | §5.8 | All iterative baselines | Property measured; effect on baselines untested |
 
@@ -565,13 +658,13 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
 - **Protocol differences.**
   - Every method runs under one fixed few-shot black-box protocol: $`K`$ demonstrations, exploration only on the $`K`$ tasks, the shared harness and a 40-step cap. Batches are shrunk by the registered rule.
   - The original papers use far more data. Our results describe the methods' principles under scarce evidence, not their published regimes.
-- **Port deviations.** Every baseline is a port of its official code. Each deviation is registered in `baselines/*/DEVIATIONS.md`, for example Kang without FTP and LEAP's merge policy.
-- **One training seed per cell.** The exception is Kang at K20 s0, which has three.
+- **Port deviations.** Every baseline is a port of its official code. Each deviation is registered in `baselines/*/DEVIATIONS.md`, for example AD without FTP and LEAP's merge policy.
+- **One training seed per cell.** The exception is AD at K20 s0, which has three.
 - **No task-level result for ETO or IPR.**
 - **Subgoal classification.** It is read from executed action strings. A few tasks register success without the final put; this affects only how failures of those tasks are labelled.
 - **dev140 only.** valid_seen, not the sealed split.
 - **Iterate counts.** LEAP's $`K=20,50,100`$ values come from the run log, because those evaluation directories were not copied to rai. The other cells are read from their evaluation records.
-- **Dose comparisons.** The "dose" comparisons across recipes compare updates and passes. The recipes differ in learning rate, schedule and which parameters are trained, so the comparison is suggestive, not a controlled single-variable test.
+- **Training-amount comparisons.** Comparisons of training amount across recipes use updates and passes. The recipes differ in learning rate, schedule and which parameters are trained, so the comparison is suggestive, not a controlled single-variable test.
 
 <a id="8-sources"></a>
 
@@ -583,11 +676,11 @@ Each subsection gives the principle, what follows from it, the evidence here, wh
   - teacher: `reports/runs/teacher-dev140`.
 - **Process records.**
   - `iteration-*.json` of every baseline run.
-  - AgentEvol filter reports and Kang training states, copied from `$B/reports/runs/baselines` on 10-18.
+  - AgentEvol filter reports and AD training states, copied from `$B/reports/runs/baselines` on 10-18.
 - **Numbers recorded only in `notes/exp_log.md`.** These are cited line by line in `build_data.py` (`LOG_ONLY`):
   - LEAP K20/K50/K100 per-iterate dev140;
   - ETO tp2–tp4 pair counts and DPO losses;
   - IPR r3/r4 pair compositions;
-  - Kang training seeds.
+  - AD training seeds.
 
 Here $`B`$ = `/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation`.

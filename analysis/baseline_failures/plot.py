@@ -81,7 +81,7 @@ def fig1_ladder():
     sft = defaultdict(list)
     for c in seedsft_end():
         sft[c['K']].append(c['successes'])
-    panels = [('Kang SFT + SAG (2 epochs)', {K: [c['successes'] for c in select('Kang', K, decoding='sag', training_seed=0)]
+    panels = [('AD: SFT + SAG (2 epochs)', {K: [c['successes'] for c in select('Kang', K, decoding='sag', training_seed=0)]
                                             for K in KS}),
               ('AgentGym BC (1 epoch)', {K: [c['successes'] for c in select('AgentGym', K, iteration=0)] for K in KS}),
               ('AgentEvol, iteration 3', {K: [c['successes'] for c in select('AgentGym', K, iteration=3)] for K in KS}),
@@ -124,7 +124,7 @@ def fig0_overall():
     for c in seedsft_end():
         sft[c['K']].append(c['successes'])
     series = [('Seed-SFT (end of schedule)', sft, BLUE, 'o'),
-              ('Kang SFT + SAG', {K: [c['successes'] for c in select('Kang', K, decoding='sag', training_seed=0)] for K in KS},
+              ('AD (SFT + SAG)', {K: [c['successes'] for c in select('Kang', K, decoding='sag', training_seed=0)] for K in KS},
                ORANGE, 's'),
               ('AgentGym BC', {K: [c['successes'] for c in select('AgentGym', K, iteration=0)] for K in KS}, AQUA, '^'),
               ('AgentEvol (iteration 3)', {K: [c['successes'] for c in select('AgentGym', K, iteration=3)] for K in KS},
@@ -190,7 +190,7 @@ def rows_for(K):
     rows = [('Teacher', [D['teacher']]), ('Base (untrained)', [D['base']]),
             ('Seed-SFT, end of schedule', seedsft_end(K)),
             ('Seed-SFT, 5 passes', [c for c in select('Seed-SFT', K) if c['dose'] == 'p05']),
-            ('Kang SFT + SAG', select('Kang', K, decoding='sag', training_seed=0)),
+            ('AD (SFT + SAG)', select('Kang', K, decoding='sag', training_seed=0)),
             ('AgentGym BC', select('AgentGym', K, iteration=0)),
             ('AgentEvol, iteration 3', select('AgentGym', K, iteration=3))]
     if K == 20:
@@ -303,7 +303,7 @@ def fig4_instability():
     k5s2 = [c['successes'] for c in select('AgentGym', 5) if c['seed'] == 2 and c['iteration'] in (1, 2, 3)]
     spread = [('same adapter, two servers', [BASE - NOISE / 2, BASE + NOISE / 2], 'reference'),
               ('Seed-SFT end, K20: 3 support sets', [c['successes'] for c in seedsft_end(20)], ''),
-              ('Kang K20 s0: 3 training seeds', D['log_only']['kang_training_seeds_k20s0'], ''),
+              ('AD K20 s0: 3 training seeds', D['log_only']['kang_training_seeds_k20s0'], ''),
               ('AgentGym BC K20: 3 support sets', [c['successes'] for c in select('AgentGym', 20, iteration=0)], ''),
               ('AgentEvol K1 s0: 4 retrains, same data', k1, ''),
               ('AgentEvol K5 s2 it1-3: same data', k5s2, '')]
