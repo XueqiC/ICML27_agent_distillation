@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **16:2x CDT 10-19:** main = 18030f5: merged wt/adftp-sad (AD-FTP, SAD), wt/wkm-steca (WKM, STeCa), wt/had (HAD); merged-main CPU tests pass (171). Not yet deployed to hpg.
+  Shared-history DPO GPU acceptance (hpg 46723617/18, tree 31e4875) FAILED before comparing: InductorError, FlexAttention default tiles exceed shared memory for Gemma-4 global layers (head_dim 512).
+  Reproduced on rai GPU1; kernel_options BLOCK_M=BLOCK_N=32 compiles fwd+bwd and matches SDPA in bf16. Codex fixing (pid 814843). Measured on one ETO pair: per-turn path 368,738 forward tokens, 187 s fwd+bwd; packed 20,697 tokens (18× fewer).
+  Moved 4 small LEAP chains (lpz-k5s0/s1/s2, lpp-k5s1) to yd24f (fairshare 0.32 vs dept 0.22; dept estimates were 16–30 h). Codex launched: wt/gad (819635), wt/coa (820040), wt/agentdistill (820526).
+  Full-TRAIN collection: 754 attempts by 15:22 CDT (~10.5/min, 81% success), ETA ~21:10 CDT.
 - **14:1x CDT 10-19: full-TRAIN teacher collection RUNNING on rai** (pid 228787, 32 shards, worktree ../ICML27_run_549503d, output data/verified/seeds_full_train; caps 160k calls/700M tokens; rate limits raised to 4,500 rpm/1.8M tpm after the 10-19 header probe 5,000/2M). Merged wt/fulltrain (549503d). Codex still running: wt/dpopack follow-up (GPU validation tool, pid 19353),
   wt/adftp-sad (4149528), wt/wkm-steca (4150075), wt/had (4150904).
 - **13:4x CDT 10-19: FULL BASELINE GRID started (user 10-19: run every baseline completely, same fair setting, repo or paper; no GPU cap; hpg main, rai/LONI in parallel).**
