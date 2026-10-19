@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **14:1x CDT 10-19: full-TRAIN teacher collection RUNNING on rai** (pid 228787, 32 shards, worktree ../ICML27_run_549503d, output data/verified/seeds_full_train; caps 160k calls/700M tokens; rate limits raised to 4,500 rpm/1.8M tpm after the 10-19 header probe 5,000/2M). Merged wt/fulltrain (549503d). Codex still running: wt/dpopack follow-up (GPU validation tool, pid 19353),
+  wt/adftp-sad (4149528), wt/wkm-steca (4150075), wt/had (4150904).
 - **13:4x CDT 10-19: FULL BASELINE GRID started (user 10-19: run every baseline completely, same fair setting, repo or paper; no GPU cap; hpg main, rai/LONI in parallel).**
   Plan: docs/direction/2026-10-19_full_baseline_grid_plan_ZH.md (625f6a9). Grid (user 13:30): K ∈ {5,10,20,50,100} × s0–s2 + 1 full-training cell (support = all 3,553 TRAIN games) = 16 cells/method.
   User approved my recommended defaults Q1–Q5 (SAD one-hot teacher; HAD own harness, eval on HAD harness and H0, ≤30k teacher calls/cell; CoA gpt-6-luna multi-agent teacher + DAPO on K tasks;
