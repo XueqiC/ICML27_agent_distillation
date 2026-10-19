@@ -6,8 +6,9 @@
 #   LEAP 0% privileged:    K5-K100 x s0-s2 except k20s0 (done).
 # Stage-split chains (afterok): GPU stages request only the GPUs they use; teacher-only LEAP stages run CPU-only on
 # hpg-milan, so no GPU idles while the teacher answers. Sizes from sacct of the same stages (10-07/10-10 runs):
-#   AgentGym train 2 GPU, RSS <= 137 GB, ~2 cores -> 4 CPU / 160G; explore+filter 1 GPU, RSS 8 GB -> 8 CPU / 48G.
-#   LEAP GPU stage RSS 22-26 GB, ~1 core -> 4 CPU / 48G; LEAP teacher stage RSS 0.3 GB -> 2 CPU / 8G; eval 8 GB -> 8/32G.
+#   AgentGym train 2 GPU, RSS <= 137 GB, ~2 cores -> 4 CPU / 160G; explore+filter 1 GPU, RSS 8 GB -> 4 CPU / 24G.
+#   LEAP GPU stage RSS 22-26 GB, ~1 core -> 4 CPU / 32G; LEAP teacher stage RSS 0.3 GB -> 2 CPU / 8G; eval 8 GB -> 4/24G.
+# (10-19 13:5x CDT: pending batch-1 jobs were shrunk to these values with scontrol; the defaults below match.)
 # Every stage resumes from its hash-bound completed stages, so a failed or timed-out link is resubmitted unchanged.
 # Run from rai: ssh hpg bash -s -- <tree sha> [agentgym|leap-privileged|leap-zero|all] < scripts/ops_batch1_1019.sh
 set -u
@@ -36,8 +37,11 @@ sub() {  # name dependency resources walltime script exports -> job id
   sbatch --parsable $ACC $d $3 --time="$4" --job-name="$1" --output="logs/slurm-$1-%j.out" \
     --export="ALL,PROJECT_ROOT=$R,$6" "$5"
 }
-gpu_hours() {  # walltime of one GPU link by K (measured: K100 longest link 8.4 h, K50 5.5 h, K20 4.8 h for the whole run)
-  case "$1" in 5|10) echo 03:00:00 ;; 20) echo 05:00:00 ;; 50) echo 10:00:00 ;; 100) echo 16:00:00 ;; esac
+gpu_hours() {  # walltime of one LEAP GPU link by K (measured: K100 longest link 8.4 h, K50 5.5 h, K20 4.8 h whole run)
+  case "$1" in 5|10) echo 01:30:00 ;; 20) echo 02:30:00 ;; 50) echo 07:00:00 ;; 100) echo 12:00:00 ;; esac
+}
+ag_train_hours() {  # AgentGym train link (measured K100 t2 0:51, t3 0:57)
+  case "$1" in 50) echo 02:30:00 ;; 100) echo 03:30:00 ;; *) echo 02:00:00 ;; esac
 }
 agentgym_chain() {
   local K=$1 S=$2 cell="k$1s$2" V O e j="" m
@@ -46,12 +50,12 @@ agentgym_chain() {
   [ ! -e "$O" ] || { echo "exists $O, skipped" >> "$LOG"; return; }
   e="VERIFIED=$V,AGENTGYM_OUT=$O,NGPUS=2,WORKERS=16,BATCH_INVARIANT=1"
   for m in 0 1 2 3; do
-    j=$(sub "ag-$cell-t$m" "$j" "--gpus=2 --cpus-per-task=4 --mem=160G" "$(gpu_hours "$K")" scripts/hpg_agentgym.slurm \
+    j=$(sub "ag-$cell-t$m" "$j" "--gpus=2 --cpus-per-task=4 --mem=160G" "$(ag_train_hours "$K")" scripts/hpg_agentgym.slurm \
         "$e,AGENTGYM_THROUGH=train-$m") || return
-    j=$(sub "ag-$cell-x$m" "$j" "--gpus=1 --cpus-per-task=8 --mem=48G" 04:00:00 scripts/hpg_agentgym.slurm \
+    j=$(sub "ag-$cell-x$m" "$j" "--gpus=1 --cpus-per-task=4 --mem=24G" 01:30:00 scripts/hpg_agentgym.slurm \
         "$e,AGENTGYM_THROUGH=filter-$m") || return
   done
-  j=$(sub "ag-$cell-eval" "$j" "--gpus=1 --cpus-per-task=8 --mem=32G" 06:00:00 scripts/hpg_agentgym.slurm \
+  j=$(sub "ag-$cell-eval" "$j" "--gpus=1 --cpus-per-task=4 --mem=24G" 04:00:00 scripts/hpg_agentgym.slurm \
       "$e,AGENTGYM_MODE=evaluate") || return
   echo "agentgym $cell submitted, eval $j" >> "$LOG"
 }
@@ -61,15 +65,15 @@ leap_chain() {
   [ -f "$V/manifest.json" ] || { echo "missing $V" >> "$LOG"; return; }
   [ ! -e "$O" ] || { echo "exists $O, skipped" >> "$LOG"; return; }
   e="LEAP_OUT=$O,LEAP_VARIANT=$var,VERIFIED=$V,SED_SECRETS_FILE=$SECRETS,WORKERS=16,BATCH_INVARIANT=1"
-  local cpu="--partition=hpg-milan --gpus=0 --cpus-per-task=2 --mem=8G" gpu="--gpus=1 --cpus-per-task=4 --mem=48G"
+  local cpu="--partition=hpg-milan --gpus=0 --cpus-per-task=2 --mem=8G" gpu="--gpus=1 --cpus-per-task=4 --mem=32G"
   first=data-0; [ "$var" = privileged ] && first=extract
   j=$(sub "lp${var:0:1}-$cell-c0" "" "$cpu" 04:00:00 scripts/hpg_leap.slurm "$e,LEAP_THROUGH=$first") || return
   for i in 1 2 3; do
     j=$(sub "lp${var:0:1}-$cell-g$i" "$j" "$gpu" "$(gpu_hours "$K")" scripts/hpg_leap.slurm "$e,LEAP_THROUGH=explore-$i") || return
-    j=$(sub "lp${var:0:1}-$cell-c$i" "$j" "$cpu" 04:00:00 scripts/hpg_leap.slurm "$e,LEAP_THROUGH=data-$i") || return
+    j=$(sub "lp${var:0:1}-$cell-c$i" "$j" "$cpu" 02:00:00 scripts/hpg_leap.slurm "$e,LEAP_THROUGH=data-$i") || return
   done
   j=$(sub "lp${var:0:1}-$cell-g4" "$j" "$gpu" "$(gpu_hours "$K")" scripts/hpg_leap.slurm "$e,LEAP_THROUGH=all") || return
-  j=$(sub "lp${var:0:1}-$cell-eval" "$j" "--gpus=1 --cpus-per-task=8 --mem=32G" 06:00:00 scripts/hpg_leap.slurm \
+  j=$(sub "lp${var:0:1}-$cell-eval" "$j" "--gpus=1 --cpus-per-task=4 --mem=24G" 03:00:00 scripts/hpg_leap.slurm \
       "$e,LEAP_MODE=evaluate") || return
   echo "leap-$var $cell submitted, eval $j" >> "$LOG"
 }
