@@ -17,6 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **18:1x CDT 10-19:** first batch-1 result: LEAP 0% K5 s0 dev140 64/62/61/64 (iter 0–3; base 62); corrections 2/2/1. Batch 1: 66 links done, 0 failures; group-account K5 chains nearly done.
 - **16:5x CDT 10-19 (usage limit reached; resume here):** main = bc119be (+ GAD, AgentDistill merged; all new-method CPU tests pass). Tree bc119be deployed to hpg (+leap_llm);
   all-MiniLM-L6-v2 copied to hpg HF cache (snapshot 1110a243…) for WKM/STeCa EMBEDDING_SNAPSHOT. NEXT: (1) batch-2 smoke chains at K20 s0 for SAD (prepare CPU → train 4 GPU 24h → eval),
   WKM (experienced/explore/synthesize/world/agent GPU1; merge/knowledge-base CPU), STeCa (sft/reinforced 4 GPU; expert-mc/explore/agent-mc GPU1; detect/reflect/datasets CPU), GAD (explore/teacher/train × r0–2),
