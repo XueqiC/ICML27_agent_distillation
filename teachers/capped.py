@@ -143,7 +143,7 @@ class _Transport:
 
 class CappedTeacher:
     def __init__(self, *, counter_path, cap, cache_dir, usage_ledger, run_id,
-                 dry_run=False, client=None, teacher_class=Teacher, **teacher_options):
+                 dry_run=False, client=None, teacher_class=Teacher, evaluation_only=False, **teacher_options):
         if type(cap) is not int or cap < 0 or not run_id:
             raise ValueError("Nonnegative integer cap and stable collector run_id required")
         if "max_attempts" in teacher_options or "purpose" in teacher_options:
@@ -151,16 +151,22 @@ class CappedTeacher:
         if client is not None and getattr(client, "max_retries", 0) != 0:
             raise ValueError("Injected SDK client must disable retries")
         self.counter_path, self.cap = Path(counter_path), cap
+        self.evaluation_only = evaluation_only
+        if type(evaluation_only) is not bool:
+            raise ValueError("evaluation_only must be an explicit boolean")
         self.dry_run, self.run_id = dry_run, run_id
         self._counter, self._planned = None, set()
         self.teacher = teacher_class(cache_dir=cache_dir, usage_ledger=usage_ledger,
-            run_id=run_id, max_attempts=1, purpose="generation", **teacher_options)
+            run_id=run_id, max_attempts=1,
+            purpose="evaluation" if evaluation_only else "generation", **teacher_options)
         self.teacher.client = _Transport(self, client)
         self.identity = {"schema_version": 1, "run_id": run_id, "cap": cap,
                          "usage_ledger": str(Path(usage_ledger).resolve()),
                          "provider_model_id": self.teacher.provider_model_id,
                          "sampling": self.teacher.sampling,
                          "prompt_template_sha256": digest(self.teacher.prompt_template)}
+        if evaluation_only:
+            self.identity["purpose"] = "dev_evaluation_only"
 
     def _read_counter(self):
         value = (json.loads(self.counter_path.read_text()) if self.counter_path.exists() else
@@ -188,7 +194,12 @@ class CappedTeacher:
         return True
 
     def generate(self, history, task, visible_context):
-        authorize_task(task, "generation")
+        if self.evaluation_only:
+            authorize_task(task, "evaluation")
+            if task["split"] != "dev" or task.get("sealed"):
+                raise ValueError("Capped evaluation teacher requires unsealed DEV tasks")
+        else:
+            authorize_task(task, "generation")
         key = self.teacher.cache_key(history, task, visible_context)
         sid = state_hash(history, task, visible_context)
         if self.dry_run:

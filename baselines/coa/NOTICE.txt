@@ -1,0 +1,16 @@
+The mathematical DAPO adaptation in rl.py derives from
+OPPO-PersonalAI/Agent_Foundation_Models, revision
+9a6594d4661fa994f189074ecfdfd259eea87c6d:
+  verl/verl/trainer/ppo/core_algos.py
+  verl/verl/trainer/ppo/ray_trainer.py
+  verl/verl/trainer/main_ppo.py
+
+Copyright 2024 Bytedance Ltd. and/or its affiliates
+Copyright 2022 The HuggingFace Team. All rights reserved.
+Copyright 2025 The OPPO Inc. Personal AI team. All rights reserved.
+
+Licensed under Apache License 2.0; see LICENSE.upstream.
+Modifications: isolated response-token clipping and group normalization,
+ALFWorld success rewards, shared H0 rollout traces, staged FSDP updates and
+CPU-verifiable sampler and optimizer-state persistence. No upstream model
+checkpoint or reward model is distributed or loaded.
