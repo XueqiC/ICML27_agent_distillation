@@ -52,7 +52,7 @@ def policy_condition(policy, spec, config):
     if spec["model"] != config["models"]["student"]["requested_repo"]:
         name = "lora_student"
     condition = name + "_thinking_" + str(spec["enable_thinking"]).lower()
-    return condition + "_sag" if spec.get("decoding") == "sag" else condition
+    return condition + "_" + spec["decoding"] if spec.get("decoding") in {"sag", "wkm"} else condition
 
 
 def _worker(job):
@@ -67,6 +67,9 @@ def _worker(job):
             if decoding == "sag":
                 from students.sag_student import SAGStudent
                 policy = SAGStudent(log_dir=output / "student_calls", task_id=task["task_id"], **student_spec)
+            elif decoding == "wkm":
+                from baselines.wkm.policy import WKMStudent
+                policy = WKMStudent(log_dir=output / "student_calls", **student_spec)
             else:
                 policy = Student(log_dir=output / "student_calls", **student_spec)
         else:
@@ -155,7 +158,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("workers must be positive")
     if policy not in {"student", "teacher"}:
         raise ValueError("Unknown suite policy")
-    if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag"}:
+    if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag", "wkm"}:
         raise ValueError("Unknown student decoding")
     if policy == "student":
         spec = {**spec, **context_options(config)}
@@ -166,6 +169,9 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("Server batch_invariant must be a boolean or unknown (null)")
     if policy == "student" and spec.get("decoding") == "sag" and batch_invariant is not True:
         raise ValueError("SAG requires batch-invariant server provenance")
+    if policy == "student" and spec.get("decoding") == "wkm":
+        from baselines.wkm.evaluation import validate_dual
+        validate_dual(config, spec)
     if policy == "student" and spec["model"] != config["models"]["student"]["requested_repo"]:
         from tools.check_lora_serving import validate_report
         if not config.get("server_provenance") or not config.get("lora_equivalence"):
@@ -175,6 +181,9 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         if (checked["base_model"] != config["models"]["student"]["requested_repo"]
                 or checked["revision"] != config["models"]["student"]["revision"]):
             raise ValueError("Equivalence report differs from configured student identity")
+    if config.get("full_equivalence"):
+        from tools.check_full_serving import validate_report as validate_full_report
+        validate_full_report(config["full_equivalence"], config["server_provenance"], spec["endpoint"])
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     listing, tasks = frozen_tasks(tasks_path, manifest, freeze, sealed_final=sealed_final, policy=policy)
     output = Path(output)
@@ -217,7 +226,11 @@ def main(argv=None):
     parser.add_argument("--tasks", default="data/manifest/dev40.json")
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
-    parser.add_argument("--decoding", choices=("greedy", "sag"), default="greedy")
+    parser.add_argument("--decoding", choices=("greedy", "sag", "wkm"), default="greedy")
+    parser.add_argument("--full-check")
+    parser.add_argument("--knowledge-model")
+    parser.add_argument("--knowledge-base")
+    parser.add_argument("--knowledge-lora-check")
     parser.add_argument("--sag-sampling-seed", type=int, default=0)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--model-name", help="Request model: base served name (default) or adapter NAME")
@@ -231,6 +244,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.decoding == "sag" and args.policy != "student":
         parser.error("SAG is a student-only test-time policy")
+    if args.decoding == "wkm" and (args.policy != "student" or not all(
+            (args.knowledge_model, args.knowledge_base, args.knowledge_lora_check, args.lora_check))):
+        parser.error("WKM requires two checked student LoRAs and a state knowledge base")
     if args.max_tokens != 1024:
         parser.error("Stage 2b fixes the student per-step cap at 1024 tokens")
     config = load_config(args.config)
@@ -243,14 +259,22 @@ def main(argv=None):
     if args.decoding == "sag":
         spec["decoding"] = "sag"
         spec["sampling_seed"] = args.sag_sampling_seed
+    if args.decoding == "wkm":
+        spec.update(decoding="wkm", knowledge_model=args.knowledge_model, knowledge_base=args.knowledge_base)
     inputs = [args.config]
     if args.server_provenance:
         inputs.append(args.server_provenance)
         server = json.loads(Path(args.server_provenance).read_text())
         config["server_provenance"] = server
+    if args.full_check:
+        inputs.append(args.full_check)
+        config["full_equivalence"] = json.loads(Path(args.full_check).read_text())
     if args.lora_check:
         inputs.append(args.lora_check)
         config["lora_equivalence"] = json.loads(Path(args.lora_check).read_text())
+    if args.decoding == "wkm":
+        inputs += [args.knowledge_lora_check, args.knowledge_base]
+        config["knowledge_lora_equivalence"] = json.loads(Path(args.knowledge_lora_check).read_text())
     summary = run_suite(config=config, tasks_path=args.tasks, output=args.output, policy=args.policy,
                         spec=spec if args.policy == "student" else None, workers=args.workers,
                         sealed_final=args.sealed_final, inputs=inputs)

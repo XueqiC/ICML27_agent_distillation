@@ -258,6 +258,15 @@ def evaluate_pipeline(args):
         hashes.pop("training_state.json")
         if hashes != state["artifact_sha256"]:
             raise ValueError("Evaluation checkpoint changed")
+        evaluation_identity = state
+        if model.get("knowledge_adapter"):
+            knowledge = Path(model["knowledge_adapter"])
+            knowledge_state = json.loads((knowledge / "training_state.json").read_text())
+            knowledge_hashes = artifact_hashes(knowledge)
+            knowledge_hashes.pop("training_state.json")
+            if knowledge_hashes != knowledge_state["artifact_sha256"]:
+                raise ValueError("Knowledge adapter changed")
+            evaluation_identity = [state, knowledge_state, file_hash(model["knowledge_base"])]
         def evaluate(attempt):
             env = os.environ.copy()
             env.update(PROJECT_ROOT=str(Path.cwd()), CONFIG=args.config, MODEL_PATH=args.snapshot,
@@ -272,8 +281,15 @@ def evaluate_pipeline(args):
                 env.update(MERGED_MODEL_PATH="", INCLUDE_BASE="0", VERIFIED=args.verified,
                     DOSE_ADAPTER=model["name"] + "=" + str(checkpoint))
                 script = 'adapters=("$DOSE_ADAPTER"); source scripts/eval_adapters.sh'
+            if model.get("knowledge_adapter"):
+                env.update(DECODING="wkm", WKM_AGENT_NAME=model["name"],
+                    WKM_KNOWLEDGE_NAME=model["name"] + "-knowledge", WKM_KNOWLEDGE_BASE=model["knowledge_base"],
+                    WKM_ADAPTER=model["name"] + "-knowledge=" + model["knowledge_adapter"])
+                script = 'adapters=("$DOSE_ADAPTER" "$WKM_ADAPTER"); source scripts/eval_adapters.sh'
+            if model.get("full_equivalence_required"):
+                env.update(FULL_EQUIVALENCE="1", VERIFIED=args.verified)
             run_command(["bash", "-c", script], attempt / "eval.log", env=env)
-        stage_run(output, "eval-" + model["name"], digest(state), evaluate)
+        stage_run(output, "eval-" + model["name"], digest(evaluation_identity), evaluate)
 
 
 def main(argv=None):

@@ -19,14 +19,14 @@ def batch_invariant():
     os.environ["VLLM_BATCH_INVARIANT"] = "1"
 
 
-def prepare(args, config, *, method, recipe):
+def prepare(args, config, *, method, recipe, unrestricted_verified_size=False):
     output = Path(args.output).resolve()
     for name in ("raw", "verified"):
         if output.is_relative_to(Path(config["paths"][name]).resolve()):
             raise ValueError("Baseline output must be outside seed storage")
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-    if selection["K"] not in REGISTERED_K:
+    if not unrestricted_verified_size and selection["K"] not in REGISTERED_K:
         raise ValueError("Registered few-shot K is " + "/".join(map(str, REGISTERED_K)))
     parents = {r["task_id"]: [checked_episode(root, r)["episode_id"]] for r in collection["verified"]}
     ids = list(parents)

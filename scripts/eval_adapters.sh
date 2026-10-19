@@ -15,9 +15,15 @@ LORA_DTYPE=${LORA_DTYPE:-bfloat16}
 case "$LORA_DTYPE" in bfloat16|float16) ;; *) echo 'LORA_DTYPE must be bfloat16 or float16' >&2; exit 2 ;; esac
 CONFIG=${CONFIG:-configs/base.yaml}
 DECODING=${DECODING:-greedy}
-case "$DECODING" in greedy|sag) ;; *) echo 'DECODING must be greedy or sag' >&2; exit 2 ;; esac
+case "$DECODING" in greedy|sag|wkm) ;; *) echo 'DECODING must be greedy, sag or wkm' >&2; exit 2 ;; esac
 if [[ "$DECODING" == sag && "$BATCH_INVARIANT" != 1 ]]; then
     echo 'Stage 3b SAG requires BATCH_INVARIANT=1' >&2; exit 2
+fi
+if [[ "$DECODING" == wkm ]]; then
+    : "${WKM_AGENT_NAME:?Set the agent adapter name}" "${WKM_KNOWLEDGE_NAME:?Set the world adapter name}"
+    : "${WKM_KNOWLEDGE_BASE:?Set the frozen state knowledge base}"
+    [[ "$BATCH_INVARIANT" == 1 && "$INCLUDE_BASE" == 0 && ${#adapters[@]} == 2 &&
+       "$WKM_AGENT_NAME" != "$WKM_KNOWLEDGE_NAME" && -f "$WKM_KNOWLEDGE_BASE" ]] || exit 2
 fi
 MERGED_MODEL_PATH=${MERGED_MODEL_PATH:-}
 FULL_CHECKPOINT_NAME=${FULL_CHECKPOINT_NAME:-full-checkpoint}
@@ -88,6 +94,12 @@ mark_check_failed() {
     failed_checks=$((failed_checks + 1))
 }
 # HF references run sequentially BEFORE vLLM reserves GPU memory. No merged copy.
+if [[ "${FULL_EQUIVALENCE:-0}" == 1 ]]; then
+    : "${VERIFIED:?Full checkpoint gate requires VERIFIED}"
+    [[ -n "$MERGED_MODEL_PATH" ]] || exit 2
+    run_work "$TRAIN_PYTHON" tools/check_full_serving.py --config "$CONFIG" --snapshot "$MODEL_PATH" \
+        --checkpoint "$MERGED_MODEL_PATH" --verified "$VERIFIED" --hf-only --output "$OUT/full-hf"
+fi
 ready_adapters=()
 for pair in "${adapters[@]}"; do
     name=${pair%%=*}
@@ -131,7 +143,17 @@ eval_model() {
         --enable-thinking off --max-tokens 1024 --tasks "$TASKS" --workers "$WORKERS" \
         --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "$@"
 }
-if [[ "$INCLUDE_BASE" == 1 ]]; then eval_model "$base_name"; fi
+if [[ "$INCLUDE_BASE" == 1 ]]; then
+    if [[ "${FULL_EQUIVALENCE:-0}" == 1 ]]; then
+        CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_full_serving.py --config "$CONFIG" \
+            --snapshot "$MODEL_PATH" --checkpoint "$MERGED_MODEL_PATH" --verified "$VERIFIED" \
+            --hf-reference "$OUT/full-hf/reference.json" --endpoint "$endpoint" \
+            --server-provenance "$OUT/server/provenance.json" --output "$OUT/full-check"
+        eval_model "$base_name" --full-check "$OUT/full-check/report.json"
+    else
+        eval_model "$base_name"
+    fi
+fi
 for pair in "${ready_adapters[@]}"; do
     name=${pair%%=*}
     path=${pair#*=}
@@ -139,9 +161,17 @@ for pair in "${ready_adapters[@]}"; do
         --snapshot "$MODEL_PATH" --adapter "$path" --verified "$VERIFIED" --model-name "$name" \
         --hf-reference "$OUT/$name/hf/reference.json" --endpoint "$endpoint" \
         --server-provenance "$OUT/server/provenance.json" --output "$OUT/$name/check"; then
-        eval_model "$name" --lora-check "$OUT/$name/check/report.json"
+        if [[ "$DECODING" != wkm ]]; then
+            eval_model "$name" --lora-check "$OUT/$name/check/report.json"
+        fi
     else
         mark_check_failed "$name" serving-comparison "$?"
     fi
 done
 if (( failed_checks > 0 )); then exit 1; fi
+if [[ "$DECODING" == wkm ]]; then
+    [[ -f "$OUT/$WKM_AGENT_NAME/check/report.json" && -f "$OUT/$WKM_KNOWLEDGE_NAME/check/report.json" ]] || exit 2
+    eval_model "$WKM_AGENT_NAME" --lora-check "$OUT/$WKM_AGENT_NAME/check/report.json" \
+        --knowledge-model "$WKM_KNOWLEDGE_NAME" --knowledge-base "$WKM_KNOWLEDGE_BASE" \
+        --knowledge-lora-check "$OUT/$WKM_KNOWLEDGE_NAME/check/report.json"
+fi

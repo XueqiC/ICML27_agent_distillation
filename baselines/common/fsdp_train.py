@@ -197,6 +197,22 @@ def sft_microsteps(examples, indices):
     return result
 
 
+def weighted_microsteps(examples, indices):
+    """STeCa sums continuation log likelihood; never normalize by token count."""
+    result = []
+    for index in indices:
+        example = examples[index]
+        weight = example["reward"] * example["dataset_scale"]
+        if not math.isfinite(weight) or weight <= 0:
+            raise ValueError("Invalid STeCa reward/dataset scale")
+        result.extend((row, weight) for row in sequence_rows(example))
+    return result
+
+
+def weighted_objective(model, row, device):
+    return -batch_logps(model, [row], device).mean(), {}
+
+
 def sft_objective(model, row, device):
     count = supervised_count(row)
     return -batch_logps(model, [row], device).mean() / count, {}
@@ -264,19 +280,19 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                packing=None):
     import torch
     import torch.distributed as dist
-    if objective not in {"sft", "dpo", "ipr"} or not math.isfinite(learning_rate) or learning_rate <= 0:
+    if objective not in {"sft", "dpo", "ipr", "steca"} or not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Invalid training objective/learning rate")
     if not math.isfinite(beta) or beta <= 0:
         raise ValueError("Positive finite beta required")
     actual_packings = {row.get("packing", "episode") for example in examples
-                      for row in ([example] if objective == "sft" else [example["chosen"], example["rejected"]])}
+                      for row in ([example] if objective in {"sft", "steca"} else [example["chosen"], example["rejected"]])}
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
     two_pass_turn_backward = objective in {"dpo", "ipr"} and packing == "turn"
     empty_visible_counts = []
     for example in examples:
-        groups = [example] if objective == "sft" else [example["chosen"], example["rejected"]]
+        groups = [example] if objective in {"sft", "steca"} else [example["chosen"], example["rejected"]]
         # Count each stage input once, independently of epochs/rank padding.
         empty_visible_counts.append(sum(row.get("empty_visible_turns_masked", 0) for row in groups))
         for row in groups:
@@ -310,12 +326,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         optimizer.zero_grad(set_to_none=True)
         metrics_sum = {}
         indices = batch["indices"]
-        microsteps = (sft_microsteps(examples, indices) if objective == "sft" else
+        microsteps = (weighted_microsteps(examples, indices) if objective == "steca" else
+                      sft_microsteps(examples, indices) if objective == "sft" else
                       [(examples[i], 1.0) for i in indices])
         slots = rank_slots(list(range(len(microsteps))), world_size)
         # All ranks have the same logical batch. Derive the same number of
         # preference turn forwards without a separate distributed collective.
-        rounds = [1 if objective == "sft" else max(
+        rounds = [1 if objective in {"sft", "steca"} else max(
             len(sequence_rows(microsteps[i if i is not None else 0][0][side]))
             for i in slot for side in ("chosen", "rejected")) for slot in slots]
         for slot, n_rounds in zip(slots, rounds):
@@ -325,7 +342,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             # FSDP averages across ranks. Cancel that average and divide by
             # ACTUAL trajectories/pairs, including the final partial batch.
             scale = weight * world_size / len(indices) if active else 0.0
-            loss, metrics = (sft_objective(model, row, device) if objective == "sft" else
+            loss, metrics = (weighted_objective(model, row, device) if objective == "steca" else
+                            sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
                                           nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
                                           backward_scale=scale if two_pass_turn_backward else None))
@@ -345,7 +363,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         exposure += len(indices)
         def costs(microstep, n_rounds=None):
             row, _ = microstep
-            groups = [row] if objective == "sft" else [row["chosen"], row["rejected"]]
+            groups = [row] if objective in {"sft", "steca"} else [row["chosen"], row["rejected"]]
             rows = [r for group in groups for r in sequence_rows(group)]
             return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
                     sum(len(r["input_ids"]) for r in rows),
@@ -370,7 +388,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             norm = norm.full_tensor()
         if ledger:
             ledger.append({"update": update, **batch, "lr": lr_used, "global_batch": len(indices),
-                           "packing": packing, "batch_unit": "trajectory" if objective == "sft" else "preference pair",
+                           "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "steca"} else "preference pair",
                            "microsteps": len(microsteps), "collective_rounds": sum(rounds),
                            "zero_weight_slots": len(slots) * world_size - len(microsteps),
                            "gradient_norm": float(norm), "examples_seen": exposure,
@@ -379,7 +397,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "two_pass_turn_backward": two_pass_turn_backward,
                            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
                            "physical_policy_recompute_forward_tokens": recompute_tokens,
-                           "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
+                           "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "steca"} else 0,
                            **dict(zip(keys, values.cpu().tolist()))}, unique_key="update")
     if cuda:
         torch.cuda.synchronize(device)
@@ -399,13 +417,14 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "two_pass_turn_backward": two_pass_turn_backward,
             "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
             "physical_policy_recompute_forward_tokens": recompute_tokens,
-            "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
+            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "steca"} else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
-            "packing": packing, "batch_unit": "trajectory" if objective == "sft" else "preference pair",
-            "microbatch": 1, "microbatch_unit": packing if objective == "sft" else "preference pair",
+            "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "steca"} else "preference pair",
+            "microbatch": 1, "microbatch_unit": packing if objective in {"sft", "steca"} else "preference pair",
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
-            "loss_reduction": ("per_example_mean_then_global_batch_mean" if objective == "sft" else
+            "loss_reduction": ("reward_weighted_summed_logps_dataset_means" if objective == "steca" else
+                               "per_example_mean_then_global_batch_mean" if objective == "sft" else
                                "sigmoid_plus_chosen_nll_summed_logps" if objective == "ipr" else "sigmoid_summed_logps")}
 
 
@@ -482,11 +501,15 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
             "artifact_sha256": artifact_hashes(destination), "text_export_dtype": text_dtype}
 
 
-def prepare_lora_model(snapshot, *, device="cuda"):
-    """Kang's all-linear recipe restricted to the seven text projections."""
+def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora"):
+    """Registered text-only LoRA recipes; Kang remains the default."""
     from train.modeling import attach_lora
     model = load_student(snapshot, device=device, dtype="bfloat16" if device != "cpu" else "float32")
     model.set_attn_implementation("sdpa")
+    if adaptation == "wkm_lora":
+        return attach_lora(model, rank=8, alpha=16, dropout=0.0, targets=["q_proj", "v_proj"])
+    if adaptation != "kang_lora":
+        raise ValueError("Unknown LoRA adaptation")
     return attach_lora(model, rank=64, alpha=128, dropout=0.05)
 
 
@@ -516,20 +539,23 @@ def train_lora(args):
     if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
             or config["environment"]["max_episode_steps"] != 40):
         raise ValueError("Baseline harness protocol differs")
-    config["training"]["adaptation"] = "kang_lora"
+    config["training"]["adaptation"] = args.adaptation
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, _, root = load_verified_collection(args.verified, manifest, freeze)
     tokenizer = load_tokenizer(args.snapshot)
     examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
                              packing=args.packing, max_length=args.max_length)
                 for episode in checked_episodes(root, collection["verified"])]
+    if args.method_data:
+        from baselines.wkm.data import training_examples
+        examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
     plan = dose(len(examples), args.original_batch, epochs=args.epochs)
-    model = prepare_lora_model(args.snapshot)
+    model = prepare_lora_model(args.snapshot, adaptation=args.adaptation)
     peft_config = model.peft_config["default"]
     peft_config.revision = config["models"]["student"]["revision"]
     base = snapshot_metadata(args.base_snapshot)
-    config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": 64,
-                     "alpha": 128, "dropout": 0.05, "targets": sorted(peft_config.target_modules)}
+    config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": peft_config.r,
+                     "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout, "targets": sorted(peft_config.target_modules)}
     config["baseline_training"] = {**vars(args), **plan, "world_size": 1,
         "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
         "examples_sha256": digest(examples), "template_sha256": digest(tokenizer.chat_template),
@@ -541,16 +567,17 @@ def train_lora(args):
         "K": collection["K"], "unique_instances": collection["unique_instances"], "task_groups": collection["task_groups"]}
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
-    provenance = write_provenance(output, command="baseline_kang_lora_train", config=config,
+    provenance = write_provenance(output, command="baseline_" + args.adaptation + "_train", config=config,
         inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
-                Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"])
+                Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json",
+                *([args.method_data, Path(args.method_data).parent / "provenance.json"] if args.method_data else [])])
     write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
     with torch.autocast("cuda", dtype=torch.bfloat16):
         state = train_loop(model, examples, output, objective="sft", learning_rate=args.learning_rate,
             scheduler=args.scheduler, warmup_ratio=args.warmup_ratio, warmup_steps=args.warmup_steps,
             original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
             weight_decay=args.weight_decay, device="cuda", packing=args.packing)
-    state.update(adaptation="kang_lora", frozen_base_dtype="bfloat16")
+    state.update(adaptation=args.adaptation, frozen_base_dtype="bfloat16")
     staging = output / ".checkpoint.partial"
     state = export_adapter(model, staging, provenance, state)
     os.rename(staging, output / "checkpoint")
@@ -562,8 +589,8 @@ def train_lora(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--objective", choices=["sft", "dpo", "ipr"], required=True)
-    parser.add_argument("--adaptation", choices=["full", "kang_lora"], default="full")
+    parser.add_argument("--objective", choices=["sft", "dpo", "ipr", "steca"], required=True)
+    parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
     parser.add_argument("--snapshot", required=True)
@@ -571,6 +598,7 @@ def main(argv=None):
     parser.add_argument("--reference")
     parser.add_argument("--verified")
     parser.add_argument("--sft-data", help="Checked AgentGym accumulated dataset; excludes --verified")
+    parser.add_argument("--method-data", help="Checked WKM or STeCa stage dataset")
     parser.add_argument("--pairs")
     parser.add_argument("--output", required=True)
     parser.add_argument("--learning-rate", type=float, required=True)
@@ -589,7 +617,11 @@ def main(argv=None):
         parser.error("Registered no-truncation limit is 32768")
     if args.objective == "sft" and bool(args.verified) == bool(args.sft_data):
         parser.error("SFT requires exactly one of --verified or --sft-data")
-    if args.adaptation == "kang_lora":
+    if args.method_data and not (args.adaptation == "wkm_lora" or args.objective == "steca"):
+        parser.error("Method data requires WKM LoRA or STeCa objective")
+    if args.objective == "steca" and (not args.method_data or not args.verified or args.adaptation != "full"):
+        parser.error("STeCa requires method data, verified support and full fine-tuning")
+    if args.adaptation in {"kang_lora", "wkm_lora"}:
         if args.objective != "sft" or not args.verified or args.sft_data:
             parser.error("Kang LoRA requires seed SFT")
         return train_lora(args)
@@ -623,7 +655,16 @@ def main(argv=None):
             manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
             tokenizer = load_tokenizer(args.snapshot)
             inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
-            if args.objective == "sft":
+            if args.objective == "steca":
+                from baselines.steca.data import training_examples
+                validate_checkpoint(args.snapshot, config["models"]["student"], base_snapshot=args.base_snapshot)
+                details = json.loads((Path(args.method_data).parent / "provenance.json").read_text())["details"]
+                if (Path(details["warmup_checkpoint"]).resolve() != Path(args.snapshot).resolve()
+                        or file_hash(Path(args.snapshot).parent / "provenance.json") != details["warmup_provenance_sha256"]):
+                    raise ValueError("STeCa reinforced initialization differs from fixed exploration/MC model")
+                examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
+                inputs += [args.method_data, Path(args.method_data).parent / "provenance.json"]
+            elif args.objective == "sft":
                 if args.sft_data:
                     from baselines.agentgym.data import training_examples
                     examples = training_examples(args.sft_data, config, tokenizer,
@@ -668,9 +709,9 @@ def main(argv=None):
                 "attention": "sdpa", "master_dtype": "float32", "compute_dtype": "bfloat16",
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
-                "no_truncation": True, "packing": args.packing if args.objective == "sft" else "turn", "microbatch": 1,
-                "batch_unit": "trajectory" if args.objective == "sft" else "preference pair",
-                "microbatch_unit": args.packing if args.objective == "sft" else "preference pair",
+                "no_truncation": True, "packing": args.packing if args.objective in {"sft", "steca"} else "turn", "microbatch": 1,
+                "batch_unit": "trajectory" if args.objective in {"sft", "steca"} else "preference pair",
+                "microbatch_unit": args.packing if args.objective in {"sft", "steca"} else "preference pair",
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
                                      "fixed_seed_sft_init" if args.objective == "dpo" and
@@ -688,13 +729,13 @@ def main(argv=None):
         mesh = init_device_mesh("cuda", (world,))
         model = shard_model(prepare_model(args.snapshot), mesh=mesh)
         reference = (shard_model(prepare_model(args.reference, reference=True), mesh=mesh, reference=True)
-                     if args.objective != "sft" else None)
+                     if args.objective not in {"sft", "steca"} else None)
         started = time.monotonic()
         state = train_loop(model, examples, output, objective=args.objective,
                     learning_rate=args.learning_rate, scheduler=args.scheduler, warmup_ratio=args.warmup_ratio,
                     original_batch=args.original_batch, epochs=args.epochs, seed=args.seed, beta=args.beta,
                     reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device,
-                    warmup_steps=args.warmup_steps, packing=args.packing if args.objective == "sft" else "turn")
+                    warmup_steps=args.warmup_steps, packing=args.packing if args.objective in {"sft", "steca"} else "turn")
         # Release reference before gathering the final standalone policy.
         del reference
         torch.cuda.empty_cache()
