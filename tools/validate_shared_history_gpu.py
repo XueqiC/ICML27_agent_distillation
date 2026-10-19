@@ -18,7 +18,8 @@ import traceback
 
 from baselines.common.conversation import sequence_rows
 from baselines.common.fsdp_train import batch_logps
-from baselines.common.shared_history import pack_shared_history, shared_history_logps, validate_model
+from baselines.common.shared_history import (add_flex_kernel_options_argument, configure_flex_attention,
+    flex_attention_settings, pack_shared_history, shared_history_logps, validate_model)
 from sed.storage import digest, file_hash, write_json
 
 MAX_LENGTH = 32768
@@ -201,6 +202,8 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
     for scoring in SCORINGS:
         backend = "flex_attention" if gpu and scoring == "shared_history" else "sdpa"
         path = record["paths"][scoring] = {"attention": backend, "measurements": {}}
+        if scoring == "shared_history":
+            path["flex_attention"] = configure_flex_attention(model)
         if progress:
             progress(f"{scoring}/no_grad_sums", record)
         model.set_attn_implementation(backend)
@@ -306,6 +309,7 @@ def main(argv=None):
     parser.add_argument("--num-pairs", "-n", type=int, default=4)
     parser.add_argument("--snapshot", default=os.environ.get("MODEL_PATH"), help="Defaults to configs/hpg.env MODEL_PATH")
     parser.add_argument("--config", default="configs/base.yaml")
+    add_flex_kernel_options_argument(parser)
     args = parser.parse_args(argv)
     print(f"PASS requires every bf16 side-sum relative difference <= {SIDE_RTOL:g}, every gradient tensor "
           f"relative L2 <= {GRAD_RTOL:g}, and all scores/gradients finite and present (no NaN/Inf).", flush=True)
@@ -330,6 +334,7 @@ def main(argv=None):
         from sed.provenance import code_hashes, utc_now, versions
         from train.dataset import load_tokenizer
         from train.modeling import load_student, snapshot_metadata
+        report["settings"]["flex_attention"] = flex_attention_settings(args.flex_kernel_options)
         if (int(os.environ.get("WORLD_SIZE", "1")) != 1 or torch.cuda.device_count() != 1
                 or not torch.cuda.is_available()):
             raise ValueError("Exactly one visible GPU and one process required")
@@ -352,6 +357,7 @@ def main(argv=None):
             "input_sha256": {str(p): file_hash(p) for p in
                 (args.config, config["paths"]["manifest"], config["paths"]["split_freeze"])},
             "student": config["models"]["student"], "snapshot": metadata,
+            "flex_attention": report["settings"]["flex_attention"],
             "template_sha256": digest(tokenizer.chat_template)}
         report["phase"] = "checked_pair_loading_and_encoding"
         save_report(args.output, report)
@@ -362,6 +368,7 @@ def main(argv=None):
         report["phase"] = "load_real_student"
         save_report(args.output, report)
         model = load_student(args.snapshot, device="cuda:0", dtype="bfloat16")
+        configure_flex_attention(model, report["settings"]["flex_attention"]["kernel_options"])
         if any(p.device != torch.device("cuda:0") or p.dtype != torch.bfloat16 for p in model.parameters()):
             raise ValueError("All parameters must be bf16 on the single GPU")
         model.config.get_text_config().use_cache = False
@@ -388,9 +395,11 @@ def main(argv=None):
         report["phase"] = "complete"
         print(json.dumps(report["summary"], allow_nan=False), flush=True)
     except Exception as error:
-        # No raw SDK/loader exception text or environment dump in durable logs.
+        # This offline GPU diagnostic needs the full compiler/resource error.
         report["status"] = "error"
         report["error_type"] = type(error).__name__
+        report["error_message"] = str(error)
+        report["error_repr"] = repr(error)
         report["error_frames"] = [{"file": frame.filename, "line": frame.lineno, "function": frame.name}
                                   for frame in traceback.extract_tb(error.__traceback__)]
         print(f"FAIL during {report['phase']} ({type(error).__name__}); see JSON report.", flush=True)

@@ -16,6 +16,8 @@ from types import SimpleNamespace
 from baselines.common.checkpoint import checkpoint_key_map, checkpoint_layout, validate_checkpoint_layout
 from baselines.common.conversation import conversation, preference_conversation, sequence_rows
 from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots, warmup_count
+from baselines.common.shared_history import (add_flex_kernel_options_argument, configure_flex_attention,
+                                            flex_attention_settings)
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
@@ -79,12 +81,14 @@ def validate_checkpoint(path, student=None, *, base_snapshot=None):
     return state
 
 
-def prepare_model(snapshot, *, reference=False, scoring="per_turn"):
+def prepare_model(snapshot, *, reference=False, scoring="per_turn", flex_kernel_options=None):
     """Exact scorer backend with fp32 policy masters / frozen bf16 reference."""
     # FSDP already casts reference parameters to bf16 for every forward.
     # Loading directly in that dtype preserves compute and halves storage.
     model = load_student(snapshot, device="cpu", dtype="bfloat16" if reference else "float32")
     model.set_attn_implementation("flex_attention" if scoring == "shared_history" else "sdpa")
+    if scoring == "shared_history":
+        configure_flex_attention(model, flex_kernel_options)
     model.config.get_text_config().use_cache = False
     for name, parameter in model.named_parameters():
         parameter.requires_grad_(not reference and text_parameter(name))
@@ -271,7 +275,7 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
-               packing=None, scoring="per_turn"):
+               packing=None, scoring="per_turn", flex_kernel_options=None):
     import torch
     import torch.distributed as dist
     if objective not in {"sft", "dpo", "ipr"} or not math.isfinite(learning_rate) or learning_rate <= 0:
@@ -287,6 +291,10 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         raise ValueError("Scoring must be per_turn or shared_history")
     if scoring == "shared_history" and (objective == "sft" or packing != "turn"):
         raise ValueError("Shared-history scoring currently requires turn-packed preferences")
+    flex_settings = None
+    if scoring == "shared_history":
+        flex_settings = configure_flex_attention(model, flex_kernel_options)
+        configure_flex_attention(reference, flex_settings["kernel_options"])
     two_pass_backward = objective in {"dpo", "ipr"} and packing == "turn"
     two_pass_turn_backward = two_pass_backward and scoring == "per_turn"
     two_pass_side_backward = two_pass_backward and scoring == "shared_history"
@@ -399,6 +407,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "logical_forward_tokens": forward_tokens,
                            "two_pass_turn_backward": two_pass_turn_backward,
                            "two_pass_side_backward": two_pass_side_backward, "scoring": scoring,
+                           "flex_attention": flex_settings,
                            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
                            "physical_policy_recompute_forward_tokens": recompute_tokens,
                            "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
@@ -420,6 +429,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "zero_weight_slots": physical - logical_slots,
             "two_pass_turn_backward": two_pass_turn_backward,
             "two_pass_side_backward": two_pass_side_backward, "scoring": scoring,
+            "flex_attention": flex_settings,
             "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
             "physical_policy_recompute_forward_tokens": recompute_tokens,
             "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
@@ -591,6 +601,7 @@ def main(argv=None):
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"],
                         help="Preference execution path; defaults to shared_history. SFT retains per_turn.")
+    add_flex_kernel_options_argument(parser)
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
     parser.add_argument("--reference")
@@ -612,6 +623,11 @@ def main(argv=None):
     args.scoring = args.scoring or ("per_turn" if args.objective == "sft" else "shared_history")
     if args.objective == "sft" and args.scoring != "per_turn":
         parser.error("SFT retains the per_turn scorer")
+    if args.flex_kernel_options is not None and args.scoring != "shared_history":
+        parser.error("Flex kernel options require shared_history scoring")
+    flex_settings = flex_attention_settings(args.flex_kernel_options) if args.scoring == "shared_history" else None
+    if flex_settings is not None:
+        args.flex_kernel_options = flex_settings["kernel_options"]
     preparation_started = time.monotonic()
     if args.max_length != 32768:
         parser.error("Registered no-truncation limit is 32768")
@@ -694,6 +710,7 @@ def main(argv=None):
                 "base_artifact_sha256": artifact_hashes(args.base_snapshot),
                 "examples_sha256": digest(examples), "template_sha256": digest(chat_template),
                 "attention": "flex_attention" if args.scoring == "shared_history" else "sdpa",
+                "flex_attention": flex_settings,
                 "master_dtype": "float32", "compute_dtype": "bfloat16",
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
@@ -716,8 +733,10 @@ def main(argv=None):
         rank_zero_data(rank, world, record_provenance, verification_group)
         dist.barrier()
         mesh = init_device_mesh("cuda", (world,))
-        model = shard_model(prepare_model(args.snapshot, scoring=args.scoring), mesh=mesh)
-        reference = (shard_model(prepare_model(args.reference, reference=True, scoring=args.scoring), mesh=mesh, reference=True)
+        model = shard_model(prepare_model(args.snapshot, scoring=args.scoring,
+                                         flex_kernel_options=args.flex_kernel_options), mesh=mesh)
+        reference = (shard_model(prepare_model(args.reference, reference=True, scoring=args.scoring,
+                                flex_kernel_options=args.flex_kernel_options), mesh=mesh, reference=True)
                      if args.objective != "sft" else None)
         started = time.monotonic()
         state = train_loop(model, examples, output, objective=args.objective,
@@ -725,7 +744,7 @@ def main(argv=None):
                     original_batch=args.original_batch, epochs=args.epochs, seed=args.seed, beta=args.beta,
                     reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device,
                     warmup_steps=args.warmup_steps, packing=args.packing if args.objective == "sft" else "turn",
-                    scoring=args.scoring)
+                    scoring=args.scoring, flex_kernel_options=args.flex_kernel_options)
         # Release reference before gathering the final standalone policy.
         del reference
         torch.cuda.empty_cache()

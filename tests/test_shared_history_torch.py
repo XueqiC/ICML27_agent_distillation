@@ -12,7 +12,7 @@ from baselines.common.conversation import conversation, sequence_rows
 from baselines.common.fsdp_train import batch_logps, dpo_objective, train_loop
 from baselines.common.schedule import rank_slots
 from baselines.common.shared_history import (pack_shared_history, attention_masks,
-    shared_history_logps, _block_metadata, BLOCK_SIZE)
+    shared_history_logps, _block_metadata, BLOCK_SIZE, configure_flex_attention, flex_attention_settings)
 
 
 def random_conversation(seed, turns=5, *, prefix=13, empty=False):
@@ -152,7 +152,9 @@ def test_training_counts_actual_forwards_and_preserves_optimizer_inputs(tmp_path
                    (torch.is_grad_enabled(), kw["input_ids"].numel())), with_kwargs=True),
                reference.register_forward_pre_hook(lambda m, args, kw: ref_forwards.append(
                    kw["input_ids"].numel()), with_kwargs=True)]
-    new = train_loop(packed, [pair], tmp_path / "new", scoring="shared_history", **opts)
+    kernel_options = {"BLOCK_M": 16, "BLOCK_N": 16}
+    new = train_loop(packed, [pair], tmp_path / "new", scoring="shared_history",
+                     flex_kernel_options=kernel_options, **opts)
     for handle in handles:
         handle.remove()
     assert new["physical_policy_forward_tokens"] == sum(n for _, n in forwards)
@@ -164,6 +166,8 @@ def test_training_counts_actual_forwards_and_preserves_optimizer_inputs(tmp_path
     assert new["scoring"] == "shared_history" and new["two_pass_side_backward"]
     ledger = json.loads((tmp_path / "new/updates.jsonl").read_text())
     assert ledger["scoring"] == new["scoring"]
+    assert ledger["flex_attention"] == new["flex_attention"] == flex_attention_settings(kernel_options)
+    assert reference.config.get_text_config().shared_history_flex_kernel_options == new["flex_attention"]["kernel_options"]
     assert ledger["physical_policy_forward_tokens"] == new["physical_policy_forward_tokens"]
     assert_gradients(packed, original)
     for name, param in original.named_parameters():
@@ -222,6 +226,72 @@ def test_flex_interface_forward_matches_per_turn(monkeypatch):
         expected = batch_logps(original, rows, "cpu")
         actual = shared_history_logps(packed, rows, "cpu")
     torch.testing.assert_close(actual, expected, rtol=1e-5, atol=0)
+
+
+@pytest.mark.parametrize("checkpointing", [False, True])
+@pytest.mark.parametrize("options", [None, {"BLOCK_M": 16, "BLOCK_N": 16, "bwd_BLOCK_M1": 32, "bwd_BLOCK_N1": 32}])
+def test_large_head_kernel_options_reach_flex_and_checkpoint_recomputation(monkeypatch, checkpointing, options):
+    from transformers import Gemma4UnifiedTextConfig, Gemma4UnifiedConfig, Gemma4UnifiedForConditionalGeneration
+    from torch.nn.attention.flex_attention import BlockMask
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    text = Gemma4UnifiedTextConfig(vocab_size=128, hidden_size=32, intermediate_size=64,
+        num_hidden_layers=2, num_attention_heads=2, num_key_value_heads=1,
+        head_dim=256, global_head_dim=512, max_position_embeddings=128,
+        layer_types=["sliding_attention", "full_attention"], sliding_window=7)
+    config = Gemma4UnifiedConfig(text_config=text, vision_config=None, audio_config=None,
+        image_token_id=120, audio_token_id=121, video_token_id=122)
+    config._attn_implementation = "sdpa"
+    original = Gemma4UnifiedForConditionalGeneration(config).train()
+    packed = deepcopy(original)
+    packed.set_attn_implementation("flex_attention")
+    if checkpointing:
+        packed.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    settings = configure_flex_attention(packed, options)
+    configure_flex_attention(packed)  # Repeated scoring must not stack hooks.
+    assert all(len(layer.self_attn._forward_pre_hooks) == 1 for layer in packed.model.language_model.layers)
+    expected_options = settings["kernel_options"]
+    assert expected_options["BLOCK_M"] == expected_options["BLOCK_N"] == (16 if options else 32)
+    assert all(expected_options[key] == (32 if not options or key.endswith("1") else 16)
+               for key in ("bwd_BLOCK_M1", "bwd_BLOCK_N1", "bwd_BLOCK_M2", "bwd_BLOCK_N2"))
+    calls = []
+
+    def flex_boundary(q, k, v, *, block_mask, kernel_options, training=False, **kwargs):
+        assert isinstance(block_mask, BlockMask) and block_mask.BLOCK_SIZE == (128, 128)
+        calls.append((q.shape[-1], deepcopy(kernel_options)))
+        if q.shape[-1] > 256:
+            assert kernel_options == expected_options
+            assert all(128 % value == 0 for key, value in kernel_options.items() if "BLOCK_" in key)
+        else:
+            assert kernel_options is None
+        # Real HF layers and kwargs; only the compiled Flex boundary is mocked.
+        b = torch.arange(q.shape[0])[:, None, None, None]
+        qi = torch.arange(q.shape[-2])[None, None, :, None]
+        ki = torch.arange(k.shape[-2])[None, None, None, :]
+        mask = block_mask.mask_mod(b, 0, qi, ki)
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask,
+            scale=kwargs["scale"], enable_gqa=kwargs["enable_gqa"])
+
+    monkeypatch.setattr("transformers.integrations.flex_attention.compile_friendly_flex_attention", flex_boundary)
+    rows = [random_conversation(1, 2)]
+    expected = batch_logps(original, rows, "cpu")
+    actual = shared_history_logps(packed, rows, "cpu")
+    assert calls == [(256, None), (512, expected_options)]
+    torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-5)
+    actual.sum().backward()
+    assert all(p.grad is None or torch.isfinite(p.grad).all() for p in packed.parameters())
+    if checkpointing:
+        assert len(calls) == 4 and {head for head, _ in calls[2:]} == {256, 512}
+    else:
+        assert len(calls) == 2
+
+
+@pytest.mark.parametrize("options", [[], {"BLOCK_M": 256}, {"BLOCK_N": 48}, {"BLOCK_M": 8},
+    {"BLOCK_M": True}, {"num_stages": 0}, {"num_warps": 3}, {"BLOCKS_ARE_CONTIGUOUS": True},
+    {"bwd_BLOCK_M1": 64, "bwd_BLOCK_N1": 32}, {"bwd_BLOCK_M2": 32, "bwd_BLOCK_N2": 64}])
+def test_invalid_flex_options_fail_before_kernel_launch(options):
+    with pytest.raises(ValueError, match="Flex"):
+        flex_attention_settings(options)
 
 
 def test_rank_padding_physical_accounting(tmp_path, monkeypatch):

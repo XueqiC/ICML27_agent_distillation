@@ -8,6 +8,69 @@ from baselines.common.conversation import sequence_rows
 
 BLOCK_SIZE = 128
 CPU_DENSE_LIMIT = 4096
+LARGE_HEAD_DIM = 256
+
+
+def flex_attention_settings(kernel_options=None):
+    """Resolve performance-only overrides; never change sparse-mask semantics."""
+    from torch.nn.attention import flex_attention as flex
+    separate_backward = all(name in getattr(getattr(flex, "FlexKernelOptions", None), "__annotations__", {})
+                            for name in ("BLOCK_M1", "BLOCK_N1", "BLOCK_M2", "BLOCK_N2"))
+    if kernel_options is not None and not isinstance(kernel_options, dict):
+        raise ValueError("Flex kernel options must be a JSON object")
+    options = {"BLOCK_M": 32, "BLOCK_N": 32, **(kernel_options or {})}
+    backward = {f"bwd_BLOCK_{axis}{i}" for axis in ("M", "N") for i in (1, 2)}
+    tuning = {prefix + name for prefix in ("", "fwd_", "bwd_") for name in ("num_warps", "num_stages")}
+    allowed = {"BLOCK_M", "BLOCK_N"} | tuning | (backward if separate_backward else set())
+    if options.keys() - allowed:
+        raise ValueError("Unsupported Flex kernel options: " + ", ".join(sorted(options.keys() - allowed)))
+    if separate_backward:
+        for axis in ("M", "N"):
+            for i in (1, 2):
+                options.setdefault(f"bwd_BLOCK_{axis}{i}", options[f"BLOCK_{axis}"])
+    for name, value in options.items():
+        if type(value) is not int or value <= 0:
+            raise ValueError("Flex kernel options require positive integers")
+        if "BLOCK_" in name and (value < 16 or value > BLOCK_SIZE or BLOCK_SIZE % value):
+            raise ValueError(f"Flex tile {name} must divide BlockMask size {BLOCK_SIZE} and be >=16")
+        if name.endswith("num_warps") and value not in (1, 2, 4, 8, 16, 32):
+            raise ValueError("Flex num_warps must be a power of two <=32")
+    if separate_backward and (options["bwd_BLOCK_N1"] % options["bwd_BLOCK_M1"]
+                              or options["bwd_BLOCK_M2"] % options["bwd_BLOCK_N2"]):
+        raise ValueError("Flex backward tiles require N1 divisible by M1 and M2 divisible by N2")
+    return {"head_dim_gt": LARGE_HEAD_DIM, "block_mask_block_size": BLOCK_SIZE,
+            "kernel_options": options, "other_heads": "torch_defaults"}
+
+
+def add_flex_kernel_options_argument(parser):
+    import json
+    parser.add_argument("--flex-kernel-options", type=json.loads, metavar="JSON",
+                        help="Large-head Flex tile overrides (head_dim >256); defaults to 32x32, "
+                             "with matching separate backward tiles. BlockMask size stays 128.")
+
+
+def _select_flex_kernel_options(module, args, kwargs):
+    # HF forwards model(...) kwargs unchanged through decoder layers to attention.
+    # Keep this hook installed for non-reentrant checkpoint recomputation too.
+    options = kwargs.pop("shared_history_kernel_options", None)
+    if options is not None and module.config._attn_implementation == "flex_attention":
+        if module.head_dim > LARGE_HEAD_DIM:
+            kwargs["kernel_options"] = dict(options)
+    return args, kwargs
+
+
+def configure_flex_attention(model, kernel_options=None):
+    """Install per-module routing, without replacing HF's attention implementation."""
+    from transformers.models.gemma4_unified.modeling_gemma4_unified import Gemma4UnifiedTextAttention
+    config = model.config.get_text_config()
+    settings = flex_attention_settings(kernel_options if kernel_options is not None else
+                                       getattr(config, "shared_history_flex_kernel_options", None))
+    config.shared_history_flex_kernel_options = dict(settings["kernel_options"])
+    for module in model.modules():
+        if isinstance(module, Gemma4UnifiedTextAttention) and not getattr(module, "_shared_history_flex_hook", False):
+            module.register_forward_pre_hook(_select_flex_kernel_options, with_kwargs=True)
+            module._shared_history_flex_hook = True
+    return settings
 
 
 def pack_shared_history(row):
@@ -171,6 +234,7 @@ def shared_history_logps(model, rows, device, *, per_turn=False):
     import torch
     from baselines.eto.official_loss import OfficialLoss
     config = validate_model(model)
+    settings = configure_flex_attention(model)
     packed = [pack_shared_history(row) for row in rows]
     length = max(len(row["input_ids"]) for row in packed)
     ids = torch.zeros((len(rows), length), dtype=torch.long, device=device)
@@ -181,8 +245,10 @@ def shared_history_logps(model, rows, device, *, per_turn=False):
         labels[i, :n] = torch.tensor(row["labels"], device=device)
     position_ids, masks = attention_masks(packed, config, device, backend=config._attn_implementation)
     keep = torch.nonzero((labels[:, 1:] != -100).any(dim=0)).flatten()
+    kwargs = ({"shared_history_kernel_options": settings["kernel_options"]}
+              if config._attn_implementation == "flex_attention" else {})
     logits = model(input_ids=ids, attention_mask=masks, position_ids=position_ids,
-                   use_cache=False, logits_to_keep=keep).logits
+                   use_cache=False, logits_to_keep=keep, **kwargs).logits
     target = labels[:, keep + 1]
     if per_turn:
         return [torch.stack([OfficialLoss.get_batch_logps(

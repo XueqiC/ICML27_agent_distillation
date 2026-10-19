@@ -61,3 +61,66 @@ path. GPU/FSDP peak memory, compilation and throughput have not been measured.
 
 PyTorch interface reference:
 [BlockMask.from_kv_blocks](https://docs.pytorch.org/docs/stable/nn.attention.flex_attention.html#torch.nn.attention.flex_attention.BlockMask.from_kv_blocks).
+
+## Large-head Flex kernel follow-up — 2026-10-19
+
+The reported hpg B200 acceptance failure occurs in
+`pair_0/shared_history/no_grad_sums`: the default Triton tiles for Gemma4 global
+attention (`head_dim=512`) require 102400 bytes of shared memory against a 101376
+byte hardware limit. This diagnosis and the rai GPU reproduction were supplied
+by the user; no GPU or cluster was run for this follow-up.
+
+Shared-history scoring now passes a dedicated options kwarg through the HF
+Gemma4 model and decoder path. An attention-module pre-hook forwards it as
+`kernel_options` only when `head_dim > 256`. Smaller heads retain torch defaults.
+The hook remains installed during non-reentrant checkpoint recomputation; it
+does not replace HF's attention function or mutate a global attention registry.
+
+The default large-head forward tiles are `BLOCK_M=BLOCK_N=32`. When installed
+torch's `FlexKernelOptions` declares separate backward tiles, all four
+`bwd_BLOCK_M1`, `bwd_BLOCK_N1`, `bwd_BLOCK_M2`, `bwd_BLOCK_N2` also default to 32.
+The BlockMask size stays 128; tile sizes must be divisors of 128 and at least 16.
+Backward divisibility constraints are checked before a kernel launch. Overrides
+are restricted to tiles and `num_warps`/`num_stages` (including `fwd_`/`bwd_`
+prefixes for the latter), preserving the visibility predicate.
+
+Both `baselines.common.fsdp_train` and `tools.validate_shared_history_gpu` accept
+`--flex-kernel-options` as a JSON object of overrides, for example:
+
+```text
+--flex-kernel-options '{"BLOCK_M":32,"BLOCK_N":32,"bwd_num_stages":1}'
+```
+
+Explicit backward tiles override the defaults derived from the forward tiles.
+Resolved options, the head-dimension threshold and mask block size are recorded
+under `flex_attention` in training state/results, every update ledger row,
+training provenance and pipeline disclosure. The GPU acceptance report records
+them in settings, provenance and the shared-history path. Runtime failures now
+include full `error_message=str(error)` and `error_repr=repr(error)` alongside
+the exception type and frames, preserving resource errors and completed phases.
+
+CPU regression tests exercise a tiny real Gemma4 with 256/512-dimensional heads
+and mock only HF's compiled Flex boundary with SDPA. They check default and
+overridden options, 128-token BlockMask compatibility, checkpoint recomputation,
+ledger/state agreement, and full multiline failure messages. These checks do
+not establish GPU compilation, bf16 equivalence, or FSDP acceptance.
+
+Follow-up verification with `/home/xueqi/tf5-env/bin/python`,
+`CUDA_VISIBLE_DEVICES=''`, `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`:
+
+```text
+python -m pytest -q tests/test_shared_history_torch.py tests/test_validate_shared_history_gpu.py
+46 passed
+
+python -m pytest -q
+1376 passed, 5 skipped, 1 failed (946.68 s)
+```
+
+The full-suite failure is the unchanged
+`tests/test_theory_independent_quick.py::TestIndependentTheoryQuick::test_quick_has_no_failed_claims`:
+its hard-coded `theory/.venv/bin/python` does not exist in this worktree, so the
+subprocess cannot start (`FileNotFoundError`). The test and theory checker are
+unchanged from `31e4875`; no scientific assertion was relaxed or suppressed.
+Skips are for missing ALFWorld, local probe artifacts, and a real seed collection.
+All changed-path tests, including the simulated-rank CLI/provenance checks,
+passed in the full run. `git diff --check` also passed.

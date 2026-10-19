@@ -172,7 +172,30 @@ def test_cli_refuses_cpu_and_writes_failure_report(tmp_path, capsys):
     assert report["status"] == "error" and not report["passed"] and not report["gpu_acceptance"]
     assert report["criteria"]["side_sum_relative_difference_max"] == 2e-3
     assert report["criteria"]["gradient_relative_l2_per_tensor_max"] == 2e-2
+    assert report["error_message"] == "Exactly one visible GPU and one process required"
+    assert report["error_repr"] == repr(ValueError(report["error_message"]))
+    assert report["settings"]["flex_attention"]["kernel_options"]["BLOCK_M"] == 32
     assert "PASS requires" in capsys.readouterr().out
+
+
+def test_cli_preserves_full_multiline_exception_and_kernel_overrides(tmp_path, monkeypatch):
+    message = ('out of resource: triton_tem_fused_flex_attention_0\n'
+               'Required: 102400 Hardware limit: 101376. Reducing block sizes or num_stages may help.')
+    error = RuntimeError(message)
+
+    def fail_device_probe():
+        raise error
+
+    monkeypatch.setattr(torch.cuda, "device_count", fail_device_probe)
+    output = tmp_path / "resource-error.json"
+    assert gate.main(["--pairs", str(tmp_path), "--output", str(output),
+                      "--flex-kernel-options", '{"BLOCK_M":16,"BLOCK_N":16}']) == 1
+    report = json.loads(output.read_text())
+    assert report["error_message"] == str(error)
+    assert report["error_repr"] == repr(error)
+    assert report["error_type"] == "RuntimeError"
+    assert report["error_frames"][-1]["function"] == "fail_device_probe"
+    assert report["settings"]["flex_attention"]["kernel_options"]["BLOCK_N"] == 16
 
 
 def test_runtime_failure_preserves_completed_measurements(tmp_path, monkeypatch):
