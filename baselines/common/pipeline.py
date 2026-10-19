@@ -10,6 +10,7 @@ from sed.manifest import frozen_write, load_frozen
 from sed.provenance import code_hashes, write_provenance
 from sed.seed_evidence import artifact_hashes, checked_episode, load_verified_collection
 from sed.storage import digest, write_json
+from baselines.eto.pipeline import stage_run, run_command, served, publish_models
 
 
 def batch_invariant():
@@ -19,14 +20,16 @@ def batch_invariant():
     os.environ["VLLM_BATCH_INVARIANT"] = "1"
 
 
-def prepare(args, config, *, method, recipe, unrestricted_verified_size=False):
+def prepare(args, config, *, method, recipe, unrestricted_verified_size=False, registered_k=REGISTERED_K):
     output = Path(args.output).resolve()
     for name in ("raw", "verified"):
         if output.is_relative_to(Path(config["paths"][name]).resolve()):
             raise ValueError("Baseline output must be outside seed storage")
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-    if not unrestricted_verified_size and not registered_support(selection):
+    if (not unrestricted_verified_size and registered_k is not None
+            and not (registered_support(selection) if registered_k == REGISTERED_K
+                     else selection["K"] in registered_k)):
         raise ValueError("Registered few-shot K is " + "/".join(map(str, REGISTERED_K)))
     parents = {r["task_id"]: [checked_episode(root, r)["episode_id"]] for r in collection["verified"]}
     ids = list(parents)

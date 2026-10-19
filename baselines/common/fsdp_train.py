@@ -608,8 +608,12 @@ def train_lora(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca"], required=True)
+    parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
+    parser.add_argument("--had-data")
+    parser.add_argument("--had-identity")
+    parser.add_argument("--had-round", type=int)
+    parser.add_argument("--start-update", type=int)
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
     parser.add_argument("--snapshot", required=True)
@@ -650,6 +654,20 @@ def main(argv=None):
         parser.error("Method data requires WKM LoRA or STeCa objective")
     if args.objective == "steca" and (not args.method_data or not args.verified or args.adaptation != "full"):
         parser.error("STeCa requires method data, verified support and full fine-tuning")
+    if args.objective == "had":
+        if (not args.had_data or not args.had_identity or not args.verified
+                or args.had_round is None or args.start_update is None or args.adaptation != "full"):
+            parser.error("HAD requires verified data, identity, round/update and full adaptation")
+        if (args.learning_rate != 1e-5 or args.scheduler != "cosine" or args.warmup_steps != 15
+                or args.weight_decay != .01 or args.beta != .5 or args.original_batch != 60
+                or args.epochs != 1 or args.packing != "turn" or args.reference or args.pairs or args.sft_data):
+            parser.error("HAD requires its registered paper recipe")
+        from baselines.had.training import run
+        return run(args)
+    for name in ("had_data", "had_identity", "had_round", "start_update"):
+        if getattr(args, name) is not None:
+            parser.error("HAD stage arguments require --objective had")
+        delattr(args, name)  # Preserve existing baselines' effective argument/config shape.
     if args.adaptation in {"kang_lora", "wkm_lora"}:
         if args.objective != "sft" or not args.verified or args.sft_data:
             parser.error("Kang LoRA requires seed SFT")

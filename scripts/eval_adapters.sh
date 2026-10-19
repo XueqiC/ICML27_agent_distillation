@@ -67,6 +67,24 @@ PY
 )
 mkdir -p "$(dirname "$OUT")"
 mkdir "$OUT"
+had_eval_args=()
+had_gate_args=()
+if [[ -n "$MERGED_MODEL_PATH" && -f "$MERGED_MODEL_PATH/training_state.json" ]]; then
+    had_checkpoint=$(CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$MERGED_MODEL_PATH/training_state.json" <<'PY'
+import json, sys
+print(int(json.load(open(sys.argv[1])).get("method") == "had"))
+PY
+)
+    if [[ "$had_checkpoint" == 1 ]]; then
+        : "${VERIFIED:?HAD equivalence gate requires VERIFIED support collection}"
+        [[ -x "$TRAIN_PYTHON" ]]
+        HAD_EVAL_HARNESS=${HAD_EVAL_HARNESS:-h0}
+        [[ "$HAD_EVAL_HARNESS" == had || "$HAD_EVAL_HARNESS" == h0 ]]
+        [[ "$DECODING" == greedy && "$BATCH_INVARIANT" == 1 ]]
+        had_gate_args=(--config "$CONFIG" --snapshot "$MODEL_PATH" --checkpoint "$MERGED_MODEL_PATH" --verified "$VERIFIED")
+        had_eval_args=(--had-harness "$HAD_EVAL_HARNESS" --had-check "$OUT/had-check/report.json")
+    fi
+fi
 launcher_pid=''
 work_pid=''
 cleanup() {
@@ -99,6 +117,9 @@ if [[ "${FULL_EQUIVALENCE:-0}" == 1 ]]; then
     [[ -n "$MERGED_MODEL_PATH" ]] || exit 2
     run_work "$TRAIN_PYTHON" tools/check_full_serving.py --config "$CONFIG" --snapshot "$MODEL_PATH" \
         --checkpoint "$MERGED_MODEL_PATH" --verified "$VERIFIED" --hf-only --output "$OUT/full-hf"
+fi
+if [[ ${#had_gate_args[@]} -gt 0 ]]; then
+    run_work "$TRAIN_PYTHON" -m baselines.had.gate "${had_gate_args[@]}" --hf-only --output "$OUT/had-hf"
 fi
 ready_adapters=()
 for pair in "${adapters[@]}"; do
@@ -133,6 +154,11 @@ import json, sys
 print(json.load(open(sys.argv[1]))["endpoint"])
 PY
 )
+if [[ ${#had_gate_args[@]} -gt 0 ]]; then
+    CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m baselines.had.gate "${had_gate_args[@]}" \
+        --hf-reference "$OUT/had-hf/reference.json" --endpoint "$endpoint" \
+        --server-provenance "$OUT/server/provenance.json" --output "$OUT/had-check"
+fi
 eval_model() {
     local request_model=$1
     local output_name=$1
@@ -141,7 +167,7 @@ eval_model() {
     CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" eval/run_suite.py --config "$CONFIG" \
         --policy student --decoding "$DECODING" --endpoint "$endpoint" --model-name "$request_model" \
         --enable-thinking off --max-tokens 1024 --tasks "$TASKS" --workers "$WORKERS" \
-        --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "$@"
+        --output "$OUT/$output_name/eval" --server-provenance "$OUT/server/provenance.json" "${had_eval_args[@]}" "$@"
 }
 if [[ "$INCLUDE_BASE" == 1 ]]; then
     if [[ "${FULL_EQUIVALENCE:-0}" == 1 ]]; then
