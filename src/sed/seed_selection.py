@@ -85,6 +85,11 @@ def select_seeds(manifest, freeze, *, k=10, seed=0, rule=RULE):
     return result
 
 
+def select_full_train(manifest, freeze):
+    """Same all_train_v1 schema as the concurrently developed full-TRAIN collector."""
+    return select_seeds(manifest, freeze, rule=ALL_TRAIN_RULE)
+
+
 def validate_selection(selection, manifest, freeze):
     expected = select_seeds(manifest, freeze, k=selection["K"], seed=selection["seed"],
                             rule=selection["selection_rule"])

@@ -71,7 +71,8 @@ def update_disclosure(output, identity):
         trainings.append({"path": str(attempt.relative_to(output)), "complete": result.exists(),
             "examples_seen": last.get("examples_seen", 0),
             "supervised_tokens_seen": last.get("supervised_tokens_seen", last.get("cumulative_supervised_tokens", 0)),
-            "logical_forward_tokens": record.get("logical_forward_tokens"),
+            "logical_forward_tokens": record.get("logical_forward_tokens", last.get("logical_forward_tokens"))
+                if identity.get("method") == "sad" else record.get("logical_forward_tokens"),
             "unknown_exposure_possible": partial or not result.exists(),
             "accounting": "Durable completed updates only; an interrupted update can have unknown additional compute."})
     row.update(training_attempts=trainings, batch_invariant=True,
@@ -82,4 +83,9 @@ def update_disclosure(output, identity):
     row["totals"].update(examples_seen=sum(t["examples_seen"] for t in trainings),
         supervised_tokens_seen=sum(t["supervised_tokens_seen"] for t in trainings), teacher_calls=0)
     row["token_accounting"] = "Every raw student candidate/call and usage lives in the exploration attempt; summary totals include all returned completions. Seed teacher usage/model/timestamps remain bound in original receipts."
+    if identity.get("method") in {"sad", "adftp"}:
+        row.update(source="verified_support_collection", expansion=False,
+            verified=identity["verified"], collection_sha256=identity["collection_sha256"],
+            token_accounting="Training makes zero teacher calls. Source acquisition costs, returned model IDs "
+                "and timestamps remain in the hash-bound verified collection; do not count copied evidence again.")
     write_json(path, row)

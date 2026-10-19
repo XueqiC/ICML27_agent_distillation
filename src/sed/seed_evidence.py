@@ -349,6 +349,7 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
                     or (full_train and receipt["selection_parent_task_id"] != task["task_id"])):
                 raise ValueError("Receipt differs from frozen TRAIN selection")
     groups, slots, counts = set(), set(), Counter()
+    instances = set()
     with artifact_hashes_batch(lambda receipt=receipt: _episode_directory(evidence_root, receipt)
                                for receipt in collection["verified"]) as readers:
         for receipt, hashes in zip(collection["verified"], readers):
@@ -362,6 +363,7 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
                     or episode["split"] != "train"):
                 raise ValueError("Episode differs from frozen TRAIN task")
             groups.add(task["group_id"])
+            instances.add(task["task_id"])
             slots.add(receipt["selection_parent_task_id"])
             counts[task["task_type"]] += 1
     if full_train:
