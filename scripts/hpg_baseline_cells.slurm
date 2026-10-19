@@ -14,7 +14,7 @@
 # 2026-10-05: K x support-seed sweep of one baseline at its official recipe. One array task = one cell: train, then the
 # dev140 batch-invariant evaluation the method's paper uses (Kang: SAG decoding; AgentGym: every AgentEvol iteration).
 # Required: PROJECT_ROOT=<frozen tree>, DATA_ROOT=<base tree holding data/verified and reports/>, METHOD=kang|agentgym,
-# CELLS="k5s0 k5s1 ..." (array index i -> i-th cell). Resources per method at submission:
+# CELLS="k5s0 k5s1 ... full" (array index i -> i-th cell). Resources per method at submission:
 #   kang:     sbatch --array=0-N%4 --export=ALL,METHOD=kang,...                     (defaults: 1 GPU, 96G)
 #   agentgym: sbatch --array=0-N%2 --gpus=2 --cpus-per-task=16 --mem=240G --export=ALL,METHOD=agentgym,NGPUS=2,...
 set -euo pipefail
@@ -23,16 +23,20 @@ cd "$PROJECT_ROOT"
 : "${METHOD:?}" "${CELLS:?}" "${DATA_ROOT:?}"
 read -r -a cells <<< "$CELLS"
 cell=${cells[$SLURM_ARRAY_TASK_ID]:-}
-[[ "$cell" =~ ^k([0-9]+)s([0-2])$ ]] || { echo "No valid cell for array index $SLURM_ARRAY_TASK_ID: '$cell'" >&2; exit 2; }
-K=${BASH_REMATCH[1]} S=${BASH_REMATCH[2]}
-# Nested seed ladder: K=5/10 are views of the K=20 collection, K=1/2/50 views of the K=100 collection (same as Seed-SFT).
-# Never add views inside seeds_k20_s*: the K=100 extension binds the K=20 tree hash and refuses a changed source.
-case "$K" in
-    20|100) verified="data/verified/seeds_k${K}_s$S" ;;
-    5|10) verified="data/verified/seeds_k20_s$S/subsets/k$K" ;;
-    1|2|50) verified="data/verified/seeds_k100_s$S/subsets/k$K" ;;
-    *) echo "K=$K is not on the seed ladder" >&2; exit 2 ;;
-esac
+if [[ "$cell" == full ]]; then
+    verified="data/verified/seeds_full_train"
+else
+    [[ "$cell" =~ ^k([0-9]+)s([0-2])$ ]] || { echo "No valid cell for array index $SLURM_ARRAY_TASK_ID: '$cell'" >&2; exit 2; }
+    K=${BASH_REMATCH[1]} S=${BASH_REMATCH[2]}
+    # Nested seed ladder: K=5/10 are views of the K=20 collection, K=1/2/50 views of the K=100 collection (same as Seed-SFT).
+    # Never add views inside seeds_k20_s*: the K=100 extension binds the K=20 tree hash and refuses a changed source.
+    case "$K" in
+        20|100) verified="data/verified/seeds_k${K}_s$S" ;;
+        5|10) verified="data/verified/seeds_k20_s$S/subsets/k$K" ;;
+        1|2|50) verified="data/verified/seeds_k100_s$S/subsets/k$K" ;;
+        *) echo "K=$K is not on the seed ladder" >&2; exit 2 ;;
+    esac
+fi
 export VERIFIED="$DATA_ROOT/$verified" WORKERS=${WORKERS:-16} BATCH_INVARIANT=1
 [[ -f "$VERIFIED/manifest.json" ]] || { echo "Missing collection: $VERIFIED" >&2; exit 2; }
 echo "cell $cell method=$METHOD verified=$VERIFIED host=$(hostname) gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader | paste -sd,)"

@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from baselines.common import REGISTERED_K
+from baselines.common import REGISTERED_K, registered_support
 from baselines.common.explore import training_tasks
 from baselines.eto.pipeline import update_disclosure as exploration_disclosure
 from sed.manifest import frozen_write, load_frozen
@@ -26,7 +26,7 @@ def prepare(args, config, *, method, recipe):
             raise ValueError("Baseline output must be outside seed storage")
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-    if selection["K"] not in REGISTERED_K:
+    if not registered_support(selection):
         raise ValueError("Registered few-shot K is " + "/".join(map(str, REGISTERED_K)))
     parents = {r["task_id"]: [checked_episode(root, r)["episode_id"]] for r in collection["verified"]}
     ids = list(parents)

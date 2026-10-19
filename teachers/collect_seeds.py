@@ -11,7 +11,7 @@ from sed.provenance import write_provenance, utc_now, code_hashes, versions, saf
 from sed.runner import _environment, run_episode
 from sed.seed_evidence import artifact_hashes, environment_won, materialize_subsets
 from sed.seed_extension import extension_source, copy_inherited_attempts, check_inherited_views
-from sed.seed_selection import validate_selection
+from sed.seed_selection import is_full_train, validate_selection
 from sed.storage import digest, locked, write_json
 from teachers.openai_teacher import Teacher, rate_limit_options
 
@@ -28,8 +28,81 @@ def usage_summary(path):
             "interrupted_requests": len(interrupted), "ledger_rows": len(rows)}
 
 
+def collect_attempt(task, number, selection_parent, config, output, *,
+                    env_factory, teacher_factory, input_paths=()):
+    """Reuse durable receipts; preserve uncertain attempts without paying again."""
+    attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
+    episode_dir = attempt_dir / "episode"
+    receipt_path = attempt_dir / "receipt.json"
+    if receipt_path.exists():
+        receipt = json.loads(receipt_path.read_text())
+        if artifact_hashes(episode_dir) != receipt["episode_hashes"]:
+            raise ValueError("Attempt evidence changed on resume")
+        if artifact_hashes(attempt_dir / "teacher") != receipt["teacher_hashes"]:
+            raise ValueError("Teacher evidence changed on resume")
+        existing = episode_dir / "episode.json"
+        episode = json.loads(existing.read_text()) if existing.exists() else {}
+        if (receipt["task_id"] != task["task_id"] or receipt["attempt"] != number
+                or receipt["selection_parent_task_id"] != selection_parent
+                or receipt["won"] != environment_won(episode_dir, episode)):
+            raise ValueError("Attempt receipt disagrees with environment evidence")
+    else:
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        started_before = (attempt_dir / "started.json").exists()
+        if not started_before:
+            write_json(attempt_dir / "started.json", {"timestamp": utc_now(),
+                       "task_id": task["task_id"], "attempt": number}, exclusive=True)
+        # A crash after request submission but before episode
+        # persistence must not re-call that uncertain attempt.
+        if not episode_dir.exists() and not started_before:
+            verify_task_files(config["environment"]["data_root"], task)
+            # A separate cache per episode attempt permits fresh samples after
+            # failure, while durable completed attempts are reused on resume.
+            policy = teacher_factory(task, attempt_dir / "teacher/cache",
+                                     attempt_dir / "teacher/usage.jsonl")
+            env = env_factory(task)
+            try:
+                run_episode(env, policy, task, config, episode_dir,
+                            policy_condition="seed_teacher_react", purpose="generation",
+                            input_paths=input_paths)
+            except RuntimeError:
+                if not (episode_dir / "episode.json").exists():
+                    raise
+        episode_path = episode_dir / "episode.json"
+        episode = json.loads(episode_path.read_text()) if episode_path.exists() else {}
+        won = environment_won(episode_dir, episode)
+        receipt = {"task_id": task["task_id"], "group_id": task["group_id"],
+                   "task_type": task["task_type"], "attempt": number,
+                   "parent_task_id": task["task_id"], "parent_seed_ids": [],
+                   "selection_parent_task_id": selection_parent,
+                   "source": "real_environment_teacher_rollout",
+                   "won": won, "success": episode.get("success", "unknown"),
+                   "status": ("interrupted" if episode.get("status", "started") == "started"
+                              else episode["status"]),
+                   "episode_dir": str(episode_dir.relative_to(output)),
+                   "episode_hashes": artifact_hashes(episode_dir),
+                   "teacher_hashes": artifact_hashes(attempt_dir / "teacher"),
+                   "usage": usage_summary(attempt_dir / "teacher/usage.jsonl"),
+                   "metrics": episode.get("metrics"),
+                   "rejection": None if won else "no_verified_environment_win"}
+        write_json(receipt_path, receipt, exclusive=True)
+    return receipt
+
+
 def collect(selection, manifest, freeze, config, output, *, attempts=3,
-            env_factory=None, teacher_factory=None, input_paths=(), extend_from=None):
+            env_factory=None, teacher_factory=None, input_paths=(), extend_from=None,
+            resume=False, shard_index=0, shard_count=1,
+            max_calls=160_000, max_input_tokens=700_000_000):
+    if is_full_train(selection):
+        if extend_from is not None:
+            raise ValueError("Full TRAIN does not use extensions or replacements")
+        from teachers.full_train import collect_full_train
+        return collect_full_train(selection, manifest, freeze, config, output, attempts=attempts,
+            env_factory=env_factory, teacher_factory=teacher_factory, input_paths=input_paths,
+            resume=resume, shard_index=shard_index, shard_count=shard_count,
+            max_calls=max_calls, max_input_tokens=max_input_tokens)
+    if shard_index != 0 or shard_count != 1:
+        raise ValueError("Sharding is supported only for all_train_v1")
     validate_selection(selection, manifest, freeze)
     if type(attempts) is not int or not 1 <= attempts <= 3:
         raise ValueError("attempts must be between 1 and 3")
@@ -120,61 +193,8 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                         return publish("exhausted")
                 task = resolve_task(manifest, freeze, candidate["task_id"])
                 for number in range(1, attempts + 1):
-                    attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
-                    episode_dir = attempt_dir / "episode"
-                    receipt_path = attempt_dir / "receipt.json"
-                    if receipt_path.exists():
-                        receipt = json.loads(receipt_path.read_text())
-                        if artifact_hashes(episode_dir) != receipt["episode_hashes"]:
-                            raise ValueError("Attempt evidence changed on resume")
-                        if artifact_hashes(attempt_dir / "teacher") != receipt["teacher_hashes"]:
-                            raise ValueError("Teacher evidence changed on resume")
-                        existing = episode_dir / "episode.json"
-                        episode = json.loads(existing.read_text()) if existing.exists() else {}
-                        if (receipt["task_id"] != task["task_id"] or receipt["attempt"] != number
-                                or receipt["selection_parent_task_id"] != selection_parent
-                                or receipt["won"] != environment_won(episode_dir, episode)):
-                            raise ValueError("Attempt receipt disagrees with environment evidence")
-                    else:
-                        attempt_dir.mkdir(parents=True, exist_ok=True)
-                        started_before = (attempt_dir / "started.json").exists()
-                        if not started_before:
-                            write_json(attempt_dir / "started.json", {"timestamp": utc_now(),
-                                       "task_id": task["task_id"], "attempt": number}, exclusive=True)
-                        # A crash after request submission but before episode
-                        # persistence must not re-call that uncertain attempt.
-                        if not episode_dir.exists() and not started_before:
-                            verify_task_files(config["environment"]["data_root"], task)
-                            # A separate cache per episode attempt permits fresh samples after
-                            # failure, while durable completed attempts are reused on resume.
-                            policy = teacher_factory(task, attempt_dir / "teacher/cache",
-                                                     attempt_dir / "teacher/usage.jsonl")
-                            env = env_factory(task)
-                            try:
-                                run_episode(env, policy, task, config, episode_dir,
-                                            policy_condition="seed_teacher_react", purpose="generation",
-                                            input_paths=input_paths)
-                            except RuntimeError:
-                                if not (episode_dir / "episode.json").exists():
-                                    raise
-                        episode_path = episode_dir / "episode.json"
-                        episode = json.loads(episode_path.read_text()) if episode_path.exists() else {}
-                        won = environment_won(episode_dir, episode)
-                        receipt = {"task_id": task["task_id"], "group_id": task["group_id"],
-                                   "task_type": kind, "attempt": number,
-                                   "parent_task_id": task["task_id"], "parent_seed_ids": [],
-                                   "selection_parent_task_id": selection_parent,
-                                   "source": "real_environment_teacher_rollout",
-                                   "won": won, "success": episode.get("success", "unknown"),
-                                   "status": ("interrupted" if episode.get("status", "started") == "started"
-                                              else episode["status"]),
-                                   "episode_dir": str(episode_dir.relative_to(output)),
-                                   "episode_hashes": artifact_hashes(episode_dir),
-                                   "teacher_hashes": artifact_hashes(attempt_dir / "teacher"),
-                                   "usage": usage_summary(attempt_dir / "teacher/usage.jsonl"),
-                                   "metrics": episode.get("metrics"),
-                                   "rejection": None if won else "no_verified_environment_win"}
-                        write_json(receipt_path, receipt, exclusive=True)
+                    receipt = collect_attempt(task, number, selection_parent, config, output,
+                        env_factory=env_factory, teacher_factory=teacher_factory, input_paths=input_paths)
                     receipts.append(receipt)
                     if receipt["won"]:
                         verified.append(receipt)
@@ -197,6 +217,12 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--selection", required=True)
     parser.add_argument("--attempts", type=int, default=3)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--max-calls", type=int, default=160_000)
+    parser.add_argument("--max-input-tokens", type=int, default=700_000_000)
+    parser.add_argument("--preflight", action="store_true", help="Validate full TRAIN inputs without collecting")
     parser.add_argument("--extend-from", help="Reuse a completed collection read-only before adding new seeds")
     parser.add_argument("--subset-k", nargs="+", type=int, default=None,
                         help="Collect the selection's largest K once, then reuse verified slots for these smaller K")
@@ -205,20 +231,38 @@ def main(argv=None):
     config = load_config(args.config)
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     selection = json.loads(Path(args.selection).read_text())
+    if is_full_train(selection) and (args.extend_from or args.subset_k):
+        parser.error("Full TRAIN has no extension or nested few-shot subsets")
     if args.subset_k is None:
         args.subset_k = [1, 2, 5, 10, 20, 50] if args.extend_from and selection["K"] == 100 else []
     if any(k < 1 or k >= selection["K"] for k in args.subset_k):
         parser.error("--subset-k must be positive and smaller than the selected collection K")
     output = args.output or str(Path(config["paths"]["verified"]) /
-                               f"seeds_k{selection['K']}_s{selection['seed']}")
+                               ("seeds_full_train" if is_full_train(selection) else
+                                f"seeds_k{selection['K']}_s{selection['seed']}"))
+    if args.preflight:
+        from teachers.full_train import preflight
+        preflight(selection, manifest, freeze, config, output, attempts=args.attempts,
+                  shard_count=args.shard_count, max_calls=args.max_calls,
+                  max_input_tokens=args.max_input_tokens, resume=args.resume)
+        print("Full TRAIN preflight passed; no teacher calls made")
+        return 0
+    if is_full_train(selection):
+        import signal
+        def interrupted(signum, frame):
+            raise KeyboardInterrupt
+        signal.signal(signal.SIGTERM, interrupted)
     result = collect(selection, manifest, freeze, config, output, attempts=args.attempts,
                      extend_from=args.extend_from,
+                     resume=args.resume, shard_index=args.shard_index, shard_count=args.shard_count,
+                     max_calls=args.max_calls, max_input_tokens=args.max_input_tokens,
                      input_paths=[args.config, args.selection, config["paths"]["manifest"],
                                   config["paths"]["split_freeze"]])
     if result["status"] == "complete" and args.subset_k:
         materialize_subsets(output, manifest, freeze, args.subset_k)
     print(json.dumps({key: result[key] for key in ("status", "trusted_trajectories", "task_groups")}))
-    return 0 if result["status"] == "complete" else 1
+    return 0 if result["status"] == "complete" or (
+        args.shard_count > 1 and result["status"] == "collecting") else 1
 
 
 if __name__ == "__main__":

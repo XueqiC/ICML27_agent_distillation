@@ -10,7 +10,7 @@ from itertools import islice
 from pathlib import Path
 
 from sed.manifest import authorize_task, resolve_task, frozen_write
-from sed.seed_selection import select_seeds, validate_selection, validate_extension_selection
+from sed.seed_selection import is_full_train, select_seeds, validate_selection, validate_extension_selection
 from sed.storage import BlobStore, file_hash, digest, locked
 
 
@@ -299,8 +299,9 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     selection = json.loads((root / "selection.json").read_text())
     identity = json.loads((root / "identity.json").read_text())
     validate_selection(selection, manifest, freeze)
+    full_train = is_full_train(selection)
     if (collection["status"] != "complete" or collection["selection_sha256"] != digest(selection)
-            or len(collection["verified"]) != selection["K"]
+            or (not full_train and len(collection["verified"]) != selection["K"])
             or collection["identity_sha256"] != digest(identity) or identity["selection"] != selection):
         raise ValueError("Collection must contain exactly K verified trajectories")
     if "source_collection" in collection:
@@ -344,7 +345,8 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
             authorize_task(task, "generation")
             if (task["source_split"] != "train" or receipt["task_id"] not in candidates
                     or receipt["group_id"] != task["group_id"] or receipt["task_type"] != task["task_type"]
-                    or parents.get(receipt["selection_parent_task_id"]) != task["task_type"]):
+                    or parents.get(receipt["selection_parent_task_id"]) != task["task_type"]
+                    or (full_train and receipt["selection_parent_task_id"] != task["task_id"])):
                 raise ValueError("Receipt differs from frozen TRAIN selection")
     groups, slots, counts = set(), set(), Counter()
     with artifact_hashes_batch(lambda receipt=receipt: _episode_directory(evidence_root, receipt)
@@ -352,7 +354,8 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
         for receipt, hashes in zip(collection["verified"], readers):
             task = resolve_task(manifest, freeze, receipt["task_id"])
             if (receipt not in collection["attempts"] or receipt["won"] is not True
-                    or task["group_id"] in groups or receipt["selection_parent_task_id"] in slots):
+                    or (not full_train and task["group_id"] in groups)
+                    or receipt["selection_parent_task_id"] in slots):
                 raise ValueError("Seeds must be distinct TRAIN groups and selection slots")
             episode = checked_episode(evidence_root, receipt, _hashes=hashes)
             if (episode["task_id"] != task["task_id"] or episode["game_sha256"] != task["game_sha256"]
@@ -361,7 +364,21 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
             groups.add(task["group_id"])
             slots.add(receipt["selection_parent_task_id"])
             counts[task["task_type"]] += 1
-    if (any(counts[kind] != quota for kind, quota in selection["quotas"].items())
+    if full_train:
+        failed = [tid for tid, rows in seen_attempts.items() if not rows[-1]["won"]]
+        if (list(seen_attempts) != selection["candidate_order"] or identity.get("attempts_per_candidate") != 3
+                or any(len(seen_attempts[tid]) != 3 for tid in failed)
+                or collection.get("failed_candidates") != failed
+                or collection["verified"] != [r for r in collection["attempts"] if r["won"]]
+                or collection.get("selection_rule") != selection["selection_rule"]
+                or collection.get("candidates") != selection["candidates"]
+                or collection.get("K_counts") != "trusted_executed_trajectories"
+                or collection["K"] != len(slots) or collection["trusted_trajectories"] != len(slots)
+                or collection["unique_instances"] != len(slots) or collection["task_groups"] != len(groups)
+                or collection["attempted_unique_instances"] != len(candidates)
+                or collection["attempted_task_groups"] != selection["selected_task_groups"]):
+            raise ValueError("Full TRAIN requires every candidate's first success or all three failed attempts")
+    elif (any(counts[kind] != quota for kind, quota in selection["quotas"].items())
             or collection["K"] != selection["K"] or collection["trusted_trajectories"] != len(groups)
             or collection["unique_instances"] != len(groups) or collection["task_groups"] != len(groups)):
         raise ValueError("Verified trajectories differ from stratified quotas/counts")
@@ -394,6 +411,8 @@ def materialize_subsets(root, manifest, freeze, ks):
     root = Path(root).resolve()
     with locked(root / ".collection.lock"):
         source, large, _ = load_verified_collection(root, manifest, freeze, allow_subset=False)
+        if is_full_train(large):
+            raise ValueError("Full TRAIN does not define nested few-shot subsets")
         values = []
         for k in sorted(set(ks)):
             small = select_seeds(manifest, freeze, k=k, seed=large["seed"], rule=large["selection_rule"])

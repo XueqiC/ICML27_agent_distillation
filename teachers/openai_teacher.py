@@ -138,7 +138,8 @@ class Teacher:
                  sampling=None, max_attempts=10, timeout_seconds=60,
                  secrets_file=None, client=None, sleep=time.sleep,
                  purpose="generation", clock=time.time, jitter=random.uniform,
-                 rate_limit_dir=None, requests_per_minute=450, tokens_per_minute=180_000):
+                 rate_limit_dir=None, requests_per_minute=450, tokens_per_minute=180_000,
+                 reservation_budget=None):
         if provider_model_id != "gpt-6-luna":
             raise ValueError("Model substitution requires a new explicit provenance policy")
         self.provider_model_id = provider_model_id
@@ -154,6 +155,7 @@ class Teacher:
         if timeout_seconds <= 0:
             raise ValueError("Timeout must be positive")
         self.max_attempts, self.timeout_seconds = max_attempts, timeout_seconds
+        self.reservation_budget = reservation_budget
         self.cache_dir = Path(cache_dir)
         self.ledger = JsonlLedger(usage_ledger)
         self.call_blobs = BlobStore(Path(usage_ledger).parent / "teacher_blobs")
@@ -233,8 +235,13 @@ class Teacher:
 
     def _generate_uncached(self, history, task, visible_context, key, path):
         prompt = self.prompt(history, task, visible_context)
+        logical_id = str(uuid.uuid4())
         for attempt in range(1, self.max_attempts + 1):
             call_id, started, timestamp = str(uuid.uuid4()), time.monotonic(), utc_now()
+            if self.reservation_budget is not None:
+                self.reservation_budget.reserve(logical_id=logical_id, request_id=call_id,
+                    input_tokens=reserved_tokens(prompt, 0), task_id=task["task_id"],
+                    usage_ledger=self.ledger.path)
             identity = {"run_id": self.run_id, "call_id": call_id, "cache_key": key,
                         "provider_model_id": self.provider_model_id, "task_id": task["task_id"],
                         "split": task["split"], "parent_seed_ids": task.get("parent_seed_ids", []),

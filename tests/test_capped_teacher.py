@@ -6,6 +6,9 @@ import pytest
 
 from teachers.capped import CappedTeacher, BudgetExceeded, CollectorHalted
 from teachers.openai_teacher import TeacherCallError
+from teachers.capped import SharedReservations, CollectionBudgetExceeded
+from teachers.openai_teacher import Teacher
+from teachers.rate_limit import reserved_tokens
 
 
 class RawClient:
@@ -98,3 +101,38 @@ def test_pending_is_unknown_not_free_budget(tmp_path, task, visible):
     (tmp_path / "test.counter.json").write_text(json.dumps(value))
     with pytest.raises(CollectorHalted):
         t.generate([], task, visible)
+
+
+@pytest.mark.parametrize("allow_retry", [True, False])
+def test_shared_reservations_bound_retry_inputs_and_count_one_logical_call(tmp_path, task, visible, allow_retry):
+    class RetryClient(RawClient):
+        def create(self, **kwargs):
+            if not self.requests:
+                self.requests.append(kwargs)
+                raise TimeoutError("SECRET_RETRY_EXCEPTION")
+            return super().create(**kwargs)
+    client = RetryClient()
+    teacher = Teacher(cache_dir=tmp_path / "cache", usage_ledger=tmp_path / "usage.jsonl",
+                      run_id="shared", client=client, max_attempts=2, sleep=lambda _: None)
+    tokens = reserved_tokens(teacher.prompt([], task, visible), 0)
+    budget = SharedReservations(tmp_path / "budget.sqlite3", max_calls=1,
+                                max_input_tokens=tokens * (2 if allow_retry else 1))
+    teacher.reservation_budget = budget
+    if allow_retry:
+        result = teacher.generate([], task, visible)
+        assert result.parsed_action == "look"
+        assert teacher.generate([], task, visible).metadata["cache_hit"]
+        assert len(client.requests) == 2
+    else:
+        with pytest.raises(CollectionBudgetExceeded):
+            teacher.generate([], task, visible)
+        assert len(client.requests) == 1
+    summary = budget.snapshot()
+    assert summary["logical_calls"] == 1
+    assert summary["transport_reservations"] == (2 if allow_retry else 1)
+    assert summary["reserved_input_tokens"] == tokens * summary["transport_reservations"]
+    assert "SECRET_RETRY_EXCEPTION" not in (tmp_path / "usage.jsonl").read_text()
+    restarted = SharedReservations(tmp_path / "budget.sqlite3", **summary["limits"])
+    assert restarted.snapshot() == summary
+    with pytest.raises(ValueError, match="caps changed"):
+        SharedReservations(tmp_path / "budget.sqlite3", max_calls=2)

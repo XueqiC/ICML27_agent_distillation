@@ -1,10 +1,12 @@
-"""No-retry Teacher wrapper with durable attempt reservations and shared cache.
+"""Durable teacher caps: a no-retry wrapper and a shared retry reservation ledger.
 
 Every transport invocation consumes one slot, including failures and unknown usage.
-An interrupted reservation or a failed HTTP request permanently halts that run.
+For CappedTeacher, an interrupted reservation or failed HTTP request halts that run.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
 """
 import json
+import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +24,84 @@ class BudgetExceeded(TeacherCallError):
 
 class CollectorHalted(TeacherCallError):
     pass
+
+
+class CollectionBudgetExceeded(BudgetExceeded):
+    incomplete = True
+
+
+class SharedReservations:
+    """Concurrent logical-call/input reservations for the normal retrying Teacher.
+
+    SQLite commits each reservation before transport; unknown/failed requests are
+    never refunded. Unlike CappedTeacher's no-retry protocol, a logical call may
+    have several HTTP attempts, each reserving its input estimate. Only short
+    transactions hold the writer lock, never network calls or limiter waits.
+    """
+    def __init__(self, path, *, max_calls=160_000, max_input_tokens=700_000_000):
+        if any(type(v) is not int or v < 0 for v in (max_calls, max_input_tokens)):
+            raise ValueError("Nonnegative integer collection caps required")
+        self.path = Path(path)
+        self.limits = {"max_calls": max_calls, "max_input_tokens": max_input_tokens}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self._transaction() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY, value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS calls (id TEXT PRIMARY KEY)")
+            db.execute("CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, logical_id TEXT, "
+                       "input_tokens INTEGER, task_id TEXT, usage_ledger TEXT, timestamp TEXT)")
+            state = self._state(db)
+            if state["limits"] != self.limits:
+                raise ValueError("Collection reservation caps changed on resume")
+            self._save(db, state)
+
+    @contextmanager
+    def _transaction(self):
+        db = sqlite3.connect(self.path, timeout=60)
+        try:
+            db.execute("PRAGMA synchronous=FULL")
+            db.execute("BEGIN IMMEDIATE")
+            yield db
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def _state(self, db):
+        row = db.execute("SELECT value FROM budget WHERE id=1").fetchone()
+        return json.loads(row[0]) if row else dict(limits=self.limits, logical_calls=0,
+            reserved_input_tokens=0, transport_reservations=0, stopped=None)
+
+    @staticmethod
+    def _save(db, state):
+        db.execute("INSERT OR REPLACE INTO budget VALUES (1, ?)", (json.dumps(state),))
+
+    def snapshot(self):
+        with self._transaction() as db:
+            return self._state(db)
+
+    def reserve(self, *, logical_id, request_id, input_tokens, task_id, usage_ledger):
+        if type(input_tokens) is not int or input_tokens <= 0:
+            raise ValueError("Positive input token reservation required")
+        with self._transaction() as db:
+            state = self._state(db)
+            new_call = not db.execute("SELECT 1 FROM calls WHERE id=?", (logical_id,)).fetchone()
+            if not state["stopped"]:
+                if state["logical_calls"] + new_call > self.limits["max_calls"]:
+                    state["stopped"] = "logical_call_cap"
+                elif state["reserved_input_tokens"] + input_tokens > self.limits["max_input_tokens"]:
+                    state["stopped"] = "reserved_input_token_cap"
+            if not state["stopped"]:
+                db.execute("INSERT OR IGNORE INTO calls VALUES (?)", (logical_id,))
+                db.execute("INSERT INTO requests VALUES (?, ?, ?, ?, ?, ?)",
+                           (request_id, logical_id, input_tokens, task_id, str(usage_ledger), utc_now()))
+                state["logical_calls"] += new_call
+                state["reserved_input_tokens"] += input_tokens
+                state["transport_reservations"] += 1
+            self._save(db, state)
+        if state["stopped"]:
+            raise CollectionBudgetExceeded("Collection cap reached; no request made")
 
 
 def state_hash(history, task, visible_context):
