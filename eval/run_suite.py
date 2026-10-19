@@ -54,6 +54,8 @@ def policy_condition(policy, spec, config):
     condition = name + "_thinking_" + str(spec["enable_thinking"]).lower()
     if spec.get("had_harness"):
         return condition + "_" + spec["had_harness"]
+    if spec.get("coa"):
+        return condition + "_coa"
     return condition + "_" + spec["decoding"] if spec.get("decoding") in {"sag", "wkm"} else condition
 
 
@@ -67,7 +69,11 @@ def _worker(job):
             student_spec = dict(spec)
             decoding = student_spec.pop("decoding", "greedy")
             had_harness = student_spec.pop("had_harness", None)
-            if had_harness:
+            coa = student_spec.pop("coa", False)
+            if coa:
+                from baselines.coa.rollout import CoAStudent
+                policy = CoAStudent(task_id=task["task_id"], log_dir=output / "student_calls", **student_spec)
+            elif had_harness:
                 from baselines.had.rollout import HADStudent, H0Student
                 policy = (HADStudent(task_id=task["task_id"], log_dir=output / "student_calls", **student_spec)
                           if had_harness == "had" else H0Student(log_dir=output / "student_calls", **student_spec))
@@ -171,6 +177,12 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         spec = {**spec, **context_options(config)}
     # The evaluated server is authoritative; the CPU worker's environment is not.
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
+    if spec and spec.get("coa"):
+        from baselines.coa.gate import validate_report
+        if policy != "student" or spec.get("had_harness") or spec.get("decoding", "greedy") != "greedy":
+            raise ValueError("CoA evaluation requires its greedy student policy")
+        validate_report(config.get("coa_equivalence", {}), config.get("server_provenance", {}),
+                        spec["model"], spec["endpoint"])
     if spec and spec.get("had_harness"):
         from baselines.had.gate import validate_report
         if spec["had_harness"] not in {"had", "h0"} or spec.get("decoding", "greedy") != "greedy":
@@ -199,6 +211,8 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         validate_full_report(config["full_equivalence"], config["server_provenance"], spec["endpoint"])
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     listing, tasks = frozen_tasks(tasks_path, manifest, freeze, sealed_final=sealed_final, policy=policy)
+    if spec and spec.get("coa") and listing.get("name") != "dev140":
+        raise ValueError("CoA evaluation is frozen dev140 only")
     if spec and spec.get("had_harness") and listing.get("name") != "dev140":
         raise ValueError("HAD evaluation is frozen dev140 only")
     output = Path(output)
@@ -252,6 +266,7 @@ def main(argv=None):
     parser.add_argument("--lora-check", help="Passing check_lora_serving report.json for this server/adapter")
     parser.add_argument("--had-harness", choices=("had", "h0"))
     parser.add_argument("--had-check")
+    parser.add_argument("--coa-check", help="Passing CoA HF/vLLM gate; selects the CoA tag policy")
     parser.add_argument("--enable-thinking", choices=("off",), default="off")
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=180)
@@ -283,7 +298,14 @@ def main(argv=None):
             parser.error("HAD evaluation needs a student and passing --had-check")
         spec["had_harness"] = args.had_harness
         config["had_equivalence"] = json.loads(Path(args.had_check).read_text())
+    if args.coa_check:
+        if args.policy != "student" or args.decoding != "greedy" or args.had_harness:
+            parser.error("CoA requires greedy student evaluation without another harness")
+        spec["coa"] = True
+        config["coa_equivalence"] = json.loads(Path(args.coa_check).read_text())
     inputs = [args.config]
+    if args.coa_check:
+        inputs.append(args.coa_check)
     if args.server_provenance:
         inputs.append(args.server_provenance)
         server = json.loads(Path(args.server_provenance).read_text())
