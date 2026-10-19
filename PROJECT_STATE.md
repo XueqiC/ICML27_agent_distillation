@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **18:2x CDT 10-19:** main 08d3c47 (all 8 new methods merged incl. CoA; 226 CPU tests pass). Batch 2 SUBMITTED (K20 s0 of SAD/WKM/STeCa/GAD/AgentDistill/CoA, see exp_log).
+  Shared-history fix (tree e20cb73) GPU checks 46741186/87 queued. Codex: wt/hadco co-scheduled HAD runner (pid 1409396). AD-FTP collection waits for full-TRAIN collection.
 - **18:1x CDT 10-19:** first batch-1 result: LEAP 0% K5 s0 dev140 64/62/61/64 (iter 0–3; base 62); corrections 2/2/1. Batch 1: 66 links done, 0 failures; group-account K5 chains nearly done.
 - **16:5x CDT 10-19 (usage limit reached; resume here):** main = bc119be (+ GAD, AgentDistill merged; all new-method CPU tests pass). Tree bc119be deployed to hpg (+leap_llm);
   all-MiniLM-L6-v2 copied to hpg HF cache (snapshot 1110a243…) for WKM/STeCa EMBEDDING_SNAPSHOT. NEXT: (1) batch-2 smoke chains at K20 s0 for SAD (prepare CPU → train 4 GPU 24h → eval),
