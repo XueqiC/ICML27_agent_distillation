@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **13:4x CDT 10-19: FULL BASELINE GRID started (user 10-19: run every baseline completely, same fair setting, repo or paper; no GPU cap; hpg main, rai/LONI in parallel).**
+  Plan: docs/direction/2026-10-19_full_baseline_grid_plan_ZH.md (625f6a9). Grid (user 13:30): K ∈ {5,10,20,50,100} × s0–s2 + 1 full-training cell (support = all 3,553 TRAIN games) = 16 cells/method.
+  User approved my recommended defaults Q1–Q5 (SAD one-hot teacher; HAD own harness, eval on HAD harness and H0, ≤30k teacher calls/cell; CoA gpt-6-luna multi-agent teacher + DAPO on K tasks;
+  AgentDistill tools compose admissible actions, steps count to 40, flagged; GAD per-turn). Kang = AD; 13 methods total incl. SAD, AgentDistill, CoA, HAD, GAD, WKM, STeCa.
+  **Batch 1 SUBMITTED** (tree 625f6a9, scripts/ops_batch1_1019.sh, dept QOS, 252 jobs 46706449–46706702, log ~/batch1_1019.log on hpg): AgentGym K50/K100 s1,s2 (4 chains × 9);
+  LEAP privileged K5–K100 s1,s2 (10 × 9); LEAP 0% K5–K100 s0–s2 except k20s0 (14 × 9). Stage-split: AgentGym train 2 GPU 4C/160G, explore 1 GPU 8C/48G; LEAP GPU 4C/48G, teacher stages hpg-milan 2C/8G.
+  Monitor: scratchpad grid_check_once.sh, cron :47 hourly (e520283c, session-only, 7-day expiry).
+  **Codex (parallel worktrees):** ../ICML27_wt_fulltrain (pid 4109453: all_train_v1 selection, parallel capped collector ≤160k calls/700M tokens, full cell in K guards);
+  ../ICML27_wt_dpopack (pid 4111993: exact shared-history packed scoring for turn-packed DPO/IPR; old path ~168 s/pair-slot). Next: specs + Codex for AD-FTP, SAD, WKM, STeCa, HAD, GAD, CoA, AgentDistill.
+  Storage: /blue dept 15T/20T used — LEAP merges ~24 GB each; plan moving evaluated checkpoints to /orange (copy→verify→delete).
 - **13:5x CDT 10-18: baseline failure analysis delivered (user: list every baseline's principle, find where each fails on the benchmark, explain by first principles; analysis only, no method).**
   docs/analysis/baseline_failure_analysis{,_ZH}.md + 5 figs (faad17b); scripts analysis/baseline_failures/{build_data,plot}.py (255 dev140 cells, 244 with episodes).
   Key: no baseline median beats Seed-SFT end-of-schedule at any K; 26/52 AgentGym, 4/24 Kang, 4/23 LEAP cells below base−7; heat/cool are the weak types;
