@@ -72,6 +72,9 @@ def update_disclosure(output, identity):
             "examples_seen": last.get("examples_seen", 0),
             "supervised_tokens_seen": last.get("supervised_tokens_seen", last.get("cumulative_supervised_tokens", 0)),
             "logical_forward_tokens": record.get("logical_forward_tokens"),
+            "scoring": record.get("scoring", last.get("scoring")),
+            "physical_policy_forward_tokens": record.get("physical_policy_forward_tokens", last.get("physical_policy_forward_tokens")),
+            "physical_reference_forward_tokens": record.get("physical_reference_forward_tokens", last.get("physical_reference_forward_tokens")),
             "unknown_exposure_possible": partial or not result.exists(),
             "accounting": "Durable completed updates only; an interrupted update can have unknown additional compute."})
     row.update(training_attempts=trainings, batch_invariant=True,
