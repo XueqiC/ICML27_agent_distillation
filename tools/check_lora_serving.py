@@ -69,7 +69,7 @@ def add_hf_references(model, cases):
             row["hf_base_logprobs"] = hf_logprobs(model, row)
 
 
-def validate_cases(cases):
+def validate_cases(cases, *, score_fields=("hf_logprobs", "hf_base_logprobs")):
     if len(cases) != PROMPT_COUNT:
         raise ValueError("Exactly eight reference prompts are required")
     keys = set()
@@ -80,7 +80,7 @@ def validate_cases(cases):
                 or any(type(i) is not int or i < 0 for i in ids) or ids[-1] != 106
                 or digest(ids) != row["input_sha256"]):
             raise ValueError("Invalid training-eligible fixed prompt reference")
-        for field in ("hf_logprobs", "hf_base_logprobs"):
+        for field in score_fields:
             values = row.get(field)
             if (not isinstance(values, list) or len(values) != len(ids) - start
                     or any(type(v) not in (int, float) or not math.isfinite(v) for v in values)):

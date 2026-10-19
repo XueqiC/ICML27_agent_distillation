@@ -63,6 +63,8 @@ def test_full_evaluation_requires_gate_before_dev140(tmp_path, monkeypatch, pass
         evaluation.evaluate_models(args)
         assert calls[-1][1] == 'eval/run_suite.py'
         assert calls[-1][calls[-1].index('--tasks') + 1] == 'data/manifest/dev140.json'
+        assert calls[-1][calls[-1].index('--full-check') + 1] == str(
+            Path(calls[1][calls[1].index('--output') + 1]) / 'report.json')
     else:
         with pytest.raises(RuntimeError, match='gate rejection'):
             evaluation.evaluate_models(args)

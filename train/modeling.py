@@ -49,12 +49,16 @@ def load_student(path, *, device="cuda", dtype="bfloat16"):
         attn_implementation="eager", device_map={"": device})
 
 
-def attach_lora(model, *, rank=16, alpha=32, dropout=0.0, gradient_checkpointing=True):
+def attach_lora(model, *, rank=16, alpha=32, dropout=0.0, gradient_checkpointing=True,
+                targets=None):
     from peft import LoraConfig, get_peft_model
     # Restrict to text attention/MLP projections; the multimodal towers are frozen.
+    targets = LORA_TARGETS if targets is None else targets
+    if not targets or not set(targets).issubset(LORA_TARGETS):
+        raise ValueError("Unsupported text LoRA targets")
     names = [name for name, _ in model.named_modules()
-             if ".language_model." in name and name.rsplit(".", 1)[-1] in LORA_TARGETS]
-    if {name.rsplit(".", 1)[-1] for name in names} != set(LORA_TARGETS):
+             if ".language_model." in name and name.rsplit(".", 1)[-1] in targets]
+    if {name.rsplit(".", 1)[-1] for name in names} != set(targets):
         raise ValueError("Missing expected attention/MLP LoRA projections")
     adapted = get_peft_model(model, LoraConfig(r=rank, lora_alpha=alpha, lora_dropout=dropout,
                     target_modules=names, bias="none", task_type="CAUSAL_LM"))

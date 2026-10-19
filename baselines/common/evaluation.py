@@ -36,6 +36,7 @@ def evaluate_models(args, *, decodings=("greedy",)):
                         run_command([args.env_python, *check[1:], "--hf-reference", str(attempt / "hf/reference.json"),
                             "--endpoint", endpoint, "--server-provenance", str(server),
                             "--output", str(attempt / "check")], attempt / "check.log")
+                        extra = ["--full-check", str(attempt / "check/report.json")]
                     env = os.environ.copy()
                     env["CUDA_VISIBLE_DEVICES"] = ""
                     run_command([args.env_python, "eval/run_suite.py", "--config", args.config,
