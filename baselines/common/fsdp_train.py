@@ -261,29 +261,37 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
-               packing=None):
+               packing=None, processed_token_budget=None, checkpoint_callback=None):
     import torch
     import torch.distributed as dist
-    if objective not in {"sft", "dpo", "ipr"} or not math.isfinite(learning_rate) or learning_rate <= 0:
+    if objective not in {"sft", "sad", "dpo", "ipr"} or not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Invalid training objective/learning rate")
     if not math.isfinite(beta) or beta <= 0:
         raise ValueError("Positive finite beta required")
     actual_packings = {row.get("packing", "episode") for example in examples
-                      for row in ([example] if objective == "sft" else [example["chosen"], example["rejected"]])}
+                      for row in ([example] if objective in {"sft", "sad"} else [example["chosen"], example["rejected"]])}
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
     two_pass_turn_backward = objective in {"dpo", "ipr"} and packing == "turn"
     empty_visible_counts = []
     for example in examples:
-        groups = [example] if objective == "sft" else [example["chosen"], example["rejected"]]
+        groups = [example] if objective in {"sft", "sad"} else [example["chosen"], example["rejected"]]
         # Count each stage input once, independently of epochs/rank padding.
         empty_visible_counts.append(sum(row.get("empty_visible_turns_masked", 0) for row in groups))
         for row in groups:
             if any(r.get("label_provenance", {}).get("training_eligible") is False
                    for r in [row, *sequence_rows(row)]):
                 raise ValueError("Diagnostic examples cannot enter training")
-    plan = dose(len(examples), original_batch, epochs=epochs)
+    if objective == "sad":
+        from baselines.sad.data import token_plan, ordered_batches
+        plan = token_plan(examples, original_batch, processed_token_budget)
+        batches = ordered_batches(len(examples), plan["b_prime"], plan["total_steps"])
+    else:
+        if processed_token_budget is not None or checkpoint_callback is not None:
+            raise ValueError("Token budgets/checkpoint callbacks are SAD-only")
+        plan = dose(len(examples), original_batch, epochs=epochs)
+        batches = epoch_batches(len(examples), plan["b_prime"], epochs=epochs, seed=seed)
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=learning_rate, betas=(0.9, 0.999), eps=1e-8,
                                  weight_decay=weight_decay, foreach=False, fused=False)
@@ -306,16 +314,17 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     started = time.monotonic()
     exposure = supervised = physical = physical_tokens = forward_tokens = logical_slots = 0
     recompute_tokens = 0
-    for update, batch in enumerate(epoch_batches(len(examples), plan["b_prime"], epochs=epochs, seed=seed), 1):
+    for update, batch in enumerate(batches, 1):
         optimizer.zero_grad(set_to_none=True)
         metrics_sum = {}
         indices = batch["indices"]
-        microsteps = (sft_microsteps(examples, indices) if objective == "sft" else
+        microsteps = ([(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
+                      if objective == "sad" else sft_microsteps(examples, indices) if objective == "sft" else
                       [(examples[i], 1.0) for i in indices])
         slots = rank_slots(list(range(len(microsteps))), world_size)
         # All ranks have the same logical batch. Derive the same number of
         # preference turn forwards without a separate distributed collective.
-        rounds = [1 if objective == "sft" else max(
+        rounds = [1 if objective in {"sft", "sad"} else max(
             len(sequence_rows(microsteps[i if i is not None else 0][0][side]))
             for i in slot for side in ("chosen", "rejected")) for slot in slots]
         for slot, n_rounds in zip(slots, rounds):
@@ -325,7 +334,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             # FSDP averages across ranks. Cancel that average and divide by
             # ACTUAL trajectories/pairs, including the final partial batch.
             scale = weight * world_size / len(indices) if active else 0.0
-            loss, metrics = (sft_objective(model, row, device) if objective == "sft" else
+            loss, metrics = ((-batch_logps(model, [row], device).sum(), {}) if objective == "sad" else
+                            sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
                                           nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
                                           backward_scale=scale if two_pass_turn_backward else None))
@@ -345,7 +355,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         exposure += len(indices)
         def costs(microstep, n_rounds=None):
             row, _ = microstep
-            groups = [row] if objective == "sft" else [row["chosen"], row["rejected"]]
+            groups = [row] if objective in {"sft", "sad"} else [row["chosen"], row["rejected"]]
             rows = [r for group in groups for r in sequence_rows(group)]
             return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
                     sum(len(r["input_ids"]) for r in rows),
@@ -370,7 +380,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             norm = norm.full_tensor()
         if ledger:
             ledger.append({"update": update, **batch, "lr": lr_used, "global_batch": len(indices),
-                           "packing": packing, "batch_unit": "trajectory" if objective == "sft" else "preference pair",
+                           "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad"} else "preference pair",
                            "microsteps": len(microsteps), "collective_rounds": sum(rounds),
                            "zero_weight_slots": len(slots) * world_size - len(microsteps),
                            "gradient_norm": float(norm), "examples_seen": exposure,
@@ -379,8 +389,14 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "two_pass_turn_backward": two_pass_turn_backward,
                            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
                            "physical_policy_recompute_forward_tokens": recompute_tokens,
-                           "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
+                           "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad"} else 0,
                            **dict(zip(keys, values.cpu().tolist()))}, unique_key="update")
+        if checkpoint_callback is not None:
+            checkpoint_callback(model, {**plan, "updates": update, "seed": seed,
+                "examples_seen": exposure, "supervised_tokens_seen": supervised,
+                "logical_forward_tokens": forward_tokens, "processed_token_positions": forward_tokens,
+                "physical_policy_forward_tokens": physical_tokens, "packing": packing,
+                "loss_normalization": "batch mean of trajectory span-token sums"})
     if cuda:
         torch.cuda.synchronize(device)
     memory = {"rank": rank, "peak_memory_bytes": torch.cuda.max_memory_allocated(device) if cuda else None,
@@ -399,13 +415,16 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "two_pass_turn_backward": two_pass_turn_backward,
             "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
             "physical_policy_recompute_forward_tokens": recompute_tokens,
-            "physical_reference_forward_tokens": physical_tokens if objective != "sft" else 0,
+            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad"} else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
-            "packing": packing, "batch_unit": "trajectory" if objective == "sft" else "preference pair",
-            "microbatch": 1, "microbatch_unit": packing if objective == "sft" else "preference pair",
+            "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad"} else "preference pair",
+            "microbatch": 1, "microbatch_unit": packing if objective in {"sft", "sad"} else "preference pair",
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
-            "loss_reduction": ("per_example_mean_then_global_batch_mean" if objective == "sft" else
+            **({"processed_token_positions": forward_tokens,
+                "realized_trajectory_passes": exposure / len(examples)} if objective == "sad" else {}),
+            "loss_reduction": ("span_token_sum_then_global_batch_mean" if objective == "sad" else
+                               "per_example_mean_then_global_batch_mean" if objective == "sft" else
                                "sigmoid_plus_chosen_nll_summed_logps" if objective == "ipr" else "sigmoid_summed_logps")}
 
 
@@ -562,7 +581,7 @@ def train_lora(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--objective", choices=["sft", "dpo", "ipr"], required=True)
+    parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora"], default="full")
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
@@ -579,6 +598,7 @@ def main(argv=None):
     parser.add_argument("--warmup-steps", type=int, help="Explicit integer, including zero; overrides ratio")
     parser.add_argument("--original-batch", type=int, required=True)
     parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--processed-token-budget", type=int)
     parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=0)
@@ -589,6 +609,15 @@ def main(argv=None):
         parser.error("Registered no-truncation limit is 32768")
     if args.objective == "sft" and bool(args.verified) == bool(args.sft_data):
         parser.error("SFT requires exactly one of --verified or --sft-data")
+    if args.objective == "sad":
+        if (not args.verified or args.sft_data or args.packing != "turn" or args.adaptation != "full"
+                or Path(args.snapshot).resolve() != Path(args.base_snapshot).resolve()):
+            parser.error("SAD requires verified-only full tuning from base with turn packing")
+        from baselines.sad.data import TOKEN_BUDGET
+        if args.processed_token_budget is None:
+            args.processed_token_budget = TOKEN_BUDGET
+    elif args.processed_token_budget is not None:
+        parser.error("Processed-token budgets are SAD-only")
     if args.adaptation == "kang_lora":
         if args.objective != "sft" or not args.verified or args.sft_data:
             parser.error("Kang LoRA requires seed SFT")
@@ -623,7 +652,7 @@ def main(argv=None):
             manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
             tokenizer = load_tokenizer(args.snapshot)
             inputs = [args.config, config["paths"]["manifest"], config["paths"]["split_freeze"]]
-            if args.objective == "sft":
+            if args.objective in {"sft", "sad"}:
                 if args.sft_data:
                     from baselines.agentgym.data import training_examples
                     examples = training_examples(args.sft_data, config, tokenizer,
@@ -631,9 +660,14 @@ def main(argv=None):
                     inputs += [args.sft_data, Path(args.sft_data).parent / "provenance.json"]
                 else:
                     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
-                    examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
-                                             packing=args.packing, max_length=args.max_length)
-                                for episode in checked_episodes(root, collection["verified"])]
+                    if args.objective == "sad":
+                        from baselines.sad.data import curriculum, encode_episode
+                        examples = curriculum([encode_episode(e, tokenizer, max_length=args.max_length)
+                            for e in checked_episodes(root, collection["verified"])])
+                    else:
+                        examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
+                                                 packing=args.packing, max_length=args.max_length)
+                                    for episode in checked_episodes(root, collection["verified"])]
                     inputs += [Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"]
             else:
                 if args.objective == "ipr":
@@ -654,7 +688,11 @@ def main(argv=None):
                 inputs += [Path(args.reference) / "training_state.json", Path(args.reference).parent / "provenance.json"]
             return examples, inputs, config, tokenizer.chat_template
         examples, inputs, config, chat_template = rank_zero_data(rank, world, prepare_data, verification_group)
-        plan = dose(len(examples), args.original_batch, epochs=args.epochs)
+        if args.objective == "sad":
+            from baselines.sad.data import token_plan
+            plan = token_plan(examples, args.original_batch, args.processed_token_budget)
+        else:
+            plan = dose(len(examples), args.original_batch, epochs=args.epochs)
         output = Path(args.output)
         provenance = None
         def record_provenance():
@@ -668,9 +706,9 @@ def main(argv=None):
                 "attention": "sdpa", "master_dtype": "float32", "compute_dtype": "bfloat16",
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
-                "no_truncation": True, "packing": args.packing if args.objective == "sft" else "turn", "microbatch": 1,
-                "batch_unit": "trajectory" if args.objective == "sft" else "preference pair",
-                "microbatch_unit": args.packing if args.objective == "sft" else "preference pair",
+                "no_truncation": True, "packing": args.packing if args.objective in {"sft", "sad"} else "turn", "microbatch": 1,
+                "batch_unit": "trajectory" if args.objective in {"sft", "sad"} else "preference pair",
+                "microbatch_unit": args.packing if args.objective in {"sft", "sad"} else "preference pair",
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
                                      "fixed_seed_sft_init" if args.objective == "dpo" and
@@ -688,13 +726,23 @@ def main(argv=None):
         mesh = init_device_mesh("cuda", (world,))
         model = shard_model(prepare_model(args.snapshot), mesh=mesh)
         reference = (shard_model(prepare_model(args.reference, reference=True), mesh=mesh, reference=True)
-                     if args.objective != "sft" else None)
+                     if args.objective not in {"sft", "sad"} else None)
         started = time.monotonic()
+        checkpoint_callback = None
+        if args.objective == "sad":
+            from baselines.sad.checkpoints import publisher
+            checkpoint_callback = publisher(output, args.base_snapshot, provenance, plan, rank=rank)
         state = train_loop(model, examples, output, objective=args.objective,
                     learning_rate=args.learning_rate, scheduler=args.scheduler, warmup_ratio=args.warmup_ratio,
                     original_batch=args.original_batch, epochs=args.epochs, seed=args.seed, beta=args.beta,
                     reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device,
-                    warmup_steps=args.warmup_steps, packing=args.packing if args.objective == "sft" else "turn")
+                    warmup_steps=args.warmup_steps, packing=args.packing if args.objective in {"sft", "sad"} else "turn",
+                    processed_token_budget=args.processed_token_budget, checkpoint_callback=checkpoint_callback)
+        if args.objective == "sad":
+            if rank == 0:
+                write_json(output / "result.json", {**state, "models": json.loads((output / "models.json").read_text())})
+            dist.barrier()
+            return
         # Release reference before gathering the final standalone policy.
         del reference
         torch.cuda.empty_cache()
