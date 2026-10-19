@@ -1,0 +1,14 @@
+{
+  "docs/baselines/NEW_METHOD_SPECS_1019.md": "d6cc35f3222ee234cc9c970fe2392174365bf48e23ed51ba7e6c1ed91cee4f76",
+  "third_party/LMOps/gad/README.md": "09f30bd27468d31998fe46aef5dabec1c4809d73edb4b64f599a35663b7a47fb",
+  "third_party/LMOps/gad/LICENSE": "ff6942a73920abc865204c0936e115adc5c84c51e2c2b2c6b6b371fc967de787",
+  "third_party/LMOps/gad/scripts/train/gpt5-chat-filtered-7b-warmup-lr1e-6.sh": "76be91fbf70d7608c33ea985d88007473044db8989e7d828920234dd5c44d1d3",
+  "third_party/LMOps/gad/scripts/train/gpt5-chat-filtered-7b-adversarial-lr1e-6.sh": "9d215cba2b90bb5ca3ebceb58f11bcc0e6cc171d8a57b5a2d7ec32377575d880",
+  "third_party/verl-gad/README.md": "89f9d66f6693beab6f06355fb04f3d85eb18e263029de2cb7a8edac7405f28c7",
+  "third_party/verl-gad/LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "third_party/verl-gad/verl/trainer/ppo/core_algos.py": "c8117cf943ce690ee78adf34b4f0b7b374961d69294684a2402ccb4692bc4004",
+  "third_party/verl-gad/verl/trainer/ppo/ray_trainer.py": "6161932e3fb80b2ffc59d83bb624318c3dbc47bacb2e21d61181440a25db4043",
+  "third_party/verl-gad/verl/workers/critic/dp_critic.py": "d42388f13abca89a1238bba47200687a6377cbe67ab6f2db5aff8d0739c09f35",
+  "third_party/verl-gad/verl/workers/actor/dp_actor.py": "e2119325c4666b1c341e7761752f5e674f33ef5ec33008237a435697426ed923",
+  "third_party/verl-gad/verl/trainer/config/ppo_trainer.yaml": "258bfc32b82688ee44db862dde8342a0a2841d457f5081b6b253f5a45f913af3"
+}
