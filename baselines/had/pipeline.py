@@ -1,7 +1,7 @@
 """Hash-bound HAD rounds: explore-r (GPU), teacher-r (CPU), train-r (GPU).
 
-One invocation executes only its selected stage. Missing prerequisites fail
-before work starts; a GPU stage can never invoke/wait for a teacher stage.
+Per-stage invocations execute only the selected stage. Paired workers reuse
+the same transactions and commands; only the CPU worker invokes the teacher.
 """
 import argparse
 import json
@@ -36,7 +36,7 @@ def training_command(args, *, data, snapshot, output, round_index, start_update)
         "--original-batch", "60", "--weight-decay", "0.01", "--beta", "0.5", "--epochs", "1", "--packing", "turn"]
 
 
-def train_pipeline(args, identity, config):
+def train_pipeline(args, identity, config, *, execute_stage=stage, publication_lock=locked):
     selected = args.through
     match = re.fullmatch(r"(explore|teacher|train)-(\d+)", selected)
     if not match or int(match[2]) >= 250:
@@ -60,15 +60,15 @@ def train_pipeline(args, identity, config):
                     "--workers", str(args.workers), "--round", str(version),
                     "--server-provenance", str(attempt / "server/provenance.json"), "--output", str(attempt / "output")]
                 run_command(command, attempt / "explore.log", env=env)
-        explored = stage(output, f"explore-{version}", key, explore, selected=selected)
+        explored = execute_stage(output, f"explore-{version}", key, explore, selected=selected)
         if selected == f"explore-{version}":
             return
-        labelled = stage(output, f"teacher-{version}", digest([key, str(explored)]),
+        labelled = execute_stage(output, f"teacher-{version}", digest([key, str(explored)]),
             lambda a: collect(explored, args.verified, a / "output", config,
                 cell=output, identity=identity, round_index=version), selected=selected)
         if selected == f"teacher-{version}":
             return
-        trained = stage(output, f"train-{version}", digest([key, str(labelled)]),
+        trained = execute_stage(output, f"train-{version}", digest([key, str(labelled)]),
             lambda a: run_command(training_command(args, data=labelled / "data.json", snapshot=snapshot,
                 output=a / "output", round_index=version, start_update=update), a / "train.log"), selected=selected)
         result = json.loads((trained / "result.json").read_text())
@@ -76,16 +76,20 @@ def train_pipeline(args, identity, config):
             raise ValueError("HAD update chain changed")
         update = result["end_update"]
         snapshot = trained / "checkpoint"
-        publish_models(output, [{"name": f"iter-{version + 1}-{harness}", "checkpoint": str(snapshot),
-            "method": "had", "harness": harness, "update": update, "policy_version": version + 1,
-            "checkpoint_state_sha256": file_hash(snapshot / "training_state.json")}
-            for harness in ("had", "h0")])
-        write_json(output / f"iteration-{version}.json", {"iteration": version, "checkpoint": str(snapshot),
-            "start_update": result["start_update"], "end_update": update, "examples_seen": result["examples_seen"],
-            "unused_at_terminal_budget": result["unused_at_terminal_budget"]})
+        # Both paired workers may reconstruct a completed prefix. Serialize only
+        # publication, never the CPU teacher and GPU work behind a cell-wide lock.
+        with publication_lock(output / ".publication.lock"):
+            publish_models(output, [{"name": f"iter-{version + 1}-{harness}", "checkpoint": str(snapshot),
+                "method": "had", "harness": harness, "update": update, "policy_version": version + 1,
+                "checkpoint_state_sha256": file_hash(snapshot / "training_state.json")}
+                for harness in ("had", "h0")])
+            write_json(output / f"iteration-{version}.json", {"iteration": version, "checkpoint": str(snapshot),
+                "start_update": result["start_update"], "end_update": update, "examples_seen": result["examples_seen"],
+                "unused_at_terminal_budget": result["unused_at_terminal_budget"]})
+            if update == 250:
+                write_json(output / "result.json", {"status": "complete", "updates": update,
+                    "models": json.loads((output / "models.json").read_text()), "evaluation_selection": None})
         if update == 250:
-            write_json(output / "result.json", {"status": "complete", "updates": update,
-                "models": json.loads((output / "models.json").read_text()), "evaluation_selection": None})
             return
         if selected == f"train-{version}":
             return
@@ -151,6 +155,11 @@ def main(argv=None):
         parser.add_argument("--" + key, required=True)
     parser.add_argument("--mode", choices=("prepare", "train", "evaluate"), default="train")
     parser.add_argument("--through", default="explore-0")
+    parser.add_argument("--worker", choices=("gpu", "teacher"),
+                        help="Run all rounds as one member of a co-scheduled pair")
+    parser.add_argument("--gpu-wait-seconds", type=float, default=1200)
+    parser.add_argument("--poll-seconds", type=float, default=1)
+    parser.add_argument("--poll-max-seconds", type=float, default=30)
     parser.add_argument("--gpus", type=int, choices=(1, 2, 4, 8), default=4)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
@@ -159,6 +168,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.workers < 1:
         parser.error("Positive workers required")
+    if args.worker and args.mode != "train":
+        parser.error("--worker requires --mode train")
     batch_invariant()
     for key in ("snapshot", "verified", "output"):
         setattr(args, key, str(Path(getattr(args, key)).resolve()))
@@ -174,6 +185,9 @@ def main(argv=None):
     args.model_name = config["models"]["student"]["requested_repo"]
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+    if args.worker:
+        from baselines.had.coschedule import run_worker
+        return run_worker(args, config)
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
             evaluate_pipeline(args)
@@ -189,4 +203,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
