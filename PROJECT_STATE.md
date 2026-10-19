@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **16:5x CDT 10-19 (usage limit reached; resume here):** main = bc119be (+ GAD, AgentDistill merged; all new-method CPU tests pass). Tree bc119be deployed to hpg (+leap_llm);
+  all-MiniLM-L6-v2 copied to hpg HF cache (snapshot 1110a243…) for WKM/STeCa EMBEDDING_SNAPSHOT. NEXT: (1) batch-2 smoke chains at K20 s0 for SAD (prepare CPU → train 4 GPU 24h → eval),
+  WKM (experienced/explore/synthesize/world/agent GPU1; merge/knowledge-base CPU), STeCa (sft/reinforced 4 GPU; expert-mc/explore/agent-mc GPU1; detect/reflect/datasets CPU), GAD (explore/teacher/train × r0–2),
+  AgentDistill (CPU stages, evaluate 1 GPU; AGENTDISTILL_OUT outside reports/runs); (2) HAD needs a co-scheduled GPU+CPU runner (per-round jobs ≈150/cell) before submitting;
+  (3) Codex still running: wt/dpopack head_dim-512 kernel_options fix (pid 814843) → rerun tc-shcheck on hpg; wt/coa (pid 820040); (4) AD-FTP collection after the full-TRAIN collection (shared API limits).
 - **16:2x CDT 10-19:** main = 18030f5: merged wt/adftp-sad (AD-FTP, SAD), wt/wkm-steca (WKM, STeCa), wt/had (HAD); merged-main CPU tests pass (171). Not yet deployed to hpg.
   Shared-history DPO GPU acceptance (hpg 46723617/18, tree 31e4875) FAILED before comparing: InductorError, FlexAttention default tiles exceed shared memory for Gemma-4 global layers (head_dim 512).
   Reproduced on rai GPU1; kernel_options BLOCK_M=BLOCK_N=32 compiles fwd+bwd and matches SDPA in bf16. Codex fixing (pid 814843). Measured on one ETO pair: per-turn path 368,738 forward tokens, 187 s fwd+bwd; packed 20,697 tokens (18× fewer).
