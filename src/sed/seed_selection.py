@@ -8,10 +8,21 @@ from sed.manifest import TASK_TYPES, frozen_write, load_frozen, authorize_task, 
 from sed.storage import digest
 
 RULE = "stratified_groups_v1"
+ALL_TRAIN_RULE = "all_train_v1"
+
+
+def is_full_train(selection):
+    return selection.get("selection_rule") == ALL_TRAIN_RULE
+
+
+def ordered_candidates(selection):
+    """Global full-TRAIN order, also used for deterministic process sharding."""
+    return sorted((r for rows in selection["selected"].values() for r in rows),
+                  key=lambda r: (digest([selection["seed"], r["task_id"]]), r["task_id"]))
 
 
 def select_seeds(manifest, freeze, *, k=10, seed=0, rule=RULE):
-    if rule != RULE or type(k) is not int or k < 1 or type(seed) is not int:
+    if rule not in (RULE, ALL_TRAIN_RULE) or type(k) is not int or k < 1 or type(seed) is not int:
         raise ValueError("Unknown selection rule or invalid K/seed")
     if freeze["manifest_sha256"] != digest(manifest):
         raise ValueError("Manifest differs from freeze")
@@ -28,6 +39,25 @@ def select_seeds(manifest, freeze, *, k=10, seed=0, rule=RULE):
                 and assignment.get("split") == "train" and not assignment.get("sealed", True)
                 and row["task_id"] in pool and row["group_id"] not in excluded_groups):
             groups[row["group_id"]].append(row)
+    if rule == ALL_TRAIN_RULE:
+        rows = sorted((r for group in groups.values() for r in group),
+                      key=lambda r: (digest([seed, r["task_id"]]), r["task_id"]))
+        selected = {kind: [{key: r[key] for key in
+                    ("task_id", "group_id", "task_type", "content_sha256")}
+                    for r in rows if r["task_type"] == kind] for kind in sorted(TASK_TYPES)}
+        result = dict(schema_version=1, selection_rule=rule, seed=seed, K=len(rows),
+                      K_counts="candidates", candidates=len(rows), trusted_trajectories=0,
+                      selected_unique_instances=len(rows), selected_task_groups=len(groups),
+                      split="train", source_split="train", type_order=sorted(TASK_TYPES),
+                      quotas={kind: len(items) for kind, items in selected.items()},
+                      selected=selected, replacements={kind: [] for kind in selected},
+                      candidate_order=[r["task_id"] for r in rows],
+                      manifest_sha256=digest(manifest), split_freeze_sha256=digest(freeze),
+                      external_resource="whole eligible frozen ALFWorld TRAIN split; sibling trials included",
+                      accounting="Selection K counts candidates only. Trusted K is the number of "
+                                 "successfully collected, execution-verified trajectories; no replacements.")
+        result["selection_sha256"] = digest(result)
+        return result
     candidates = {kind: [] for kind in types}
     for group, rows in sorted(groups.items()):
         if len({r["task_type"] for r in rows}) != 1:
@@ -83,7 +113,7 @@ def main(argv=None):
     parser.add_argument("--freeze", default="data/manifest/alfworld_split_freeze.json")
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--rule", choices=[RULE], default=RULE)
+    parser.add_argument("--rule", choices=[RULE, ALL_TRAIN_RULE], default=RULE)
     parser.add_argument("--output")
     parser.add_argument("--extend-selection", help="Check the smaller frozen selection before writing")
     args = parser.parse_args(argv)
@@ -95,6 +125,8 @@ def main(argv=None):
         small = json.loads(Path(args.extend_selection).read_text())
         validate_selection(small, manifest, freeze)
         validate_extension_selection(small, selected)
-    path = args.output or f"data/manifest/seeds_k{args.k}_s{args.seed}.json"
+    path = args.output or ("data/manifest/seeds_full_train.json" if is_full_train(selected)
+                           else f"data/manifest/seeds_k{args.k}_s{args.seed}.json")
     frozen_write(path, selected)
-    print(f"Selected {args.k} TRAIN groups; verified trajectories: 0; {path}")
+    print(f"Selected {selected['selected_unique_instances']} TRAIN candidates in "
+          f"{selected['selected_task_groups']} groups; verified trajectories: 0; {path}")

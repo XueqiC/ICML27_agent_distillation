@@ -106,7 +106,7 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
     config = load_config()
     assert config["models"]["teacher"]["max_attempts"] == 10
     assert config["models"]["teacher"]["rate_limit"] == {
-        "requests_per_minute": 450, "tokens_per_minute": 180000}
+        "requests_per_minute": 4500, "tokens_per_minute": 1800000}
     config["models"]["teacher"]["rate_limit"] = {"requests_per_minute": 10, "tokens_per_minute": 100000}
     config["environment"].update(data_root=str(data_root), max_episode_steps=1)
     for name, data in (("manifest", manifest), ("split_freeze", freeze)):

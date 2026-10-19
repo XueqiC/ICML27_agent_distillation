@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from sed.seed_evidence import verified_collection_inputs, load_verified_collection
+from sed.seed_selection import is_full_train
 from sed.storage import digest, file_hash
 from train.dataset import build_verified_dataset
 
@@ -36,15 +37,19 @@ def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
     registered = json.loads((Path(__file__).resolve().parents[1] / REGISTERED_GRID).read_text())
     expected = {(r["K"], r["support_seed"]) for r in registered["runs"]}
     runs = template["runs"]
-    pairs = {(r["K"], r["support_seed"]) for r in runs}
+    full = [r for r in runs if is_full_train(r)]
+    few = [r for r in runs if not is_full_train(r)]
+    if len(full) > 1 or any(r.get("name") != "full" or r.get("support_seed") != 0 for r in full):
+        raise ValueError("Full TRAIN is one rule-identified cell named full with support seed 0")
+    pairs = {(r["K"], r["support_seed"]) for r in few}
     partial = template.get("partial") is True
     if partial:
-        if not runs or len(pairs) != len(runs) or not pairs <= expected:
+        if not runs or len(pairs) != len(few) or not pairs <= expected:
             raise ValueError("Partial v2 requires a nonempty subset of registered runs without duplicates")
-    elif len(runs) != len(expected) or pairs != expected:
+    elif len(few) != len(expected) or pairs != expected:
         raise ValueError("v2 requires exactly K=1/2/50/100 x support seeds 0/1/2")
     if any(type(r["K"]) is not int or type(r["support_seed"]) is not int
-           or r.get("name") != f"k{r['K']}s{r['support_seed']}" for r in runs):
+           or r.get("name") != f"k{r['K']}s{r['support_seed']}" for r in few):
         raise ValueError("v2 run names must be k{K}s{S} with integer K/support seed")
     if any(template.get(field) != registered[field] for field in PROTOCOL_FIELDS):
         raise ValueError("v2 dose protocol differs from the registered grid")
@@ -54,7 +59,12 @@ def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
     for run in result["runs"]:
         root = Path(data_root) / run["verified"]
         collection, selection, _ = load_verified_collection(root, manifest, freeze)
-        if (selection["K"], selection["seed"]) != (run["K"], run["support_seed"]):
+        if is_full_train(run):
+            if not is_full_train(selection) or selection["seed"] != run["support_seed"]:
+                raise ValueError("Full TRAIN dose run requires an all_train_v1 collection")
+            run.update(K=collection["K"], candidates=selection["candidates"],
+                       K_counts="trusted_executed_trajectories")
+        elif is_full_train(selection) or (selection["K"], selection["seed"]) != (run["K"], run["support_seed"]):
             raise ValueError("Dose run K/support seed differs from its collection")
         examples = build_verified_dataset(root, tokenizer, manifest, freeze,
                                           max_length=32768, packing="episode")
