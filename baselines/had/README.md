@@ -47,9 +47,71 @@ Never delete/reset that directory to resume. Stages retain failed attempts;
 Do not put outputs under seed storage. No task outside the verified support
 collection is used for rollout or labelling. Dev140 is evaluation-only.
 
+## Co-scheduled cell
+
+Submit a pair of long-lived workers from the repository on the cluster:
+
+```bash
+export HAD_OUT=/shared/had-cell VERIFIED=/shared/verified-support
+bash scripts/ops_had_cell.sh --account=YOUR_ACCOUNT --qos=YOUR_QOS
+```
+
+The GPU job requests hpg-b200, 4 GPUs, 8 CPUs, 256G and 48 hours. The CPU job
+requests hpg-milan, zero GPUs, 2 CPUs, 8G and 48 hours. Account/QOS arguments
+are forwarded unchanged to both jobs and their replacements. Both workers use
+the same configuration and training world size (`NGPUS=4`). Teacher calls only
+run in the CPU worker and retain the existing persistent 30,000-attempt cap.
+
+The workers coordinate through the existing hash-bound `stages/*/complete.json`
+files and advisory filesystem locks. They poll with backoff (1, 2, 4, ... up to
+30 seconds). Locks exclude duplicate workers and per-stage/evaluation writers;
+they are released by the OS after process death. No coordination service or
+socket is introduced. Existing local student serving is unchanged.
+
+Every wait is recorded before sleeping in `scheduling/{gpu,teacher}.jsonl`.
+After 1,200 seconds of idle waiting the GPU worker returns exit 75 at a stage
+boundary. The launcher submits one replacement, dependent on the current job
+ending, then exits successfully to release the allocation. This requires
+`sbatch` on compute nodes. A two-minute walltime warning similarly submits a
+replacement for either role. Explicit cancellation and ordinary stage failures
+do not automatically resubmit. A retained capped-teacher halt also stops the
+GPU worker, preventing an endless replacement loop. Submission IDs and SLURM output remain under
+`scheduling/`. `HAD_GPU_WAIT_SECONDS` may shorten, but never increase, the idle
+limit; `HAD_POLL_SECONDS` and `HAD_POLL_MAX_SECONDS` control backoff.
+
+Resume a killed member without duplicating its still-running peer:
+
+```bash
+bash scripts/ops_had_cell.sh --resume-role gpu --account=YOUR_ACCOUNT --qos=YOUR_QOS
+# Or --resume-role teacher
+```
+
+Completed stages are validated and reused; interrupted attempts remain visible
+and incomplete stages restart from their last committed input. Training resumes
+the preceding round's exact masters/Adam state. An interrupted update may have
+additional failed-attempt exposure, as in the per-stage implementation. An
+interrupted live teacher request with an unknown outcome still halts the capped
+collector: resubmission cannot recover an unrecorded remote response. Never reset
+the counter or conceal unknown usage. This is not a guarantee of uninterrupted
+progress after an arbitrary kill during a teacher transport call.
+
+This mode preserves the serial algorithm's exact policy dependencies:
+`explore-r -> teacher-r -> train-r -> explore-(r+1)`. The two-version allowance
+permits older-policy data, but collecting r+1 before train-r would change its
+policy input, trajectories and labels relative to the existing mode. Exact
+artifact equivalence therefore precludes that lookahead. The scheduling audit
+logs are additional; real timestamps, process IDs and latency naturally vary.
+The offline equivalence test freezes attempt timestamps and compares every
+existing artifact byte for byte with deterministic stages.
+
+Both modes must run from the same frozen code tree. The existing identity binds
+code/content hashes, so upgrading code inside a previously frozen cell fails
+validation; this mode does not bypass that check.
+
 Offline checks:
 
 ```bash
 CUDA_VISIBLE_DEVICES='' python -m pytest -q tests/test_had.py tests/test_had_torch.py
-bash -n scripts/hpg_had.slurm scripts/eval_adapters.sh
+CUDA_VISIBLE_DEVICES='' /home/xueqi/tf5-env/bin/python -m pytest -q tests/test_had_coschedule.py tests/test_had_coschedule_launchers.py
+bash -n scripts/ops_had_cell.sh scripts/hpg_had.slurm scripts/eval_adapters.sh
 ```
