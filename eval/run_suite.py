@@ -52,6 +52,8 @@ def policy_condition(policy, spec, config):
     if spec["model"] != config["models"]["student"]["requested_repo"]:
         name = "lora_student"
     condition = name + "_thinking_" + str(spec["enable_thinking"]).lower()
+    if spec.get("had_harness"):
+        return condition + "_" + spec["had_harness"]
     return condition + "_sag" if spec.get("decoding") == "sag" else condition
 
 
@@ -64,7 +66,12 @@ def _worker(job):
         if policy_name == "student":
             student_spec = dict(spec)
             decoding = student_spec.pop("decoding", "greedy")
-            if decoding == "sag":
+            had_harness = student_spec.pop("had_harness", None)
+            if had_harness:
+                from baselines.had.rollout import HADStudent, H0Student
+                policy = (HADStudent(task_id=task["task_id"], log_dir=output / "student_calls", **student_spec)
+                          if had_harness == "had" else H0Student(log_dir=output / "student_calls", **student_spec))
+            elif decoding == "sag":
                 from students.sag_student import SAGStudent
                 policy = SAGStudent(log_dir=output / "student_calls", task_id=task["task_id"], **student_spec)
             else:
@@ -161,6 +168,12 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         spec = {**spec, **context_options(config)}
     # The evaluated server is authoritative; the CPU worker's environment is not.
     server = config.get("server_provenance", {}).get("config", {}).get("server", {})
+    if spec and spec.get("had_harness"):
+        from baselines.had.gate import validate_report
+        if spec["had_harness"] not in {"had", "h0"} or spec.get("decoding", "greedy") != "greedy":
+            raise ValueError("HAD evaluation requires greedy HAD or H0")
+        validate_report(config.get("had_equivalence", {}), config.get("server_provenance", {}),
+                        spec["model"], spec["endpoint"])
     batch_invariant = server.get("batch_invariant") if policy == "student" else None
     if batch_invariant is not None and type(batch_invariant) is not bool:
         raise ValueError("Server batch_invariant must be a boolean or unknown (null)")
@@ -177,6 +190,8 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
             raise ValueError("Equivalence report differs from configured student identity")
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     listing, tasks = frozen_tasks(tasks_path, manifest, freeze, sealed_final=sealed_final, policy=policy)
+    if spec and spec.get("had_harness") and listing.get("name") != "dev140":
+        raise ValueError("HAD evaluation is frozen dev140 only")
     output = Path(output)
     for name in ("raw", "verified"):
         if output.resolve().is_relative_to(Path(config["paths"][name]).resolve()):
@@ -222,6 +237,8 @@ def main(argv=None):
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1")
     parser.add_argument("--model-name", help="Request model: base served name (default) or adapter NAME")
     parser.add_argument("--lora-check", help="Passing check_lora_serving report.json for this server/adapter")
+    parser.add_argument("--had-harness", choices=("had", "h0"))
+    parser.add_argument("--had-check")
     parser.add_argument("--enable-thinking", choices=("off",), default="off")
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--timeout", type=float, default=180)
@@ -243,6 +260,11 @@ def main(argv=None):
     if args.decoding == "sag":
         spec["decoding"] = "sag"
         spec["sampling_seed"] = args.sag_sampling_seed
+    if args.had_harness:
+        if args.policy != "student" or not args.had_check:
+            parser.error("HAD evaluation needs a student and passing --had-check")
+        spec["had_harness"] = args.had_harness
+        config["had_equivalence"] = json.loads(Path(args.had_check).read_text())
     inputs = [args.config]
     if args.server_provenance:
         inputs.append(args.server_provenance)
