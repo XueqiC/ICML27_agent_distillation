@@ -17,6 +17,27 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:4x-16:0x CDT 10-20: NEW MAIN GRID (user) — supersedes the K5-K100 x 3-seed grid
+- Grid: K in {30, 100, 300, 500} first (later 1000, 2000, all = 3,098), seed 0 only, nested stratified views of
+  data/verified/seeds_full_train_r2 (rule stratified_nested_v2). Target (user): K<=500 x 4 methods by 23:00 CDT 10-20.
+- Methods (user OK 15:57): 轨迹 SFT = K trusted trajectories + AD's SFT hyperparameters (LoRA r64/a128, lr 2e-4 linear,
+  batch 8), greedy; AD = same + FTP-recollected trajectories, SAG eval; SAD = paper objective + 655M budget; SmartAD =
+  10 candidates/task, min-NLL selection, segment-weighted SFT, greedy. Evals on hpg B200 only (fixed serving).
+- Convergence (user 15:42): rung r converged if last-epoch token-mean train loss drops < 0.01 nats/token vs rung r-1
+  (half the training); report rung r. Rungs: epochs 1,2(paper),4,8,16,32 (SFT/AD/SmartAD); SAD budget x0.5,x1,x2.
+- Old grid: ALL cells held in the keeper; running/pending jobs cancelled 15:5x CDT (user: stop the non-converged runs);
+  results kept as a separate small-K study. Low priority paused (0 jobs). hpg queue empty.
+- Engineering (Codex gpt-6-astra, 4 parallel worktrees): wt/kchain (views, pid 3680502), wt/shsft (shared-history +
+  multi-GPU for sft/smartad, pid 3689062), wt/convtrain (epochs/budget overrides + convergence checker, pid 3689064),
+  wt/chaincollect (AD-FTP/SmartAD collections on the K500 view + sub-views + sharded selection, pid 3861166).
+  Outputs scratchpad/codex_*.out. Watcher b0bwry6dn on kchain.
+- Data: seeds_full_train_r2 -> hpg sync running (scratchpad/sync_full_train.sh pid 3655297, log logs/sync_full_train.log).
+- LONI usable again (user re-authed 15:50): new allocation loni_depedlab04 ~1.5M SU (exp 2027-10-01); A100 80GB (gpu2
+  50x2, gpu4 10x4), queue full (227 pending). /work/xueqic/hq/tc-alignment/.venv: py3.11, torch 2.13+cu130, tf 5.14.1,
+  peft 0.20.0; gemma-4-12B-it snapshot 707f0a3b present. Plan: LoRA training rungs there, evals on hpg.
+- Estimates told user (15:55): AD likely by 23:00; SAD partly (x1 ~5 h; x2 tomorrow if needed); SmartAD tomorrow
+  04-06 CDT (90k teacher calls for K500 + selection + ladder); 轨迹 SFT fast after the trainer speed-up.
+
 ### 07:4x CDT 10-20: serving fix verified + rolled out (plan v9, keeper restarted pid 1593872)
 - Fix 5554db8 (main; merged from wt/kveqlora, Codex; 501 CPU tests pass) cherry-picked: 2348ce9->8960e0a, 70ed412->3b82db4,
   071c72f->0411901, deployed to hpg ICML27_runs/ (configs identical to base trees). Real-adapter CPU check: k_eq_v layers
