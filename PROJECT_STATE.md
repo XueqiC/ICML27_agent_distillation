@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:0x CDT 10-19: LEAP TRANSPORT BUG → whole LEAP grid reruns (s0 included).**
+  - The bug: LEAP teacher calls used Teacher(max_attempts=1, timeout 60 s) per method try, while upstream LEAP uses openai.OpenAI() SDK defaults (600 s, max_retries 2) inside a 3-try loop.
+  - Evidence: success latencies are censored at the timeout (correction p50 48 s, p90 58 s, max 60.1 s; extraction p50 3.8 s). Lost requests were recorded as rejections: 119 APITimeoutError + 200 RateLimitError. privileged k100s0 lost 11/114 to timeouts (10-06/07), k50s0 3/63.
+  - **Plan v2**:
+    - Keeper runs only teacher-free cells: SAD k20s0 (08d3c47), WKM k20s0 (b1149a7, after the CPU suite passes), AgentGym K50/K100 s1,s2 (625f6a9).
+    - LEAP cells removed; lpp-k100s1/s2-g1 cancelled.
+    - STeCa/GAD/AgentDistill/CoA/HAD (teacher callers) wait for tree T4.
+  - Codex wt/transport (../ICML27_wt_transport, launched 22:01 CDT): one baseline transport policy (upstream client settings, else SDK 600 s / 3 HTTP attempts), shared-key 429s retry without consuming tries, fail-loud on exhaustion, seed protocol unchanged (60 s).
+  - Then **T4 = main + wt/transport + wt/dpopack** for LEAP full grid (both variants, all s), ETO/IPR grid, and the teacher-calling new methods.
+  - Old LEAP K50/K100 dirs (625f6a9) still in place; move them to _trash before the T4 cells start (same output paths).
+  - Already moved to $B/_trash/tainted_or_failed_1019/: 14 429-tainted LEAP K5–K20 cells, plus wkm/gad/had k20s0 and new_baselines agentdistill/coa k20s0.
+  - main = b1149a7 (merged wt/failloud 0cfbd46 and wt/wkmfix 2d769a0); tree b1149a7 deployed on hpg (third_party copied from 08d3c47).
+  - **Shared-history scoring ACCEPTED** (wt/dpopack c92aa09, reports/engineering/shared_history_gpu_acceptance_1019.md): fp32 CPU bitwise equal; bf16 GPU packing diffs are the same size as the SDPA→flex kernel-only control; 6.3 s vs 190.5 s per pair.
 - **20:3x–20:5x CDT 10-19: HARD RULE ≤10 hpg jobs at once.** Faculty email (Guang Wang, 20:32) forwarded by the user: another faculty member saw 124 jobs / 148 GPUs from xc25.fsu.
   Cause: batch-1/2 pre-submitted afterok chains (pending dependency links count as queue load).
   - Actions: cancelled every pending/held job (184-line list in hpg:~/queue_before_cancel_1019.txt) and the idle had-teacher; 5 LEAP K100 g1 jobs kept running. User notified, with a draft reply to the professor.
