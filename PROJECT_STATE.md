@@ -29,6 +29,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- SmartAD collection: first launcher exited 1 at 08:02 CDT (956/950/964 of 1000; one HTTP 400 in k100_s1 shard 7 made the
+  launcher skip its completion pass, so deferred candidate-01 slots never ran). Failed slot quarantined (reports/runs/
+  smartad-collections/_quarantine/k100_s1/README.md); relaunched --resume 08:23 CDT (launcher pid 1874049, bg borrsbjsb).
+  smartad_post.sh (pid 783964) still waits for complete pools -> select on rai -> sync -> gates.
+  Follow-up (code, later): SmartAD slots should use teachers.stage.execution_attempt; launcher completion pass should run
+  for cells whose shards all succeeded even if another cell failed.
 - 08:14 CDT check: post-fix AD-FTP dev140 K5s0 62/69, K10s0 31/37 (greedy/SAG; pre-fix 65/70, 37/43).
   adftp-k100s0 DIVERGED in training (loss 0.41->9.0 at updates 10-14, gnorm<=42k; model -6.2 nats/token on own data) -> gate
   cannot pass; blocked pending user (retrain? coupled with FTP re-collection decision). agd-k20s0-eval FAILED: gate compare runs
