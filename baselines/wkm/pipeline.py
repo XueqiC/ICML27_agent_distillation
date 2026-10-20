@@ -14,7 +14,8 @@ RECIPE = {"training_seed": 0, "epochs": 3, "rank": 8, "alpha": 16, "dropout": 0,
     "targets": ["q_proj", "v_proj"], "learning_rate": 1e-4, "scheduler": "cosine", "warmup_ratio": 0,
     "original_batch": 32, "packing": "turn", "max_length": 32768, "gamma": .4, "top_n": 3000,
     "teacher_calls": 0, "exploration": "one_greedy_per_support_task", "agent_retraining_init": "base",
-    "synthesis": {"temperature": .5, "top_p": 1, "top_k": -1, "seed": 0, "task_tokens": 512, "state_tokens": 128}}
+    "synthesis": {"temperature": .5, "top_p": 1, "top_k": -1, "seed": 0, "task_tokens": 512, "state_tokens": 128,
+                  "task_stop": None, "state_stop": ["\n"]}}
 STAGES = ("experienced", "explore", "synthesize", "merge", "knowledge-base", "world", "agent")
 
 
@@ -108,6 +109,7 @@ def update_disclosure(output, identity):
         ends = [r for r in calls if r["status"] == "completed"]
         synthesis.append({"path": str(attempt), "student_calls": len(starts), "returned": len(ends),
             "unknown_usage": len(starts)-len(ends), "partial": partial,
+            "truncated_outputs": sum(r.get("finish_reason") == "length" for r in ends),
             **{k: sum(r.get(k) or 0 for r in ends) for k in ("prompt_tokens", "completion_tokens")}})
     exploration_calls = []
     for path_ in sorted((Path(output) / "stages").glob("explore-*/attempt-*/output/episodes/*/student_calls/calls.jsonl")):
@@ -119,6 +121,7 @@ def update_disclosure(output, identity):
     returned = [r for r in exploration_calls if r["status"] == "completed"]
     report["totals"].update(student_calls=sum(r["status"] == "started" for r in exploration_calls)
         + sum(r["student_calls"] for r in synthesis),
+        synthesis_truncated_outputs=sum(r["truncated_outputs"] for r in synthesis),
         **{key: sum(r.get(key) or 0 for r in returned) + sum(r[key] for r in synthesis)
            for key in ("prompt_tokens", "completion_tokens")})
     report.update(method="wkm", source="wkm_self_synthesis", synthesis_attempts=synthesis,

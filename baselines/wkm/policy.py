@@ -82,12 +82,12 @@ class WKMStudent:
         self.spec = {**spec, "knowledge_model": knowledge_model, "knowledge_base": self.kb.identity, "gamma": .4}
         self.task_knowledge, self.states, self.task_id = None, [], None
 
-    def _knowledge(self, prompt, history, task, visible, cap):
+    def _knowledge(self, prompt, history, task, visible, cap, stop=None):
         self.world.prompt_messages = prompt
-        self.world.spec["max_tokens"] = cap
+        self.world.spec.update(max_tokens=cap, stop=stop)
         result = self.world.generate(history, task, visible)
-        if not result.raw_text.strip() or result.metadata.get("finish_reason") != "stop":
-            raise StudentCallError("Incomplete WKM knowledge generation")
+        if not result.raw_text.strip() or result.metadata.get("finish_reason") not in {"stop", "length"}:
+            raise StudentCallError("Invalid WKM knowledge generation")
         return result
 
     def generate(self, history, task, visible_context):
@@ -101,7 +101,7 @@ class WKMStudent:
         if self.task_id != task["task_id"] or len(history) != len(self.states):
             raise ValueError("WKM history/knowledge state mismatch")
         state = self._knowledge(world_prompt(messages, self.task_knowledge, self.states),
-                                history, task, visible_context, 128)
+                                history, task, visible_context, 128, stop=["\n"])
         self.states.append(state.raw_text.strip())
         knowledge_calls.append(state.metadata)
         rendered = agent_messages(messages, self.task_knowledge)

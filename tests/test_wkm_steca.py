@@ -83,33 +83,50 @@ def test_wkm_gamma_full_commands_and_previous_action_filter(tmp_path):
         KnowledgeBase(file, Encoder())
 
 
-def test_two_lora_policy_reuses_task_knowledge_and_shared_h0(tmp_path):
+@pytest.mark.parametrize("finish", ["stop", "length"])
+def test_two_lora_policy_reuses_task_knowledge_and_shared_h0(tmp_path, finish):
+    from baselines.wkm.data import PromptStudent
     calls = []
-    class Stub:
-        def __init__(self, **spec):
-            self.spec = spec
-        def generate(self, history, task, visible):
-            calls.append((self.spec["model"], deepcopy(self.prompt_messages), self.spec["max_tokens"]))
-            text = ("Task Knowledge: inspect" if self.spec["max_tokens"] == 512 else "State Knowledge: at room"
-                    if self.spec["model"] == "world" else "Thought: inspect\nAction: look")
-            return TeacherResult(text, None, {"finish_reason": "stop"})
-        def close(self):
-            pass
+    def handler(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        text = ("Task Knowledge: inspect" if body["max_tokens"] == 512 else "State Knowledge: at room"
+                if body["model"] == "world" else "Thought: inspect\nAction: look")
+        return httpx.Response(200, json={"model": body["model"], "choices": [{
+            "message": {"content": text}, "finish_reason": finish if body["model"] == "world" else "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 4}})
     class KB:
         identity = {"sha256": "stub"}
         def probabilities(self, state, commands, previous):
             return {"look": 0., "go north": 1.}, [0]
     policy = WKMStudent(endpoint="http://fake/v1", model="agent", revision="pin", enable_thinking=False,
-        knowledge_model="world", knowledge_base="unused", log_dir=tmp_path, kb=KB(), student_factory=Stub,
+        knowledge_model="world", knowledge_base="unused", log_dir=tmp_path, kb=KB(), student_factory=PromptStudent,
+        transport=httpx.MockTransport(handler),
         scorer=lambda messages, commands, thought: {"look": math.log(.9), "go north": math.log(.1)})
     visible = {"observation": "room", "admissible_commands": ["look", "go north"], "facts": "ORACLE"}
     task = {"task_id": "train/a", "extra.expert_plan": "ORACLE"}
     result = policy.generate([], task, visible)
     assert result.raw_text.endswith("Action: go north")
+    assert result.metadata["prompt_tokens"] == 30 and result.metadata["completion_tokens"] == 12
     policy.generate([{"visible": visible, "reply": result.raw_text}], task, visible)
-    assert [c[0] for c in calls] == ["world", "world", "agent", "world", "agent"]
+    # Reusing the world model on another episode must clear its newline stop.
+    policy.generate([], {**task, "task_id": "train/b"}, visible)
+    policy.close()
+    assert [c["model"] for c in calls] == ["world", "world", "agent", "world", "agent", "world", "world", "agent"]
+    for c in calls:
+        if c["model"] == "world" and c["max_tokens"] != 512:
+            assert c["max_tokens"] == 128 and c["stop"] == ["\n"]
+        else:
+            assert "stop" not in c
+            assert c["max_tokens"] == (512 if c["model"] == "world" else 1024)
     assert "ORACLE" not in json.dumps(calls)
-    assert calls[2][1][0]["content"] == episode_messages(trajectory())[0]["content"]
+    assert calls[2]["messages"][0]["content"] == episode_messages(trajectory())[0]["content"]
+    records = [json.loads(line) for line in (tmp_path / "decisions.jsonl").read_text().splitlines()]
+    assert [len(r["knowledge_calls"]) for r in records] == [2, 1, 2]
+    for record in records:
+        for call in record["knowledge_calls"]:
+            assert call["finish_reason"] == finish
+            assert call["prompt_tokens"] == 10 and call["completion_tokens"] == 4
 
 
 def test_deviation_strict_preceding_reward_and_ndtw():
@@ -312,11 +329,11 @@ def test_steca_stage_split_and_single_epoch(tmp_path, monkeypatch, empty):
     assert all(m["full_equivalence_required"] for m in read(tmp_path / "models.json"))
 
 
-def test_wkm_real_fake_environment_merge_and_tamper(seed_bank, tmp_path, tokenizer):
+@pytest.fixture
+def wkm_sources(seed_bank, tmp_path):
     from teachers.collect_seeds import collect
     from sed.seed_selection import select_seeds
     from baselines.common.explore import run_exploration, explore_one
-    from baselines.wkm.data import synthesize, merge, training_examples
     from conftest import FakeBackend
     from harness.alfworld_env import Environment
     from sed.runner import ScriptedPolicy
@@ -345,6 +362,12 @@ def test_wkm_real_fake_environment_merge_and_tamper(seed_bank, tmp_path, tokeniz
     explored = tmp_path / "explore"
     run_exploration(config=config, tasks_path=taskfile, output=explored,
         spec={"enable_thinking": False, "max_tokens": 1024}, decoding="greedy", worker_fn=worker)
+    return verified, explored, config
+
+
+def test_wkm_real_fake_environment_merge_and_tamper(wkm_sources, tmp_path, tokenizer):
+    from baselines.wkm.data import synthesize, merge, training_examples
+    verified, explored, config = wkm_sources
     class Stub:
         spec = {}
         def generate(self, history, task, visible):
