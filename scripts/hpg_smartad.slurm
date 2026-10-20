@@ -35,6 +35,18 @@ if [[ "$SMARTAD_THROUGH" == collect ]]; then
         --verified "$VERIFIED" --output "$SMARTAD_OUT" --through collect \
         --rate-limit-dir "${SMARTAD_RATE_LIMIT_DIR:-data/smartad_rate_limit}" "${subset_args[@]}"
 fi
+selection_args=()
+if [[ "$SMARTAD_THROUGH" == select ]]; then
+    selection_args=(--shard-index "${SMARTAD_SELECTION_SHARD_INDEX:-${SLURM_ARRAY_TASK_ID:-0}}"
+                    --shard-count "${SMARTAD_SELECTION_SHARDS:-1}")
+    if [[ "${SMARTAD_MERGE_SCORES:-0}" == 1 ]]; then
+        [[ -z "${SLURM_JOB_GPUS:-}" && "${SLURM_GPUS_ON_NODE:-0}" == 0 ]] || { echo 'Score merge must not hold a GPU' >&2; exit 2; }
+        export CUDA_VISIBLE_DEVICES=''
+        exec "$TRAIN_PYTHON" -m baselines.smartad.pipeline --config "${CONFIG:-configs/base.yaml}" \
+            --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SMARTAD_OUT" --through select \
+            --merge-scores "${selection_args[@]}" "${path_args[@]}"
+    fi
+fi
 [[ "${SLURM_GPUS_ON_NODE:-0}" == 1 ]] || { echo 'SmartAD select/train/evaluate require exactly one GPU' >&2; exit 2; }
 python_bin=$ENV_PYTHON
 if [[ "$SMARTAD_THROUGH" == select ]]; then python_bin=$TRAIN_PYTHON; fi
@@ -42,4 +54,4 @@ exec "$python_bin" -m baselines.smartad.pipeline --config "${CONFIG:-configs/bas
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SMARTAD_OUT" --through "$SMARTAD_THROUGH" \
     --mode "${SMARTAD_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
     --epochs "${SMARTAD_EPOCHS:-2}" \
-    --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" "${path_args[@]}"
+    --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" "${path_args[@]}" "${selection_args[@]}"

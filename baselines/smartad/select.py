@@ -6,6 +6,8 @@ import shutil
 import tempfile
 
 from baselines.smartad.collect import load_pool
+from baselines.common.collection_views import (bind_support, support_reference, materialize_views,
+    check_support, validate_shard, collection_identity as resume_identity)
 from baselines.smartad.data import score_episode
 from baselines.smartad.paths import PathResolver
 from baselines.smartad.teacher import CALLS_PER_TASK, read
@@ -14,7 +16,7 @@ from sed.provenance import code_hashes, versions, write_provenance
 from sed.seed_evidence import artifact_hashes, load_verified_collection, materialize_subsets
 from sed.seed_evidence import support_view_reference
 from sed.seed_selection import is_full_train
-from sed.storage import digest, fsync_dir, locked
+from sed.storage import digest, file_hash, fsync_dir, locked
 
 
 def copy_evidence(source, target, *, resolver, hashes):
@@ -31,11 +33,18 @@ def copy_evidence(source, target, *, resolver, hashes):
     fsync_dir(target.parent)
 
 
-def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None, path_map=()):
+def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None, path_map=(),
+           shard_index=0, shard_count=1, merge=False):
+    validate_shard(shard_index, shard_count)
     resolver = PathResolver(path_map)
     pool_root, output, snapshot = Path(pool_root).resolve(), Path(output).resolve(), Path(snapshot).resolve()
     pool_root = resolver.resolve(pool_root)
     pool, pool_identity, source, selection, source_root = load_pool(pool_root, manifest, freeze, resolver=resolver)
+    if "parent_pool" in pool:
+        raise ValueError("Select the largest candidate pool once; its task views inherit the selections")
+    bindings = pool_identity.get("subset_views", [])
+    for binding in bindings:
+        check_support(binding, manifest, freeze, resolver=resolver)
     if not snapshot.is_dir() or any((snapshot / name).exists() for name in ("adapter_config.json", "training_state.json")):
         raise ValueError("SmartAD selection requires the initial base student snapshot")
     if (output == pool_root or pool_root.is_relative_to(output) or output.is_relative_to(pool_root / "work")
@@ -54,47 +63,67 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
         # This field belongs to the shared seed publication schema. Ten SmartAD
         # candidate slots are separate from its <=3 inherited seed attempts.
         "attempts_per_candidate": 3, "smartad_candidates_per_task": 10}
+    if selection.get("selection_rule") == "stratified_nested_v2":
+        support_path = resolver.resolve(pool_identity["source_verified"])
+        identity["support_view"] = support_reference(bind_support(support_path, source, selection), output / "collection")
     with locked(output / ".pipeline.lock"):
-        frozen_write(output / "identity.json", identity)
+        identity = resume_identity(output, identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_select", config=config,
                 inputs=[pool_root / "candidates.json", pool_root / "provenance.json"],
                 details={**identity, "path_map": resolver.disclosure})
         elif read(output / "provenance.json")["details"].get("path_map", []) != resolver.disclosure:
             raise ValueError("SmartAD selection relocation changed")
-        if scorer is None:
-            import torch
-            from train.dataset import load_tokenizer
-            from train.modeling import load_student
-            if not torch.cuda.is_available() or int(os.environ.get("WORLD_SIZE", "1")) != 1:
-                raise RuntimeError("SmartAD selection requires one allocated GPU")
-            tokenizer = load_tokenizer(snapshot)
-            model = load_student(snapshot, dtype="bfloat16", device="cuda")
-            model.set_attn_implementation("sdpa")
-            model.requires_grad_(False)
-            model.eval()
-            scorer = lambda episode: score_episode(model, tokenizer, episode)
+    candidates = [(task, candidate) for task in pool["tasks"] for candidate in task["candidates"]]
+    candidate_list_sha = digest([[task["task_id"], candidate] for task, candidate in candidates])
+    def score_path(task, candidate):
+        return output / "scores" / digest(task["task_id"])[:20] / (candidate["candidate_id"] + ".json")
+
+    if not merge:
+        for index in range(shard_index, len(candidates), shard_count):
+            task, candidate = candidates[index]
+            path = score_path(task, candidate)
+            with locked(output / "score_locks" / (digest([task["task_id"], candidate["candidate_id"]]) + ".lock")):
+                if path.exists():
+                    checked_score(path, identity, candidate)
+                    continue
+                episode_dir = resolver.resolve(candidate["episode_dir"], candidate["episode_hashes"])
+                if candidate["correct"] and scorer is None:
+                    scorer = gpu_scorer(snapshot)
+                score = scorer(read(episode_dir / "episode.json")) if candidate["correct"] else None
+                record = {"candidate_id": candidate["candidate_id"], "binding_sha256": digest([identity, candidate]),
+                    "episode_hashes": candidate["episode_hashes"], "correct": candidate["correct"],
+                    "score": score, "rejection": candidate["rejection"]}
+                validate_score(record, identity, candidate)
+                frozen_write(path, record)
+        if shard_count > 1:
+            files = {str(score_path(*candidates[i]).relative_to(output)): file_hash(score_path(*candidates[i]))
+                     for i in range(shard_index, len(candidates), shard_count)}
+            receipt = {"identity_sha256": digest(identity), "candidate_list_sha256": candidate_list_sha,
+                       "shard_index": shard_index, "shard_count": shard_count, "scores_sha256": files}
+            with locked(output / ".pipeline.lock"):
+                frozen_write(output / "score_shards" / f"{shard_count}-{shard_index}.json", receipt)
+            return output
+    with locked(output / ".pipeline.lock"):
+        if merge and shard_count > 1:
+            for index in range(shard_count):
+                path = output / "score_shards" / f"{shard_count}-{index}.json"
+                if not path.exists():
+                    raise ValueError("Missing SmartAD score shard; merge requires every shard")
+                files = {str(score_path(*candidates[i]).relative_to(output)): file_hash(score_path(*candidates[i]))
+                         for i in range(index, len(candidates), shard_count)}
+                expected = {"identity_sha256": digest(identity), "candidate_list_sha256": candidate_list_sha,
+                            "shard_index": index, "shard_count": shard_count, "scores_sha256": files}
+                if read(path) != expected:
+                    raise ValueError("SmartAD score shard hash/binding changed")
         selected = []
         for task in pool["tasks"]:
-            key = digest(task["task_id"])[:20]
             records = []
             for candidate in task["candidates"]:
-                episode_dir = resolver.resolve(candidate["episode_dir"], candidate["episode_hashes"])
-                binding = digest([identity, candidate])
-                score_path = output / "scores" / key / (candidate["candidate_id"] + ".json")
-                if score_path.exists():
-                    record = read(score_path)
-                    if record["binding_sha256"] != binding:
-                        raise ValueError("SmartAD score binding changed")
-                else:
-                    score = scorer(read(episode_dir / "episode.json")) if candidate["correct"] else None
-                    if score is not None and (not math.isfinite(score["nll"]) or score["nll"] < 0):
-                        raise ValueError("Invalid candidate NLL")
-                    record = {"candidate_id": candidate["candidate_id"], "binding_sha256": binding,
-                        "episode_hashes": candidate["episode_hashes"], "correct": candidate["correct"],
-                        "score": score, "rejection": candidate["rejection"]}
-                    frozen_write(score_path, record)
-                records.append(record)
+                path = score_path(task, candidate)
+                if not path.exists():
+                    raise ValueError("Missing SmartAD candidate score; cannot publish partial selection")
+                records.append(checked_score(path, identity, candidate))
             eligible = [r for r in records if r["correct"]]
             chosen = min(eligible, key=lambda r: (r["score"]["nll"], r["candidate_id"])) if eligible else None
             selected.append({"task_id": task["task_id"], "scores": records,
@@ -191,15 +220,65 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
         load_verified_collection(root, manifest, freeze)
         if pool_identity["subset_ks"]:
             materialize_subsets(root, manifest, freeze, pool_identity["subset_ks"])
+        if bindings:
+            materialize_views(root, manifest, freeze, bindings, resolver=resolver)
         frozen_write(output / "result.json", {"status": "complete", "verified": str(root),
                                              "fallback_count": result["fallback_count"],
                                              "path_map": resolver.disclosure})
         return root
 
 
+def gpu_scorer(snapshot):
+    import torch
+    from train.dataset import load_tokenizer
+    from train.modeling import load_student
+    if not torch.cuda.is_available() or int(os.environ.get("WORLD_SIZE", "1")) != 1:
+        raise RuntimeError("SmartAD selection requires one allocated GPU per shard")
+    tokenizer = load_tokenizer(snapshot)
+    model = load_student(snapshot, dtype="bfloat16", device="cuda")
+    model.set_attn_implementation("sdpa")
+    model.requires_grad_(False)
+    model.eval()
+    return lambda episode: score_episode(model, tokenizer, episode)
+
+
+def validate_score(record, identity, candidate):
+    expected = {"candidate_id": candidate["candidate_id"], "binding_sha256": digest([identity, candidate]),
+                "episode_hashes": candidate["episode_hashes"], "correct": candidate["correct"],
+                "rejection": candidate["rejection"]}
+    if {k: v for k, v in record.items() if k != "score"} != expected:
+        raise ValueError("SmartAD score binding changed")
+    score = record.get("score")
+    if candidate["correct"]:
+        if not isinstance(score, dict) or not isinstance(score.get("nll"), (int, float)) or not math.isfinite(score["nll"]) or score["nll"] < 0:
+            raise ValueError("Invalid candidate NLL")
+    elif score is not None:
+        raise ValueError("Incorrect candidate has a score")
+
+
+def checked_score(path, identity, candidate):
+    record = read(path)
+    validate_score(record, identity, candidate)
+    return record
+
+
 def validate_selection(verified, manifest, freeze, snapshot):
     """Bind training, including nested views, to the same initial student."""
-    _, _, root = load_verified_collection(verified, manifest, freeze)
+    collection, _, root = load_verified_collection(verified, manifest, freeze)
+    identity = read(root / "identity.json")
+    if identity.get("mode") == "support_task_ids_v1":
+        reference = identity["parent_collection"]
+        parent_root = (root / reference["path"]).resolve()
+        parent, _, _ = load_verified_collection(parent_root, manifest, freeze)
+        if (digest(parent) != reference["manifest_sha256"]
+                or digest(read(parent_root / "identity.json")) != reference["identity_sha256"]
+                or any(r not in parent["verified"] for r in collection["verified"])):
+            raise ValueError("SmartAD view parent/receipt binding changed")
+        binding = {**identity["support_view"], "path": str((root / identity["support_view"]["path"]).resolve())}
+        support, _, _ = check_support(binding, manifest, freeze)
+        if {r["task_id"] for r in collection["verified"]} != {r["task_id"] for r in support["verified"]}:
+            raise ValueError("SmartAD view task_id mismatch")
+        return validate_selection(parent_root, manifest, freeze, snapshot)
     identity, selection = read(root / "identity.json"), read(root / "smartad_selection.json")
     if (identity.get("method") != "smartad" or identity["smartad_selection_sha256"] != digest(selection)
             or selection["identity_sha256"] != digest({k: v for k, v in identity.items() if k != "smartad_selection_sha256"})

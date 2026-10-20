@@ -1,6 +1,15 @@
 #!/bin/bash
 # Candidate-slot CPU shards for every cell; one shared POSIX limiter directory.
 set -euo pipefail
+# Explicit cells use the common planner. No arguments (or only --resume)
+# retain the historical K100 s0/s1/s2 and full-TRAIN launch path below.
+for argument in "$@"; do
+    if [[ "$argument" != --resume ]]; then
+        cd "${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+        export CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:.
+        exec "${ENV_PYTHON:-.venv/bin/python}" -m baselines.common.collection_launcher --method smartad "$@"
+    fi
+done
 resume=0
 if [[ ${1:-} == --resume ]]; then resume=1; shift; fi
 [[ $# == 0 ]] || { echo "Usage: $0 [--resume]" >&2; exit 2; }

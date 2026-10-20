@@ -7,6 +7,9 @@ import shutil
 
 from baselines.adftp.teacher import FTPPolicy, FTPTeacher, FTP_PROMPT_VERSION
 from baselines.common.explore import training_tasks
+from baselines.common.collection_views import (bind_support, bind_views, collection_identity,
+    materialize_views, support_reference)
+from baselines.common.collection_views import validate_shard
 from baselines.eto.pipeline import stage_run
 from sed.manifest import frozen_write, resolve_task, verify_task_files
 from sed.provenance import code_hashes, safe_config, versions, write_provenance
@@ -102,9 +105,10 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
     return outcome
 
 
-@teacher_stage("output", name="adftp.collect")
 def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
-            env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=()):
+            env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=(),
+            subset_views=(), shard_index=0, shard_count=1):
+    validate_shard(shard_index, shard_count)
     output = Path(output).resolve()
     for name in ("raw", "verified"):
         if output.is_relative_to(Path(config["paths"][name]).resolve()):
@@ -112,6 +116,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
     source, selection, source_root = load_verified_collection(verified, manifest, freeze)
     if ((is_full_train(selection) or is_stratified_nested(selection)) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
         raise ValueError("Nested views require smaller positive K and a few-shot source")
+    bindings = bind_views(verified, source, selection, manifest, freeze, subset_views, subset_ks=subset_ks)
     for directory in (output, Path(rate_limit_dir).resolve()):
         if (directory.is_relative_to(source_root)
                 or directory.is_relative_to(Path(config["paths"]["verified"]).resolve())):
@@ -132,17 +137,35 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         "config": safe_config(config), "code_sha256": code_hashes(Path(__file__).resolve().parents[2]),
         "dependencies": versions(), "rate_limit_dir": str(Path(rate_limit_dir).resolve()),
         "attempts_per_candidate": 3, "calls_per_task_cap": 123, "per_cell_call_cap": 123 * len(ids)}
+    if bindings:
+        identity["subset_views"] = bindings
+    if selection.get("selection_rule") == "stratified_nested_v2":
+        identity["support_view"] = support_reference(bind_support(verified, source, selection), output / "collection")
     with locked(output / ".pipeline.lock"):
-        frozen_write(output / "identity.json", identity)
+        identity = collection_identity(output, identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="adftp_collect", config=config, inputs=input_paths,
                              details=identity)
-        receipts = []
-        for original in source["verified"]:
-            task = resolve_task(manifest, freeze, original["task_id"])
-            task["parent_seed_ids"] = parents[task["task_id"]]
-            key = digest(task["task_id"])[:20]
-            work = output / "work" / key
+    report_output = output / "shards" / f"{shard_count}-{shard_index}"
+    _collect_shard(source, selection, source_root, manifest, freeze, config, output, identity, parents,
+        rate_limit_dir=rate_limit_dir, env_factory=env_factory, teacher_factory=teacher_factory,
+        subset_ks=subset_ks, bindings=bindings, shard_index=shard_index, shard_count=shard_count,
+        report_output=report_output)
+    return output / "collection"
+
+
+@teacher_stage("report_output", name="adftp.collect")
+def _collect_shard(source, selection, source_root, manifest, freeze, config, output, identity, parents, *,
+                   rate_limit_dir, env_factory, teacher_factory, subset_ks, bindings,
+                   shard_index, shard_count, report_output):
+    for index, original in enumerate(source["verified"]):
+        if index % shard_count != shard_index:
+            continue
+        task = resolve_task(manifest, freeze, original["task_id"])
+        task["parent_seed_ids"] = parents[task["task_id"]]
+        key = digest(task["task_id"])[:20]
+        work = output / "work" / key
+        with locked(output / "task_locks" / (key + ".lock")):
             def action(attempt):
                 outcome = collect_task(config, task, work, source_root, original, digest(identity),
                     rate_limit_dir, env_factory=env_factory, teacher_factory=teacher_factory)
@@ -182,8 +205,15 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
                 "metrics": episode["metrics"], "ftp_attempts": outcome["attempts"],
                 "fallback": outcome["fallback"], "api_attempts": outcome["api_attempts"]}
             frozen_write(destination / "receipt.json", receipt)
-            receipts.append(receipt)
+    with locked(output / ".pipeline.lock"):
         root = output / "collection"
+        paths = [root / "attempts" / (digest(r["task_id"])[:20] + "-1") / "receipt.json" for r in source["verified"]]
+        if not all(path.exists() for path in paths):
+            result = {"status": "collecting", "final_tasks": sum(path.exists() for path in paths), "tasks": len(paths)}
+            write_json(output / "result.json", result)
+            return result
+        receipts = [read(path) for path in paths]
+        ids = [r["task_id"] for r in source["verified"]]
         all_receipts = receipts
         if is_full_train(selection):
             # A full source records unsuccessful seed candidates too. Never generate
@@ -253,4 +283,6 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             materialize_subsets(root, manifest, freeze, subset_ks)
         write_json(output / "result.json", {"status": "complete", "verified": str(root),
             "fallback_count": collection["fallback_count"], "api_attempts": collection["api_attempts"]})
-        return root
+        if bindings:
+            materialize_views(root, manifest, freeze, bindings)
+        return {"status": "complete", "verified": str(root)}
