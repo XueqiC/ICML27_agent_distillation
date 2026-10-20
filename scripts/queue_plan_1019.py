@@ -339,7 +339,7 @@ def seedsftfix(k, s):
 
 
 # ---- 10-20 new main grid: nested stratified views of the full-TRAIN collection, seed 0, converged training ----
-CHAIN_TREE = "d7ad7fe"   # main: views (stratified_nested_v2) + convergence overrides + chain collections + k_eq_v fix
+CHAIN_TREE = "20cb697"   # main: views + convergence overrides + chain collections + shared-history/multi-GPU SFT + k_eq_v fix
 CHAIN_GATE = {"file": "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/chain_views_on_hpg"}
 GATES = "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates"
 
@@ -371,8 +371,51 @@ def sadc(k, mult):
               f"{base},STAGES=all,MODE_VAR=SAD_MODE,MODE=evaluate", {"file": f"{GATES}/eval_{cell}"})]}
 
 
+
+
+def lora_rung(method, k, epochs):
+    """Trajectory SFT ("tsft": the K trusted trajectories) or AD ("adc": FTP-recollected trajectories of the same K
+    tasks) with AD's SFT recipe (LoRA r64/a128/dropout .05, lr 2e-4 linear, batch 8) for `epochs` epochs:
+    shared-history scoring, data parallel over NGPUS (b' = min(8, N // 8) trajectories per update; 3 at K30).
+    Rungs 2 (paper), 4, 8, 16 run concurrently (32 only if 16 is not converged); only the reported rung is evaluated
+    (trajectory SFT greedy, AD with SAG)."""
+    cell = f"{method}-k{k}-e{epochs}"
+    n = 2 if k == 30 else 4
+    per_epoch = {30: 10, 100: 13, 300: 38, 500: 63}[k]          # updates per epoch
+    hours = 0.5 + epochs * per_epoch * (8 if n == 4 else 6) / 3600 * 2.5   # 8 s/update is an estimate: margin 2.5x
+    hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
+    out = f"{BL}/{cell}"
+    if method == "tsft":
+        verified, script = chain_view(k), "scripts/hpg_kang.slurm"
+        e = (f"KANG_OUT={out},VERIFIED={verified},KANG_MODE=train,KANG_EPOCHS={epochs},KANG_SCORING=shared_history,"
+             f"NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+        # one gate file per method, opened by hand once the chain views are verified on hpg AND the B200
+        # shared-history acceptance passed (the keeper takes a single gate per stage)
+        adapter, decoding, gate = (f"{out}/stages/train-sft/attempt-000/output/checkpoint", "greedy",
+                                   {"file": f"{GATES}/tsft_ready"})
+    else:
+        verified = (f"{B}/reports/runs/adftp-chain/chain_k500_s0/collection" +
+                    ("" if k == 500 else f"/subsets/k{k}"))
+        script = "scripts/hpg_adftp.slurm"
+        e = (f"ADFTP_OUT={out},VERIFIED={verified},ADFTP_THROUGH=train,ADFTP_EPOCHS={epochs},"
+             f"ADFTP_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+        adapter, decoding = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint", "sag"
+        gate = {"file": f"{GATES}/adc_ready"}   # + the AD-FTP chain collection verified on hpg
+    res = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={160 if n == 4 else 96}G"
+    train = stage(f"{cell}-train", script, res, hh, n, e, gate)
+    ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
+               f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
+               f"dev140.json,DECODING={decoding},INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={verified},"
+               f"WORKERS=16,BATCH_INVARIANT=1", {"file": f"{GATES}/eval_{cell}"})
+    return {"cell": cell, "tree": CHAIN_TREE, "stages": [train, ev]}
+
+
 def chain_cells():
-    return [sadc(k, m) for k in (500, 300, 100, 30) for m in (1, 0.5)]
+    sad1 = [sadc(k, 1) for k in (500, 300, 100, 30)]
+    tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    sad05 = [sadc(k, 0.5) for k in (500, 300, 100, 30)]
+    adc = [lora_rung("adc", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    return sad1 + tsft + sad05 + adc
 
 def main():
     out = Path(sys.argv[1])
