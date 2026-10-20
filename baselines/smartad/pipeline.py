@@ -10,6 +10,7 @@ from baselines.common.pipeline import batch_invariant, prepare, update_disclosur
 from baselines.eto.pipeline import stage_run, run_command
 from baselines.kang.pipeline import RECIPE as AD_RECIPE, training_command as ad_command
 from baselines.smartad.collect import collect, validate_h0, validate_shard
+from baselines.smartad.paths import PathResolver
 from baselines.smartad.select import select, validate_selection
 from sed.config import load_config
 from sed.manifest import load_frozen
@@ -34,6 +35,8 @@ def main(argv=None):
     parser.add_argument("--verified", required=True, help="Trusted seeds (collect), pool (select), selected collection (train/evaluate)")
     parser.add_argument("--output", required=True)
     parser.add_argument("--snapshot")
+    parser.add_argument("--path-map", action="append", default=[], metavar="OLD=NEW",
+                        help="Selection only: relocate an absolute evidence prefix (repeatable; disjoint paths)")
     parser.add_argument("--through", "--stage", dest="stage",
                         choices=["collect", "select", "train", "evaluate"], default="collect")
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
@@ -49,6 +52,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.mode == "evaluate":
         args.stage = "evaluate"
+    if args.path_map and args.stage != "select":
+        parser.error("--path-map is for selection only")
+    try:
+        PathResolver(args.path_map)
+    except ValueError as error:
+        parser.error(str(error))
     if args.stage != "collect" and not args.snapshot:
         parser.error("Select/train/evaluate require --snapshot")
     if args.mode == "prepare" and args.stage != "train":
@@ -77,7 +86,7 @@ def main(argv=None):
             input_paths=[args.config, Path(args.verified) / "manifest.json",
                          config["paths"]["manifest"], config["paths"]["split_freeze"]])
     if args.stage == "select":
-        return select(args.verified, args.snapshot, config, manifest, freeze, args.output)
+        return select(args.verified, args.snapshot, config, manifest, freeze, args.output, path_map=args.path_map)
     validate_selection(args.verified, manifest, freeze, args.snapshot)
     training = SimpleNamespace(**{**vars(args), "gpus": 1, "training_seed": 0,
                                   "output": str(Path(args.output) / "training")})

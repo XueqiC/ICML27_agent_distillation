@@ -7,6 +7,7 @@ import tempfile
 
 from baselines.smartad.collect import load_pool
 from baselines.smartad.data import score_episode
+from baselines.smartad.paths import PathResolver
 from baselines.smartad.teacher import CALLS_PER_TASK, read
 from sed.manifest import frozen_write
 from sed.provenance import code_hashes, versions, write_provenance
@@ -15,11 +16,11 @@ from sed.seed_selection import is_full_train
 from sed.storage import digest, fsync_dir, locked
 
 
-def copy_evidence(source, target):
+def copy_evidence(source, target, *, resolver, hashes):
     """Atomic publish; existing evidence must be byte-identical."""
-    source, target = Path(source), Path(target)
+    source, target = resolver.resolve(source, hashes), Path(target)
     if target.exists():
-        if artifact_hashes(source) != artifact_hashes(target):
+        if hashes != artifact_hashes(target):
             raise ValueError("Published SmartAD evidence changed")
         return
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -29,16 +30,18 @@ def copy_evidence(source, target):
     fsync_dir(target.parent)
 
 
-def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None):
+def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None, path_map=()):
+    resolver = PathResolver(path_map)
     pool_root, output, snapshot = Path(pool_root).resolve(), Path(output).resolve(), Path(snapshot).resolve()
-    pool, pool_identity, source, selection, source_root = load_pool(pool_root, manifest, freeze)
+    pool_root = resolver.resolve(pool_root)
+    pool, pool_identity, source, selection, source_root = load_pool(pool_root, manifest, freeze, resolver=resolver)
     if not snapshot.is_dir() or any((snapshot / name).exists() for name in ("adapter_config.json", "training_state.json")):
         raise ValueError("SmartAD selection requires the initial base student snapshot")
     if (output == pool_root or pool_root.is_relative_to(output) or output.is_relative_to(pool_root / "work")
             or any(output.is_relative_to(Path(config["paths"][name]).resolve()) for name in ("raw", "verified"))
             or output.is_relative_to(source_root)):
         raise ValueError("Selection output must be separate from candidate/source evidence")
-    identity = {"method": "smartad", "selection": selection, "pool_root": str(pool_root),
+    identity = {"method": "smartad", "selection": selection, "pool_root": str(resolver.published(pool_root)),
         "pool_sha256": digest(pool), "pool_identity_sha256": digest(pool_identity),
         "snapshot": str(snapshot), "snapshot_artifact_sha256": artifact_hashes(snapshot),
         "config_sha256": digest(config),
@@ -53,7 +56,9 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_select", config=config,
                 inputs=[pool_root / "candidates.json", pool_root / "provenance.json"],
-                details=identity)
+                details={**identity, "path_map": resolver.disclosure})
+        elif read(output / "provenance.json")["details"].get("path_map", []) != resolver.disclosure:
+            raise ValueError("SmartAD selection relocation changed")
         if scorer is None:
             import torch
             from train.dataset import load_tokenizer
@@ -71,6 +76,7 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
             key = digest(task["task_id"])[:20]
             records = []
             for candidate in task["candidates"]:
+                episode_dir = resolver.resolve(candidate["episode_dir"], candidate["episode_hashes"])
                 binding = digest([identity, candidate])
                 score_path = output / "scores" / key / (candidate["candidate_id"] + ".json")
                 if score_path.exists():
@@ -78,7 +84,7 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
                     if record["binding_sha256"] != binding:
                         raise ValueError("SmartAD score binding changed")
                 else:
-                    score = scorer(read(Path(candidate["episode_dir"]) / "episode.json")) if candidate["correct"] else None
+                    score = scorer(read(episode_dir / "episode.json")) if candidate["correct"] else None
                     if score is not None and (not math.isfinite(score["nll"]) or score["nll"] < 0):
                         raise ValueError("Invalid candidate NLL")
                     record = {"candidate_id": candidate["candidate_id"], "binding_sha256": binding,
@@ -97,6 +103,10 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
             "scores_sha256": artifact_hashes(output / "scores")}
         frozen_write(output / "smartad_selection.json", result)
         root = output / "collection"
+        work_hashes = {}
+        for path, sha in pool["work_hashes"].items():
+            key, _, relative = path.partition("/")
+            work_hashes.setdefault(key, {})[relative] = sha
         receipts = []
         for task, decision in zip(pool["tasks"], selected):
             original = task["source_receipt"]
@@ -104,11 +114,15 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
             destination = root / "attempts" / (key + "-1")
             chosen = next((c for c in task["candidates"] if c["candidate_id"] == decision["chosen_id"]), None)
             episode_dir = Path(chosen["episode_dir"]) if chosen else source_root / original["episode_dir"]
-            copy_evidence(episode_dir, destination / "episode")
-            copy_evidence(pool_root / "work" / key, destination / "teacher/candidates")
+            copy_evidence(episode_dir, destination / "episode", resolver=resolver,
+                          hashes=(chosen or original)["episode_hashes"])
+            copy_evidence(pool_root / "work" / key, destination / "teacher/candidates",
+                          resolver=resolver, hashes=work_hashes[key])
             copy_evidence((source_root / original["episode_dir"]).parent / "teacher",
-                          destination / "teacher/trusted_source_teacher")
-            copy_evidence(source_root / original["episode_dir"], destination / "teacher/trusted_source_episode")
+                          destination / "teacher/trusted_source_teacher", resolver=resolver,
+                          hashes=original["teacher_hashes"])
+            copy_evidence(source_root / original["episode_dir"], destination / "teacher/trusted_source_episode",
+                          resolver=resolver, hashes=original["episode_hashes"])
             frozen_write(destination / "teacher/selection.json", decision)
             episode = read(destination / "episode/episode.json")
             usages = [c["usage"] for c in task["candidates"] if not c["reused"]]
@@ -137,7 +151,8 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
                 origin = source_root / original["episode_dir"]
                 destination = root / original["episode_dir"]
                 for name in ("episode", "teacher"):
-                    copy_evidence(origin.parent / name, destination.parent / name)
+                    copy_evidence(origin.parent / name, destination.parent / name,
+                                  resolver=resolver, hashes=original[name + "_hashes"])
                 frozen_write(destination.parent / "receipt.json", original)
                 all_receipts.append(original)
         collection_identity = {**identity, "smartad_selection_sha256": digest(result)}
@@ -174,7 +189,8 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
         if pool_identity["subset_ks"]:
             materialize_subsets(root, manifest, freeze, pool_identity["subset_ks"])
         frozen_write(output / "result.json", {"status": "complete", "verified": str(root),
-                                             "fallback_count": result["fallback_count"]})
+                                             "fallback_count": result["fallback_count"],
+                                             "path_map": resolver.disclosure})
         return root
 
 

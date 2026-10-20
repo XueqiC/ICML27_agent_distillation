@@ -19,6 +19,13 @@ export BATCH_INVARIANT=1 VLLM_BATCH_INVARIANT=1
 : "${SMARTAD_OUT:?Set persistent stage output}" "${VERIFIED:?Set stage input}"
 SMARTAD_THROUGH=${SMARTAD_THROUGH:-collect}
 case "$SMARTAD_THROUGH" in collect|select|train|evaluate) ;; *) echo 'Invalid SmartAD stage' >&2; exit 2 ;; esac
+path_args=()
+if [[ -n "${SMARTAD_PATH_MAP:-}" ]]; then
+    [[ "$SMARTAD_THROUGH" == select ]] || { echo 'SMARTAD_PATH_MAP is for selection only' >&2; exit 2; }
+    while read -r -a path_maps; do
+        for entry in "${path_maps[@]}"; do path_args+=(--path-map "$entry"); done
+    done <<< "$SMARTAD_PATH_MAP"
+fi
 if [[ "$SMARTAD_THROUGH" == collect ]]; then
     [[ -z "${SLURM_JOB_GPUS:-}" && "${SLURM_GPUS_ON_NODE:-0}" == 0 ]] || { echo 'Teacher collection must not hold a GPU' >&2; exit 2; }
     export CUDA_VISIBLE_DEVICES=''
@@ -34,4 +41,4 @@ if [[ "$SMARTAD_THROUGH" == select ]]; then python_bin=$TRAIN_PYTHON; fi
 exec "$python_bin" -m baselines.smartad.pipeline --config "${CONFIG:-configs/base.yaml}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SMARTAD_OUT" --through "$SMARTAD_THROUGH" \
     --mode "${SMARTAD_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
-    --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT"
+    --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" "${path_args[@]}"

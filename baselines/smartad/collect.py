@@ -4,6 +4,7 @@ from pathlib import Path
 
 from baselines.adftp.collect import usage_summary
 from baselines.common.explore import training_tasks
+from baselines.smartad.paths import PathResolver
 from baselines.smartad.teacher import (CANDIDATES, CALLS_PER_TASK, REQUESTED_SAMPLING,
                                       SmartADPolicy, default_teacher, effective_sampling, read)
 from sed.manifest import frozen_write, resolve_task, verify_task_files
@@ -311,10 +312,12 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
     return output
 
 
-def load_pool(root, manifest, freeze):
-    root = Path(root).resolve()
+def load_pool(root, manifest, freeze, *, resolver=None):
+    resolver = resolver or PathResolver()
+    root = resolver.resolve(Path(root).resolve())
     identity, pool = read(root / "identity.json"), read(root / "candidates.json")
-    source, selection, source_root = load_verified_collection(identity["source_verified"], manifest, freeze)
+    source, selection, source_root = load_verified_collection(
+        resolver.resolve(identity["source_verified"]), manifest, freeze)
     if (pool["status"] != "complete" or pool["identity_sha256"] != digest(identity)
             or digest(source) != identity["source_collection_sha256"] or selection != identity["selection"]
             or pool["work_hashes"] != artifact_hashes(root / "work")):
@@ -326,7 +329,8 @@ def load_pool(root, manifest, freeze):
         if len(task["candidates"]) != CANDIDATES:
             raise ValueError("SmartAD requires exactly ten candidate slots")
         for row in task["candidates"]:
-            directory = Path(row["episode_dir"])
-            if artifact_hashes(directory) != row["episode_hashes"] or correct(directory, read(directory / "episode.json")) != row["correct"]:
+            directory = resolver.resolve(row["episode_dir"], row["episode_hashes"])
+            resolver.resolve(Path(row["episode_dir"]).parent / "teacher", row["teacher_hashes"])
+            if correct(directory, read(directory / "episode.json")) != row["correct"]:
                 raise ValueError("SmartAD candidate evidence/correctness changed")
     return pool, identity, source, selection, source_root

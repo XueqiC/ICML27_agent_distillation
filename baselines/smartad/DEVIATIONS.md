@@ -67,3 +67,19 @@ Select/train/evaluate require one GPU. `SMARTAD_SUBSET_K="5 10 20 50"` is frozen
 at collection; `SMARTAD_RATE_LIMIT_DIR` must be shared across collectors.
 The rai launcher accepts `SMARTAD_FULL_SOURCE` for an alternate full source.
 `--mode prepare --through train` binds training inputs without loading a model.
+
+## engineering fix: relocatable selection (path map)
+
+Selection accepts repeatable `--path-map OLD=NEW` entries, for example
+`--path-map /collection-host/project=/selection-host/project`. Both paths must
+be absolute; duplicate or overlapping prefixes (including destinations and
+chains) are rejected. Matching uses whole path components. Relocate the trusted
+source collection too when its published path is unavailable. Missing directories
+and episode/teacher hash mismatches fail before scoring or copying.
+
+The launcher accepts `SMARTAD_PATH_MAP` as whitespace-separated `OLD=NEW` entries
+(paths with whitespace require the CLI); entries are passed as literal arguments,
+never evaluated. The map is recorded in selection `provenance.json` details and
+`result.json`, outside scoring identity. Published pool records, pool hashes,
+score bindings, choice rules and selected evidence stay unchanged; the selected
+collection uses relative paths and needs no map for training/evaluation.
