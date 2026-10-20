@@ -557,6 +557,10 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
     monkeypatch.setitem(sys.modules, "torch", torch)
     monkeypatch.setitem(sys.modules, "torch.distributed", dist)
     monkeypatch.setitem(sys.modules, "torch.distributed.device_mesh", SimpleNamespace(init_device_mesh=lambda *a: None))
+    # The startup resolver inspects only this public option schema, not devices.
+    monkeypatch.setitem(sys.modules, "torch.nn.attention", SimpleNamespace(flex_attention=SimpleNamespace(
+        FlexKernelOptions=SimpleNamespace(__annotations__={name: int for name in
+            ("BLOCK_M1", "BLOCK_N1", "BLOCK_M2", "BLOCK_N2")}))))
     monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(set_seed=lambda _: None))
     config = load_config()
     config["environment"]["max_episode_steps"] = 40
@@ -589,8 +593,11 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
     monkeypatch.setattr(train, "write_provenance", provenance)
     class TrainingReached(Exception):
         pass
+    kernel_options = {"BLOCK_M": 16, "BLOCK_N": 16,
+                      **{f"bwd_BLOCK_{axis}{i}": 16 for axis in ("M", "N") for i in (1, 2)}}
     def prepare(*args, **kwargs):
         assert current["broadcast"] == 2
+        assert kwargs["flex_kernel_options"] == (kernel_options if objective in {"dpo", "ipr"} else None)
         raise TrainingReached()
     monkeypatch.setattr(train, "prepare_model", prepare)
     snapshot = tmp_path / "snapshot"
@@ -609,7 +616,8 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
             "--snapshot", str(snapshot), "--base-snapshot", str(snapshot), "--output", str(tmp_path / "out"),
             "--learning-rate", ".001", "--scheduler", "cosine", "--warmup-ratio", "0", "--original-batch", "8"]
     if objective in {"dpo", "ipr"}:
-        argv += ["--reference", str(snapshot), "--pairs", str(pair_root / "pairs.json")]
+        argv += ["--reference", str(snapshot), "--pairs", str(pair_root / "pairs.json"),
+                 "--flex-kernel-options", '{"BLOCK_M":16,"BLOCK_N":16}']
     elif objective == "accumulated_sft":
         argv += ["--sft-data", "dataset.json"]
     else:
@@ -629,5 +637,11 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
     assert calls.count((0, "episodes")) == int(objective == "sft")
     assert calls.count((0, "accumulated")) == int(objective == "accumulated_sft")
     assert provenance_configs[0]["baseline_training"]["examples_sha256"] == digest(expected)
+    settings = provenance_configs[0]["baseline_training"]["flex_attention"]
+    if objective in {"dpo", "ipr"}:
+        assert settings == {"head_dim_gt": 256, "block_mask_block_size": 128,
+                            "kernel_options": kernel_options, "other_heads": "torch_defaults"}
+    else:
+        assert settings is None
     handed_off = pickle.loads(wire[0])[0][1][0]
     assert canonical_bytes(handed_off) == canonical_bytes(expected)

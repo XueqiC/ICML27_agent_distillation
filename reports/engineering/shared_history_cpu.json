@@ -1,0 +1,184 @@
+{
+  "torch": "2.13.0+cu130",
+  "transformers": "5.14.1",
+  "device": "cpu",
+  "python": "3.11.7",
+  "model_seed": 42,
+  "conversation_seeds": [
+    1,
+    2
+  ],
+  "data_source": "synthetic token conversations; no task or model checkpoint data",
+  "text_config": {
+    "transformers_version": "5.14.1",
+    "architectures": null,
+    "output_hidden_states": false,
+    "return_dict": true,
+    "dtype": null,
+    "chunk_size_feed_forward": 0,
+    "is_encoder_decoder": false,
+    "id2label": {
+      "0": "LABEL_0",
+      "1": "LABEL_1"
+    },
+    "label2id": {
+      "LABEL_0": 0,
+      "LABEL_1": 1
+    },
+    "problem_type": null,
+    "vocab_size": 128,
+    "hidden_size": 32,
+    "intermediate_size": 64,
+    "num_hidden_layers": 2,
+    "num_attention_heads": 4,
+    "num_key_value_heads": 2,
+    "head_dim": 8,
+    "hidden_activation": "gelu_pytorch_tanh",
+    "max_position_embeddings": 32768,
+    "initializer_range": 0.02,
+    "rms_norm_eps": 1e-06,
+    "use_cache": true,
+    "pad_token_id": 0,
+    "eos_token_id": 1,
+    "bos_token_id": 2,
+    "tie_word_embeddings": true,
+    "rope_parameters": {
+      "sliding_attention": {
+        "rope_type": "default",
+        "rope_theta": 10000.0
+      },
+      "full_attention": {
+        "rope_type": "proportional",
+        "partial_rotary_factor": 0.25,
+        "rope_theta": 1000000.0
+      }
+    },
+    "attention_bias": false,
+    "attention_dropout": 0.0,
+    "sliding_window": 7,
+    "layer_types": [
+      "sliding_attention",
+      "full_attention"
+    ],
+    "final_logit_softcapping": null,
+    "use_bidirectional_attention": "vision",
+    "num_global_key_value_heads": null,
+    "global_head_dim": 8,
+    "attention_k_eq_v": false,
+    "num_kv_shared_layers": 0,
+    "use_double_wide_mlp": false,
+    "_name_or_path": "",
+    "model_type": "gemma4_unified_text",
+    "output_attentions": false
+  },
+  "code_sha256": {
+    "baselines/common/shared_history.py": "87dda445782b49d41f355bdc755252b82053b36309771fd31d6ec8e174ac3132",
+    "baselines/common/fsdp_train.py": "c5100e73ec76b0d8a0b73af46a1e172d228ce5245bb5b2b838471728c85521cb",
+    "train/dataset.py": "f69091ef69a87adbcc28832945ddd63fa14db4256a50644677045ea386de039f",
+    "tools/benchmark_shared_history.py": "d4d5e7274147ca3403e9b4d629f0e5e99f8deeafb1c62578792cf95d27caa0e4"
+  },
+  "dtype": "float32",
+  "threads": 1,
+  "turns_per_side": 20,
+  "repeats": 5,
+  "attention_for_timing": "sdpa_cpu_dense_test_oracle",
+  "records": [
+    {
+      "operation": "score_one_side",
+      "scoring": "per_turn",
+      "forward_tokens": 7679,
+      "forward_calls": 20,
+      "median_wall_seconds": 0.18035717611201108,
+      "wall_seconds": [
+        0.18911796296015382,
+        0.1905641860794276,
+        0.1800795670133084,
+        0.17766818800009787,
+        0.18035717611201108
+      ],
+      "value": -702.8239135742188
+    },
+    {
+      "operation": "score_one_side",
+      "scoring": "shared_history",
+      "forward_tokens": 813,
+      "forward_calls": 1,
+      "median_wall_seconds": 0.031469797948375344,
+      "wall_seconds": [
+        0.0346061228774488,
+        0.031469797948375344,
+        0.03161082603037357,
+        0.031192418886348605,
+        0.030444723088294268
+      ],
+      "value": -702.8239135742188
+    },
+    {
+      "operation": "dpo_pair_two_pass",
+      "scoring": "per_turn",
+      "forward_tokens": 45997,
+      "forward_calls": 80,
+      "median_wall_seconds": 1.4555965280160308,
+      "wall_seconds": [
+        1.4555965280160308,
+        1.4402195129077882,
+        1.4036387929227203,
+        1.663399426965043,
+        1.6443956240545958
+      ],
+      "value": 0.6931471824645996
+    },
+    {
+      "operation": "dpo_pair_two_pass",
+      "scoring": "shared_history",
+      "forward_tokens": 4809,
+      "forward_calls": 6,
+      "median_wall_seconds": 0.316984532866627,
+      "wall_seconds": [
+        0.316984532866627,
+        0.33275475702248514,
+        0.32267416594550014,
+        0.257549679139629,
+        0.2595751201733947
+      ],
+      "value": 0.6931471824645996
+    },
+    {
+      "operation": "ipr_pair_two_pass",
+      "scoring": "per_turn",
+      "forward_tokens": 45997,
+      "forward_calls": 80,
+      "median_wall_seconds": 1.3883337539155036,
+      "wall_seconds": [
+        1.394966000923887,
+        1.4272373979911208,
+        1.3883337539155036,
+        1.3868930139578879,
+        1.3799769659526646
+      ],
+      "value": 703.51708984375
+    },
+    {
+      "operation": "ipr_pair_two_pass",
+      "scoring": "shared_history",
+      "forward_tokens": 4809,
+      "forward_calls": 6,
+      "median_wall_seconds": 0.24890506407245994,
+      "wall_seconds": [
+        0.24890506407245994,
+        0.24425108497962356,
+        0.25114400312304497,
+        0.24763170001097023,
+        0.2507105760741979
+      ],
+      "value": 703.51708984375
+    }
+  ],
+  "mask_check": {
+    "packed_tokens": 30829,
+    "block_metadata_bytes": 1866304,
+    "position_and_branch_bytes": 493264,
+    "dense_gpu_mask": false
+  },
+  "scope": "Synthetic CPU engineering benchmark; no GPU/FSDP throughput or scientific claim"
+}

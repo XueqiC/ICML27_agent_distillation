@@ -82,3 +82,37 @@ counting masked turns and affected input pairs/trajectories once per stage datas
 (before epoch repetition or collective padding). Pair counts sum both sides and
 exclude shared prompt turns. These empty-turn counters stay zero for official IPR
 pairs because the upstream exclusion is kept.
+
+## Exact shared-history preference scoring — 2026-10-19
+
+Engineering only; no pair-selection, reference, dose or IPR objective change.
+The IPR recipe and preference trainer default to `--scoring shared_history`;
+`baselines.common.fsdp_train --scoring per_turn` retains the original path.
+Chosen NLL remains **summed**, weight 1; DPO remains the same sigmoid on summed
+continuation log-probabilities against the distinct frozen SFT reference.
+SFT retains its existing scorer and trajectory-normalized update schedule.
+
+The shared implementation, masks, position semantics, two-pass side recomputation,
+accounting definitions and CPU acceptance limits are registered in
+[ETO's engineering entry](../eto/DEVIATIONS.md#exact-shared-history-preference-scoring--2026-10-19).
+Each side uses one native history plus isolated OFF-generation copies; no later
+token attends to a generation copy. Shared expert-prefix replies remain masked.
+Gemma4 gets separate full/sliding FlexAttention BlockMasks with windows measured
+in evaluation positions; no dense token-square GPU mask is built. The policy
+keeps one packed side's graph at a time. Zero-weight rank padding executes the
+same two forwards/backwards per pair-slot. No turn padding is needed.
+
+Training state, ledgers and provenance disclose `scoring`,
+`two_pass_side_backward=true`, `two_pass_turn_backward=false`, and actual packed
+physical policy/reference input tokens, including explicit policy recomputation
+and rank padding. Logical dose, labels, pairs and original context limits remain
+unchanged. Torch 2.13 lacks CPU FlexAttention backward, so all-parameter gradient
+acceptance uses the same mask predicate through CPU SDPA/eager; the HF Flex
+forward interface and block metadata are tested separately. GPU compilation,
+FSDP memory fit and GPU throughput remain unmeasured; no GPU or cluster was used.
+
+The [20-turn CPU report](../../reports/engineering/shared_history_cpu.json) records
+45997 -> 4809 total forward tokens per two-pass IPR pair-slot. It uses the pinned
+Transformers 5.14.1, torch 2.13.0, synthetic data and random tiny Gemma4 only.
+This is engineering validation, not a scientific result or baseline-performance
+claim. The same tests cover ETO and IPR, including checkpointing and rank padding.

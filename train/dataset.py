@@ -72,6 +72,9 @@ def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
     if any(i in tokenizer.all_special_ids for i in target_ids[:-1]):
         raise ValueError("Visible teacher reply contains a model control token")
     prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    native_prefix_ids = tokenizer.encode(prefix_without_thought, add_special_tokens=False)
+    if prompt_ids != native_prefix_ids + tokenizer.encode(EMPTY_THOUGHT, add_special_tokens=False):
+        raise ValueError("Tokenizer boundary crosses native history/empty thought")
     turn_forward_tokens = len(prompt_ids) + len(target_ids)
     if as_history:
         # Native completed history has no empty thought prefill. Do not modify
@@ -90,6 +93,7 @@ def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
     return {"input_ids": ids, "labels": labels, "attention_mask": [1] * len(ids),
             "supervised_tokens": len(target_ids), "prompt_tokens": len(prompt_ids),
             "empty_visible_turns_masked": 0,
+            "generation_start": len(native_prefix_ids) if not as_history else None,
             "turn_forward_tokens": turn_forward_tokens}
 
 

@@ -16,6 +16,8 @@ from types import SimpleNamespace
 from baselines.common.checkpoint import checkpoint_key_map, checkpoint_layout, validate_checkpoint_layout
 from baselines.common.conversation import conversation, preference_conversation, sequence_rows
 from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots, warmup_count
+from baselines.common.shared_history import (add_flex_kernel_options_argument, configure_flex_attention,
+                                            flex_attention_settings)
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
@@ -79,12 +81,14 @@ def validate_checkpoint(path, student=None, *, base_snapshot=None):
     return state
 
 
-def prepare_model(snapshot, *, reference=False):
-    """SDPA with fp32 policy masters or frozen bf16 reference storage (X6/X7)."""
+def prepare_model(snapshot, *, reference=False, scoring="per_turn", flex_kernel_options=None):
+    """Exact scorer backend with fp32 policy masters / frozen bf16 reference."""
     # FSDP already casts reference parameters to bf16 for every forward.
     # Loading directly in that dtype preserves compute and halves storage.
     model = load_student(snapshot, device="cpu", dtype="bfloat16" if reference else "float32")
-    model.set_attn_implementation("sdpa")
+    model.set_attn_implementation("flex_attention" if scoring == "shared_history" else "sdpa")
+    if scoring == "shared_history":
+        configure_flex_attention(model, flex_kernel_options)
     model.config.get_text_config().use_cache = False
     for name, parameter in model.named_parameters():
         parameter.requires_grad_(not reference and text_parameter(name))
@@ -125,14 +129,21 @@ def scoring_batches(rows, *, rounds=None):
              for group in groups] for i in range(rounds)]
 
 
-def batch_logps(model, rows, device, *, rounds=None):
-    """Sum independent exact-prefix turn scores back into each continuation.
+def batch_logps(model, rows, device, *, rounds=None, scoring="per_turn"):
+    """Sum exact-prefix turn scores back into each continuation.
 
     Explicit rounds align FSDP forwards/backwards across ranks with unequal
     continuation lengths. Dummy turns contribute zero score/gradient. A pair
     forwards at most two sequences together, as in the original scorer.
+    Shared history instead forwards each side once; all ranks use two sides,
+    so unequal turn counts need no extra rounds or dummy turns.
     """
     import torch
+    if scoring == "shared_history":
+        from baselines.common.shared_history import shared_history_logps
+        return torch.cat([shared_history_logps(model, [row], device) for row in rows])
+    if scoring != "per_turn":
+        raise ValueError("Scoring must be per_turn or shared_history")
     scores = []
     for batch in scoring_batches(rows, rounds=rounds):
         values = sequence_logps(model, [row for row, _ in batch], device)
@@ -140,7 +151,7 @@ def batch_logps(model, rows, device, *, rounds=None):
     return sum(scores)
 
 
-def sequence_logps(model, rows, device):
+def sequence_logps(model, rows, device, *, per_token=False):
     """Exact summed assistant log-probs, materializing only target predecessors.
 
     Selected logits are already causally aligned. Calling the verbatim scorer
@@ -166,6 +177,9 @@ def sequence_logps(model, rows, device):
     logits = model(input_ids=ids, attention_mask=attention, use_cache=False,
                    logits_to_keep=positions).logits
     target = labels[:, positions + 1]
+    if per_token:
+        from baselines.common.shared_history import supervised_token_logps
+        return supervised_token_logps(logits, target)
     # Small log-softmax chunks avoid a second full fp32 vocabulary tensor.
     values = [OfficialLoss.get_batch_logps(logits[:, start:start + 128].float(),
                        target[:, start:start + 128].clone(), average_log_prob=False,
@@ -219,11 +233,11 @@ def sft_objective(model, row, device):
 
 
 def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, rounds=None,
-                  backward_scale=None):
-    """Summed DPO/IPR loss and metrics; optionally backward one turn at a time.
+                  backward_scale=None, scoring="per_turn"):
+    """Summed DPO/IPR loss; backward one turn or one packed side at a time.
 
     With backward_scale, the first pass retains only no-grad continuation sums.
-    The second pass immediately backpropagates each turn's chain-rule term and
+    The second pass immediately backpropagates each unit's chain-rule term and
     returns a detached loss (already backpropagated). Dropout must be disabled,
     as in train_loop, so recomputation gives the same scores/derivatives.
     Without backward_scale this remains the original one-graph objective.
@@ -237,11 +251,11 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
     if backward_scale is not None and any(row.get("packing") != "turn" for row in rows):
         raise ValueError("Two-pass backward requires turn packing")
     with torch.no_grad():
-        ref = batch_logps(reference, rows, device, rounds=rounds).detach()
+        ref = batch_logps(reference, rows, device, rounds=rounds, scoring=scoring).detach()
     # Reference activations/logits are out of scope before policy activations
     # are allocated. Only two detached continuation sums remain.
     with torch.set_grad_enabled(torch.is_grad_enabled() and backward_scale is None):
-        policy = batch_logps(model, rows, device, rounds=rounds)
+        policy = batch_logps(model, rows, device, rounds=rounds, scoring=scoring)
     settings = SimpleNamespace(beta=beta, loss_type="sigmoid", label_smoothing=0.0)
     losses, chosen, rejected = OfficialLoss.dpo_loss(settings, policy[:1], policy[1:], ref[:1], ref[1:])
     metrics = {"rewards/chosen": chosen.mean(), "rewards/rejected": rejected.mean(),
@@ -263,12 +277,15 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
             rejected_coefficient = beta * torch.sigmoid(-beta * delta)
             coefficients = torch.stack((-rejected_coefficient - nll_weight,
                                         rejected_coefficient)) * backward_scale
-        for batch in scoring_batches(rows, rounds=rounds):
+        batches = ([[(row, True) for row in rows]] if scoring == "shared_history"
+                   else scoring_batches(rows, rounds=rounds))
+        for batch in batches:
             for side, (turn, active) in enumerate(batch):
                 # Even dummy turns/ranks must forward AND backward, in the
                 # same order, to align FSDP collectives. Never use no_sync:
                 # reduced gradients must stay sharded during accumulation.
-                turn_logp = sequence_logps(model, [turn], device)[0]
+                turn_logp = (batch_logps(model, [turn], device, scoring=scoring)[0]
+                             if scoring == "shared_history" else sequence_logps(model, [turn], device)[0])
                 (coefficients[side] * active * turn_logp).backward()
                 del turn_logp
     return loss, metrics
@@ -277,7 +294,8 @@ def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, round
 def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
-               packing=None, processed_token_budget=None, checkpoint_callback=None):
+               packing=None, processed_token_budget=None, checkpoint_callback=None,
+               scoring="per_turn", flex_kernel_options=None):
     import torch
     import torch.distributed as dist
     if objective not in {"sft", "sad", "dpo", "ipr", "steca"} or not math.isfinite(learning_rate) or learning_rate <= 0:
@@ -289,7 +307,17 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
-    two_pass_turn_backward = objective in {"dpo", "ipr"} and packing == "turn"
+    if scoring not in {"per_turn", "shared_history"}:
+        raise ValueError("Scoring must be per_turn or shared_history")
+    if scoring == "shared_history" and (objective not in {"dpo", "ipr"} or packing != "turn"):
+        raise ValueError("Shared-history scoring currently requires turn-packed preferences")
+    flex_settings = None
+    if scoring == "shared_history":
+        flex_settings = configure_flex_attention(model, flex_kernel_options)
+        configure_flex_attention(reference, flex_settings["kernel_options"])
+    two_pass_backward = objective in {"dpo", "ipr"} and packing == "turn"
+    two_pass_turn_backward = two_pass_backward and scoring == "per_turn"
+    two_pass_side_backward = two_pass_backward and scoring == "shared_history"
     empty_visible_counts = []
     for example in examples:
         groups = [example] if objective in {"sft", "sad", "steca"} else [example["chosen"], example["rejected"]]
@@ -341,7 +369,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         slots = rank_slots(list(range(len(microsteps))), world_size)
         # All ranks have the same logical batch. Derive the same number of
         # preference turn forwards without a separate distributed collective.
-        rounds = [1 if objective in {"sft", "sad", "steca"} else max(
+        rounds = [1 if objective in {"sft", "sad", "steca"} or scoring == "shared_history" else max(
             len(sequence_rows(microsteps[i if i is not None else 0][0][side]))
             for i in slot for side in ("chosen", "rejected")) for slot in slots]
         for slot, n_rounds in zip(slots, rounds):
@@ -356,12 +384,12 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                             sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
                                           nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
-                                          backward_scale=scale if two_pass_turn_backward else None))
+                                          backward_scale=scale if two_pass_backward else None, scoring=scoring))
             if not torch.isfinite(loss):
                 raise ValueError("Nonfinite training loss")
             # Turn weights preserve the per-trajectory assistant-token mean.
             # Synchronize each microstep to keep gradients sharded during accumulation.
-            if not two_pass_turn_backward:
+            if not two_pass_backward:
                 (loss * scale).backward()
             for key, value in {"loss": loss.detach(), **metrics}.items():
                 metrics_sum[key] = metrics_sum.get(key, 0.0) + value.detach() * (weight if active else 0.0)
@@ -375,6 +403,11 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             row, _ = microstep
             groups = [row] if objective in {"sft", "sad", "steca"} else [row["chosen"], row["rejected"]]
             rows = [r for group in groups for r in sequence_rows(group)]
+            if scoring == "shared_history":
+                from baselines.common.shared_history import pack_shared_history
+                tokens = sum(len(pack_shared_history(group)["input_ids"]) for group in groups)
+                return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
+                        sum(len(r["input_ids"]) for r in rows), tokens, tokens)
             return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
                     sum(len(r["input_ids"]) for r in rows),
                     sum(len(batch) * max(len(r["input_ids"]) for r, _ in batch)
@@ -405,6 +438,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "supervised_tokens_seen": supervised,
                            "logical_forward_tokens": forward_tokens,
                            "two_pass_turn_backward": two_pass_turn_backward,
+                           "two_pass_side_backward": two_pass_side_backward, "scoring": scoring,
+                           "flex_attention": flex_settings,
                            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
                            "physical_policy_recompute_forward_tokens": recompute_tokens,
                            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca"} else 0,
@@ -431,6 +466,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "physical_example_slots": physical, "logical_example_slots": logical_slots,
             "zero_weight_slots": physical - logical_slots,
             "two_pass_turn_backward": two_pass_turn_backward,
+            "two_pass_side_backward": two_pass_side_backward, "scoring": scoring,
+            "flex_attention": flex_settings,
             "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
             "physical_policy_recompute_forward_tokens": recompute_tokens,
             "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca"} else 0,
@@ -616,6 +653,9 @@ def main(argv=None):
     parser.add_argument("--start-update", type=int)
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
+    parser.add_argument("--scoring", choices=["per_turn", "shared_history"],
+                        help="Preference execution path; defaults to shared_history. SFT retains per_turn.")
+    add_flex_kernel_options_argument(parser)
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
     parser.add_argument("--reference")
@@ -636,6 +676,15 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-length", type=int, default=32768)
     args = parser.parse_args(argv)
+    # Only preference objectives have a shared-history path; every other objective keeps per_turn.
+    args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr"} else "per_turn")
+    if args.objective not in {"dpo", "ipr"} and args.scoring != "per_turn":
+        parser.error("Only DPO/IPR preference objectives use shared_history scoring")
+    if args.flex_kernel_options is not None and args.scoring != "shared_history":
+        parser.error("Flex kernel options require shared_history scoring")
+    flex_settings = flex_attention_settings(args.flex_kernel_options) if args.scoring == "shared_history" else None
+    if flex_settings is not None:
+        args.flex_kernel_options = flex_settings["kernel_options"]
     preparation_started = time.monotonic()
     if args.max_length != 32768:
         parser.error("Registered no-truncation limit is 32768")
@@ -762,7 +811,9 @@ def main(argv=None):
                 "snapshot_artifact_sha256": artifact_hashes(args.snapshot),
                 "base_artifact_sha256": artifact_hashes(args.base_snapshot),
                 "examples_sha256": digest(examples), "template_sha256": digest(chat_template),
-                "attention": "sdpa", "master_dtype": "float32", "compute_dtype": "bfloat16",
+                "attention": "flex_attention" if args.scoring == "shared_history" else "sdpa",
+                "flex_attention": flex_settings,
+                "master_dtype": "float32", "compute_dtype": "bfloat16",
                 "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": args.packing if args.objective in {"sft", "sad", "steca"} else "turn", "microbatch": 1,
@@ -774,7 +825,8 @@ def main(argv=None):
                                      json.loads((Path(args.reference) / "training_state.json").read_text()).get("control") == "dose_matched_init" else
                                      "iteration_start" if args.objective == "dpo" else None),
                 "reference_storage_dtype": "bfloat16" if args.objective in {"dpo", "ipr"} else None,
-                "two_pass_turn_backward": args.objective in {"dpo", "ipr"},
+                "two_pass_turn_backward": args.objective in {"dpo", "ipr"} and args.scoring == "per_turn",
+                "two_pass_side_backward": args.objective in {"dpo", "ipr"} and args.scoring == "shared_history",
                 "reference_artifact_sha256": artifact_hashes(args.reference) if args.reference else None,
                 "label_smoothing": 0.0, "sft_term_in_dpo": args.objective == "ipr",
                 "chosen_nll_weight": 1 if args.objective == "ipr" else 0}
@@ -783,8 +835,10 @@ def main(argv=None):
         rank_zero_data(rank, world, record_provenance, verification_group)
         dist.barrier()
         mesh = init_device_mesh("cuda", (world,))
-        model = shard_model(prepare_model(args.snapshot), mesh=mesh)
-        reference = (shard_model(prepare_model(args.reference, reference=True), mesh=mesh, reference=True)
+        model = shard_model(prepare_model(args.snapshot, scoring=args.scoring,
+                                         flex_kernel_options=args.flex_kernel_options), mesh=mesh)
+        reference = (shard_model(prepare_model(args.reference, reference=True, scoring=args.scoring,
+                                flex_kernel_options=args.flex_kernel_options), mesh=mesh, reference=True)
                      if args.objective not in {"sft", "sad", "steca"} else None)
         started = time.monotonic()
         checkpoint_callback = None
@@ -796,7 +850,8 @@ def main(argv=None):
                     original_batch=args.original_batch, epochs=args.epochs, seed=args.seed, beta=args.beta,
                     reference=reference, weight_decay=args.weight_decay, rank=rank, world_size=world, device=device,
                     warmup_steps=args.warmup_steps, packing=args.packing if args.objective in {"sft", "sad", "steca"} else "turn",
-                    processed_token_budget=args.processed_token_budget, checkpoint_callback=checkpoint_callback)
+                    processed_token_budget=args.processed_token_budget, checkpoint_callback=checkpoint_callback,
+                    scoring=args.scoring, flex_kernel_options=args.flex_kernel_options)
         if args.objective == "sad":
             if rank == 0:
                 write_json(output / "result.json", {**state, "models": json.loads((output / "models.json").read_text())})

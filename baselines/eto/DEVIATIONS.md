@@ -93,3 +93,58 @@ replies remain supervised, matching our masking for this case provided delimiter
 parsing and token-length checks pass (whitespace-only strings take upstream's
 nonempty rendering branch, and a trailing empty reply can trigger the token-length
 mismatch guard that masks the entire sequence).
+
+## Exact shared-history preference scoring — 2026-10-19
+
+Engineering only; no ETO algorithm, pair, objective, dose or optimizer change.
+The preference trainer and ETO recipe default to `--scoring shared_history`;
+`baselines.common.fsdp_train --scoring per_turn` selects the original path.
+SFT retains its existing scorer and update schedule.
+
+Each side interleaves one native history with isolated generation copies of
+`EMPTY_THOUGHT + reply + turn-end`. History tokens retain their native positions;
+each generation copy retains its independent evaluation positions. Generation
+copies never become context for any later token. The final unused native reply
+copy is omitted. The 32768-token limit still applies to each original context;
+the physical branched layout can be longer, without truncating any context.
+Empty visible turns and shared preference-prefix replies remain unsupervised.
+
+Gemma4 receives a mask dictionary keyed by `full_attention` and
+`sliding_attention`; sliding distances use evaluation positions. Production uses
+Transformers FlexAttention and directly constructed 128-token BlockMasks, with
+O((L/128)^2) integer metadata and O(L) position/branch vectors shared across
+layers. No token-square GPU mask is constructed, including during mask building.
+A bounded (<=4096 tokens), CPU-only dense oracle validates the same predicate.
+Unsupported attention/position-scaling configurations and nonzero dropout fail
+explicitly; there is no dense GPU fallback. The pinned torch 2.11 and 2.13 APIs
+provide `BlockMask.from_kv_blocks(..., seq_lengths=...)`; GPU kernel compilation
+and FSDP memory fit were not exercised in this CPU-only change.
+
+The unchanged two-pass chain rule now recomputes one packed **side** at a time,
+retaining one side's graph. Per pair-slot: two frozen-reference forwards, two
+no-grad policy forwards, then two policy forwards/backwards. Zero-weight rank
+slots still execute every forward/backward; extra turn padding is unnecessary.
+State, update ledgers and provenance record `scoring`,
+`two_pass_turn_backward=false`, and `two_pass_side_backward=true`.
+`logical_forward_tokens` retains the original exact-prefix exposure definition;
+physical policy/reference counts use actual packed model input lengths and rank
+padding. Policy counts include the explicit second pass, also reported as
+`physical_policy_recompute_forward_tokens`. As before, these count model-input
+tokens, not internal layer rematerialization from gradient checkpointing.
+
+CPU fp32 acceptance checks compare every turn, DPO/IPR losses and every parameter
+gradient (relative L2 and relative max error <=1e-5 per parameter, including tiny
+absolute tolerance 1e-10 for zeros), checkpointing, unequal sides and rank padding.
+Tests also check real pinned-tokenizer prefixes, the HF FlexAttention forward
+interface, block coverage/full-block validity, optimizer updates and ledger counts.
+Torch 2.13 explicitly has no CPU FlexAttention backward: gradient tests use the
+same masks through SDPA/eager; the Flex forward interface uses its CPU math path.
+No GPU/cluster execution or fused-GPU gradient/throughput claim is made.
+
+Reproduce the 20-turn micro-benchmark with
+`CUDA_VISIBLE_DEVICES='' python -m tools.benchmark_shared_history --output REPORT.json`.
+The recorded [CPU report](../../reports/engineering/shared_history_cpu.json) uses
+Transformers 5.14.1 / torch 2.13.0, random tiny Gemma4 and synthetic conversations.
+One-side forward tokens: 7679 -> 813; DPO pair-slot total policy+reference tokens:
+45997 -> 4809. The 30829-token mask check stores 1866304 bytes of block metadata
+plus 493264 bytes of position/branch vectors. CPU wall times are diagnostic only.
