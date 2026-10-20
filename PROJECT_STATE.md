@@ -17,6 +17,41 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **05:1x CDT 10-20: AD-FTP collections done; SAD on T5; SmartAD collecting.**
+  - **AD-FTP**: all three K100 collections are complete. They were synced to hpg ($B/reports/adftp-collections/k100_s{0,1,2}) and verified by file count, file bytes and a sha256 manifest; all gates are open.
+    - adftp-k5s0-train 46811950 COMPLETED in 5 min: K=5, 5 tasks from collection/subsets/k5, 10 examples / 4,494 supervised tokens, LoRA checkpoint written.
+    - The slurm log is empty by design; stage logs live in $BL/adftp-k*/training/stages/.
+    - Eval and further trains are running (group).
+  - **SAD → T5 shared-history (cells sadsh-kKsS, $BL/sadsh-*).**
+    - GPU validation r2 (46824704, T5): the first try failed because the job lacked SED_SECRETS_FILE, so the config digest differed.
+    - Report $T5/reports/engineering/sad_shared_history_gpu_r2.json:
+
+      | Comparison | side rel diff | grad rel L2 max | token MAE |
+      | --- | --- | --- | --- |
+      | packing-only | 1.78e-2 | 0.117 | 0.029 |
+      | kernel-only (SDPA→Flex, same packing) | 1.33e-2 | 0.206 | 0.037 |
+
+      The pre-set gates (1e-3 / 0.02) are below the bf16 floor. Packing differences sit at kernel-swap level, so this is accepted on the same basis as DPO/IPR.
+    - The T4 per-turn sad-k20s0-train (46789747) was cancelled at 04:49 CDT, after its 1/16 and 1/8 checkpoints.
+      - Rate: ~31 h per cell, which exceeds the 24 h limit.
+      - Its updates.jsonl (667 updates) is the per-turn reference curve for sadsh-k20s0.
+      - Train memory 144G, from sstat MaxRSS 95G; walltime 16 h.
+  - **SmartAD**:
+    - wt/smartadshard was merged as 071c72f (sharded collection). SmartAD/teacher tests: 396 passed.
+    - Tree T6 = 071c72f is deployed on hpg. The rai run tree is ../ICML27_run_071c72f.
+    - Collection: launcher nohup pid 620007 (scratchpad/run_smartad_collect.sh; log logs/smartad_collect_launcher.log). It runs K100 s0/s1/s2 × 16 shards and writes to reports/runs/smartad-collections.
+    - It shares the r2 limiter file (TEACHER_RATE_LIMIT_DIR = seeds_full_train_r2/data/teacher_rate_limit), so both collectors stay inside one 1.8M-tpm window.
+    - Temperature 1.0 was accepted by the provider. The seed receipts do not prove identical sampling, so candidate 1 is executed fresh: 10 per task, not 9.
+    - Rate: ~11 candidates/min with r2 sharing the window. ETA ~09:30 CDT.
+    - scratchpad/smartad_post.sh (nohup pid 783964, log logs/smartad_post.log) runs per pool:
+      - selection on ONE free rai GPU, never the last free one, using the tc-alignment-taskeq python;
+      - rsync to $B/reports/smartad-selection/k100_sX, then verification;
+      - gate gates/smartad_k100_sX_synced.
+    - Selection runs on rai because pool receipts hold absolute rai paths; the selected collection is self-contained.
+  - **Full-TRAIN r2**: 2,962 / 3,553 tasks attempted, 2,597 wins (05:0x CDT).
+  - **Keeper plan v6**: sadsh-k20s0 → AD-FTP ×15 → SmartAD ×15 (gated) → sadsh ×14 → low-priority cells.
+    - Limits: max_jobs 10 (the hard limit, so any manual hpg job requires lowering it first), max_group_gpus 6.
+    - scratchpad/rebalance_accounts.sh (nohup pid 789861, log logs/rebalance_accounts.log) moves our pending core jobs from dept to group. It acts only when the dept QOS is full and group has room, with our group share kept ≤ 6 GPUs.
 - **02:0x CDT 10-20: overnight status.**
   - **AD-FTP collections** (T4): all three halted once each between 00:18 and 01:0x on IncompleteTeacherResponse. Reasoning used up the 1,024-token step cap and output_text was empty; about 1 per 1,900 calls.
     - The fail-loud code treats this as transport; Codex fix wt/truncated (../ICML27_wt_truncated) will treat it as a truncated model output.

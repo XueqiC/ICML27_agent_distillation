@@ -18,6 +18,8 @@ T1 = "625f6a9"   # batch 1
 T2 = "08d3c47"   # batch 2
 T3 = "b1149a7"   # 10-19 evening: + 429 retry, fail-loud teacher transport, WKM upstream stops (fresh cells only)
 T4 = "2348ce9"   # + upstream-faithful baseline teacher transport (600 s, 3 HTTP attempts) + shared-history DPO/IPR
+T5 = "70ed412"   # + shared-history SAD (default), truncated-output semantics, SmartAD
+T6 = "071c72f"   # + sharded SmartAD candidate collection (SmartAD pools are collected on rai with this tree)
 EMB = ("/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--sentence-transformers--all-MiniLM-L6-v2/"
        "snapshots/1110a243fdf4706b3f48f1d95db1a4f5529b4d41")
 NB = f"{B}/reports/new_baselines"  # AgentDistill/CoA outputs must live outside reports/runs
@@ -95,13 +97,17 @@ G1 = "--partition=hpg-b200 --gpus=1 --cpus-per-task=4 --mem=48G"
 
 
 def sad(k, s):
-    """SAD cell on T4 (one-hot KL = CE on the trusted seeds; no teacher calls)."""
-    cell = f"sad-k{k}s{s}"
+    """SAD cell on T5: one-hot KL = CE on the trusted seeds, shared-history packing (same 655M logical positions).
+    GPU acceptance 10-20 (sad_shared_history_gpu_r2.json): packing-only differences are at the kernel-swap bf16 level.
+    Train memory from sstat of the T4 per-turn run (MaxRSS 95G on 4 GPUs) -> 144G; per-turn needed ~31 h, shared
+    history processes each history once, so 16 h is a generous limit."""
+    cell = f"sadsh-k{k}s{s}"
     e = f"SAD_OUT={BL}/{cell},NGPUS=4"
     C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
-    return {"cell": cell, "tree": T4, "stages": [
+    G4S = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=144G"
+    return {"cell": cell, "tree": T5, "stages": [
         multi(f"{cell}-prep", C4, "02:00:00", 0, "scripts/hpg_sad.slurm", "SAD_THROUGH", "prepare", e, k=k, s=s),
-        multi(f"{cell}-train", G4, "24:00:00", 4, "scripts/hpg_sad.slurm", "SAD_THROUGH", "train", e, k=k, s=s),
+        multi(f"{cell}-train", G4S, "16:00:00", 4, "scripts/hpg_sad.slurm", "SAD_THROUGH", "train", e, k=k, s=s),
         multi(f"{cell}-eval", G1, "10:00:00", 1, "scripts/hpg_sad.slurm", "SAD_THROUGH", "all", e, k=k, s=s,
               mode=("SAD_MODE", "evaluate"))]}
 
@@ -122,6 +128,24 @@ def adftp(k, s):
         stage(f"{cell}-train", "scripts/hpg_adftp.slurm", one, "02:00:00", 1, f"{e},ADFTP_THROUGH=train", gate),
         stage(f"{cell}-eval", "scripts/hpg_adftp.slurm", one, "03:00:00", 1,
               f"{e},ADFTP_THROUGH=train,ADFTP_MODE=evaluate")]}
+
+
+SMARTAD_SEL = f"{B}/reports/smartad-selection"   # SmartAD selected collections (selected on rai, T6), rsynced here
+
+
+def smartad(k, s):
+    """SmartAD training + greedy evaluation on T6 from the selected K100 pool of support seed s (K5-K50 nested views).
+    The candidate pool (10 x T=1.0 per task) is collected on rai; selection (min macro per-turn NLL under the initial
+    student) also runs on rai because pool receipts hold rai paths; the selected collection is self-contained.
+    Waits for gates/smartad_k100_s{s}_synced. Sizes as AD-FTP / Kang (same LoRA trainer)."""
+    cell = f"smartad-k{k}s{s}"
+    src = f"{SMARTAD_SEL}/k100_s{s}/collection" + ("" if k == 100 else f"/subsets/k{k}")
+    e = f"SMARTAD_OUT={BL}/{cell},VERIFIED={src},WORKERS=16,BATCH_INVARIANT=1"
+    gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/smartad_k100_s{s}_synced"}
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    return {"cell": cell, "tree": T6, "stages": [
+        stage(f"{cell}-train", "scripts/hpg_smartad.slurm", one, "02:00:00", 1, f"{e},SMARTAD_THROUGH=train", gate),
+        stage(f"{cell}-eval", "scripts/hpg_smartad.slurm", one, "03:00:00", 1, f"{e},SMARTAD_THROUGH=evaluate")]}
 
 
 def sad_k20s0():
@@ -218,14 +242,14 @@ def main():
     # AD/Kang (K grid already complete), AD-FTP (collection running on rai; training cells added when the FTP
     # collections land), SAD (15 cells here), SmartAD (to implement). Everything else is on hold until tomorrow;
     # running jobs of held cells are still tracked.
-    cells = [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
-    # SAD on T4 uses per-turn scoring: measured 5.2M of the 655M processed positions in 17 min on 4 B200 (~35 h per
-    # cell, past the 24 h limit). The spec calls for shared-history packing (exact; same logical budget), so the SAD
-    # grid waits for that tree. sad-k20s0 keeps running on T4 as the per-turn reference for the equivalence check.
-    sad_cells = [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
-    for c in sad_cells[1:]:
-        c["hold"] = True
-    cells += sad_cells
+    # sadsh-k20s0 first: SAD trains are the long pole (hours on 4 GPUs), AD-FTP stages take 5-30 min.
+    cells = [sad(20, 0)] + [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    # SAD: T4 per-turn scoring needed ~31 h per cell (sad-k20s0 reached the 1/8 checkpoint in 3.9 h; cancelled
+    # 10-20 04:49 CDT after 1/8, its updates.jsonl is the per-turn reference curve). All 15 cells run on T5 with
+    # shared-history packing (sadsh-*), k20s0 first (top of the plan) so its curve can be compared with the per-turn reference.
+    # SmartAD cells wait for their selected pools (gates); ahead of the remaining SAD cells because they are short.
+    cells += [smartad(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    cells += [sad(k, s) for k, s in K_CELLS if (k, s) != (20, 0)]
     # Low-priority order: stages that fit the dept QOS leftovers first (dept is memory-bound, ~80G free):
     # CPU teacher stages and 1-GPU/32-48G stages (WKM, LEAP, AgentDistill/CoA collection), then 4-GPU/160-256G work.
     held = [c for c in new_methods_k20s0() if c["cell"] in ("wkm-k20s0", "agentdistill-k20s0", "coa-k20s0",
@@ -240,7 +264,7 @@ def main():
     for c in held:
         c["lowprio"] = True
     cells += held
-    plan = {"limits": {"max_jobs": 9, "max_gpus": 16, "max_group_gpus": 4, "max_lowprio_jobs": 3,
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 16, "max_group_gpus": 6, "max_lowprio_jobs": 3,
                        "max_lowprio_gpus": 8}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
