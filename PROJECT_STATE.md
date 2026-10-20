@@ -29,6 +29,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 09:14 CDT: AD-FTP post-fix grid (greedy/SAG): K5 62/69 58/46 61/58; K10 31/37 60/55 46/-; K20 4/5 57/60 35/-;
+  K50 5/- 90/93 86/-; K100 div 89/99 95/- (s0 s1 s2). Seed 0 collapses with K (inadmissible-loop policy, mid-run loss rises);
+  root cause open (FTP multi-Action first turns only weakly associated with gradient spikes). Pending user: FTP fix + retrain?
+- SmartAD pools complete 1000/1000 x3 (09:04 CDT). Selection on rai too slow (36 s/candidate, ~10 h/seed): moving to hpg B200 —
+  Codex wt/smartadrelocate (path map + hash checks, bg bkz8jn30c), pool sync to hpg (bg bfy7xics9, log logs/sync_smartad_pools.log).
+  rai s0 selection (pid 2462497 via smartad_post.sh 783964) continues as fallback; stop both before hpg selection writes.
 - SmartAD collection: first launcher exited 1 at 08:02 CDT (956/950/964 of 1000; one HTTP 400 in k100_s1 shard 7 made the
   launcher skip its completion pass, so deferred candidate-01 slots never ran). Failed slot quarantined (reports/runs/
   smartad-collections/_quarantine/k100_s1/README.md); relaunched --resume 08:23 CDT (launcher pid 1874049, bg borrsbjsb).
