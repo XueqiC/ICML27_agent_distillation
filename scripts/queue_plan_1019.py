@@ -17,6 +17,7 @@ COLLECTOR_PID = 228787  # rai full-TRAIN teacher collection; old trees have no 4
 T1 = "625f6a9"   # batch 1
 T2 = "08d3c47"   # batch 2
 T3 = "b1149a7"   # 10-19 evening: + 429 retry, fail-loud teacher transport, WKM upstream stops (fresh cells only)
+T4 = "2348ce9"   # + upstream-faithful baseline teacher transport (600 s, 3 HTTP attempts) + shared-history DPO/IPR
 EMB = ("/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--sentence-transformers--all-MiniLM-L6-v2/"
        "snapshots/1110a243fdf4706b3f48f1d95db1a4f5529b4d41")
 NB = f"{B}/reports/new_baselines"  # AgentDistill/CoA outputs must live outside reports/runs
@@ -148,9 +149,30 @@ def new_methods_k20s0():
                  mode=("COA_MODE", "evaluate"))]
     coa_teval = [multi("coa-k20s0-teval", C1, "12:00:00", 0, "scripts/hpg_coa.slurm", "COA_THROUGH", "teacher", e,
                        mode=("COA_MODE", "teacher-evaluate"), gate=tg)]
-    return [{"cell": n, "tree": T3, "stages": st} for n, st in (
+    return [{"cell": n, "tree": T3 if n == "wkm-k20s0" else T4, "stages": st} for n, st in (
         ("steca-k20s0", steca), ("wkm-k20s0", wkm), ("gad-k20s0", gad), ("agentdistill-k20s0", ad),
         ("coa-k20s0", coa), ("coa-k20s0-teval", coa_teval))]
+
+
+def preference(method, k, s):
+    """ETO (3 iterations) / IPR (6) on T4 with shared-history scoring; sizes from sacct of IPR r5 (10-10):
+    4-GPU SFT 25G peak, 1-GPU explore/MC 15G, 4-GPU DPO ~210G. Explore+MC+pairs share one 1-GPU job per iteration."""
+    up = method.upper()
+    cell = f"{method}-k{k}s{s}"
+    e = f"{up}_OUT={BL}/{cell},VERIFIED={verified(k, s)},NGPUS=4,WORKERS=16,BATCH_INVARIANT=1"
+    sft = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=96G"
+    dpo = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=256G"
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=6 --mem=32G"
+    script = f"scripts/hpg_{method}.slurm"
+    out = [stage(f"{cell}-sft", script, sft, "03:00:00", 4, f"{e},{up}_THROUGH=sft")]
+    for i in range(1, (3 if method == "eto" else 6) + 1):
+        out.append(stage(f"{cell}-x{i}", script, one, "10:00:00", 1, f"{e},{up}_THROUGH=pairs-{i}"))
+        out.append(stage(f"{cell}-dpo{i}", script, dpo, "06:00:00", 4, f"{e},{up}_THROUGH=dpo-{i}"))
+    out.append(stage(f"{cell}-eval", script, one, "10:00:00", 1, f"{e},{up}_MODE=evaluate"))
+    return {"cell": cell, "tree": T4, "stages": out}
+
+
+K_CELLS = [(k, s) for k in (5, 10, 20, 50, 100) for s in (0, 1, 2)]
 
 
 # batch-1 LEAP cells whose correction stages lost teacher requests to the 10-19 429 contention (scan 20:5x CDT):
@@ -162,21 +184,21 @@ LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    # Plan v2 (10-19 21:0x CDT). LEAP is out: its teacher calls used a 60 s timeout with one HTTP attempt per method
-    # slot, which censored correction latencies at 60 s (p50 48 s, 119 timeouts) -> every LEAP cell, s0 included,
-    # reruns on a tree with upstream-faithful transport (SDK defaults: 600 s, retries). Methods that call the
-    # teacher (STeCa, GAD, AgentDistill, CoA, HAD) wait for that tree too; teacher-free cells run now.
+    # Plan v3 (10-19 22:3x CDT), list order = priority:
+    #   running teacher-free cells -> first cells of the T4 methods (validate before widening) -> LEAP K grid.
+    # Every teacher stage waits for TEACHER_GATE (OpenAI credits out since 17:55 CDT). Full cells wait for the
+    # full-TRAIN collection; HAD waits for co-scheduling support in the keeper.
     cells = [sad_k20s0()] + [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
     cells += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
+    cells += [preference("eto", 20, 0), preference("ipr", 20, 0)]
+    cells += [c for c in new_methods_k20s0() if c["cell"] in ("steca-k20s0", "gad-k20s0")]
+    cells += [leap(v, 20, 0, "c0", tree=T4) for v in ("zero", "privileged")]
+    cells += [leap(v, k, s, "c0", tree=T4) for v in ("zero", "privileged") for k, s in K_CELLS if (k, s) != (20, 0)]
+    cells += [c for c in new_methods_k20s0() if c["cell"] in ("agentdistill-k20s0", "coa-k20s0", "coa-k20s0-teval")]
     plan = {"limits": {"max_jobs": 8, "max_gpus": 12, "max_group_gpus": 0}, "cells": cells}
+    names = [c["cell"] for c in cells]
+    assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
-    state_path = out / "state.json"
-    if not state_path.exists():  # jobs that were RUNNING when the queue was cleared (10-19 20:3x CDT)
-        running = {"lpp-k100s1": "46706560", "lpp-k100s2": "46706569",
-                   "lpz-k100s0": "46706677", "lpz-k100s1": "46706686", "lpz-k100s2": "46706695"}
-        state = {c: {"done": [], "active": {"name": f"{c}-g1", "id": j, "submitted": "batch1"}, "blocked": None}
-                 for c, j in running.items()}
-        state_path.write_text(json.dumps(state, indent=1))
     print(f"{len(cells)} cells, {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
 
 
