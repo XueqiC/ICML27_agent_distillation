@@ -149,7 +149,9 @@ def smartad(k, s):
     gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/smartad_k100_s{s}_synced"}
     one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
     return {"cell": cell, "tree": T6, "stages": [
-        stage(f"{cell}-train", "scripts/hpg_smartad.slurm", one, "02:00:00", 1, f"{e},SMARTAD_THROUGH=train", gate),
+        # K100 = 50 updates at ~2.5 min each (46869920 timed out at 2 h after 44); K<=50 finish in <= 1.3 h.
+        stage(f"{cell}-train", "scripts/hpg_smartad.slurm", one, "04:00:00" if k == 100 else "02:00:00", 1,
+              f"{e},SMARTAD_THROUGH=train", gate),
         stage(f"{cell}-eval", "scripts/hpg_smartad.slurm", one, "03:00:00", 1, f"{e},SMARTAD_THROUGH=evaluate")]}
 
 
