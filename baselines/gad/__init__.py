@@ -1,7 +1,7 @@
 """GAD, Ye et al. (2025), official LMOps/verl equations, paper-1 H0 path."""
 
 RECIPE = {
-    "spec_sha256": "d6cc35f3222ee234cc9c970fe2392174365bf48e23ed51ba7e6c1ed91cee4f76",
+    "spec_sha256": "7d42a4e3d937c78b56f2045a8f42e4b96b55c2fc94237b250024cc0141ee42d8",
     "lmops_commit": "6f53ef41c951de0962bbf27fe3f5819eabc8ce0e",
     "verl_commit": "707757b9202c466d986e529a4658434d0ac6a7ee",
     "adaptation": "full_parameter_text_fsdp2_verl_equations",

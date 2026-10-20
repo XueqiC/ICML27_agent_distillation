@@ -298,12 +298,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                scoring="per_turn", flex_kernel_options=None):
     import torch
     import torch.distributed as dist
-    if objective not in {"sft", "sad", "dpo", "ipr", "steca"} or not math.isfinite(learning_rate) or learning_rate <= 0:
+    from baselines.smartad.data import microsteps as smartad_microsteps, objective as smartad_objective
+    if objective not in {"sft", "sad", "dpo", "ipr", "steca", "smartad"} or not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Invalid training objective/learning rate")
     if not math.isfinite(beta) or beta <= 0:
         raise ValueError("Positive finite beta required")
     actual_packings = {row.get("packing", "episode") for example in examples
-                      for row in ([example] if objective in {"sft", "sad", "steca"} else [example["chosen"], example["rejected"]])}
+                      for row in ([example] if objective in {"sft", "sad", "steca", "smartad"} else [example["chosen"], example["rejected"]])}
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
@@ -320,7 +321,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     two_pass_side_backward = two_pass_backward and scoring == "shared_history"
     empty_visible_counts = []
     for example in examples:
-        groups = [example] if objective in {"sft", "sad", "steca"} else [example["chosen"], example["rejected"]]
+        groups = [example] if objective in {"sft", "sad", "steca", "smartad"} else [example["chosen"], example["rejected"]]
         # Count each stage input once, independently of epochs/rank padding.
         empty_visible_counts.append(sum(row.get("empty_visible_turns_masked", 0) for row in groups))
         for row in groups:
@@ -364,12 +365,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         indices = batch["indices"]
         microsteps = ([(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
                       if objective == "sad" else weighted_microsteps(examples, indices) if objective == "steca" else
+                      smartad_microsteps(examples, indices) if objective == "smartad" else
                       sft_microsteps(examples, indices) if objective == "sft" else
                       [(examples[i], 1.0) for i in indices])
         slots = rank_slots(list(range(len(microsteps))), world_size)
         # All ranks have the same logical batch. Derive the same number of
         # preference turn forwards without a separate distributed collective.
-        rounds = [1 if objective in {"sft", "sad", "steca"} or scoring == "shared_history" else max(
+        rounds = [1 if objective in {"sft", "sad", "steca", "smartad"} or scoring == "shared_history" else max(
             len(sequence_rows(microsteps[i if i is not None else 0][0][side]))
             for i in slot for side in ("chosen", "rejected")) for slot in slots]
         for slot, n_rounds in zip(slots, rounds):
@@ -381,6 +383,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             scale = weight * world_size / len(indices) if active else 0.0
             loss, metrics = ((-batch_logps(model, [row], device).sum(), {}) if objective == "sad" else
                             weighted_objective(model, row, device) if objective == "steca" else
+                            smartad_objective(model, row, device) if objective == "smartad" else
                             sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
                                           nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
@@ -401,7 +404,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         exposure += len(indices)
         def costs(microstep, n_rounds=None):
             row, _ = microstep
-            groups = [row] if objective in {"sft", "sad", "steca"} else [row["chosen"], row["rejected"]]
+            groups = [row] if objective in {"sft", "sad", "steca", "smartad"} else [row["chosen"], row["rejected"]]
             rows = [r for group in groups for r in sequence_rows(group)]
             if scoring == "shared_history":
                 from baselines.common.shared_history import pack_shared_history
@@ -431,7 +434,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             norm = norm.full_tensor()
         if ledger:
             ledger.append({"update": update, **batch, "lr": lr_used, "global_batch": len(indices),
-                           "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca"} else "preference pair",
+                           "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca", "smartad"} else "preference pair",
                            "microsteps": len(microsteps), "collective_rounds": sum(rounds),
                            "zero_weight_slots": len(slots) * world_size - len(microsteps),
                            "gradient_norm": float(norm), "examples_seen": exposure,
@@ -442,7 +445,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "flex_attention": flex_settings,
                            "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
                            "physical_policy_recompute_forward_tokens": recompute_tokens,
-                           "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca"} else 0,
+                           "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca", "smartad"} else 0,
                            **dict(zip(keys, values.cpu().tolist()))}, unique_key="update")
         if checkpoint_callback is not None:
             checkpoint_callback(model, {**plan, "updates": update, "seed": seed,
@@ -470,15 +473,16 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "flex_attention": flex_settings,
             "physical_policy_forward_tokens": physical_tokens + recompute_tokens,
             "physical_policy_recompute_forward_tokens": recompute_tokens,
-            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca"} else 0,
+            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca", "smartad"} else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
-            "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca"} else "preference pair",
-            "microbatch": 1, "microbatch_unit": packing if objective in {"sft", "sad", "steca"} else "preference pair",
+            "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca", "smartad"} else "preference pair",
+            "microbatch": 1, "microbatch_unit": packing if objective in {"sft", "sad", "steca", "smartad"} else "preference pair",
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
             **({"processed_token_positions": forward_tokens,
                 "realized_trajectory_passes": exposure / len(examples)} if objective == "sad" else {}),
-            "loss_reduction": ("span_token_sum_then_global_batch_mean" if objective == "sad" else
+            "loss_reduction": ("segment_weighted_token_mean_over_global_batch" if objective == "smartad" else
+                               "span_token_sum_then_global_batch_mean" if objective == "sad" else
                                "reward_weighted_summed_logps_dataset_means" if objective == "steca" else
                                "per_example_mean_then_global_batch_mean" if objective == "sft" else
                                "sigmoid_plus_chosen_nll_summed_logps" if objective == "ipr" else "sigmoid_summed_logps")}
@@ -599,9 +603,16 @@ def train_lora(args):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, _, root = load_verified_collection(args.verified, manifest, freeze)
     tokenizer = load_tokenizer(args.snapshot)
-    examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
-                             packing=args.packing, max_length=args.max_length)
-                for episode in checked_episodes(root, collection["verified"])]
+    if args.objective == "smartad":
+        from baselines.smartad.select import validate_selection
+        from baselines.smartad.data import encode_episode
+        validate_selection(args.verified, manifest, freeze, args.snapshot)
+        examples = [encode_episode(episode, tokenizer, max_length=args.max_length)
+                    for episode in checked_episodes(root, collection["verified"])]
+    else:
+        examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
+                                 packing=args.packing, max_length=args.max_length)
+                    for episode in checked_episodes(root, collection["verified"])]
     if args.method_data:
         from baselines.wkm.data import training_examples
         examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
@@ -629,7 +640,7 @@ def train_lora(args):
                 *([args.method_data, Path(args.method_data).parent / "provenance.json"] if args.method_data else [])])
     write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
     with torch.autocast("cuda", dtype=torch.bfloat16):
-        state = train_loop(model, examples, output, objective="sft", learning_rate=args.learning_rate,
+        state = train_loop(model, examples, output, objective=args.objective, learning_rate=args.learning_rate,
             scheduler=args.scheduler, warmup_ratio=args.warmup_ratio, warmup_steps=args.warmup_steps,
             original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
             weight_decay=args.weight_decay, device="cuda", packing=args.packing)
@@ -645,7 +656,7 @@ def train_lora(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had"], required=True)
+    parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had", "smartad"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
     parser.add_argument("--had-data")
     parser.add_argument("--had-identity")
@@ -717,8 +728,14 @@ def main(argv=None):
         if getattr(args, name) is not None:
             parser.error("HAD stage arguments require --objective had")
         delattr(args, name)  # Preserve existing baselines' effective argument/config shape.
+    if args.objective == "smartad":
+        if (args.adaptation != "kang_lora" or args.packing != "turn" or args.method_data
+                or args.epochs != 2 or args.original_batch != 4 or args.seed != 0
+                or args.learning_rate != 2e-4 or args.scheduler != "linear"
+                or args.warmup_steps != 0 or args.weight_decay != 0):
+            parser.error("SmartAD requires its registered Kang LoRA/segment-loss recipe")
     if args.adaptation in {"kang_lora", "wkm_lora"}:
-        if args.objective != "sft" or not args.verified or args.sft_data:
+        if args.objective not in {"sft", "smartad"} or not args.verified or args.sft_data:
             parser.error("Kang LoRA requires seed SFT")
         return train_lora(args)
     if args.objective == "dpo" and (not args.reference or Path(args.reference).resolve() != Path(args.snapshot).resolve()):

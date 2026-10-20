@@ -2,7 +2,7 @@
 PIN = "9a6594d4661fa994f189074ecfdfd259eea87c6d"
 RECIPE = {
     "official_revision": PIN,
-    "spec_sha256": "d6cc35f3222ee234cc9c970fe2392174365bf48e23ed51ba7e6c1ed91cee4f76",
+    "spec_sha256": "7d42a4e3d937c78b56f2045a8f42e4b96b55c2fc94237b250024cc0141ee42d8",
     "training_seed": 0, "adaptation": "full_parameter_text_fsdp2", "max_length": 32768,
     "teacher_runs": 3, "teacher_eval_runs": 1, "max_calls_per_step": 8,
     "teacher_output_tokens": 1024, "min_interactions": 5,

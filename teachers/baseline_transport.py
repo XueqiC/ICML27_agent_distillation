@@ -14,6 +14,7 @@ SOURCES = {
     "agentdistill": "SDK default; docs/baselines/NEW_METHOD_SPECS_1019.md (AgentDistill)",
     "had": "SDK default; docs/baselines/NEW_METHOD_SPECS_1019.md (HAD)",
     "adftp": "third_party/agent-distillation/src/smolagents/models.py:1079-1100",
+    "smartad": "SDK default; docs/baselines/NEW_METHOD_SPECS_1019.md (SmartAD)",
 }
 
 

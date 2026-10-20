@@ -95,7 +95,7 @@ def update_disclosure(output, identity):
     row["totals"].update(examples_seen=sum(t["examples_seen"] for t in trainings),
         supervised_tokens_seen=sum(t["supervised_tokens_seen"] for t in trainings), teacher_calls=0)
     row["token_accounting"] = "Every raw student candidate/call and usage lives in the exploration attempt; summary totals include all returned completions. Seed teacher usage/model/timestamps remain bound in original receipts."
-    if identity.get("method") in {"sad", "adftp"}:
+    if identity.get("method") in {"sad", "adftp", "smartad"}:
         row.update(source="verified_support_collection", expansion=False,
             verified=identity["verified"], collection_sha256=identity["collection_sha256"],
             token_accounting="Training makes zero teacher calls. Source acquisition costs, returned model IDs "
