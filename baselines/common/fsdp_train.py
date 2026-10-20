@@ -17,7 +17,7 @@ from baselines.common.checkpoint import checkpoint_key_map, checkpoint_layout, v
 from baselines.common.conversation import conversation, preference_conversation, sequence_rows
 from baselines.common.schedule import dose, epoch_batches, lr_multiplier, rank_slots, warmup_count
 from baselines.common.shared_history import (add_flex_kernel_options_argument, configure_flex_attention,
-                                            flex_attention_settings)
+                                            dropout_equivalence, flex_attention_settings)
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
@@ -227,9 +227,38 @@ def weighted_objective(model, row, device):
     return -batch_logps(model, [row], device).mean(), {}
 
 
-def sft_objective(model, row, device):
+def sft_objective(model, row, device, *, scoring="per_turn"):
     count = supervised_count(row)
-    return -batch_logps(model, [row], device).mean() / count, {}
+    return -batch_logps(model, [row], device, scoring=scoring).mean() / count, {}
+
+
+def training_microsteps(examples, indices, objective, scoring):
+    """Keep the original reduction while grouping shared trajectory forwards."""
+    from baselines.smartad.data import microsteps as smartad_microsteps
+    if objective == "smartad":
+        return smartad_microsteps(examples, indices, scoring=scoring)
+    if scoring == "shared_history" or objective not in {"sft", "sad", "steca"}:
+        return [(examples[i], 1.0) for i in indices]
+    if objective == "sft":
+        return sft_microsteps(examples, indices)
+    if objective == "steca":
+        return weighted_microsteps(examples, indices)
+    return [(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
+
+
+def average_lora_gradients(parameters, world_size):
+    """Replicated LoRA data parallel: average accumulated fp32 adapter gradients.
+
+    rank_slots aligns work; train_loop already multiplies each active loss by
+    world_size / actual global batch. Reduce before clipping and AdamW, exactly
+    once per update. Frozen base weights never participate in communication.
+    """
+    import torch.distributed as dist
+    for parameter in parameters:
+        if parameter.grad is None:
+            raise ValueError("Every trainable LoRA parameter must participate in backward")
+        dist.all_reduce(parameter.grad)
+        parameter.grad.div_(world_size)
 
 
 def dpo_objective(model, reference, pair, device, *, beta, nll_weight=0.0, rounds=None,
@@ -295,10 +324,11 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
                packing=None, processed_token_budget=None, checkpoint_callback=None,
-               scoring=None, flex_kernel_options=None):
+               scoring=None, flex_kernel_options=None, replicated_lora=False):
     import torch
     import torch.distributed as dist
-    from baselines.smartad.data import microsteps as smartad_microsteps, objective as smartad_objective
+    from transformers import set_seed
+    from baselines.smartad.data import objective as smartad_objective
     if objective not in {"sft", "sad", "dpo", "ipr", "steca", "smartad"} or not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Invalid training objective/learning rate")
     if not math.isfinite(beta) or beta <= 0:
@@ -313,10 +343,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         scoring = "shared_history" if objective == "sad" else "per_turn"
     if scoring not in {"per_turn", "shared_history"}:
         raise ValueError("Scoring must be per_turn or shared_history")
-    if scoring == "shared_history" and (objective not in {"dpo", "ipr", "sad"} or packing != "turn"):
-        raise ValueError("Shared-history scoring requires turn-packed DPO/IPR/SAD rows")
+    if scoring == "shared_history" and (objective not in {"dpo", "ipr", "sad", "sft", "smartad"} or packing != "turn"):
+        raise ValueError("Shared-history scoring requires turn-packed DPO/IPR/SAD/SFT/SmartAD rows")
     flex_settings = None
     if scoring == "shared_history":
+        if objective in {"sft", "smartad"}:
+            from baselines.common.shared_history import validate_model
+            validate_model(model)
         flex_settings = configure_flex_attention(model, flex_kernel_options)
         if reference is not None:
             configure_flex_attention(reference, flex_settings["kernel_options"])
@@ -354,6 +387,10 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             for module in candidate.modules():
                 if isinstance(module, torch.nn.Dropout):
                     module.p = 0.0
+    # Reset after initialization/preparation: reproducible rank-local dropout
+    # streams, while epoch_batches keeps the common global sampler seed.
+    set_seed(seed + rank)
+    equivalence = dropout_equivalence(model)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     ledger = JsonlLedger(output / "updates.jsonl") if rank == 0 else None
@@ -367,12 +404,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         optimizer.zero_grad(set_to_none=True)
         metrics_sum = {}
         indices = batch["indices"]
-        microsteps = ([(examples[i], 1.0) for i in indices] if objective == "sad" and scoring == "shared_history" else
-                      [(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
-                      if objective == "sad" else weighted_microsteps(examples, indices) if objective == "steca" else
-                      smartad_microsteps(examples, indices) if objective == "smartad" else
-                      sft_microsteps(examples, indices) if objective == "sft" else
-                      [(examples[i], 1.0) for i in indices])
+        microsteps = training_microsteps(examples, indices, objective, scoring)
         slots = rank_slots(list(range(len(microsteps))), world_size)
         # All ranks have the same logical batch. Derive the same number of
         # preference turn forwards without a separate distributed collective.
@@ -388,8 +420,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             scale = weight * world_size / len(indices) if active else 0.0
             loss, metrics = ((-batch_logps(model, [row], device, scoring=scoring).sum(), {}) if objective == "sad" else
                             weighted_objective(model, row, device) if objective == "steca" else
-                            smartad_objective(model, row, device) if objective == "smartad" else
-                            sft_objective(model, row, device) if objective == "sft" else
+                            smartad_objective(model, row, device, scoring=scoring) if objective == "smartad" else
+                            sft_objective(model, row, device, scoring=scoring) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
                                           nll_weight=1.0 if objective == "ipr" else 0.0, rounds=n_rounds,
                                           backward_scale=scale if two_pass_backward else None, scoring=scoring))
@@ -401,6 +433,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                 (loss * scale).backward()
             for key, value in {"loss": loss.detach(), **metrics}.items():
                 metrics_sum[key] = metrics_sum.get(key, 0.0) + value.detach() * (weight if active else 0.0)
+        if replicated_lora and world_size > 1:
+            average_lora_gradients(parameters, world_size)
         norm = torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
         lr_used = optimizer.param_groups[0]["lr"]
         optimizer.step()
@@ -470,6 +504,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     else:
         all_memory = [memory]
     return {**plan, "updates": update, "seed": seed, "examples_seen": exposure,
+            "rng_seed_policy": "seed + rank", "rng_seed": seed + rank,
+            "dropout_equivalence": equivalence,
             "empty_visible_turns_masked": sum(empty_visible_counts),
             "empty_visible_turn_examples": sum(count > 0 for count in empty_visible_counts),
             "supervised_tokens_seen": supervised, "logical_forward_tokens": forward_tokens,
@@ -483,7 +519,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca", "smartad"} else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
             "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca", "smartad"} else "preference pair",
-            "microbatch": 1, "microbatch_unit": ("trajectory" if objective == "sad" and scoring == "shared_history"
+            "microbatch": 1, "microbatch_unit": ("trajectory" if objective in {"sad", "sft", "smartad"} and scoring == "shared_history"
                 else packing if objective in {"sft", "sad", "steca", "smartad"} else "preference pair"),
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
@@ -569,16 +605,23 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
             "artifact_sha256": artifact_hashes(destination), "text_export_dtype": text_dtype}
 
 
-def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora"):
+def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora",
+                       scoring="per_turn", flex_kernel_options=None):
     """Registered text-only LoRA recipes; Kang remains the default."""
     from train.modeling import attach_lora
     model = load_student(snapshot, device=device, dtype="bfloat16" if device != "cpu" else "float32")
-    model.set_attn_implementation("sdpa")
+    model.set_attn_implementation("flex_attention" if scoring == "shared_history" else "sdpa")
+    if scoring == "shared_history":
+        configure_flex_attention(model, flex_kernel_options)
     if adaptation == "wkm_lora":
         return attach_lora(model, rank=8, alpha=16, dropout=0.0, targets=["q_proj", "v_proj"])
     if adaptation != "kang_lora":
         raise ValueError("Unknown LoRA adaptation")
-    return attach_lora(model, rank=64, alpha=128, dropout=0.05)
+    model = attach_lora(model, rank=64, alpha=128, dropout=0.05)
+    if scoring == "shared_history":
+        from baselines.common.shared_history import validate_model
+        validate_model(model)
+    return model
 
 
 def export_adapter(model, destination, provenance, state):
@@ -594,71 +637,114 @@ def export_adapter(model, destination, provenance, state):
 
 
 def train_lora(args):
-    """Single-GPU LoRA branch; the full-parameter FSDP path stays separate."""
+    """Replicated bf16 base / fp32 LoRA data parallel, with rank-zero publication."""
     import torch
+    import torch.distributed as dist
     from transformers import set_seed
-    if not torch.cuda.is_available() or int(os.environ.get("WORLD_SIZE", "1")) != 1:
-        raise RuntimeError("Kang LoRA production training requires one allocated GPU")
+    if not torch.cuda.is_available():
+        raise RuntimeError("LoRA production training requires allocated GPUs")
     if Path(args.snapshot).resolve() != Path(args.base_snapshot).resolve():
         raise ValueError("Kang SFT must start from the configured base snapshot")
-    started = time.monotonic()
-    set_seed(args.seed)
-    config = load_config(args.config)
-    if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
-            or config["environment"]["max_episode_steps"] != 40):
-        raise ValueError("Baseline harness protocol differs")
-    config["training"]["adaptation"] = args.adaptation
-    manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-    collection, _, root = load_verified_collection(args.verified, manifest, freeze)
-    tokenizer = load_tokenizer(args.snapshot)
-    if args.objective == "smartad":
-        from baselines.smartad.select import validate_selection
-        from baselines.smartad.data import encode_episode
-        validate_selection(args.verified, manifest, freeze, args.snapshot)
-        examples = [encode_episode(episode, tokenizer, max_length=args.max_length)
-                    for episode in checked_episodes(root, collection["verified"])]
-    else:
-        examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
-                                 packing=args.packing, max_length=args.max_length)
-                    for episode in checked_episodes(root, collection["verified"])]
-    if args.method_data:
-        from baselines.wkm.data import training_examples
-        examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
-    plan = dose(len(examples), args.original_batch, epochs=args.epochs)
-    model = prepare_lora_model(args.snapshot, adaptation=args.adaptation)
-    peft_config = model.peft_config["default"]
-    peft_config.revision = config["models"]["student"]["revision"]
-    base = snapshot_metadata(args.base_snapshot)
-    config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": peft_config.r,
-                     "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout, "targets": sorted(peft_config.target_modules)}
-    config["baseline_training"] = {**vars(args), **plan, "world_size": 1,
-        "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
-        "examples_sha256": digest(examples), "template_sha256": digest(tokenizer.chat_template),
-        "attention": "sdpa", "compute_dtype": "bfloat16", "adapter_master_dtype": "float32",
-        "frozen_base_dtype": "bfloat16", "gradient_checkpointing": True, "no_truncation": True,
-        "packing": args.packing, "batch_unit": "trajectory", "microbatch": 1,
-        "microbatch_unit": args.packing, "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
-        "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
-        "K": collection["K"], "unique_instances": collection["unique_instances"], "task_groups": collection["task_groups"]}
-    output = Path(args.output)
-    output.mkdir(parents=True, exist_ok=False)
-    provenance = write_provenance(output, command="baseline_" + args.adaptation + "_train", config=config,
-        inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
-                Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json",
-                *([args.method_data, Path(args.method_data).parent / "provenance.json"] if args.method_data else [])])
-    write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        state = train_loop(model, examples, output, objective=args.objective, learning_rate=args.learning_rate,
-            scheduler=args.scheduler, warmup_ratio=args.warmup_ratio, warmup_steps=args.warmup_steps,
-            original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
-            weight_decay=args.weight_decay, device="cuda", packing=args.packing)
-    state.update(adaptation=args.adaptation, frozen_base_dtype="bfloat16")
-    staging = output / ".checkpoint.partial"
-    state = export_adapter(model, staging, provenance, state)
-    os.rename(staging, output / "checkpoint")
-    fsync_dir(output)
-    write_json(output / "result.json", {**state, "checkpoint": "checkpoint",
-               "wall_time_with_preparation_and_export_seconds": time.monotonic() - started})
+    rank, world, local_rank = (int(os.environ.get(k, default)) for k, default in
+                              (("RANK", "0"), ("WORLD_SIZE", "1"), ("LOCAL_RANK", "0")))
+    torch.cuda.set_device(local_rank)
+    device = torch.device("cuda", local_rank)
+    if world > 1:
+        dist.init_process_group("nccl", device_id=device)
+    try:
+        group = dist.new_group(backend="gloo", timeout=timedelta(hours=4)) if world > 1 else None
+        started = time.monotonic()
+        set_seed(args.seed + rank)
+
+        def prepare_data():
+            config = load_config(args.config)
+            if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
+                    or config["environment"]["max_episode_steps"] != 40):
+                raise ValueError("Baseline harness protocol differs")
+            config["training"]["adaptation"] = args.adaptation
+            manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+            collection, _, root = load_verified_collection(args.verified, manifest, freeze)
+            tokenizer = load_tokenizer(args.snapshot)
+            if args.objective == "smartad":
+                from baselines.smartad.select import validate_selection
+                from baselines.smartad.data import encode_episode
+                validate_selection(args.verified, manifest, freeze, args.snapshot)
+                examples = [encode_episode(episode, tokenizer, max_length=args.max_length)
+                            for episode in checked_episodes(root, collection["verified"])]
+            else:
+                examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
+                                         packing=args.packing, max_length=args.max_length)
+                            for episode in checked_episodes(root, collection["verified"])]
+            if args.method_data:
+                from baselines.wkm.data import training_examples
+                examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
+            return config, collection, examples, tokenizer.chat_template
+
+        config, collection, examples, chat_template = rank_zero_data(rank, world, prepare_data, group)
+        plan = dose(len(examples), args.original_batch, epochs=args.epochs)
+        model = prepare_lora_model(args.snapshot, device=str(device), adaptation=args.adaptation,
+                                   scoring=args.scoring, flex_kernel_options=args.flex_kernel_options)
+        # Identical adapter initialization even if a future loader consumes RNG
+        # differently on one rank. Only trainable adapter tensors are broadcast.
+        if world > 1:
+            for parameter in model.parameters():
+                if parameter.requires_grad:
+                    dist.broadcast(parameter.data, src=0)
+        peft_config = model.peft_config["default"]
+        peft_config.revision = config["models"]["student"]["revision"]
+        output = Path(args.output)
+
+        def record_provenance():
+            base = snapshot_metadata(args.base_snapshot)
+            config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": peft_config.r,
+                "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout,
+                "targets": sorted(peft_config.target_modules)}
+            config["baseline_training"] = {**vars(args), **plan, "world_size": world,
+                "dropout_equivalence": dropout_equivalence(model),
+                "rng_seed_policy": "seed + rank", "rank_seeds": [args.seed + r for r in range(world)],
+                "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
+                "examples_sha256": digest(examples), "template_sha256": digest(chat_template),
+                "attention": "flex_attention" if args.scoring == "shared_history" else "sdpa",
+                "flex_attention": flex_attention_settings(args.flex_kernel_options) if args.scoring == "shared_history" else None,
+                "compute_dtype": "bfloat16", "adapter_master_dtype": "float32",
+                "frozen_base_dtype": "bfloat16", "gradient_checkpointing": True, "no_truncation": True,
+                "data_parallel": "replicated_lora_gradient_mean_before_clip",
+                "packing": args.packing, "batch_unit": "trajectory", "microbatch": 1,
+                "microbatch_unit": "trajectory" if args.scoring == "shared_history" else args.packing,
+                "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
+                "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
+                "K": collection["K"], "unique_instances": collection["unique_instances"], "task_groups": collection["task_groups"]}
+            output.mkdir(parents=True, exist_ok=False)
+            provenance = write_provenance(output, command="baseline_" + args.adaptation + "_train", config=config,
+                inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
+                        Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json",
+                        *([args.method_data, Path(args.method_data).parent / "provenance.json"] if args.method_data else [])])
+            write_json(output / "example_sources.json", [e["label_provenance"] for e in examples])
+            return provenance
+
+        provenance = rank_zero_data(rank, world, record_provenance, group)
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            state = train_loop(model, examples, output, objective=args.objective, learning_rate=args.learning_rate,
+                scheduler=args.scheduler, warmup_ratio=args.warmup_ratio, warmup_steps=args.warmup_steps,
+                original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
+                weight_decay=args.weight_decay, device=device, packing=args.packing,
+                scoring=args.scoring, flex_kernel_options=args.flex_kernel_options,
+                rank=rank, world_size=world, replicated_lora=True)
+        state.update(adaptation=args.adaptation, frozen_base_dtype="bfloat16", world_size=world,
+                     data_parallel="replicated_lora_gradient_mean_before_clip")
+
+        def publish():
+            staging = output / ".checkpoint.partial"
+            saved = export_adapter(model, staging, provenance, state)
+            os.rename(staging, output / "checkpoint")
+            fsync_dir(output)
+            write_json(output / "result.json", {**saved, "checkpoint": "checkpoint",
+                       "wall_time_with_preparation_and_export_seconds": time.monotonic() - started})
+
+        rank_zero_data(rank, world, publish, group)
+    finally:
+        if world > 1:
+            dist.destroy_process_group()
 
 
 def main(argv=None):
@@ -673,7 +759,7 @@ def main(argv=None):
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"],
-                        help="DPO/IPR/SAD default to shared_history; SFT/STeCa/HAD retain per_turn.")
+                        help="DPO/IPR/SAD default to shared_history; SFT/SmartAD opt in; STeCa/HAD are per_turn only.")
     add_flex_kernel_options_argument(parser)
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
@@ -696,8 +782,10 @@ def main(argv=None):
     parser.add_argument("--max-length", type=int, default=32768)
     args = parser.parse_args(argv)
     args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr", "sad"} else "per_turn")
-    if args.objective not in {"dpo", "ipr", "sad"} and args.scoring != "per_turn":
-        parser.error("Only DPO/IPR/SAD objectives use shared_history scoring")
+    if args.objective not in {"dpo", "ipr", "sad", "sft", "smartad"} and args.scoring != "per_turn":
+        parser.error("Only DPO/IPR/SAD/SFT/SmartAD objectives use shared_history scoring")
+    if args.scoring == "shared_history" and args.packing != "turn":
+        parser.error("Shared-history scoring requires turn packing")
     if args.flex_kernel_options is not None and args.scoring != "shared_history":
         parser.error("Flex kernel options require shared_history scoring")
     flex_settings = flex_attention_settings(args.flex_kernel_options) if args.scoring == "shared_history" else None
@@ -842,7 +930,7 @@ def main(argv=None):
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": args.packing if args.objective in {"sft", "sad", "steca"} else "turn", "microbatch": 1,
                 "batch_unit": "trajectory" if args.objective in {"sft", "sad", "steca"} else "preference pair",
-                "microbatch_unit": ("trajectory" if args.objective == "sad" and args.scoring == "shared_history"
+                "microbatch_unit": ("trajectory" if args.objective in {"sad", "sft"} and args.scoring == "shared_history"
                     else args.packing if args.objective in {"sft", "sad", "steca"} else "preference pair"),
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else

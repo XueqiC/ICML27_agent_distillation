@@ -190,7 +190,7 @@ def test_sad_rank_padding_counts_compute_but_not_budget(tmp_path, monkeypatch):
         assert totals["per_turn"][key] == totals["shared_history"][key]
 
 
-@pytest.mark.parametrize("objective", ["sft", "steca"])
+@pytest.mark.parametrize("objective", ["steca"])
 def test_shared_history_remains_disabled_for_other_training_rows(tmp_path, objective):
     with pytest.raises(ValueError, match="turn-packed DPO/IPR/SAD"):
         train_loop(tiny_model(), sad_rows(), tmp_path, objective=objective, learning_rate=1e-5,

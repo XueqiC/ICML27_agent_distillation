@@ -8,6 +8,7 @@ The CLI requires exactly one visible GPU and local bf16 weights. CPU entry point
 exist solely for offline tiny-model tests; they cannot certify GPU acceptance.
 """
 import argparse
+from contextlib import nullcontext
 import gc
 import json
 import math
@@ -37,6 +38,7 @@ COMPARISONS = {"kernel_only": ("per_turn", "per_turn_flex"),
 def criteria():
     return {"acceptance_comparison": "packing_only",
             "side_sum_relative_difference_max": SIDE_RTOL,
+            "loss_relative_difference_max": SIDE_RTOL,
             "gradient_relative_l2_per_tensor_max": GRAD_RTOL,
             "require_all_finite": True, "require_all_selected_gradients": True,
             "relative_denominator": "abs(reference path) or L2(reference path); zero/zero=0, nonzero/zero fails",
@@ -126,7 +128,53 @@ def load_sad_rows(directory, config, tokenizer, count):
 
 
 def _sides(row):
-    return ("sad",) if "sad" in row else SIDES
+    return next(((name,) for name in ("sad", "sft", "smartad") if name in row), SIDES)
+
+
+def load_sft_rows(directory, config, tokenizer, count, objective):
+    """Training encoders over checked train receipts; no selection or updates.
+
+    SmartAD here tests Eq. 5 on a common verified collection; it does not claim
+    the collection has undergone SmartAD candidate selection.
+    """
+    from baselines.common.conversation import conversation
+    from baselines.smartad.data import encode_episode
+    from sed.manifest import load_frozen
+    from sed.seed_evidence import load_verified_collection, checked_episodes, artifact_hashes
+    manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+    collection, _, root = load_verified_collection(directory, manifest, freeze)
+    if not 0 < count <= len(collection["verified"]):
+        raise ValueError("Request positive N within verified collection; no silent undersampling")
+    episodes = list(checked_episodes(root, collection["verified"][:count]))
+    if objective not in {"sft", "smartad"}:
+        raise ValueError("Expected SFT or SmartAD objective")
+    rows = [(encode_episode(e, tokenizer, max_length=MAX_LENGTH) if objective == "smartad" else
+             conversation(e, tokenizer, source="trusted_teacher_seed", packing="turn", max_length=MAX_LENGTH))
+            for e in episodes]
+    return rows, {"method": objective, "directory": str(Path(directory).resolve()),
+        "available_rows": len(collection["verified"]), "selected_indices": list(range(count)),
+        "collection_sha256": digest(collection), "artifact_sha256": artifact_hashes(directory),
+        "encoded_rows_sha256": digest(rows), "packing": "turn", "max_length": MAX_LENGTH,
+        "selection": "first N verified receipts; diagnostic only, no candidate selection"}
+
+
+def _sft_loss(model, row, device, scoring, objective, denominator):
+    """One production microstep, or its packing-matched Flex kernel control."""
+    from baselines.common.fsdp_train import sft_objective, supervised_count
+    from baselines.smartad.data import objective as smartad_objective
+    import torch
+    if scoring != "per_turn_flex":
+        if objective == "sft":
+            loss, _ = sft_objective(model, row, device, scoring=scoring)
+            return loss * supervised_count(row) / denominator
+        loss, _ = smartad_objective(model, row, device, scoring=scoring)
+        return loss / denominator
+    if objective == "sft":
+        return -per_turn_flex_logps(model, row, device) / denominator
+    logps = per_turn_flex_logps(model, row, device, per_token=True)
+    weights = torch.tensor([w for turn in sequence_rows(row)
+                            for w, label in zip(turn["token_weights"], turn["labels"]) if label != -100], device=device)
+    return -(logps * weights).sum() / denominator
 
 
 def select_gradients(model):
@@ -272,10 +320,12 @@ def _gradients(model, pair, parameters, device, scoring):
     model.train()
     accumulated, objective = {}, 0.0
     with torch.enable_grad():
-        for side, sign in ((("sad", -1.0),) if "sad" in pair else (("chosen", 1.0), ("rejected", -1.0))):
+        sides = _sides(pair)
+        for side, sign in ([(sides[0], -1.0)] if len(sides) == 1 else [("chosen", 1.0), ("rejected", -1.0)]):
             units = [pair[side]] if scoring == "shared_history" else sequence_rows(pair[side])
             for unit in units:
-                value = _score(model, unit, device, scoring) * sign
+                value = (_sft_loss(model, unit, device, scoring, side, pair["denominator"])
+                         if side in {"sft", "smartad"} else _score(model, unit, device, scoring) * sign)
                 objective += float(value.detach())
                 value.backward()
                 for name, parameter in parameters.items():
@@ -328,6 +378,8 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
         (objective, snapshots[scoring]), grad_metrics = _measure(
             model, device, lambda: _gradients(model, pair, parameters, device, scoring))
         path.update(gradient_objective=objective)
+        if sides in (("sft",), ("smartad",)):
+            path["loss"] = objective
         path["measurements"]["forward_backward"] = grad_metrics
         expected = sum(record["forward_tokens_per_pass"][side][scoring] for side in sides)
         if any(m["forward_tokens"] != expected for m in (sum_metrics, turn_metrics, grad_metrics)):
@@ -338,7 +390,7 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
         comparison = record["comparisons"][name] = {"reference_path": reference, "actual_path": actual,
             "side_sums": {side: scalar_difference(old["side_sums"][side], new["side_sums"][side]) for side in sides},
             "turns": {}, "tokens": {}}
-        if sides == ("sad",):
+        if len(sides) == 1:
             comparison["loss_difference"] = scalar_difference(old["loss"], new["loss"])
         for side in sides:
             if len(old["turn_logps"][side]) != len(new["turn_logps"][side]):
@@ -359,6 +411,15 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
 def compare_sad(model, row, parameters, device, *, progress=None):
     return compare_pair(model, {"task_id": row["label_provenance"]["task_id"], "sad": row},
                         parameters, device, progress=progress)
+
+
+def compare_sft(model, row, parameters, device, *, objective, progress=None):
+    from baselines.common.fsdp_train import supervised_count
+    from baselines.smartad.data import weight_sum
+    denominator = (supervised_count(row) if objective == "sft" else
+                   sum(weight_sum(turn) for turn in sequence_rows(row)))
+    return compare_pair(model, {"task_id": row["label_provenance"]["task_id"], objective: row,
+                               "denominator": denominator}, parameters, device, progress=progress)
 
 
 def _pooled_token_difference(rows):
@@ -391,6 +452,8 @@ def _summarize_comparison(records):
         "max_turn_relative_difference": maximum(turns, "relative_difference"),
         "max_loss_absolute_difference": maximum(
             [r["loss_difference"] for r in records if "loss_difference" in r], "absolute_difference"),
+        "max_loss_relative_difference": maximum(
+            [r["loss_difference"] for r in records if "loss_difference" in r], "relative_difference"),
         "max_gradient_relative_l2": grad_rel,
         "max_side_relative_difference_by_side": {side: maximum(
             [r["side_sums"][side] for r in records], "relative_difference") for side in side_names},
@@ -407,10 +470,13 @@ def summarize(records):
     packing = comparisons["packing_only"]
     finite = all(c["all_finite_and_present"] for c in comparisons.values())
     side_rel, grad_rel = packing["max_side_relative_difference"], packing["max_gradient_relative_l2"]
+    loss_rel = packing["max_loss_relative_difference"]
+    loss_ok = not any("loss_difference" in r["comparisons"]["packing_only"] for r in records) or (
+        loss_rel is not None and loss_rel <= SIDE_RTOL)
     return {"acceptance_comparison": "packing_only", "all_finite_and_present": finite,
             "comparisons": comparisons,
             "passed": bool(finite and side_rel is not None and side_rel <= SIDE_RTOL
-                           and grad_rel is not None and grad_rel <= GRAD_RTOL)}
+                           and loss_ok and grad_rel is not None and grad_rel <= GRAD_RTOL)}
 
 
 def _json_safe(value):
@@ -441,11 +507,11 @@ def aggregate_measurements(records):
 
 
 def _print_pair(index, record):
-    unit = "row" if "sad" in record["forward_tokens_per_pass"] else "pair"
+    unit = "row" if len(record["forward_tokens_per_pass"]) == 1 else "pair"
     for name, comparison in record["comparisons"].items():
         print(f"{unit}={index} {name}: {comparison['reference_path']} vs {comparison['actual_path']}", flush=True)
         if "loss_difference" in comparison:
-            print(f"  SAD loss: {comparison['loss_difference']}", flush=True)
+            print(f"  loss: {comparison['loss_difference']}", flush=True)
         for side in comparison["side_sums"]:
             delta = comparison["side_sums"][side]
             tokens = comparison["tokens"][side]
@@ -466,14 +532,17 @@ def main(argv=None):
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--pairs", help="ETO/IPR pairs stage output directory (contains pairs.json)")
     source.add_argument("--sad-prepared", help="Prepared SAD run root, or its stages/prepare output directory")
+    source.add_argument("--verified", help="Verified collection for SFT/SmartAD numerical acceptance")
+    parser.add_argument("--objective", choices=["sft", "smartad"], default="sft",
+                        help="With --verified: score the production Kang LoRA objective, dropout disabled explicitly for exactness")
     parser.add_argument("--output", required=True, help="JSON report, also written on numerical/runtime failure")
     parser.add_argument("--num-pairs", "--num-rows", "-n", type=int, default=4)
     parser.add_argument("--snapshot", default=os.environ.get("MODEL_PATH"), help="Defaults to configs/hpg.env MODEL_PATH")
     parser.add_argument("--config", default="configs/base.yaml")
     add_flex_kernel_options_argument(parser)
     args = parser.parse_args(argv)
-    records_key = "rows" if args.sad_prepared else "pairs"
-    unit = "row" if args.sad_prepared else "pair"
+    records_key = "rows" if args.sad_prepared or args.verified else "pairs"
+    unit = "row" if records_key == "rows" else "pair"
     print(f"PASS requires packing-only (per_turn_flex vs shared_history) bf16 side-sum relative difference "
           f"<= {SIDE_RTOL:g}, every gradient tensor relative L2 <= {GRAD_RTOL:g}, and all paths' scores/gradients "
           f"finite and present (no NaN/Inf). Kernel-only differences and token MAE (HF/vLLM base tolerance "
@@ -483,16 +552,19 @@ def main(argv=None):
         "settings": {f"num_{records_key}": args.num_pairs, "max_length": MAX_LENGTH, "packing": "turn",
                      "dtype": "bfloat16", "gradient_accumulation_dtype": "float32", "seed": 0,
                      "gradient_checkpointing": "non-reentrant",
-                     "objective": "sad" if args.sad_prepared else "preference",
-                     "gradient_objective": "negative SAD span-token sum" if args.sad_prepared else "chosen sum - rejected sum",
+                     "objective": args.objective if args.verified else "sad" if args.sad_prepared else "preference",
+                     "gradient_objective": ("trajectory token mean" if args.objective == "sft" else "segment weighted token mean")
+                         if args.verified else "negative SAD span-token sum" if args.sad_prepared else "chosen sum - rejected sum",
+                     **({"adaptation": "kang_lora", "lora_dropout": 0.0,
+                         "dropout_scope": "deterministic numerical diagnostic; original training recipe uses 0.05"} if args.verified else {}),
                      "training_updates": 0, "teacher_calls": 0},
         "measurement_notes": "One model; gradients per example; timings include masks, cold compilation and CPU gradient "
             "snapshots, no warmup. Peaks include resident weights and fp32 gradient accumulation. "
             "Root forward tokens exclude decoder checkpoint recomputation. Per-turn/token diagnostics share a separate pass. "
             "CPU tests use dense SDPA mask oracles for both Flex layouts; only CUDA executes the matched Flex kernels.",
         records_key: [], "phase": "setup", "inputs": {
-            ("sad_prepared_directory" if args.sad_prepared else "pairs_directory"):
-                str(Path(args.sad_prepared or args.pairs).resolve()), "snapshot": args.snapshot,
+            ("verified_directory" if args.verified else "sad_prepared_directory" if args.sad_prepared else "pairs_directory"):
+                str(Path(args.verified or args.sad_prepared or args.pairs).resolve()), "snapshot": args.snapshot,
             "config": args.config, "output": args.output}}
     save_report(args.output, report)
     try:
@@ -530,10 +602,11 @@ def main(argv=None):
             "template_sha256": digest(tokenizer.chat_template)}
         report["phase"] = f"checked_{unit}_loading_and_encoding"
         save_report(args.output, report)
-        pairs, report["data"] = (load_sad_rows(args.sad_prepared, config, tokenizer, args.num_pairs)
+        pairs, report["data"] = (load_sft_rows(args.verified, config, tokenizer, args.num_pairs, args.objective)
+                                 if args.verified else load_sad_rows(args.sad_prepared, config, tokenizer, args.num_pairs)
                                  if args.sad_prepared else load_pairs(args.pairs, config, tokenizer, args.num_pairs))
         _, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-        task_ids = [p["label_provenance"]["task_id"] if args.sad_prepared else p["task_id"] for p in pairs]
+        task_ids = [p["label_provenance"]["task_id"] if records_key == "rows" else p["task_id"] for p in pairs]
         report["data"]["unique_instances"] = len(set(task_ids))
         report["data"]["task_groups"] = len({freeze["assignments"][t]["group_id"] for t in task_ids})
         report["phase"] = "load_real_student"
@@ -543,7 +616,12 @@ def main(argv=None):
         if any(p.device != torch.device("cuda:0") or p.dtype != torch.bfloat16 for p in model.parameters()):
             raise ValueError("All parameters must be bf16 on the single GPU")
         model.config.get_text_config().use_cache = False
-        parameters = select_gradients(model)
+        if args.verified:
+            from train.modeling import attach_lora
+            model = attach_lora(model, rank=64, alpha=128, dropout=0.0)
+            parameters = {name: p for name, p in model.named_parameters() if p.requires_grad}
+        else:
+            parameters = select_gradients(model)
         model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         report["gradient_parameters"] = {name: list(p.shape) for name, p in parameters.items()}
         report["model_config"] = model.config.to_dict()
@@ -554,8 +632,11 @@ def main(argv=None):
                 save_report(args.output, report)
 
             print(f"Comparing {unit} {index + 1}/{len(pairs)}", flush=True)
-            compare = compare_sad if args.sad_prepared else compare_pair
-            record = compare(model, pair, parameters, "cuda:0", progress=progress)
+            compare = compare_sft if args.verified else compare_sad if args.sad_prepared else compare_pair
+            # Production LoRA uses bf16 autocast with fp32 adapter masters.
+            with torch.autocast("cuda", dtype=torch.bfloat16) if args.verified else nullcontext():
+                record = compare(model, pair, parameters, "cuda:0", progress=progress,
+                                 **({"objective": args.objective} if args.verified else {}))
             report[records_key].append(record)
             report.pop(f"incomplete_{unit}", None)
             save_report(args.output, report)

@@ -218,14 +218,24 @@ def attention_masks(rows, config, device, *, backend):
     return positions, masks
 
 
-def validate_model(model):
-    """Fail closed on stochastic/sequence-dependent features that break sharing."""
+def dropout_equivalence(model):
+    """Sharing preserves expected gradients with dropout, exact math without it."""
     import torch
+    config = getattr(model, "config", None)
+    if hasattr(config, "get_text_config"):
+        config = config.get_text_config()
+    stochastic = getattr(config, "attention_dropout", 0) or any(
+        isinstance(module, torch.nn.Dropout) and module.p for module in model.modules())
+    return "expected_gradient" if stochastic else "exact"
+
+
+def validate_model(model):
+    """Reject unsupported attention/position features; allow LoRA-input dropout."""
     config = model.config.get_text_config()
     if config.model_type != "gemma4_unified_text" or getattr(config, "use_bidirectional_attention", None) == "all":
         raise ValueError("Shared history requires causal Gemma4 unified text attention")
-    if config.attention_dropout or any(isinstance(m, torch.nn.Dropout) and m.p for m in model.modules()):
-        raise ValueError("Exact shared history requires zero dropout")
+    if config.attention_dropout:
+        raise ValueError("Shared history requires zero dropout in attention (FlexAttention limitation)")
     # Length-dependent RoPE scaling may depend on the longest branch in a call.
     for params in (getattr(config, "rope_parameters", {}) or {}).values():
         if isinstance(params, dict) and params.get("rope_type", "default") not in {"default", "proportional"}:

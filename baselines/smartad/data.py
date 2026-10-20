@@ -78,12 +78,13 @@ def weight_sum(row):
     return total
 
 
-def microsteps(examples, indices):
+def microsteps(examples, indices, *, scoring="per_turn"):
     rows = [row for i in indices for row in sequence_rows(examples[i])]
     total = sum(weight_sum(row) for row in rows)
     # Shared train_loop divides by len(indices); cancel it here. Each row's
     # objective is a weighted SUM, so accumulated gradients equal Eq. 5.
-    return [(row, len(indices) / total) for row in rows]
+    units = [examples[i] for i in indices] if scoring == "shared_history" else rows
+    return [(row, len(indices) / total) for row in units]
 
 
 def weighted_ce(logits, labels, weights):
@@ -101,11 +102,19 @@ def weighted_ce(logits, labels, weights):
     return (losses * weights).sum() / denom
 
 
-def objective(model, row, device):
+def objective(model, row, device, *, scoring="per_turn"):
     import torch
     from baselines.common.fsdp_train import sequence_logps
-    weight_sum(row)
-    logps = sequence_logps(model, [row], device, per_token=True)[0]
-    weights = torch.tensor([w for w, label in zip(row["token_weights"], row["labels"])
+    from baselines.common.shared_history import shared_history_logps
+    turns = sequence_rows(row)
+    for turn in turns:
+        weight_sum(turn)
+    if scoring == "shared_history":
+        logps = shared_history_logps(model, [row], device, per_token=True)[0]
+    elif scoring == "per_turn":
+        logps = torch.cat([sequence_logps(model, [turn], device, per_token=True)[0] for turn in turns])
+    else:
+        raise ValueError("Scoring must be per_turn or shared_history")
+    weights = torch.tensor([w for turn in turns for w, label in zip(turn["token_weights"], turn["labels"])
                             if label != -100], device=device)
     return -(logps.reshape(-1) * weights).sum(), {}

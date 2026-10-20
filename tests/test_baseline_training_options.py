@@ -119,7 +119,7 @@ def test_kang_cli_seed_identity_provenance_and_strict_resume(tmp_path, monkeypat
         write_json(Path(args.output) / "result.json", {"seed": args.seed})
 
     monkeypatch.setattr(fsdp_train, "train_lora", fake_train)
-    monkeypatch.setattr(kang, "run_command", lambda command, log: fsdp_train.main(command[3:]))
+    monkeypatch.setattr(kang, "run_command", lambda command, log: fsdp_train.main(command[command.index("--config"):]))
     cli = ["--config", str(config_path), "--snapshot", str(snapshot), "--verified", str(verified)]
     kang.main([*cli, "--output", str(output)])
     kang.main([*cli, "--output", str(output), "--training-seed", "0"])

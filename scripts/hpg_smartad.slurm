@@ -35,10 +35,17 @@ if [[ "$SMARTAD_THROUGH" == collect ]]; then
         --verified "$VERIFIED" --output "$SMARTAD_OUT" --through collect \
         --rate-limit-dir "${SMARTAD_RATE_LIMIT_DIR:-data/smartad_rate_limit}" "${subset_args[@]}"
 fi
-[[ "${SLURM_GPUS_ON_NODE:-0}" == 1 ]] || { echo 'SmartAD select/train/evaluate require exactly one GPU' >&2; exit 2; }
+NGPUS=${NGPUS:-1}
+case "$NGPUS" in 1|2|4|8) ;; *) echo 'NGPUS must be 1/2/4/8' >&2; exit 2 ;; esac
+if [[ "$SMARTAD_THROUGH" == train ]]; then
+    [[ "${SLURM_GPUS_ON_NODE:-0}" == "$NGPUS" ]] || { echo 'Training allocation must match NGPUS' >&2; exit 2; }
+else
+    [[ "${SLURM_GPUS_ON_NODE:-0}" == 1 ]] || { echo 'SmartAD select/evaluate require exactly one GPU' >&2; exit 2; }
+fi
 python_bin=$ENV_PYTHON
 if [[ "$SMARTAD_THROUGH" == select ]]; then python_bin=$TRAIN_PYTHON; fi
 exec "$python_bin" -m baselines.smartad.pipeline --config "${CONFIG:-configs/base.yaml}" \
+    --gpus "$NGPUS" --scoring "${SMARTAD_SCORING:-per_turn}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SMARTAD_OUT" --through "$SMARTAD_THROUGH" \
     --mode "${SMARTAD_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
     --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" "${path_args[@]}"

@@ -215,7 +215,8 @@ def test_training_recipe_and_launchers():
     args = SimpleNamespace(config="base.yaml", snapshot="base", verified="selected",
                            train_python="python")
     command = training_command(args, "out")
-    flags = dict(zip(command[3::2], command[4::2]))
+    start = command.index("--config")
+    flags = dict(zip(command[start::2], command[start + 1::2]))
     assert flags["--objective"] == "smartad" and flags["--original-batch"] == "4"
     assert flags["--epochs"] == "2" and flags["--packing"] == "turn"
     assert flags["--adaptation"] == "kang_lora" and flags["--learning-rate"] == "2e-4"
