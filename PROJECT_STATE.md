@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:4x CDT 10-20: serving fix verified + rolled out (plan v9, keeper restarted pid 1593872)
+- Fix 5554db8 (main; merged from wt/kveqlora, Codex; 501 CPU tests pass) cherry-picked: 2348ce9->8960e0a, 70ed412->3b82db4,
+  071c72f->0411901, deployed to hpg ICML27_runs/ (configs identical to base trees). Real-adapter CPU check: k_eq_v layers
+  [5,11,...,47], 96 v_proj tensors, validate OK. GPU pilot adftp-k50s0-eval 46842484 (8960e0a): gate PASS, adapter_err
+  0.346 -> 0.026 (base noise 0.037), mean logp HF -0.591 / vLLM -0.588.
+- Keeper: stage-level "tree" (commit 304f1df); eval stages of adftp/sadsh/smartad on the fix trees, training keeps its tree
+  (SAD/SmartAD train re-derive code-hashed identity; evaluate_models does not). Other eval stages gated on
+  gates/lora_kveq_fixed (low-prio trees have no fix yet). max_gpus 20 (pending 4-GPU SAD trains counted).
+- Pre-fix AD-FTP evals moved to $BL/<cell>/training/_superseded_prefix_kveq/ and re-queued: k5s0 65/70, k10s0 37/43,
+  k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
+- Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
+- Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+
 ### 06:5x CDT 10-20: vLLM Gemma-4 LoRA serving bug found; all evals gated
 - adftp K20/K50/K100 s0 evals FAILED the LoRA gate (adapter_err 0.082/0.346/... vs tol ~0.056, growing with K). Root cause verified in source:
   Gemma-4 k_eq_v full-attention layers (8/48, no v_proj) -> HF V = k_proj(x) incl. LoRA delta; vLLM 0.27.1 loads base K into the
