@@ -106,6 +106,24 @@ def sad(k, s):
               mode=("SAD_MODE", "evaluate"))]}
 
 
+ADFTP_SRC = f"{B}/reports/adftp-collections"   # FTP collections, collected on rai (T4 code), rsynced here
+
+
+def adftp(k, s):
+    """AD-FTP training + evaluation on T4 from the K100 FTP collection of support seed s (K5-K50 nested views).
+    Waits for gates/adftp_k100_s{s}_synced (created after the rai collection is complete and rsynced).
+    Sizes from sacct of Kang cells (same LoRA recipe): train 5-28 min at 32-96G, SAG/greedy eval ~15 min at 48G."""
+    cell = f"adftp-k{k}s{s}"
+    src = f"{ADFTP_SRC}/k100_s{s}/collection" + ("" if k == 100 else f"/subsets/k{k}")
+    e = f"ADFTP_OUT={BL}/{cell},VERIFIED={src},WORKERS=16,BATCH_INVARIANT=1"
+    gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/adftp_k100_s{s}_synced"}
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    return {"cell": cell, "tree": T4, "stages": [
+        stage(f"{cell}-train", "scripts/hpg_adftp.slurm", one, "02:00:00", 1, f"{e},ADFTP_THROUGH=train", gate),
+        stage(f"{cell}-eval", "scripts/hpg_adftp.slurm", one, "03:00:00", 1,
+              f"{e},ADFTP_THROUGH=train,ADFTP_MODE=evaluate")]}
+
+
 def sad_k20s0():
     e = f"SAD_OUT={BL}/sad-k20s0,NGPUS=4"
     return {"cell": "sad-k20s0", "tree": T2, "stages": [
@@ -200,7 +218,8 @@ def main():
     # AD/Kang (K grid already complete), AD-FTP (collection running on rai; training cells added when the FTP
     # collections land), SAD (15 cells here), SmartAD (to implement). Everything else is on hold until tomorrow;
     # running jobs of held cells are still tracked.
-    cells = [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
+    cells = [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    cells += [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
     held = [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
     held += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
     held += [preference("eto", 20, 0), preference("ipr", 20, 0)]
@@ -211,7 +230,7 @@ def main():
     for c in held:
         c["hold"] = True
     cells += held
-    plan = {"limits": {"max_jobs": 8, "max_gpus": 12, "max_group_gpus": 4}, "cells": cells}
+    plan = {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
