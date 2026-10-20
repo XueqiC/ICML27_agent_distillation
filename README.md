@@ -334,6 +334,11 @@ and tensor payload bytes, shapes, dtypes, and offsets must remain identical.
 The HF reference always uses the original adapter; converted serving still
 requires the same equivalence gate.
 
+Before naming conversion, unmerged adapters automatically receive the
+[Gemma-4 k_eq_v serving-equivalence fix](docs/LORA_SERVING_K_EQ_V.md).
+It copies K LoRA tensors into missing V slots under the server output directory,
+with recomputed derivation hashes bound to the unchanged original HF adapter.
+
 See [Stage 2e validation](reports/stage2e_validation.md) for CPU evidence and
 the GPU checks still required on each host.
 

@@ -12,7 +12,8 @@ import math
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from harness.lora_adapters import adapter_identity, inspect_adapter, parse_adapters
+from harness.lora_adapters import (adapter_identity, inspect_adapter, parse_adapters,
+                                   validate_served_adapter)
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.provenance import write_provenance
@@ -201,13 +202,14 @@ def source_identity(args, config, adapter):
             "scoring": "teacher reply plus native turn closure, natural-log probabilities"}
 
 
-def check_server(server, endpoint, model_name, adapter):
+def check_server(server, endpoint, model_name, adapter, *, snapshot=None):
     info = server["config"]["server"]
     if info.get("endpoint") != endpoint.rstrip("/") or info.get("merged_model"):
         raise ValueError("Endpoint differs from unmerged server provenance")
     matches = [a for a in info.get("lora_adapters", []) if a["name"] == model_name]
     if len(matches) != 1 or adapter_identity(matches[0]) != adapter_identity(adapter):
         raise ValueError("Requested adapter differs from server provenance")
+    validate_served_adapter(matches[0], snapshot or info.get("model_path"))
     return info["served_model_name"]
 
 
@@ -303,7 +305,7 @@ def main(argv=None):
         if args.hf_only:
             return 0
         server = json.loads(Path(args.server_provenance).read_text())
-        base_name = check_server(server, args.endpoint, args.model_name, adapter)
+        base_name = check_server(server, args.endpoint, args.model_name, adapter, snapshot=args.snapshot)
         import httpx
         with httpx.Client(timeout=180, trust_env=False) as client:
             report = compare_prompts(cases, client, args.endpoint, args.model_name, base_name)

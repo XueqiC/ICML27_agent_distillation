@@ -9,6 +9,7 @@ from sed.config import load_config
 from sed.dev_subset import build_dev40
 from sed.manifest import build_manifest, freeze_splits, frozen_write, load_frozen
 from sed.storage import digest, write_json
+from test_lora_serving import adapter_bank
 
 
 def test_dev40_determinism_and_frozen_artifact(tmp_path):
@@ -130,7 +131,8 @@ def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path)
 
 @pytest.mark.parametrize("adapter", [False, True])
 @pytest.mark.parametrize("batch_invariant", [None, False, True])
-def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, monkeypatch, adapter, batch_invariant):
+def test_process_suite_with_fake_server_and_environment(
+        data_root, tmp_path, monkeypatch, adapter, batch_invariant, adapter_bank):
     path, manifest, freeze = fixture_list(data_root, tmp_path)
     config = load_config()
     config["environment"]["data_root"] = str(data_root)
@@ -148,11 +150,10 @@ def test_process_suite_with_fake_server_and_environment(data_root, tmp_path, mon
         server["config"]["server"]["batch_invariant"] = batch_invariant
     config["server_provenance"] = server
     if adapter:
-        from harness.lora_adapters import adapter_identity
+        from harness.lora_adapters import adapter_identity, inspect_adapter
         from tools.check_lora_serving import summarize_prompts
-        record = {"name": "sft", "base_model": student["requested_repo"], "revision": student["revision"],
-                  "adapter_config_sha256": "c", "adapter_weights_sha256": "w",
-                  "training_state_sha256": "s", "training_provenance_sha256": "p"}
+        adapter_path, snapshot, _ = adapter_bank
+        record = inspect_adapter("sft", adapter_path, student, snapshot)
         server["config"]["server"].update(lora_adapters=[record],
                    endpoint=spec["endpoint"], served_model_name=student["requested_repo"])
         spec["model"] = "sft"

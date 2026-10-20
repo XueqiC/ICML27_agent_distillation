@@ -24,7 +24,11 @@ def adapter_bank(tmp_path):
     student = load_config()["models"]["student"]
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
-    write_json(snapshot / "config.json", {"model_type": "gemma4_unified"})
+    write_json(snapshot / "config.json", {"model_type": "gemma4_unified", "text_config": {
+        "num_hidden_layers": 1, "attention_k_eq_v": False, "layer_types": ["full_attention"]}})
+    write_json(snapshot / "model.safetensors.index.json", {"weight_map": {
+        f"model.language_model.layers.0.self_attn.{p}_proj.weight": "model.safetensors"
+        for p in ("k", "v")}})
     adapter = tmp_path / "train" / "checkpoint"
     adapter.mkdir(parents=True)
     module = "model.language_model.layers.0.self_attn.q_proj"

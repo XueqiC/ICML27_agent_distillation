@@ -14,7 +14,8 @@ from urllib.request import build_opener, ProxyHandler
 from sed.config import load_config
 from sed.provenance import write_provenance
 from sed.storage import file_hash, write_json
-from harness.lora_adapters import parse_adapters, inspect_adapter, convert_adapter
+from harness.lora_adapters import (parse_adapters, inspect_adapter, convert_adapter,
+                                   derive_gemma4_value_lora)
 
 
 def job_port(job_id):
@@ -183,8 +184,12 @@ def main(argv=None):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", args.port))
     model = Path(args.merged_model_path or args.model_path).expanduser().resolve()
-    output = Path(args.output)
+    output = Path(args.output).resolve()
+    if any(output.is_relative_to(Path(a["path"])) for a in adapters):
+        raise ValueError("Server output must be outside training checkpoint directories")
     output.mkdir(parents=True, exist_ok=False)
+    adapters = [derive_gemma4_value_lora(a, model, output / "derived_adapters" / a["name"])
+                for a in adapters]
     if args.lora_conversion != "none":
         adapters = [convert_adapter(a, output / "adapters" / a["name"], args.lora_conversion)
                     for a in adapters]
