@@ -385,9 +385,10 @@ def main():
     # User 10-20 15:42 CDT: new main grid K in {30,100,300,500,1000,2000,all} x seed 0 from the full-TRAIN collection,
     # trained to convergence. The K5-K100 x 3-seed grid is kept only where nearly finished: hold the remaining SAD
     # cells (sadsh-k5s0 runs on as the first end-to-end SAD check), the Seed-SFT re-evaluation and low priority.
+    # User 10-20 15:46 CDT: "之前跑的不对的任务停下来" -> every cell of the old K5-K100 grid is held (its trainings use
+    # the papers' fixed epochs and are not converged); running jobs were cancelled.
     for c in cells:
-        if (c["cell"].startswith("sadsh-") and c["cell"] != "sadsh-k5s0") or c["cell"].startswith("seedsftfix-"):
-            c["hold"] = True
+        c["hold"] = True
     # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
     # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
     plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 0,
