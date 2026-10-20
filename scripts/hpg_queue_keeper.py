@@ -10,7 +10,8 @@ ends in any other state blocks its cell until a human looks at it.
 Files (all under --dir, re-read every loop so cells and limits can be edited while it runs):
   plan.json   {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4},
                "cells": [{"cell": ..., "tree": sha, "stages": [stage, ...]}, ...]}   (list order = priority)
-     stage   {"name", "script", "res", "time", "gpus", "exports", optional "gate": {"pid_gone": N} | {"file": path}}
+     stage   {"name", "script", "res", "time", "gpus", "exports", optional "gate": {"pid_gone": N} | {"file": path},
+              optional "tree" (overrides the cell's tree for this stage)}
      cell "hold": true keeps a cell out of submission (its queued job, if any, is still tracked)
   state.json  {cell: {"done": [stage names], "active": {"name", "id"} | null, "blocked": reason | null}}
   PAUSE       if present, nothing is submitted (tracking continues)
@@ -88,9 +89,11 @@ def gate_open(gate):
 
 
 def submit(cell, stage, account):
-    tree = f"{RUNS}/{cell['tree']}"
+    # A stage may pin its own run tree (e.g. evaluation on a serving-fix tree while training keeps its tree).
+    tree_id = stage.get("tree", cell["tree"])
+    tree = f"{RUNS}/{tree_id}"
     exports = f"ALL,PROJECT_ROOT={tree}" + (f",{stage['exports']}" if stage.get("exports") else "")
-    cmd = (f"cd {shlex.quote(tree)} && [ \"$(cat GIT_COMMIT)\" = {shlex.quote(cell['tree'])} ] && "
+    cmd = (f"cd {shlex.quote(tree)} && [ \"$(cat GIT_COMMIT)\" = {shlex.quote(tree_id)} ] && "
            f"sbatch --parsable {account} {stage['res']} --time={stage['time']} --job-name={stage['name']} "
            f"--output=logs/slurm-{stage['name']}-%j.out --export={shlex.quote(exports)} {stage['script']}")
     out = ssh(cmd).strip()

@@ -17,6 +17,23 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:5x CDT 10-20: vLLM Gemma-4 LoRA serving bug found; all evals gated
+- adftp K20/K50/K100 s0 evals FAILED the LoRA gate (adapter_err 0.082/0.346/... vs tol ~0.056, growing with K). Root cause verified in source:
+  Gemma-4 k_eq_v full-attention layers (8/48, no v_proj) -> HF V = k_proj(x) incl. LoRA delta; vLLM 0.27.1 loads base K into the
+  qkv V slot and applies k_proj LoRA to the K slice only. Served model != trained model. Kang adapters had the same bias (<=0.026, passed).
+- Fix (engineering, serving equivalence): derive serving adapter with v_proj LoRA = bitwise copy of k_proj LoRA on those layers; HF reference unchanged.
+  Codex: worktree ../ICML27_wt_kveqlora (branch wt/kveqlora from 018332f), log logs/codex_20261020_074906.log, bg task bakizaydg.
+  Then: cherry-pick onto 2348ce9 (adftp), 70ed412 (sadsh), 071c72f (smartad) -> new trees; pilot = re-run adftp-k50s0-eval; open gates/lora_kveq_fixed;
+  switch cells' "tree" to fixed trees (AD-FTP evaluate mode does not call prepare(); check SAD/SmartAD evaluate paths before switching).
+- Keeper plan v7: every not-yet-submitted eval stage gated on logs/queue/gates/lora_kveq_fixed (86 stages; plan.v6.json = before).
+  Reset adftp-k20s0/k50s0/k100s0/k5s2/k50s1 (eval pending at gate). Cancelled our adftp-k5s2-eval 46836116 and adftp-k50s1-eval 46838916.
+  Registered orphan adftp-k100s2-train 46838924 (sbatch went through during a keeper SSH_FAIL).
+- Pre-fix AD-FTP dev140 (superseded): K5s0 greedy 65 / SAG 70; K10s0 37 / 43 (base 62). k10s1/k20s1 evals also pre-fix -> re-eval
+  (move old eval-* stage dirs aside first: stage key does not include serving rule, stage_run would reuse them). Kang evals: re-eval for fairness.
+- AD-FTP FTP defect (pending user decision): 18/21/18 of 100 first-turn replies contain >1 Thought/Action (no prefill; parser executes last).
+  Proposed: reject such first replies like prefix mismatch, re-collect, retrain 15 AD-FTP cells.
+- AD-FTP trains done 11/15 (k100s1, k100s2 46838924, k20s2, k50s2 running). sadsh-k20s0-train 46826441 pending (QOSGrpGRES).
+
 - **05:1x CDT 10-20: AD-FTP collections done; SAD on T5; SmartAD collecting.**
   - **AD-FTP**: all three K100 collections are complete. They were synced to hpg ($B/reports/adftp-collections/k100_s{0,1,2}) and verified by file count, file bytes and a sha256 manifest; all gates are open.
     - adftp-k5s0-train 46811950 COMPLETED in 5 min: K=5, 5 tasks from collection/subsets/k5, 10 examples / 4,494 supervised tokens, LoRA checkpoint written.

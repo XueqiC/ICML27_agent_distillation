@@ -20,6 +20,11 @@ T3 = "b1149a7"   # 10-19 evening: + 429 retry, fail-loud teacher transport, WKM 
 T4 = "2348ce9"   # + upstream-faithful baseline teacher transport (600 s, 3 HTTP attempts) + shared-history DPO/IPR
 T5 = "70ed412"   # + shared-history SAD (default), truncated-output semantics, SmartAD
 T6 = "071c72f"   # + sharded SmartAD candidate collection (SmartAD pools are collected on rai with this tree)
+# 10-20: vLLM served Gemma-4 k_eq_v layers without the k_proj LoRA delta on V (served model != trained model).
+# Serving fix 5554db8 cherry-picked onto each tree; evaluation stages run on these, training keeps its tree
+# (SAD/SmartAD training re-derive code-hashed identities, evaluation does not).
+EVAL_FIX = {"2348ce9": "8960e0a", "70ed412": "3b82db4", "071c72f": "0411901"}
+LORA_GATE = {"file": "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/lora_kveq_fixed"}
 EMB = ("/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--sentence-transformers--all-MiniLM-L6-v2/"
        "snapshots/1110a243fdf4706b3f48f1d95db1a4f5529b4d41")
 NB = f"{B}/reports/new_baselines"  # AgentDistill/CoA outputs must live outside reports/runs
@@ -264,7 +269,16 @@ def main():
     for c in held:
         c["lowprio"] = True
     cells += held
-    plan = {"limits": {"max_jobs": 10, "max_gpus": 16, "max_group_gpus": 6, "max_lowprio_jobs": 3,
+    # Eval stages of trees with a serving fix use it; all other eval stages wait until their tree has one.
+    for c in cells:
+        for st in c["stages"]:
+            if "eval" in st["name"] and not st.get("gate"):
+                if c["tree"] in EVAL_FIX and not c.get("lowprio"):
+                    st["tree"] = EVAL_FIX[c["tree"]]
+                else:
+                    st["gate"] = LORA_GATE
+    # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while 4-GPU SAD trains wait on the dept QOS.
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 3,
                        "max_lowprio_gpus": 8}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
