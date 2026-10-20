@@ -17,6 +17,22 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **22:1x CDT 10-19: T4 = 2348ce9 deployed; keeper plan v3 (43 cells / 349 stages).**
+  - T4 contents:
+    - main b1149a7, plus wt/transport bd5873c (baseline teacher transport per upstream / SDK: 600 s, 3 HTTP attempts, separate 429 retries, LEAP 3 tries; seed collection stays 60 s; docs/baselines/TRANSPORT_POLICY.md);
+    - plus wt/dpopack (shared-history; conflicts with SAD/STeCa/HAD resolved by keeping both sides; shared_history only for dpo/ipr).
+  - CPU suite on 2348ce9: 1,807 passed, 1 failed (theory venv missing, environmental).
+  - Pre-submit check passed: all VERIFIED inputs exist, no T4 output dirs exist, all scripts present.
+  - Old LEAP dirs (60 s timeout) moved to $B/_trash/leap_60s_timeout_1019/ (14 dirs; leap-privileged-k20s0-init kept).
+  - Plan v3 order:
+    1. SAD (T2), WKM (T3), AgentGym ×4 (T1)
+    2. ETO k20s0, IPR k20s0 (T4; widen the grid after a first DPO stage works)
+    3. STeCa, GAD k20s0
+    4. LEAP zero/privileged ×15 K cells
+    5. AgentDistill, CoA k20s0
+  - Teacher stages gated on logs/queue/gates/teacher_ok (create after the top-up).
+  - Not yet in the plan: full cells (wait for the collection), HAD (needs a co-scheduled pair stage in the keeper), and the rest of the ETO/IPR/SAD/WKM/STeCa/GAD grids.
+  - Budget estimate docs/direction/2026-10-19_teacher_token_budget_ZH.md: about 27× the 14:10–17:55 collection usage, roughly 8B input tokens.
 - **21:0x–21:2x CDT 10-19: OPENAI CREDITS EXHAUSTED at ~17:55 CDT** (last success 22:55:53Z).
   - Probe: HTTP 429 `insufficient_quota` / `credit_balance_exhausted` ("You have no credits remaining").
   - Every teacher call since then failed, on rai and hpg. The 19:4x "429 contention" diagnosis was incomplete: before 17:55 there was real contention; after 17:55 it was the credits.
