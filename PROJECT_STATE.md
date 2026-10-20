@@ -29,6 +29,9 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 12:14 CDT: SmartAD dev140 (greedy, eval on 0411901 with k_eq_v fix; base 62) 5/15: K5 s0 53, s1 59; K10 s0 63, s1 56;
+  K20 s0 82. Gates pass (0.005-0.027), 0 error/overflow/parser. Running: k100s0/k50s1/k100s1/k10s2 train, k20s1/k50s0 eval;
+  k5s2 eval pending. SAD 4-GPU trains still pending (QOSGrpGRES, dept).
 - 11:14 CDT: Kang re-eval COMPLETE 15/15 (SAG, post-fix; pre-fix in parens), s0 s1 s2: K5 56(57) 94(98) 67(68);
   K10 75(80) 69(71) 88(85); K20 77(63) 76(75) 97(110); K50 94(90) 94(89) 104(104); K100 62(67) 94(102) 106(108).
   Means K5 72.3, K10 77.3, K20 83.3, K50 97.3, K100 87.3 (base 62). Gates pass (mean adapter_err 0.009-0.018), 0 error/overflow.
