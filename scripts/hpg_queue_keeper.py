@@ -127,6 +127,12 @@ def step(dir_, dry):
     gpus = sum(j[3] for j in jobs)
     group_gpus = sum(j[3] for j in jobs if j[4].startswith("yd24f"))
     paused = (dir_ / "PAUSE").exists()
+    # Low-priority cells may only use a bounded share, so core cells always find room when they become ready.
+    lowprio = {c["cell"] for c in plan["cells"] if c.get("lowprio")}
+    live_jobs = {j[0]: j for j in jobs}
+    low_jobs = sum(1 for c, v in state.items() if c in lowprio and v.get("active") and v["active"]["id"] in live_jobs)
+    low_gpus = sum(live_jobs[v["active"]["id"]][3] for c, v in state.items()
+                   if c in lowprio and v.get("active") and v["active"]["id"] in live_jobs)
     for cell in plan["cells"]:
         st = state.setdefault(cell["cell"], {"done": [], "active": None, "blocked": None})
         if st["active"] or st["blocked"] or cell.get("hold"):
@@ -143,6 +149,10 @@ def step(dir_, dry):
         g = int(stage["gpus"])
         if total + 1 > limits["max_jobs"] or gpus + g > limits["max_gpus"]:
             continue  # a smaller later stage may still fit
+        is_low = cell.get("lowprio", False)
+        if is_low and (low_jobs + 1 > limits.get("max_lowprio_jobs", 0)
+                       or low_gpus + g > limits.get("max_lowprio_gpus", 0)):
+            continue
         # CPU stages and GPU stages that fit the group allowance go to the group account (memory headroom on the
         # dept QOS is usually the binding limit); everything else to the department.
         if stage.get("account") == "dept":
@@ -152,12 +162,16 @@ def step(dir_, dry):
         else:
             account = DEPT
         if dry:
-            print(f"would submit {cell['cell']} {stage['name']} gpus={g} {account.split()[0]}")
+            print(f"would submit {cell['cell']} {stage['name']} gpus={g} {account.split()[0]}{' (low)' if is_low else ''}")
             total += 1; gpus += g
+            if is_low:
+                low_jobs += 1; low_gpus += g
             continue
         jid = submit(cell, stage, account)
         st["active"] = {"name": stage["name"], "id": jid, "submitted": now()}
         total += 1; gpus += g
+        if is_low:
+            low_jobs += 1; low_gpus += g
         if account == GROUP:
             group_gpus += g
         log(dir_, f"SUBMIT {cell['cell']} {stage['name']} {jid} gpus={g} {account.split()[0][10:]} total={total} gpus_total={gpus}")

@@ -226,21 +226,26 @@ def main():
     for c in sad_cells[1:]:
         c["hold"] = True
     cells += sad_cells
-    held = [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
-    held += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
-    held += [preference("eto", 20, 0), preference("ipr", 20, 0)]
-    held += [c for c in new_methods_k20s0() if c["cell"] in ("steca-k20s0", "gad-k20s0")]
+    # Low-priority order: stages that fit the dept QOS leftovers first (dept is memory-bound, ~80G free):
+    # CPU teacher stages and 1-GPU/32-48G stages (WKM, LEAP, AgentDistill/CoA collection), then 4-GPU/160-256G work.
+    held = [c for c in new_methods_k20s0() if c["cell"] in ("wkm-k20s0", "agentdistill-k20s0", "coa-k20s0",
+                                                             "coa-k20s0-teval")]
     held += [leap(v, 20, 0, "c0", tree=T4) for v in ("zero", "privileged")]
     held += [leap(v, k, s, "c0", tree=T4) for v in ("zero", "privileged") for k, s in K_CELLS if (k, s) != (20, 0)]
-    held += [c for c in new_methods_k20s0() if c["cell"] in ("agentdistill-k20s0", "coa-k20s0", "coa-k20s0-teval")]
+    held += [c for c in new_methods_k20s0() if c["cell"] in ("steca-k20s0", "gad-k20s0")]
+    held += [preference("eto", 20, 0), preference("ipr", 20, 0)]
+    held += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
+    # User 10-20 00:40 CDT: parallelize as far as the rules allow -> the other baselines run as low priority in at
+    # most 4 jobs / 8 GPUs, leaving room for the core cells as they become ready.
     for c in held:
-        c["hold"] = True
+        c["lowprio"] = True
     cells += held
-    plan = {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4}, "cells": cells}
+    plan = {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4, "max_lowprio_jobs": 4,
+                       "max_lowprio_gpus": 8}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
-    print(f"{len(cells)} cells ({len(held)} held), {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
+    print(f"{len(cells)} cells ({len(held)} low priority), {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
 
 
 if __name__ == "__main__":
