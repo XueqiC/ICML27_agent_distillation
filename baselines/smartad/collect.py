@@ -65,6 +65,14 @@ def reuse_check(source_root, receipt, config, sampling):
 
 def candidate(config, task, directory, identity, rate_limit_dir, sampling_root, *,
               teacher_factory, env_factory):
+    # Shard-count changes and overlapping resumptions still share slot ownership.
+    with locked(directory / ".slot.lock"):
+        return _candidate(config, task, directory, identity, rate_limit_dir, sampling_root,
+                          teacher_factory=teacher_factory, env_factory=env_factory)
+
+
+def _candidate(config, task, directory, identity, rate_limit_dir, sampling_root, *,
+               teacher_factory, env_factory):
     directory.mkdir(parents=True, exist_ok=True)
     record_path = directory / "candidate.json"
     if record_path.exists():
@@ -116,9 +124,151 @@ def validate_h0(config):
         raise ValueError("SmartAD requires H0: 40 turns, thinking off, 1024 output tokens")
 
 
-@teacher_stage("output", name="smartad.collect")
+def validate_shard(shard_index, shard_count):
+    if type(shard_count) is not int or shard_count < 1:
+        raise ValueError("Positive shard count required")
+    if type(shard_index) is not int or not 0 <= shard_index < shard_count:
+        raise ValueError("Shard index must be in [0, shard_count)")
+
+
+def checked_candidate(record):
+    directory = Path(record["episode_dir"])
+    if (artifact_hashes(directory) != record["episode_hashes"]
+            or artifact_hashes(directory.parent / "teacher") != record["teacher_hashes"]):
+        raise ValueError("SmartAD candidate evidence changed")
+    return record
+
+
+def finish_task(config, task, original, source_root, work, identity, output,
+                rate_limit_dir, *, teacher_factory, env_factory, owns_first):
+    """Resolve the dependent first slot once, after all nine fresh slots settle.
+
+    Any shard may decide reuse or publish final receipts. Only the assigned
+    shard can execute candidate 1 if needed. The task lock covers the durable
+    decision; the slot lock also guards execution across different partitions.
+    No pool-wide lock is held while a teacher/environment is running.
+    """
+    with locked(work / ".task.lock"):
+        if (work / "outcome.json").exists():
+            outcome = read(work / "outcome.json")
+            if outcome["source_receipt"] != original:
+                raise ValueError("SmartAD source receipt changed")
+            return outcome
+        paths = [work / f"candidate-{i:02d}/candidate.json" for i in range(2, CANDIDATES + 1)]
+        if not all(path.exists() for path in paths):
+            return None
+        candidates = [checked_candidate(read(path)) for path in paths]
+        decision_path = work / "reuse.json"
+        if decision_path.exists():
+            decision = read(decision_path)
+            if decision["source_receipt"] != original:
+                raise ValueError("SmartAD source receipt changed")
+        else:
+            sampling = effective_sampling(output)
+            reuse, reason = reuse_check(source_root, original, config, sampling)
+            decision = {"source_receipt": original, "reuse": reuse, "reuse_reason": reason,
+                        "effective_sampling": sampling}
+            frozen_write(decision_path, decision)
+        first_dir = work / "candidate-01"
+        if decision["reuse"]:
+            with locked(first_dir / ".slot.lock"):
+                first = {"candidate_id": "candidate-01", "task_id": task["task_id"], "reused": True,
+                    "correct": True, "environment_win": True, "rejection": None,
+                    "episode_dir": str((source_root / original["episode_dir"]).resolve()),
+                    "episode_hashes": original["episode_hashes"], "teacher_hashes": original["teacher_hashes"],
+                    "parent_seed_ids": task["parent_seed_ids"], "api_attempts": 0}
+                frozen_write(first_dir / "candidate.json", first)
+        else:
+            if not owns_first:
+                if not (first_dir / "candidate.json").exists():
+                    return None
+                first = checked_candidate(read(first_dir / "candidate.json"))
+            else:
+                first = candidate(config, task, first_dir, identity, rate_limit_dir, output,
+                                  teacher_factory=teacher_factory, env_factory=env_factory)
+        outcome = {"task_id": task["task_id"], **decision, "candidates": [first, *candidates]}
+        frozen_write(work / "outcome.json", outcome)
+        return outcome
+
+
+def publish(output, identity, source):
+    """Only immutable, final slots may enter the pool consumed by selection/views."""
+    with locked(output / ".pipeline.lock"):
+        paths = [output / "work" / digest(r["task_id"])[:20] / "outcome.json"
+                 for r in source["verified"]]
+        if not all(path.exists() for path in paths):
+            result = {"status": "collecting", "pool": str(output),
+                      "final_tasks": sum(path.exists() for path in paths), "tasks": len(paths)}
+        else:
+            # A completed pool is never rewritten by late/resumed shards.
+            if (output / "candidates.json").exists():
+                pool = read(output / "candidates.json")
+                if (pool["identity_sha256"] != digest(identity)
+                        or pool["work_hashes"] != artifact_hashes(output / "work")):
+                    raise ValueError("SmartAD pool identity/evidence changed")
+            else:
+                outcomes = [read(path) for path in paths]
+                for original, outcome in zip(source["verified"], outcomes):
+                    if (outcome["source_receipt"] != original
+                            or len(outcome["candidates"]) != CANDIDATES):
+                        raise ValueError("SmartAD task is not final")
+                    for row in outcome["candidates"]:
+                        checked_candidate(row)
+                fallback = output / "sampling_fallback.json"
+                pool = {"schema_version": 1, "status": "complete", "identity_sha256": digest(identity),
+                    "K": source["K"], "K_counts": "trusted_executed_trajectories",
+                    "unique_instances": len(paths), "task_groups": source["task_groups"],
+                    "tasks": outcomes, "work_hashes": artifact_hashes(output / "work"),
+                    "sampling_fallback": read(fallback) if fallback.exists() else None,
+                    "api_attempts": sum(c["api_attempts"] for o in outcomes for c in o["candidates"]),
+                    "new_task_instances": 0, "training_exposure": 0}
+                frozen_write(output / "candidates.json", pool)
+            result = {"status": "complete", "pool": str(output), "api_attempts": pool["api_attempts"],
+                      "reused_trusted": sum(o["reuse"] for o in pool["tasks"])}
+        write_json(output / "result.json", result)
+        return result
+
+
+@teacher_stage("report_output", name="smartad.collect")
+def collect_shard(source, manifest, freeze, config, output, identity, parents, source_root, *,
+                  shard_index, shard_count, report_output, rate_limit_dir, teacher_factory, env_factory):
+    tasks = []
+    for original in source["verified"]:
+        task = resolve_task(manifest, freeze, original["task_id"])
+        task["parent_seed_ids"] = parents[task["task_id"]]
+        tasks.append((task, original, output / "work" / digest(task["task_id"])[:20]))
+    identity_sha = digest(identity)
+
+    def finish(task_index):
+        task, original, work = tasks[task_index]
+        return finish_task(config, task, original, source_root, work, identity_sha, output,
+            rate_limit_dir, teacher_factory=teacher_factory, env_factory=env_factory,
+            owns_first=(task_index * CANDIDATES + CANDIDATES - 1) % shard_count == shard_index)
+
+    # Deterministic flattened order: (task 0, 2..10, 1), (task 1, 2..10, 1), ...
+    # Even one task can occupy nine workers. Slot 1 waits for the nine receipts;
+    # defer it if they are not ready, without keeping idle/missing shards alive.
+    for slot in range(shard_index, len(tasks) * CANDIDATES, shard_count):
+        task_index, offset = divmod(slot, CANDIDATES)
+        task, original, work = tasks[task_index]
+        if offset < CANDIDATES - 1:
+            candidate(config, task, work / f"candidate-{offset + 2:02d}", identity_sha,
+                      rate_limit_dir, output, teacher_factory=teacher_factory, env_factory=env_factory)
+        finish(task_index)
+    # Also recover a crash after the last candidate receipt but before the task
+    # outcome/pool was published. Empty shards and changed shard counts can help.
+    for task_index in range(len(tasks)):
+        finish(task_index)
+    result = publish(output, identity, source)
+    write_json(report_output / "result.json",
+               {**result, "shard_index": shard_index, "shard_count": shard_count})
+    return result
+
+
 def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
-            env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=()):
+            env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=(),
+            shard_index=0, shard_count=1, resume=True):
+    validate_shard(shard_index, shard_count)
     output = Path(output).resolve()
     source, selection, source_root = load_verified_collection(verified, manifest, freeze)
     if not source["verified"]:
@@ -145,57 +295,19 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         "subset_ks": sorted(set(subset_ks)), "rate_limit_dir": str(Path(rate_limit_dir).resolve())}
     env_factory = env_factory or (lambda task: _environment(config, task))
     with locked(output / ".pipeline.lock"):
+        if not resume and (output / "identity.json").exists():
+            raise ValueError("Collection exists; use --resume with the same frozen identity")
         frozen_write(output / "identity.json", identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_collect", config=config,
                 inputs=input_paths, details=identity)
-        outcomes = []
-        for original in source["verified"]:
-            task = resolve_task(manifest, freeze, original["task_id"])
-            task["parent_seed_ids"] = parents[task["task_id"]]
-            work = output / "work" / digest(task["task_id"])[:20]
-            if (work / "outcome.json").exists():
-                outcome = read(work / "outcome.json")
-                if outcome["source_receipt"] != original:
-                    raise ValueError("SmartAD source receipt changed")
-                for row in outcome["candidates"]:
-                    directory = Path(row["episode_dir"])
-                    if (artifact_hashes(directory) != row["episode_hashes"]
-                            or artifact_hashes(directory.parent / "teacher") != row["teacher_hashes"]):
-                        raise ValueError("SmartAD candidate evidence changed")
-                outcomes.append(outcome)
-                continue
-            # Nine always-needed samples first. A temperature rejection during
-            # these calls can establish that a provider-default seed is reusable.
-            candidates = [candidate(config, task, work / f"candidate-{i:02d}", digest(identity),
-                rate_limit_dir, output, teacher_factory=teacher_factory, env_factory=env_factory)
-                for i in range(2, CANDIDATES + 1)]
-            reuse, reason = reuse_check(source_root, original, config, effective_sampling(output))
-            if reuse:
-                first = {"candidate_id": "candidate-01", "task_id": task["task_id"], "reused": True,
-                    "correct": True, "environment_win": True, "rejection": None,
-                    "episode_dir": str((source_root / original["episode_dir"]).resolve()),
-                    "episode_hashes": original["episode_hashes"], "teacher_hashes": original["teacher_hashes"],
-                    "parent_seed_ids": task["parent_seed_ids"], "api_attempts": 0}
-            else:
-                first = candidate(config, task, work / "candidate-01", digest(identity),
-                    rate_limit_dir, output, teacher_factory=teacher_factory, env_factory=env_factory)
-            outcome = {"task_id": task["task_id"], "source_receipt": original,
-                "reuse": reuse, "reuse_reason": reason, "effective_sampling": effective_sampling(output),
-                "candidates": [first, *candidates]}
-            frozen_write(work / "outcome.json", outcome)
-            outcomes.append(outcome)
-        fallback = output / "sampling_fallback.json"
-        pool = {"schema_version": 1, "status": "complete", "identity_sha256": digest(identity),
-            "K": source["K"], "K_counts": "trusted_executed_trajectories",
-            "unique_instances": len(ids), "task_groups": source["task_groups"],
-            "tasks": outcomes, "work_hashes": artifact_hashes(output / "work"),
-            "sampling_fallback": read(fallback) if fallback.exists() else None,
-            "api_attempts": sum(c["api_attempts"] for o in outcomes for c in o["candidates"]),
-            "new_task_instances": 0, "training_exposure": 0}
-        frozen_write(output / "candidates.json", pool)
-        write_json(output / "result.json", {"status": "complete", "pool": str(output),
-            "api_attempts": pool["api_attempts"], "reused_trusted": sum(o["reuse"] for o in outcomes)})
+    # Reports are worker-local: teacher_stage must never race to overwrite the
+    # shared result or describe a partially collected pool as complete.
+    report_output = output / "shards" / f"{shard_count}-{shard_index}"
+    with locked(report_output / ".shard.lock"):
+        collect_shard(source, manifest, freeze, config, output, identity, parents, source_root,
+            shard_index=shard_index, shard_count=shard_count, report_output=report_output,
+            rate_limit_dir=rate_limit_dir, teacher_factory=teacher_factory, env_factory=env_factory)
     return output
 
 

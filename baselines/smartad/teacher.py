@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from sed.manifest import frozen_write
-from sed.storage import digest
+from sed.storage import digest, locked
 from teachers.capped import CappedTeacher
 from teachers.openai_teacher import TeacherCallError, rate_limit_options
 
@@ -55,10 +55,14 @@ class SmartADTeacher(CappedTeacher):
                     and last.get("sampling") == REQUESTED_SAMPLING)
         if explicit:
             decision = self.sampling_root / "sampling_fallback.json"
-            if not decision.exists():
-                frozen_write(decision, {"mode": "provider_default", "parameter": "temperature",
-                    "reason": "explicit_unsupported_parameter", "ledger": str(ledger.resolve()),
-                    "call_id": last["call_id"], "failure_sha256": digest(last)})
+            # Several in-flight shard requests may reject temperature together.
+            # Bind the first durable rejection; every other receipt is retained
+            # in its own ledger without racing to replace the shared decision.
+            with locked(self.sampling_root / ".sampling.lock"):
+                if not decision.exists():
+                    frozen_write(decision, {"mode": "provider_default", "parameter": "temperature",
+                        "reason": "explicit_unsupported_parameter", "ledger": str(ledger.resolve()),
+                        "call_id": last["call_id"], "failure_sha256": digest(last)})
             if self._read_counter()["halted"]:
                 from teachers.recover import recover
                 recover(self.counter_path, reason="transport_fixed")
@@ -66,6 +70,7 @@ class SmartADTeacher(CappedTeacher):
         return explicit
 
     def generate(self, history, task, visible_context):
+        self.teacher.sampling = effective_sampling(self.sampling_root)
         try:
             result = super().generate(history, task, visible_context)
         except TeacherCallError:
