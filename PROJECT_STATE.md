@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **02:0x CDT 10-20: overnight status.**
+  - **AD-FTP collections** (T4): all three halted once each between 00:18 and 01:0x on IncompleteTeacherResponse. Reasoning used up the 1,024-token step cap and output_text was empty; about 1 per 1,900 calls.
+    - The fail-loud code treats this as transport; Codex fix wt/truncated (../ICML27_wt_truncated) will treat it as a truncated model output.
+    - scratchpad/adftp_autorecover.sh (nohup pid 4038570, log logs/adftp_autorecover.log) resumes a cell ONLY when every halted counter is a pure max_output_tokens truncation, via teachers.recover --reason interruption_reviewed. The attempt re-executes fresh.
+    - Progress: s0 86/100, s1 72/100, s2 18/100. sync_adftp.sh is relaunched under nohup (pid 4040651, log logs/adftp_sync.log).
+  - **Full-TRAIN r2**: 32 shards (launcher pid 3587096, worktree ../ICML27_run_4aad41d). 06:13Z → 07:0xZ: K 1,406 → 1,479, attempted 1,631 → 1,707, logical calls 69,138 / 160k, reserved 333M / 700M.
+  - **SAD**: per-turn sad-k20s0 runs as reference (group, 4 GPU). Codex wt/sadpack (shared-history SAD) is running; the rest of the SAD grid is held.
+  - **SmartAD**: Codex wt/smartad running.
+  - **Plan v5**: other baselines at low priority, ≤4 jobs / 8 GPUs (WKM, AgentDistill and CoA collections running).
 - **23:4x–00:1x CDT 10-19/20: CREDITS TOPPED UP (user 23:44; probe HTTP 200). USER PRIORITY: core agent-distillation methods all-night.**
   - Scope: AD/Kang, AD-FTP, SAD, SmartAD, each over K5–K100 × s0–s2. Other baselines wait until tomorrow. The user also asked to combine the APIs and avoid any duplicate teacher use.
   - **Teacher gate open** (logs/queue/gates/teacher_ok).
