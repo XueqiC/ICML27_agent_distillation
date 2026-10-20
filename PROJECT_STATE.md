@@ -29,6 +29,9 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 10:14 CDT: AD-FTP grid done (14/15; K100s0 diverged). SAG s0/s1/s2: K5 69/46/58, K10 37/55/47, K20 5/60/38, K50 13/93/93,
+  K100 div/99/99. Kang re-eval (SAG, post-fix; pre-fix in parens) 11/15: K5 56(57) 94(98) 67(68); K10 75(80) 69(71) -;
+  K20 77(63) 76(75) -; K50 94(90) 94(89) -; K100 62(67) 94(102) - (s0 s1 s2). grid_check regex now includes smartadsel|kangfix.
 - 09:14 CDT: AD-FTP post-fix grid (greedy/SAG): K5 62/69 58/46 61/58; K10 31/37 60/55 46/-; K20 4/5 57/60 35/-;
   K50 5/- 90/93 86/-; K100 div 89/99 95/- (s0 s1 s2). Seed 0 collapses with K (inadmissible-loop policy, mid-run loss rises);
   root cause open (FTP multi-Action first turns only weakly associated with gradient spikes). Pending user: FTP fix + retrain?
