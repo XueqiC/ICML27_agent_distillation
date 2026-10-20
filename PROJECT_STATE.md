@@ -29,6 +29,19 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 14:29 CDT user: "把SAD先修好，AD-FTP和SmartAD都尽可能要到15/15"; 14:30 "Kang K50->K100 drop is odd, recheck".
+  SAD: budget 655M logical positions/cell for every K (K20: 4,600 updates, b'=2); shared-history/per-turn physical
+  ratio 13.6 (K20 s0). rank_slots gives one trajectory per rank, idle ranks run zero-weight duplicates -> K5/K10 (b'=1)
+  and K20 (b'=2) waste 2-3 of 4 GPUs. All 15 cells -> 2 GPUs (same math; K50/K100 3/6 rounds per update, equal
+  GPU-hours). sadsh-k20s0-train 46826441 (4 GPU, started 14:34) OOM-killed 2 min in: every rank loads fp32 model on CPU
+  (~50G x ranks); 144G was sized from post-load MaxRSS 95G (wrong). 2-GPU trains 160G, walltime K<=10 20 h, K>=20 12 h
+  (tighten after the first measured rate). Old prep-only dirs + the OOM attempt -> $BL/_superseded/sadsh-g4-prep-1020.
+  Low-prio limits 2 jobs / 4 GPUs. k5s0/s1/s2 trains 46893249/46893270/46893296 pending (dept, Priority).
+  AD-FTP K100 s0: diverged attempt -> training/_superseded_diverged_1020, identical retrain 46892289 (keeper).
+  Kang K100 s0 recheck: train curve normal (loss 0.25 end; gnorm spike 572 at update 25, lr 1.5e-5), seed data has no
+  loops (inadmissible ~2%, no repeats, s0 K50 vs extra 50 alike), but eval 19.7% inadmissible (others ~2%), 20/140
+  episodes with >=10 identical actions in a row; family drop heat 4/16, two 3/24. Replications (plan cells kangchk-*):
+  same checkpoint SAG re-eval 46892763; identical retrain on def44a9 (176/176 code hashes match identity) 46892764.
 - 14:14 CDT: SmartAD K50s2 = 45/140 greedy (gate 0.012, 0 error/overflow) -> 12/15: K5 53 59 53; K10 63 56 63; K20 82 73 59;
   K50 88 67 45. K50s2 train curve normal (loss 0.59->0.26, gnorm max 174 like s0/s1), but 26.3% inadmissible actions vs
   4.5%/3.7% (s0/s1), 79% of them repeat the previous action (open/close/move loops); worse in every task family.

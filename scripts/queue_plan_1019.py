@@ -104,15 +104,28 @@ G1 = "--partition=hpg-b200 --gpus=1 --cpus-per-task=4 --mem=48G"
 def sad(k, s):
     """SAD cell on T5: one-hot KL = CE on the trusted seeds, shared-history packing (same 655M logical positions).
     GPU acceptance 10-20 (sad_shared_history_gpu_r2.json): packing-only differences are at the kernel-swap bf16 level.
-    Train memory from sstat of the T4 per-turn run (MaxRSS 95G on 4 GPUs) -> 144G; per-turn needed ~31 h, shared
-    history processes each history once, so 16 h is a generous limit."""
+    10-20 15:xx: 2 GPUs instead of 4. Shared-history SAD runs one trajectory per rank slot and pads idle ranks with
+    zero-weight duplicates (schedule.rank_slots), so with b' = min(64, max(1, N // 8)) = 1 (K5, K10) or 2 (K20) a
+    4-GPU job had 2-3 padded ranks: 2 GPUs give the same global batch, the same per-update wall time and the same
+    gradients (padded slots contribute exact zeros). K50/K100 (b' = 6/12) take 3/6 instead of 2/3 rounds per update at
+    equal GPU-hours. 2 is the minimum: full-parameter fp32 masters + AdamW state (~192G) need 2 B200 shards. The
+    4-GPU requests sat in Priority/QOSGrpGRES for 10 h. Walltime from the per-turn reference (95.3M physical tokens in
+    4.5 h on 4 GPUs) and the K20 s0 shared/per-turn physical ratio 13.6: ~9 h for one active rank (K5/K10), ~4.5 h
+    for two (K20-K100); limits 20 h / 12 h until the first cell's measured rate. gpus is part of identity.json, so the
+    4-GPU prep-only outputs moved to _superseded/sadsh-g4-prep-1020 and prep reruns (30-45 s CPU)."""
     cell = f"sadsh-k{k}s{s}"
-    e = f"SAD_OUT={BL}/{cell},NGPUS=4"
+    # Host memory: every rank loads the full float32 model on CPU before sharding (~50G each), so the load peak is
+    # ~50G x ranks. 144G (from a post-load sstat MaxRSS of 95G) OOM-killed sadsh-k20s0-train 46826441 on 4 GPUs at 87%
+    # of weight loading; the T4 per-turn run survived with 256G. 2 ranks -> 160G (same as the 2-GPU DPO jobs).
+    n = 2
+    e = f"SAD_OUT={BL}/{cell},NGPUS={n}"
     C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
-    G4S = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=144G"
+    G2S = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem=160G"
     return {"cell": cell, "tree": T5, "stages": [
         multi(f"{cell}-prep", C4, "02:00:00", 0, "scripts/hpg_sad.slurm", "SAD_THROUGH", "prepare", e, k=k, s=s),
-        multi(f"{cell}-train", G4S, "16:00:00", 4, "scripts/hpg_sad.slurm", "SAD_THROUGH", "train", e, k=k, s=s),
+        multi(f"{cell}-train", G2S, "20:00:00" if k <= 10 else "12:00:00", n,
+              "scripts/hpg_sad.slurm", "SAD_THROUGH",
+              "train", e, k=k, s=s),
         multi(f"{cell}-eval", G1, "10:00:00", 1, "scripts/hpg_sad.slurm", "SAD_THROUGH", "all", e, k=k, s=s,
               mode=("SAD_MODE", "evaluate"))]}
 
@@ -271,6 +284,33 @@ def kangfix(k, s):
                                                          "03:00:00", 1, e)]}
 
 
+
+def kangchk(k, s, tree_train):
+    """User 10-20 14:30 CDT: Kang K50 -> K100 drop must be rechecked. The drop is K100 s0 alone (94 -> 62; s1 94 -> 94,
+    s2 104 -> 106): normal training curve, teacher data without loops, but 19.7% inadmissible actions at evaluation.
+    Two replications separate evaluation noise from training-run variance: (1) the same checkpoint re-evaluated
+    (SAG, new OUT); (2) an identical retrain on the tree whose code hashes match the cell's identity (def44a9, 176/176
+    files), into a new output tree, then the same SAG evaluation."""
+    v = f"{B}/data/verified/seeds_k{k}_s{s}"
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"
+    tasks = f"/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{EVAL_FIX[T4]}/data/manifest/dev140.json"
+    def ev(name, model, adapter, out):
+        return stage(name, "scripts/hpg_eval_adapters.slurm", one, "03:00:00", 1,
+                     f"ADAPTERS={model}={adapter},TASKS={tasks},DECODING=sag,INCLUDE_BASE=0,OUT={out},VERIFIED={v},"
+                     f"WORKERS=16,BATCH_INVARIANT=1")
+    old = f"kang-k{k}s{s}-tp"
+    re_eval = {"cell": f"kangchk-k{k}s{s}-reeval", "tree": EVAL_FIX[T4], "stages": [
+        ev(f"kangchk-k{k}s{s}-reeval-eval", old, f"{BL}/{old}/stages/train-sft/attempt-000/output/checkpoint",
+           f"{B}/reports/runs/eval/baselines/{old}-sag-kveq-r2")]}
+    new = f"kang-k{k}s{s}-tp-r2"
+    train = stage(f"kangchk-k{k}s{s}-retrain-train", "scripts/hpg_kang.slurm", one, "02:00:00", 1,
+                  f"KANG_OUT={BL}/{new},VERIFIED={v},KANG_MODE=train,WORKERS=16,BATCH_INVARIANT=1")
+    evs = ev(f"kangchk-k{k}s{s}-retrain-eval", new, f"{BL}/{new}/stages/train-sft/attempt-000/output/checkpoint",
+             f"{B}/reports/runs/eval/baselines/{new}-sag-kveq")
+    evs["tree"] = EVAL_FIX[T4]
+    retrain = {"cell": f"kangchk-k{k}s{s}-retrain", "tree": tree_train, "stages": [train, evs]}
+    return [re_eval, retrain]
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -284,6 +324,7 @@ def main():
     cells += [sad(20, 0)] + [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     # 10-20 08:4x CDT: Kang evals re-run with the k_eq_v serving fix (pre-fix served V without the k_proj LoRA delta).
     cells += [kangfix(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    cells += kangchk(100, 0, "def44a9")
     # SAD: T4 per-turn scoring needed ~31 h per cell (sad-k20s0 reached the 1/8 checkpoint in 3.9 h; cancelled
     # 10-20 04:49 CDT after 1/8, its updates.jsonl is the per-turn reference curve). All 15 cells run on T5 with
     # shared-history packing (sadsh-*), k20s0 first (top of the plan) so its curve can be compared with the per-turn reference.
@@ -307,14 +348,16 @@ def main():
     # Eval stages of trees with a serving fix use it; all other eval stages wait until their tree has one.
     for c in cells:
         for st in c["stages"]:
-            if "eval" in st["name"] and not st.get("gate") and c["tree"] not in EVAL_FIX.values():
+            if ("eval" in st["name"] and not st.get("gate") and c["tree"] not in EVAL_FIX.values()
+                    and st.get("tree") not in EVAL_FIX.values()):
                 if c["tree"] in EVAL_FIX and not c.get("lowprio"):
                     st["tree"] = EVAL_FIX[c["tree"]]
                 else:
                     st["gate"] = LORA_GATE
-    # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while 4-GPU SAD trains wait on the dept QOS.
-    plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 3,
-                       "max_lowprio_gpus": 8}, "cells": cells}
+    # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
+    # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 2,
+                       "max_lowprio_gpus": 4}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
