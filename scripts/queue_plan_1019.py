@@ -337,6 +337,43 @@ def seedsftfix(k, s):
     return {"cell": cell, "tree": tree, "stages": [stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", one,
                                                          "03:00:00", 1, e)]}
 
+
+# ---- 10-20 new main grid: nested stratified views of the full-TRAIN collection, seed 0, converged training ----
+CHAIN_TREE = "d7ad7fe"   # main: views (stratified_nested_v2) + convergence overrides + chain collections + k_eq_v fix
+CHAIN_GATE = {"file": "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/chain_views_on_hpg"}
+GATES = "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates"
+
+
+def chain_view(k):
+    return f"{B}/data/verified/seeds_full_train_r2/subsets/k{k}"
+
+
+def sadc(k, mult):
+    """SAD on the chain view K with budget x mult (rungs x0.5 and x1 = paper first; x2 only if not converged).
+    b' = min(64, N // 8) = 3 / 12 / 37 / 62 for K30/100/300/500: K>=300 fill 4 GPUs without padding (half the wall
+    time at equal GPU-hours); K30/K100 stay on 2. Host memory: each rank loads the fp32 model on CPU (~50G):
+    160G for 2 ranks, 256G for 4 (the per-turn 4-GPU run's working value). Walltime from sadsh-k5s0 (14.4M logical
+    positions in ~6 min on 2 B200, i.e. ~4.5-5 h per 655M on 2 GPUs). Evaluation of a rung is gated: only the reported
+    (first converged) rung is evaluated."""
+    tag = {0.5: "05", 1: "1", 2: "2", 4: "4"}[mult]
+    cell = f"sadc-k{k}-b{tag}"
+    n = 4 if k >= 300 else 2
+    hours = 5.0 * mult * (2 / n) * 1.6 + 0.5
+    hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
+    base = (f"WRAPPER=scripts/hpg_sad.slurm,STAGE_VAR=SAD_THROUGH,VERIFIED={chain_view(k)},SED_SECRETS_FILE={SECRETS},"
+            f"WORKERS=16,BATCH_INVARIANT=1,SAD_OUT={BL}/{cell},NGPUS={n},SAD_BUDGET_MULT={mult}")
+    C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
+    GT = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={256 if n == 4 else 160}G"
+    return {"cell": cell, "tree": CHAIN_TREE, "stages": [
+        stage(f"{cell}-prep", "scripts/hpg_multi_stage.slurm", C4, "02:00:00", 0, f"{base},STAGES=prepare", CHAIN_GATE),
+        stage(f"{cell}-train", "scripts/hpg_multi_stage.slurm", GT, hh, n, f"{base},STAGES=train"),
+        stage(f"{cell}-eval", "scripts/hpg_multi_stage.slurm", G1, "10:00:00", 1,
+              f"{base},STAGES=all,MODE_VAR=SAD_MODE,MODE=evaluate", {"file": f"{GATES}/eval_{cell}"})]}
+
+
+def chain_cells():
+    return [sadc(k, m) for k in (500, 300, 100, 30) for m in (1, 0.5)]
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -389,6 +426,7 @@ def main():
     # the papers' fixed epochs and are not converged); running jobs were cancelled.
     for c in cells:
         c["hold"] = True
+    cells = chain_cells() + cells
     # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
     # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
     plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 0,
