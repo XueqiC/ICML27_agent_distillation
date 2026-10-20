@@ -93,11 +93,13 @@ Stop at the first verified successful run, otherwise reserve at most three runs
 per task. Each run makes at most 40 manager calls and at most one creator call
 per manager call. Interrupted reservations consume a run and are never reset or
 treated as restored state. Complete run receipts are reused; unknown interrupted
-runs cannot supply tools. There are no automatic transport retries or fallback
-teacher/student substitutions.
+runs cannot supply tools. Rate-limit HTTP 429s retry up to 20 attempts within
+one logical-call slot, retaining every token reservation and usage-ledger row.
+Quota/billing/credit 429s and other transport failures halt immediately. There
+are no fallback teacher/student substitutions.
 
 Every call goes through one `teachers.capped.CappedTeacher` counter and usage
-ledger per cell. With N support instances, the conservative hard transport cap
+ledger per cell. With N support instances, the conservative hard logical-call cap
 is `3 * 40 * (2 + 1 + 1) * N + 1 = 480*N + 1`: manager/creator calls,
 one abstraction and at most one consolidation per possible tool, and one global
 clustering call. Logical role counters additionally bound each category, and

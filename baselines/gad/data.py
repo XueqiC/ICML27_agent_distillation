@@ -59,7 +59,9 @@ def collect(exploration, verified, output, config, *, cell, identity, round_inde
         inputs=[Path(exploration) / "receipts.json", Path(verified) / "manifest.json"],
         details={"round": round_index, "identity_sha256": digest(identity), "exploration": str(exploration),
             "verified": str(Path(verified).resolve()), "states_sha256": digest(states),
-            "sampling": teacher.teacher.sampling, "teacher_cap": cap, "max_attempts": 1,
+            "sampling": teacher.teacher.sampling, "teacher_cap": cap,
+            "max_attempts": teacher.teacher.max_attempts,
+            "retry_rate_limits_only": teacher.teacher.retry_rate_limits_only,
             "verification": "unknown: teacher replies are not executed success labels"})
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     rows, ledger = [], JsonlLedger(output / "queries.jsonl")

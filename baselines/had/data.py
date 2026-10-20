@@ -102,7 +102,9 @@ def collect(exploration, verified, output, config, *, cell, identity, round_inde
             cap=RECIPE["teacher_cap"], teacher_class=DrawTeacher,
             sampling={**config["models"]["teacher"]["sampling"], "temperature": 1.0})
     effective = {**config, "had_teacher": {"sampling": teacher.teacher.sampling,
-        "max_attempts": 1, "cap": RECIPE["teacher_cap"], "counter_path": str(teacher.counter_path)}}
+        "max_attempts": teacher.teacher.max_attempts,
+        "retry_rate_limits_only": teacher.teacher.retry_rate_limits_only,
+        "cap": RECIPE["teacher_cap"], "counter_path": str(teacher.counter_path)}}
     provenance = write_provenance(output, command="had_teacher", config=effective,
         inputs=[Path(exploration) / "receipts.json", Path(verified) / "manifest.json"],
         details={"round": round_index, "identity_sha256": digest(identity), "exploration": str(exploration),

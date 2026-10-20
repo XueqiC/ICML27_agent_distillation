@@ -182,20 +182,25 @@ The training job must separately record all later exposures.
 ## Attempt caps, cache and dry runs
 
 `teachers.capped.CappedTeacher` is a library, used by both collector CLIs. It
-wraps `Teacher` with one attempt, SDK retries disabled, the existing cache and
+wraps `Teacher` with rate-limit-only retries, SDK retries disabled, the existing cache and
 usage ledger. Shared state hashes depend only on task identity and allowed
 visible context/history. The existing cache additionally binds teacher alias,
 prompt/version, and sampling settings, so R1 and R2 share identical corrections
 without colliding with rewrite prompts.
 
-Each actual transport invocation reserves one durable counter slot before
-calling the transport. Failures and unknown billing consume slots conservatively.
-The counter is reconciled with unique started requests in the ledger; deleting
+Each logical call reserves one durable counter slot before calling the transport.
+Rate-limit HTTP 429s retry up to 20 total attempts in that slot, honoring
+`Retry-After` or full-jitter exponential backoff (base 5 seconds, cap 300 seconds).
+Each attempt is logged and reserves tokens without refunds, including against
+any configured shared input-token cap. Other failures and unknown billing
+consume slots conservatively. The counter is reconciled with unique started
+logical calls in the ledger (legacy requests each count as one call); deleting
 it cannot recover spent budget. A lock serializes a collector run, including
 concurrent workers; the existing cache lock deduplicates across runs. Use one
-stable counter file, ledger and run ID for each collector. An interrupted request
-or HTTP status other than **200** halts that run; no automatic retry or empty
-training label is returned. Errors remain sanitized. Raw responses and known
+stable counter file, ledger and run ID for each collector. Quota/billing/credit
+429s halt immediately. An interrupted request, exhausted 429 retries, or any
+other transport failure or HTTP status other than **200** halts that run; no
+empty training label is returned. Errors remain sanitized. Raw responses and known
 input/output/reasoning-token usage are recorded by the original teacher.
 
 Each generation re-reads the settled ledger before the next request. Cache hits

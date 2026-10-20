@@ -90,7 +90,7 @@ def _rate_limit_headers(response):
     return counters
 
 
-def _seconds(value, now, *, reset=False):
+def _seconds(value, now, *, reset=False, invalid=0.0):
     """Parse only rate-limit timing values; never retain raw HTTP headers."""
     try:
         value = str(value).strip()
@@ -102,30 +102,50 @@ def _seconds(value, now, *, reset=False):
             if reset:
                 parts = re.findall(r"(\d+(?:\.\d+)?)(ms|s|m|h|d)", value)
                 if not parts or "".join(n + u for n, u in parts) != value:
-                    return 0.0
+                    return invalid
                 seconds = sum(float(n) * {"ms": .001, "s": 1, "m": 60,
                                          "h": 3600, "d": 86400}[u] for n, u in parts)
             else:
                 date = parsedate_to_datetime(value)
                 seconds = date.replace(tzinfo=date.tzinfo or timezone.utc).timestamp() - now
-        return max(0.0, seconds) if math.isfinite(seconds) else 0.0
+        return max(0.0, seconds) if math.isfinite(seconds) else invalid
     except (ValueError, TypeError, OverflowError):
-        return 0.0
+        return invalid
+
+
+def _headers(exc):
+    headers = getattr(getattr(exc, "response", None), "headers", None)
+    if headers is None:
+        headers = _field(exc, "headers", {})
+    return {str(k).lower(): v for k, v in (headers or {}).items()}
 
 
 def _provider_wait(exc, now):
-    headers = getattr(getattr(exc, "response", None), "headers", None)
-    if headers is None:
-        headers = getattr(exc, "headers", {})
-    headers = {str(k).lower(): v for k, v in (headers or {}).items()}
+    headers = _headers(exc)
     waits = [_seconds(headers.get("retry-after", ""), now)]
     waits.extend(_seconds(v, now, reset=True) for k, v in headers.items()
                  if k.startswith("x-ratelimit-reset-"))
     return max(waits)
 
 
+def _is_rate_limit_429(exc):
+    """Inspect quota markers in memory only; never persist provider error text."""
+    if getattr(exc, "status_code", None) != 429:
+        return False
+    body = getattr(exc, "body", None)
+    error = body.get("error", body) if isinstance(body, dict) else body
+    values = [getattr(exc, "code", None), getattr(exc, "type", None)]
+    if isinstance(error, dict):
+        values.extend(error.get(key) for key in ("code", "type", "message"))
+    elif isinstance(error, str):
+        values.append(error)
+    # Quota/billing markers take precedence even over rate_limit_exceeded.
+    return not any(marker in value.lower() for value in values if isinstance(value, str)
+                   for marker in ("insufficient_quota", "insufficient quota", "billing", "credit"))
+
+
 def rate_limit_options(spec, directory):
-    """One explicit run directory, shared by suite workers and collection attempts."""
+    """Run defaults; RateLimiter applies the optional cluster directory override."""
     settings = spec.get("rate_limit", {})
     if set(settings) - {"requests_per_minute", "tokens_per_minute"}:
         raise ValueError("Unsupported teacher rate-limit settings")
@@ -139,7 +159,7 @@ class Teacher:
                  secrets_file=None, client=None, sleep=time.sleep,
                  purpose="generation", clock=time.time, jitter=random.uniform,
                  rate_limit_dir=None, requests_per_minute=450, tokens_per_minute=180_000,
-                 reservation_budget=None):
+                 reservation_budget=None, retry_rate_limits_only=False):
         if provider_model_id != "gpt-6-luna":
             raise ValueError("Model substitution requires a new explicit provenance policy")
         self.provider_model_id = provider_model_id
@@ -150,11 +170,15 @@ class Teacher:
         self.sampling.setdefault("max_output_tokens", 512)
         if type(self.sampling["max_output_tokens"]) is not int or self.sampling["max_output_tokens"] <= 0:
             raise ValueError("max_output_tokens must be a positive integer")
-        if type(max_attempts) is not int or not 1 <= max_attempts <= 10:
-            raise ValueError("max_attempts must be between 1 and 10")
+        if type(retry_rate_limits_only) is not bool:
+            raise ValueError("retry_rate_limits_only must be an explicit boolean")
+        attempt_limit = 20 if retry_rate_limits_only else 10
+        if type(max_attempts) is not int or not 1 <= max_attempts <= attempt_limit:
+            raise ValueError(f"max_attempts must be between 1 and {attempt_limit}")
         if timeout_seconds <= 0:
             raise ValueError("Timeout must be positive")
         self.max_attempts, self.timeout_seconds = max_attempts, timeout_seconds
+        self.retry_rate_limits_only = retry_rate_limits_only
         self.reservation_budget = reservation_budget
         self.cache_dir = Path(cache_dir)
         self.ledger = JsonlLedger(usage_ledger)
@@ -186,6 +210,21 @@ class Teacher:
             self.client = OpenAI(api_key=self._secret, max_retries=0,
                                  timeout=self.timeout_seconds)
         return self.client
+
+    def _pause_for_remaining(self, response, tokens):
+        """Pause all sharing workers when the provider cannot admit another call."""
+        counters, headers, now = _rate_limit_headers(response), _headers(response), self.clock()
+        waits = []
+        for resource, needed in (("requests", 1), ("tokens", tokens)):
+            remaining = counters.get("x-ratelimit-remaining-" + resource)
+            if remaining is not None and remaining < needed:
+                reset = _seconds(headers.get("x-ratelimit-reset-" + resource, ""), now, reset=True)
+                retry_after = _seconds(headers.get("retry-after", ""), now)
+                waits.append(max(reset, retry_after) or 60.0)
+        wait = max(waits, default=0.0)
+        if wait:
+            self.limiter.defer_until(now + wait)
+        return wait
 
     def prompt(self, history, task, visible_context):
         return build_messages(history, task, visible_context, prompt_template=self.prompt_template)
@@ -243,9 +282,13 @@ class Teacher:
                     input_tokens=reserved_tokens(prompt, 0), task_id=task["task_id"],
                     usage_ledger=self.ledger.path)
             identity = {"run_id": self.run_id, "call_id": call_id, "cache_key": key,
+                        "logical_call_id": logical_id,
                         "provider_model_id": self.provider_model_id, "task_id": task["task_id"],
                         "split": task["split"], "parent_seed_ids": task.get("parent_seed_ids", []),
                         "attempt": attempt, "timestamp": timestamp,
+                        "max_attempts": self.max_attempts,
+                        "retry_rate_limits_only": self.retry_rate_limits_only,
+                        "rate_limit_dir": str(self.limiter.path.parent.resolve()),
                         "prompt_template_sha256": digest(self.prompt_template),
                         "sampling": self.sampling, "wait_seconds": 0, "error_type": None}
             preparation_error = None
@@ -276,12 +319,15 @@ class Teacher:
                 counters = _rate_limit_headers(response)
                 if counters:
                     identity["rate_limit_headers"] = counters
+                self._pause_for_remaining(response, identity["reserved_tokens"])
                 if raw_api is not None:
                     response = response.parse()
             except Exception as exc:
-                counters = _rate_limit_headers(getattr(exc, "response", None) or exc)
+                error_response = getattr(exc, "response", None) or exc
+                counters = _rate_limit_headers(error_response)
                 if counters:
                     identity["rate_limit_headers"] = counters
+                remaining_wait = self._pause_for_remaining(error_response, identity["reserved_tokens"])
                 failure = {"error_type": type(exc).__name__,
                            "http_status": getattr(exc, "status_code", None),
                            "request_id": self._redact(getattr(exc, "request_id", None))}
@@ -300,13 +346,23 @@ class Teacher:
                              or type(exc).__name__ in {"APIConnectionError", "APITimeoutError",
                                                      "RateLimitError", "ReadTimeout", "ConnectTimeout",
                                                      "WriteTimeout", "PoolTimeout"}))
+                if self.retry_rate_limits_only:
+                    retryable = _is_rate_limit_429(exc)
+                retry_after = _seconds(_headers(exc).get("retry-after", ""), self.clock(), invalid=None)
                 provider_wait = _provider_wait(exc, self.clock()) if retryable else 0.0
+                provider_wait = max(provider_wait, remaining_wait)
                 if provider_wait:
                     self.limiter.defer_until(self.clock() + provider_wait)
             latency = time.monotonic() - started
             if failure is not None:
                 retry = retryable and attempt < self.max_attempts
-                wait = max(self.jitter(0, min(2 * 2 ** (attempt - 1), 60)), provider_wait) if retry else 0
+                wait = 0
+                if retry:
+                    if self.retry_rate_limits_only and retry_after is not None:
+                        wait = max(retry_after, provider_wait)
+                    else:
+                        base, ceiling = (5, 300) if self.retry_rate_limits_only else (2, 60)
+                        wait = max(self.jitter(0, min(base * 2 ** (attempt - 1), ceiling)), provider_wait)
                 self.ledger.append({**identity, **failure, "status": "failed", "usage": None,
                                     "latency_seconds": latency, "retryable": retryable,
                                     "will_retry": retry, "wait_seconds": wait,

@@ -187,6 +187,54 @@ def test_partial_and_malformed_rate_limit_headers(tmp_path, task, visible):
             assert "sk-never-log" not in path.read_text()
 
 
+@pytest.mark.parametrize("headers,expected", [
+    ({"x-ratelimit-remaining-requests": "0", "x-ratelimit-reset-requests": "3.5s"}, 3.5),
+    ({"x-ratelimit-remaining-tokens": "0", "x-ratelimit-reset-tokens": "250ms"}, .25),
+    ({"x-ratelimit-remaining-tokens": "1", "x-ratelimit-reset-tokens": "1m2s"}, 62),
+    ({"x-ratelimit-remaining-requests": "0", "Retry-After": "7"}, 7),
+    ({"x-ratelimit-remaining-tokens": "0"}, 60),
+    ({"x-ratelimit-remaining-requests": "0", "x-ratelimit-reset-requests": "invalid"}, 60),
+    ({"x-ratelimit-remaining-requests": "0", "x-ratelimit-reset-requests": "2s",
+      "x-ratelimit-remaining-tokens": "1", "x-ratelimit-reset-tokens": "11s"}, 11),
+    ({"x-ratelimit-remaining-requests": "1", "x-ratelimit-remaining-tokens": "180000"}, 0),
+    ({"x-ratelimit-remaining-tokens": "invalid", "x-ratelimit-remaining-requests": "-1"}, 0),
+])
+def test_provider_remaining_pauses_shared_limiter_after_success(tmp_path, task, visible, headers, expected):
+    raw = NS(headers=headers, parse=response)
+    model, clock, client = make_teacher(tmp_path, [raw])
+    client.responses = NS(with_raw_response=client)
+    model.generate([], task, visible)
+    assert not clock.waits  # The current result returns immediately.
+    other = RateLimiter(tmp_path / "rate_limit", "gpt-6-luna", clock=clock, sleep=clock.sleep)
+    reservation = other.acquire(1)
+    assert reservation["limiter_wait_seconds"] == expected
+    assert clock.waits == ([expected] if expected else [])
+
+
+def test_cluster_directory_override_shares_across_run_paths(tmp_path, task, visible, monkeypatch):
+    from teachers.openai_teacher import rate_limit_options
+    clock = FakeClock()
+    cluster = tmp_path / "cluster"
+    monkeypatch.setenv("TEACHER_RATE_LIMIT_DIR", str(cluster))
+    options = rate_limit_options({"rate_limit": {"requests_per_minute": 1}}, tmp_path / "run1")
+    one = Teacher(cache_dir=tmp_path / "cache1", usage_ledger=tmp_path / "usage1.jsonl",
+                  run_id="one", client=FakeClient(), clock=clock, sleep=clock.sleep, **options)
+    two = Teacher(cache_dir=tmp_path / "cache2", usage_ledger=tmp_path / "usage2.jsonl",
+                  run_id="two", client=FakeClient(), clock=clock, sleep=clock.sleep,
+                  rate_limit_dir=tmp_path / "run2", requests_per_minute=1)
+    assert one.limiter.path == two.limiter.path and one.limiter.path.parent == cluster
+    one.generate([], task, visible)
+    two.generate([], task, visible)
+    assert clock.waits == [60]
+    assert len(json.loads(one.limiter.path.read_text())["reservations"]) == 1
+    assert not (tmp_path / "run1").exists() and not (tmp_path / "run2").exists()
+    monkeypatch.delenv("TEACHER_RATE_LIMIT_DIR")
+    default = RateLimiter(tmp_path / "default", "gpt-6-luna")
+    assert default.path.parent == tmp_path / "default"
+    monkeypatch.setenv("TEACHER_RATE_LIMIT_DIR", "")
+    assert RateLimiter(tmp_path / "default", "gpt-6-luna").path == default.path
+
+
 def limiter_worker(directory, now, barrier, queue, rpm, tpm):
     # Shared virtual time makes this a real spawned-process locking test without
     # waiting minutes. Each reservation timestamp is captured under the file lock.
