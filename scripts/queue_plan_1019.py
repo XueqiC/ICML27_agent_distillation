@@ -123,7 +123,9 @@ def sad(k, s):
     G2S = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem=160G"
     return {"cell": cell, "tree": T5, "stages": [
         multi(f"{cell}-prep", C4, "02:00:00", 0, "scripts/hpg_sad.slurm", "SAD_THROUGH", "prepare", e, k=k, s=s),
-        multi(f"{cell}-train", G2S, "20:00:00" if k <= 10 else "12:00:00", n,
+        # Measured 10-20 (sadsh-k5s0-train 46893249, 2 B200): 14.4M of 655M logical positions in ~6 min of training
+        # -> ~4.5-5 h per K5 cell; K<=10 limit 20 h -> 10 h (2x margin) so the pending jobs can backfill.
+        multi(f"{cell}-train", G2S, "10:00:00" if k <= 10 else "12:00:00", n,
               "scripts/hpg_sad.slurm", "SAD_THROUGH",
               "train", e, k=k, s=s),
         multi(f"{cell}-eval", G1, "10:00:00", 1, "scripts/hpg_sad.slurm", "SAD_THROUGH", "all", e, k=k, s=s,
