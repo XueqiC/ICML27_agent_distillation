@@ -1,7 +1,7 @@
 """Harness-Aware Distillation, arXiv:2610.02858v1 (paper implementation)."""
 
 RECIPE = {
-    "spec_sha256": "d6cc35f3222ee234cc9c970fe2392174365bf48e23ed51ba7e6c1ed91cee4f76",
+    "spec_sha256": "7d42a4e3d937c78b56f2045a8f42e4b96b55c2fc94237b250024cc0141ee42d8",
     "paper": "https://arxiv.org/html/2610.02858v1", "training_seed": 0,
     "adaptation": "full_parameter_text_fsdp2", "learning_rate": 1e-5,
     "scheduler": "cosine", "warmup_steps": 15, "weight_decay": 0.01,

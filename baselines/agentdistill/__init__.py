@@ -2,7 +2,7 @@
 
 RECIPE = {
     "paper": "https://arxiv.org/html/2506.14728v1",
-    "spec_sha256": "d6cc35f3222ee234cc9c970fe2392174365bf48e23ed51ba7e6c1ed91cee4f76",
+    "spec_sha256": "7d42a4e3d937c78b56f2045a8f42e4b96b55c2fc94237b250024cc0141ee42d8",
     "reference_commit": "83da61021941ae717f86ddf61e8b8e1d45ae0206",
     "reference_prompt_source_sha256": "e9bc2aedbbfb7bc7f949fffe50b9c6571b37b2e6253a5c45e988cdc6b0e7d575",
     "teacher": "gpt-6-luna",
