@@ -17,6 +17,21 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **20:3x–20:5x CDT 10-19: HARD RULE ≤10 hpg jobs at once.** Faculty email (Guang Wang, 20:32) forwarded by the user: another faculty member saw 124 jobs / 148 GPUs from xc25.fsu.
+  Cause: batch-1/2 pre-submitted afterok chains (pending dependency links count as queue load).
+  - Actions: cancelled every pending/held job (184-line list in hpg:~/queue_before_cancel_1019.txt) and the idle had-teacher; 5 LEAP K100 g1 jobs kept running. User notified, with a draft reply to the professor.
+  - **Throttled queue keeper** on rai: `scripts/hpg_queue_keeper.py --dir logs/queue` (pid in logs/queue/keeper.pid, 180 s loop).
+    - Plan from `scripts/queue_plan_1019.py`; cells keep their original tree (identity binds code_sha256).
+    - One job per cell, next stage only after COMPLETED. Caps (running+pending, all accounts) max_jobs 8, max_gpus 16, group GPUs 0, because groupmate yd26 has ~29 pending GPU jobs on yd24f.
+    - Any other terminal state blocks the cell. PAUSE file stops submission. Old-tree LEAP teacher stages are gated on rai collector pid 228787 exiting (no 429 retry in 625f6a9).
+    - Hourly cron check prints keeper status. **Any manual sbatch must also keep the total ≤10.**
+  - Plan v1 (15 cells): SAD k20s0 train→eval (08d3c47); AgentGym K50/K100 s1,s2 from x0 (625f6a9); LEAP K100 ×5 from g1 (running) and K50 ×5 from c1 (625f6a9).
+  - Not in the plan yet:
+    - batch-1 LEAP K5/K10/K20 cells: the **429 scan found nearly all of them TAINTED** (e.g. lpz k20s1 14/14 correction requests lost, lpp k20s2 12/12, k10 cells 3–6 of 5–6; scan in scratchpad leap429_scan.txt). Restart fresh on the new tree, old dirs to _trash.
+    - New-method K20 s0 cells (STeCa, WKM, GAD, AgentDistill, CoA, HAD) on a new tree after merging wt/failloud and wt/wkmfix.
+    - R2 held arms (user decision).
+  - Older finding from the same scan: LEAP privileged k100s0 lost 5/48, 2/44 and 4/22 correction requests, and k50s0 lost 0/2/1, all on 10-06/07. Check whether these were quota or transport failures before trusting those s0 numbers.
+  - shared-history GPU check 3 (46751335/36) FAILED its gate. packing_only (per_turn_flex vs shared) side-sum 0.84% / grad 12%, vs kernel_only (SDPA vs flex, same packing) 1.5% / 20%. Packing adds no error beyond a kernel swap (token mean |Δ| 0.024 nats, under the 0.05 HF/vLLM tolerance). Next: an fp32 exactness check on rai.
 - **19:4x CDT 10-19: 429 CONTENTION INCIDENT.** rai full-TRAIN collection paced at 1.8M/2M tpm + hpg teacher stages → HTTP 429s: LEAP correction stages recorded rejected corrections
   (lpz k5s0 rej 1/0/2, lpz k5s1 1/2/1, lpp k5s1 2/2/3, lpz k10s0 3, lpz k10s1 5 of 5, lpp k10s1 6 of 7 …; 429 files in audit/teacher/correction-*), AgentDistill k20s0 teacher halted (first call 429),
   CoA k20s0 teacher halted → data empty → result stopped_empty_sft (silent). ACTIONS: held 50 pending LEAP teacher (c) jobs; cancelled CoA/GAD/AgentDistill dependents; Codex wt/retry429 (pid 1634290):
