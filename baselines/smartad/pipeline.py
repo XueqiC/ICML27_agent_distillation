@@ -46,10 +46,13 @@ def main(argv=None):
     parser.add_argument("--resume", action="store_true", help="Reuse the frozen collection and durable candidate slots")
     parser.add_argument("--subset-k", type=int, nargs="*", default=[])
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=RECIPE["epochs"])
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.epochs < 1:
+        parser.error("--epochs must be positive")
     if args.mode == "evaluate":
         args.stage = "evaluate"
     if args.path_map and args.stage != "select":
@@ -94,7 +97,7 @@ def main(argv=None):
         if args.stage == "evaluate":
             from baselines.common.evaluation import evaluate_models
             return evaluate_models(training, decodings=("greedy",))
-        identity = prepare(training, config, method="smartad", recipe=RECIPE)
+        identity = prepare(training, config, method="smartad", recipe={**RECIPE, "epochs": args.epochs})
         try:
             if args.mode == "train":
                 result = stage_run(training.output, "train-sft", digest([identity, "sft"]),
