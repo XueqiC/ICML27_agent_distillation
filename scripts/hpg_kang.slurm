@@ -24,6 +24,8 @@ export VLLM_BATCH_INVARIANT=1
 : "${VERIFIED:?Set VERIFIED to the K verified seeds or nested subset}"
 [[ "$ENABLE_THINKING" == off && "$MAX_TOKENS" == 1024 && "$MAX_LENGTH" == 32768 ]]
 [[ -x "$ENV_PYTHON" && -x "$TRAIN_PYTHON" && -d "$MODEL_PATH" ]]
+NGPUS=${NGPUS:-1}
+case "$NGPUS" in 1|2|4|8) ;; *) echo 'NGPUS must be 1/2/4/8' >&2; exit 2 ;; esac
 child=''
 cleanup() {
     trap - EXIT TERM INT
@@ -33,6 +35,7 @@ trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 "$ENV_PYTHON" -m baselines.kang.pipeline --config "${CONFIG:-configs/base.yaml}" \
+    --gpus "$NGPUS" --scoring "${KANG_SCORING:-per_turn}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$KANG_OUT" \
     --training-seed "${KANG_TRAINING_SEED:-0}" \
     --epochs "${KANG_EPOCHS:-2}" \

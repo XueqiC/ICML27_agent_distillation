@@ -181,7 +181,8 @@ def test_kang_command_and_training_attempt_disclosure(tmp_path, training_seed):
     assert values["--scheduler"] == "linear" and values["--warmup-steps"] == "0"
     assert values["--seed"] == str(training_seed) and values["--max-length"] == "32768"
     assert values["--packing"] == kang.RECIPE["packing"] == "turn"
-    assert "torch.distributed.run" not in command
+    assert "torch.distributed.run" in command
+    assert values["--nproc_per_node"] == "1" and values["--scoring"] == "per_turn"
     for i in range(2):
         path = tmp_path / f"stages/train-sft/attempt-{i:03d}/output"
         path.mkdir(parents=True)

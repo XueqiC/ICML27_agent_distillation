@@ -32,6 +32,8 @@ def main(argv=None):
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=AD_RECIPE["epochs"])
     parser.add_argument("--ready-timeout", type=int, default=900)
+    parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=1)
+    parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
@@ -65,11 +67,12 @@ def main(argv=None):
             return
     # GPU-only jobs consume the published collection; never enter the teacher stage.
     collection = Path(args.output) / "collection" if args.through == "all" else Path(args.verified)
-    training = SimpleNamespace(**{**vars(args), "gpus": 1, "training_seed": 0,
+    training = SimpleNamespace(**{**vars(args), "training_seed": 0,
                        "output": str(Path(args.output) / "training"), "verified": str(collection)})
     with locked(Path(training.output) / ".pipeline.lock"):
         identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, "first_thought_prefix": True,
-                                                                   "epochs": args.epochs})
+                                                                   "epochs": args.epochs,
+                                                                   "scoring": args.scoring})
         try:
             if args.mode == "train":
                 result = stage_run(training.output, "train-sft", digest([identity, "sft"]),

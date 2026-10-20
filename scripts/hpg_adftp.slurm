@@ -29,7 +29,10 @@ if [[ "$ADFTP_THROUGH" == collect && "${ADFTP_MODE:-train}" != evaluate ]]; then
         --verified "$VERIFIED" --output "$ADFTP_OUT" --through collect \
         --rate-limit-dir "${ADFTP_RATE_LIMIT_DIR:-data/adftp_rate_limit}" "${subset_args[@]}"
 fi
+NGPUS=${NGPUS:-1}
+case "$NGPUS" in 1|2|4|8) ;; *) echo 'NGPUS must be 1/2/4/8' >&2; exit 2 ;; esac
 exec "$ENV_PYTHON" -m baselines.adftp.pipeline --config "${CONFIG:-configs/base.yaml}" \
+    --gpus "$NGPUS" --scoring "${ADFTP_SCORING:-per_turn}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$ADFTP_OUT" --through train \
     --mode "${ADFTP_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
     --epochs "${ADFTP_EPOCHS:-2}" \

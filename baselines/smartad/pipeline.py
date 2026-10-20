@@ -50,6 +50,8 @@ def main(argv=None):
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=RECIPE["epochs"])
     parser.add_argument("--ready-timeout", type=int, default=900)
+    parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=1)
+    parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
@@ -98,13 +100,13 @@ def main(argv=None):
         return select(args.verified, args.snapshot, config, manifest, freeze, args.output, path_map=args.path_map,
                       shard_index=args.shard_index, shard_count=args.shard_count, merge=args.merge_scores)
     validate_selection(args.verified, manifest, freeze, args.snapshot)
-    training = SimpleNamespace(**{**vars(args), "gpus": 1, "training_seed": 0,
+    training = SimpleNamespace(**{**vars(args), "training_seed": 0,
                                   "output": str(Path(args.output) / "training")})
     with locked(Path(training.output) / ".pipeline.lock"):
         if args.stage == "evaluate":
             from baselines.common.evaluation import evaluate_models
             return evaluate_models(training, decodings=("greedy",))
-        identity = prepare(training, config, method="smartad", recipe={**RECIPE, "epochs": args.epochs})
+        identity = prepare(training, config, method="smartad", recipe={**RECIPE, "epochs": args.epochs, "scoring": args.scoring})
         try:
             if args.mode == "train":
                 result = stage_run(training.output, "train-sft", digest([identity, "sft"]),
