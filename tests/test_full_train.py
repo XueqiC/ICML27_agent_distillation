@@ -146,7 +146,7 @@ def test_cap_stops_cleanly_and_resume_never_repays(full_bank, tmp_path, caps, ex
         with pytest.raises(TeacherCallError, match="NOT complete"):
             collect(selection, manifest, freeze, config, output, resume=resume, **kwargs)
     result = json.loads((output / "manifest.json").read_text())
-    assert result["status"] == "transport_failed"
+    assert result["status"] == "budget_exhausted"
     assert result["budget"]["logical_calls"] == expected
     assert all(r["status"] == "ok" for r in result["attempts"])
     assert (len(calls.read_text().splitlines()) if calls.exists() else 0) == expected
@@ -157,7 +157,7 @@ def test_cap_stops_cleanly_and_resume_never_repays(full_bank, tmp_path, caps, ex
 def test_process_shards_share_hard_cap(full_bank, tmp_path):
     calls, output = tmp_path / "calls.jsonl", tmp_path / "collection"
     result = run_shards(full_bank, output, calls, cap=1)
-    assert result["status"] == "transport_failed"
+    assert result["status"] == "budget_exhausted"
     assert result["budget"]["logical_calls"] == result["budget"]["transport_reservations"] == 1
     assert len(calls.read_text().splitlines()) == 1
     again = run_shards(full_bank, output, calls, cap=1)

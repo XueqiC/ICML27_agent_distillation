@@ -24,7 +24,7 @@ cd "$PROJECT_ROOT"
 read -r -a cells <<< "$CELLS"
 cell=${cells[$SLURM_ARRAY_TASK_ID]:-}
 if [[ "$cell" == full ]]; then
-    verified="data/verified/seeds_full_train"
+    verified="data/verified/seeds_full_train_r2"
 else
     [[ "$cell" =~ ^k([0-9]+)s([0-2])$ ]] || { echo "No valid cell for array index $SLURM_ARRAY_TASK_ID: '$cell'" >&2; exit 2; }
     K=${BASH_REMATCH[1]} S=${BASH_REMATCH[2]}

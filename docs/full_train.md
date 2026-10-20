@@ -17,23 +17,23 @@ Collection attempts each candidate at most three times, keeps the first real
 environment-verified success, and excludes candidates without a verified success.
 The complete collection's `K` and `trusted_trajectories` count successes; unique
 instances and groups are reported separately. `failed_candidates` retains every
-candidate exhausted without a win, including unknown/interrupted attempts, whose
-receipt status and verification remain explicit. Such attempts are not silently
-treated as known environment failures. No replacement or external experience is
+candidate with three completed real failures. Transport failures and unknown
+executions remain separately disclosed and do not consume these task slots.
+No replacement or external experience is
 added. No collection or scientific result is claimed by adding this support.
 
-For a later, explicitly authorized live run on rai:
+For recovery of the interrupted collection on rai:
 
 ```bash
-bash scripts/rai_collect_full_train.sh --workers 8
-bash scripts/rai_collect_full_train.sh --workers 8 --resume
+bash scripts/rai_collect_full_train_r2.sh --preflight  # Copy/validate; no API calls.
+bash scripts/rai_collect_full_train_r2.sh             # Starts live collection.
 ```
 
-The launcher disables CUDA, uses the ALFWorld root from `rai_collect_parallel.sh`
+The r2 launcher fixes the original 32 shards, disables CUDA, and uses the ALFWorld root from `rai_collect_parallel.sh`
 (overridable with `ALFWORLD_DATA_ROOT`), takes a launcher flock, and preflights every
 game's hashes before spawning processes. It writes one log per shard under `logs`.
 Worker i owns global-order indices `i::N`. All workers write one collection at
-`data/verified/seeds_full_train` with the existing attempts/episode/teacher/receipt
+`data/verified/seeds_full_train_r2` with the existing attempts/episode/teacher/receipt
 layout and share `data/teacher_rate_limit` **inside that collection**, at the rate limits in base.yaml:
 4,500 requests and 1,800,000 estimated input-plus-output tokens per rolling minute (90% of the
 provider headers re-read 2026-10-19; they were 500 / 200,000 on 10-04).
@@ -70,4 +70,10 @@ For Seed-SFT, prepare `configs/seedsft_dose_grid_full_train.json` with
 after collection. Preparation resolves trusted K and measured token exposure.
 Use the resulting ready grid with `DOSE_GRID` and `--array=0-0` on
 `scripts/hpg_seedsft_sweep.slurm`. Baseline job arrays accept `CELLS="full"` and
-map it to `data/verified/seeds_full_train`.
+map it to `data/verified/seeds_full_train_r2`.
+
+The interrupted `549503d` run is retained read-only. For its replacement identity,
+use [the recovery tool and 32-shard launcher](FULL_TRAIN_RECOVERY.md); valid paid
+attempts are copied and reused, transport failures do not consume task slots, and
+all source reservations remain spent. The Seed-SFT full grid and AD-FTP full cell
+also explicitly select `seeds_full_train_r2`.
