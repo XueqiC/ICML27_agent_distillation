@@ -12,6 +12,7 @@ from baselines.smartad.teacher import CALLS_PER_TASK, read
 from sed.manifest import frozen_write
 from sed.provenance import code_hashes, versions, write_provenance
 from sed.seed_evidence import artifact_hashes, load_verified_collection, materialize_subsets
+from sed.seed_evidence import support_view_reference
 from sed.seed_selection import is_full_train
 from sed.storage import digest, fsync_dir, locked
 
@@ -42,6 +43,8 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
             or output.is_relative_to(source_root)):
         raise ValueError("Selection output must be separate from candidate/source evidence")
     identity = {"method": "smartad", "selection": selection, "pool_root": str(resolver.published(pool_root)),
+        **support_view_reference(resolver.resolve(pool_identity["source_verified"]),
+                                 output / "collection", source, selection),
         "pool_sha256": digest(pool), "pool_identity_sha256": digest(pool_identity),
         "snapshot": str(snapshot), "snapshot_artifact_sha256": artifact_hashes(snapshot),
         "config_sha256": digest(config),

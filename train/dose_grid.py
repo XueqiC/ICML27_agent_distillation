@@ -5,13 +5,14 @@ import json
 from pathlib import Path
 
 from sed.seed_evidence import verified_collection_inputs, load_verified_collection
-from sed.seed_selection import is_full_train
+from sed.seed_selection import is_full_train, is_stratified_nested, NESTED_RULE, NESTED_GRID_K
 from sed.storage import digest, file_hash
 from train.dataset import build_verified_dataset
 
 PASSES = (3, 5, 10, 20, 30, 40)
 TOKENS = (100_000, 200_000, 400_000)
 REGISTERED_GRID = "configs/seedsft_dose_grid_v2.json"
+NESTED_REGISTRATION = "docs/baselines/FULL_TRAIN_VIEWS_1020.md"
 PROTOCOL_FIELDS = ("rule", "pass_checkpoints", "token_checkpoints",
                    "merge_relative_to", "merge_fraction", "schema_version")
 
@@ -36,6 +37,9 @@ def dose_checkpoints(tokens_per_pass):
 def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
     registered = json.loads((Path(__file__).resolve().parents[1] / REGISTERED_GRID).read_text())
     expected = {(r["K"], r["support_seed"]) for r in registered["runs"]}
+    nested_grid = template.get("support_selection_rule") == NESTED_RULE
+    if nested_grid:
+        expected = {(k, 0) for k in NESTED_GRID_K}
     runs = template["runs"]
     full = [r for r in runs if is_full_train(r)]
     few = [r for r in runs if not is_full_train(r)]
@@ -47,15 +51,24 @@ def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
         if not runs or len(pairs) != len(few) or not pairs <= expected:
             raise ValueError("Partial v2 requires a nonempty subset of registered runs without duplicates")
     elif len(few) != len(expected) or pairs != expected:
-        raise ValueError("v2 requires exactly K=1/2/50/100 x support seeds 0/1/2")
+        raise ValueError("Nested v2 requires exactly K=30/100/300/500/1000/2000 x support seed 0"
+                         if nested_grid else "v2 requires exactly K=1/2/50/100 x support seeds 0/1/2")
     if any(type(r["K"]) is not int or type(r["support_seed"]) is not int
            or r.get("name") != f"k{r['K']}s{r['support_seed']}" for r in few):
         raise ValueError("v2 run names must be k{K}s{S} with integer K/support seed")
     if any(template.get(field) != registered[field] for field in PROTOCOL_FIELDS):
         raise ValueError("v2 dose protocol differs from the registered grid")
     result = deepcopy(template)
+    if nested_grid:
+        registration = {"path": NESTED_REGISTRATION,
+                        "sha256": file_hash(Path(__file__).resolve().parents[1] / NESTED_REGISTRATION)}
+        result["support_registration"] = {**registration,
+                                           "selection_rule": NESTED_RULE,
+                                           "Ks": list(NESTED_GRID_K), "support_seed": 0}
+    else:
+        registration = {"path": REGISTERED_GRID, "sha256": digest(registered)}
     if partial:
-        result["partial_of"] = {"path": REGISTERED_GRID, "sha256": digest(registered)}
+        result["partial_of"] = registration
     for run in result["runs"]:
         root = Path(data_root) / run["verified"]
         collection, selection, _ = load_verified_collection(root, manifest, freeze)
@@ -66,6 +79,8 @@ def prepare_grid(template, tokenizer, manifest, freeze, *, data_root="."):
                        K_counts="trusted_executed_trajectories")
         elif is_full_train(selection) or (selection["K"], selection["seed"]) != (run["K"], run["support_seed"]):
             raise ValueError("Dose run K/support seed differs from its collection")
+        elif is_stratified_nested(selection) != nested_grid:
+            raise ValueError("Dose support selection rule differs from its registered grid")
         examples = build_verified_dataset(root, tokenizer, manifest, freeze,
                                           max_length=32768, packing="episode")
         count = sum(e["supervised_tokens"] for e in examples)

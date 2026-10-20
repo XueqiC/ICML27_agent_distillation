@@ -11,8 +11,9 @@ from baselines.eto.pipeline import stage_run
 from sed.manifest import frozen_write, resolve_task, verify_task_files
 from sed.provenance import code_hashes, safe_config, versions, write_provenance
 from sed.runner import _environment, run_episode
-from sed.seed_selection import is_full_train
+from sed.seed_selection import is_full_train, is_stratified_nested
 from sed.seed_evidence import artifact_hashes, checked_episode, environment_won, load_verified_collection, materialize_subsets
+from sed.seed_evidence import support_view_reference
 from sed.storage import digest, locked, write_json, fsync_dir
 from teachers.capped import CappedTeacher, CollectorHalted
 from teachers.baseline_transport import baseline_transport
@@ -109,7 +110,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         if output.is_relative_to(Path(config["paths"][name]).resolve()):
             raise ValueError("FTP output must be outside original seed storage")
     source, selection, source_root = load_verified_collection(verified, manifest, freeze)
-    if (is_full_train(selection) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
+    if ((is_full_train(selection) or is_stratified_nested(selection)) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
         raise ValueError("Nested views require smaller positive K and a few-shot source")
     for directory in (output, Path(rate_limit_dir).resolve()):
         if (directory.is_relative_to(source_root)
@@ -125,6 +126,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
     training_tasks({"task_ids": ids, "parent_seed_ids": parents, "manifest_sha256": digest(manifest),
                     "split_freeze_sha256": digest(freeze), "list_sha256": digest(ids)}, manifest, freeze)
     identity = {"selection": selection, "method": "adftp", "prompt_version": FTP_PROMPT_VERSION,
+        **support_view_reference(verified, output / "collection", source, selection),
         "baseline_transport": baseline_transport("adftp").disclosure(),
         "source_verified": str(Path(verified).resolve()), "source_collection_sha256": digest(source),
         "config": safe_config(config), "code_sha256": code_hashes(Path(__file__).resolve().parents[2]),
