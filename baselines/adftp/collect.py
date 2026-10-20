@@ -15,6 +15,7 @@ from sed.seed_selection import is_full_train
 from sed.seed_evidence import artifact_hashes, checked_episode, environment_won, load_verified_collection, materialize_subsets
 from sed.storage import digest, locked, write_json, fsync_dir
 from teachers.capped import CappedTeacher, CollectorHalted
+from teachers.baseline_transport import baseline_transport
 from teachers.openai_teacher import TeacherCallError, rate_limit_options
 from teachers.stage import teacher_stage, execution_attempt, mark_transport_failure, require_execution, usage_counts
 
@@ -42,7 +43,7 @@ def default_teacher(config, directory, task, identity, rate_limit_dir):
         run_id=digest([identity, task["task_id"]]), teacher_class=FTPTeacher,
         provider_model_id=spec["provider_model_id"],
         sampling={**spec["sampling"], "max_output_tokens": 1024},
-        timeout_seconds=spec["timeout_seconds"], secrets_file=config["paths"]["secrets_file"],
+        baseline_method="adftp", secrets_file=config["paths"]["secrets_file"],
         **rate_limit_options(spec, rate_limit_dir))
 
 
@@ -124,6 +125,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
     training_tasks({"task_ids": ids, "parent_seed_ids": parents, "manifest_sha256": digest(manifest),
                     "split_freeze_sha256": digest(freeze), "list_sha256": digest(ids)}, manifest, freeze)
     identity = {"selection": selection, "method": "adftp", "prompt_version": FTP_PROMPT_VERSION,
+        "baseline_transport": baseline_transport("adftp").disclosure(),
         "source_verified": str(Path(verified).resolve()), "source_collection_sha256": digest(source),
         "config": safe_config(config), "code_sha256": code_hashes(Path(__file__).resolve().parents[2]),
         "dependencies": versions(), "rate_limit_dir": str(Path(rate_limit_dir).resolve()),
@@ -221,6 +223,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             "ftp_attempted_unique_instances": len(ids),
             "attempts": all_receipts, "verified": receipts, "parent_seed_ids": [p for v in parents.values() for p in v],
             "source": "adftp_support_tasks_only", "training_exposure": 0,
+            "baseline_transport": identity["baseline_transport"],
             "fallback_count": sum(r["fallback"] for r in receipts),
             "ftp_attempt_count": sum(len(r["ftp_attempts"]) for r in receipts),
             "api_attempts": sum(r["api_attempts"] for r in receipts), "per_cell_call_cap": 123 * len(ids),

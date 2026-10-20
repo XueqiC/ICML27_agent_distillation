@@ -40,6 +40,14 @@ class TeacherCallError(RuntimeError):
     pass
 
 
+class TeacherRateLimitError(TeacherCallError):
+    """Shared-key retry budget exhausted; never advance a method-level try."""
+
+
+class TeacherQuotaError(TeacherCallError):
+    """Quota/billing errors halt immediately, including LEAP's outer loop."""
+
+
 def read_api_key(secrets_file=None):
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if key:
@@ -159,7 +167,14 @@ class Teacher:
                  secrets_file=None, client=None, sleep=time.sleep,
                  purpose="generation", clock=time.time, jitter=random.uniform,
                  rate_limit_dir=None, requests_per_minute=450, tokens_per_minute=180_000,
-                 reservation_budget=None, retry_rate_limits_only=False):
+                 reservation_budget=None, retry_rate_limits_only=False, baseline_method=None):
+        self.transport_policy = None
+        if baseline_method is not None:
+            from teachers.baseline_transport import baseline_transport
+            self.transport_policy = baseline_transport(baseline_method)
+            timeout_seconds = self.transport_policy.timeout_seconds
+            max_attempts = self.transport_policy.http_attempts
+            retry_rate_limits_only = False
         if provider_model_id != "gpt-6-luna":
             raise ValueError("Model substitution requires a new explicit provenance policy")
         self.provider_model_id = provider_model_id
@@ -208,8 +223,14 @@ class Teacher:
             self._secret = read_api_key(self.secrets_file)
             # SDK retries are disabled so the ledger accounts for every attempt.
             self.client = OpenAI(api_key=self._secret, max_retries=0,
-                                 timeout=self.timeout_seconds)
+                                 timeout=self.client_timeout())
         return self.client
+
+    def client_timeout(self):
+        if self.transport_policy is None:
+            return self.timeout_seconds
+        import httpx
+        return httpx.Timeout(self.timeout_seconds, connect=self.transport_policy.connect_timeout_seconds)
 
     def _pause_for_remaining(self, response, tokens):
         """Pause all sharing workers when the provider cannot admit another call."""
@@ -277,7 +298,10 @@ class Teacher:
     def _generate_uncached(self, history, task, visible_context, key, path):
         prompt = self.prompt(history, task, visible_context)
         logical_id = str(uuid.uuid4())
-        for attempt in range(1, self.max_attempts + 1):
+        policy = self.transport_policy
+        http_failures, rate_failures = 0, 0
+        limit = self.max_attempts + (policy.rate_limit_attempts - 1 if policy else 0)
+        for attempt in range(1, limit + 1):
             call_id, started, timestamp = str(uuid.uuid4()), time.monotonic(), utc_now()
             if self.reservation_budget is not None:
                 self.reservation_budget.reserve(logical_id=logical_id, request_id=call_id,
@@ -293,6 +317,9 @@ class Teacher:
                         "rate_limit_dir": str(self.limiter.path.parent.resolve()),
                         "prompt_template_sha256": digest(self.prompt_template),
                         "sampling": self.sampling, "wait_seconds": 0, "error_type": None}
+            if policy:
+                identity.update(baseline_transport=policy.disclosure(),
+                                http_attempt=http_failures + 1, rate_limit_failures=rate_failures)
             preparation_error = None
             preparation_incomplete = False
             try:
@@ -354,8 +381,24 @@ class Teacher:
                                                      "WriteTimeout", "PoolTimeout"}))
                 if self.retry_rate_limits_only:
                     retryable = _is_rate_limit_429(exc)
+                if policy:
+                    retry_headers = _headers(exc)
+                    rate_limited = _is_rate_limit_429(exc)
+                    quota = status == 429 and not rate_limited
+                    if status != 429:
+                        override = _headers(exc).get("x-should-retry")
+                        if override in {"true", "false"}:
+                            retryable = override == "true"
+                        elif isinstance(status, int):
+                            retryable = status in {408, 409} or status >= 500
+                    else:
+                        retryable = rate_limited
                 retry_after = _seconds(_headers(exc).get("retry-after", ""), self.clock(), invalid=None)
                 provider_wait = _provider_wait(exc, self.clock()) if retryable else 0.0
+                if policy and not rate_limited:
+                    # Ordinary HTTP retries use the SDK's bounded retry-after
+                    # interpretation, not the shared-key 429 extension.
+                    provider_wait = 0.0
                 provider_wait = max(provider_wait, remaining_wait)
                 if provider_wait:
                     self.limiter.defer_until(self.clock() + provider_wait)
@@ -365,7 +408,21 @@ class Teacher:
                 count("transport_failed_attempts")
                 retry = retryable and attempt < self.max_attempts
                 wait = 0
-                if retry:
+                if policy:
+                    if rate_limited:
+                        rate_failures += 1
+                        retry = rate_failures < policy.rate_limit_attempts
+                        if retry:
+                            wait = (max(retry_after, provider_wait) if retry_after is not None else
+                                    max(self.jitter(0, min(5 * 2 ** (rate_failures - 1), 300)), provider_wait))
+                    else:
+                        http_failures += 1
+                        retry = retryable and http_failures < policy.http_attempts
+                        if retry:
+                            from teachers.baseline_transport import sdk_retry_wait
+                            wait = max(sdk_retry_wait(retry_headers, http_failures - 1,
+                                                      self.clock(), self.jitter), provider_wait)
+                elif retry:
                     if self.retry_rate_limits_only and retry_after is not None:
                         wait = max(retry_after, provider_wait)
                     else:
@@ -376,10 +433,13 @@ class Teacher:
                                     "will_retry": retry, "wait_seconds": wait,
                                     "provider_wait_seconds": provider_wait})
                 count("_active_requests", -1)
-                if retryable and attempt < self.max_attempts:
+                if retry:
                     self.sleep(wait)
                     continue
                 # Never expose SDK exception messages, raw HTTP headers or bodies.
+                if policy and (rate_limited or quota):
+                    error = TeacherRateLimitError if rate_limited else TeacherQuotaError
+                    raise error("Teacher rate-limit/quota halt; see sanitized usage ledger") from None
                 raise TeacherCallError("Teacher request failed; see sanitized usage ledger") from None
             raw = self._redact(_field(response, "output_text", ""))
             usage = _usage(response)
@@ -395,6 +455,8 @@ class Teacher:
                 "response_status": response_status, "parser_error": parser_error,
                 "prompt_ref": prompt_ref,
             })
+            if policy:
+                metadata["baseline_transport"] = policy.disclosure()
             result = {"raw_text": raw, "parsed_action": parsed, "metadata": metadata}
             result_ref = self.call_blobs.put(result)
             complete = response_status == "completed"

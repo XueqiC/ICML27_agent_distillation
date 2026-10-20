@@ -115,6 +115,7 @@ def disclose(output, identity):
                 partial = True
     calls = counter.get("attempts", 0)
     write_json(output / "disclosure.json", {"method": "agentdistill", "label": "different interface",
+        **({"baseline_transport": identity["baseline_transport"]} if "baseline_transport" in identity else {}),
         "K": identity["K"], "unique_instances": identity["unique_instances"], "task_groups": identity["task_groups"],
         "source": "verified_support_train_teacher_runs", "expansion": True, "trusted_trajectories_added": 0,
         "new_tasks": 0, "training_exposure": 0, "attempts": attempts,

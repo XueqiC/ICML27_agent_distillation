@@ -12,6 +12,7 @@ from sed.seed_evidence import checked_episode, load_verified_collection
 from sed.storage import digest, file_hash, JsonlLedger, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
 from teachers.capped import from_config
+from teachers.baseline_transport import baseline_transport
 from train.dataset import encode_turn
 
 
@@ -55,13 +56,14 @@ def collect(exploration, verified, output, config, *, cell, identity, round_inde
     if teacher is None:
         teacher = from_config(config, output=cell / "teacher", cache_dir=cell / "teacher/cache",
             usage_ledger=cell / "teacher/usage.jsonl", run_id="gad-" + digest(identity), cap=cap,
-            teacher_class=DrawTeacher,
+            teacher_class=DrawTeacher, baseline_method="gad",
             sampling={**config["models"]["teacher"]["sampling"], "max_output_tokens": 1024})
     provenance = write_provenance(output, command="gad_teacher", config=config,
         inputs=[Path(exploration) / "receipts.json", Path(verified) / "manifest.json"],
         details={"round": round_index, "identity_sha256": digest(identity), "exploration": str(exploration),
             "verified": str(Path(verified).resolve()), "states_sha256": digest(states),
             "sampling": teacher.teacher.sampling, "teacher_cap": cap,
+            "baseline_transport": baseline_transport("gad").disclosure(),
             "max_attempts": teacher.teacher.max_attempts,
             "retry_rate_limits_only": teacher.teacher.retry_rate_limits_only,
             "verification": "unknown: teacher replies are not executed success labels"})

@@ -52,7 +52,7 @@ def assert_failed(root, name):
 
 @pytest.mark.parametrize("kind", ["extract", "correct"])
 @pytest.mark.parametrize("failure", ["429", "timeout", "incomplete", "unknown"])
-def test_leap_stage_failure_resume_and_rejection(bank, tmp_path, monkeypatch, kind, failure):
+def test_leap_stage_recovers_within_request_and_retains_rejection(bank, tmp_path, monkeypatch, kind, failure):
     from baselines.leap import pipeline as p
     from baselines.leap.teacher import TeacherBudget
     _, task, config = bank
@@ -83,14 +83,12 @@ def test_leap_stage_failure_resume_and_rejection(bank, tmp_path, monkeypatch, ki
             p.extract_states(args, config, {}, [task], experts, output)
         else:
             p.correct_rollouts(args, config, {}, [task], exploration, None, 1, output)
-    with pytest.raises(TeacherCallError, match="NOT complete"):
-        transaction(root, kind, action)
-    assert_failed(root, kind)
-    assert not list((root / "audit/teacher").rglob("outcome.json"))
     result = transaction(root, kind, action)
-    assert read(result / "report.json")["transport_failures"] == 0
+    assert read(result / "teacher_report.json")["status"] == "complete"
+    assert read(result / "teacher_report.json")["rejections"] == 0
+    assert read(result / "teacher_report.json")["transport_failed_attempts"] == 1
     assert len(client.requests) == 2
-    assert list((root / "audit/teacher").rglob("failure.json"))
+    assert bool(list((root / "audit/teacher").rglob("failure.json"))) == (failure in {"incomplete", "unknown"})
     # All three official malformed-output attempts remain rejections.
     args.output = str(tmp_path / "format-cell")
     client.results = [response("malformed output") for _ in range(3)]
@@ -121,7 +119,8 @@ def test_label_stage_failure_resume_and_format(bank, tmp_path, monkeypatch, meth
     else:
         monkeypatch.setattr(m, "visited_states", lambda *a: [state])
     client = RawClient(error=TimeoutError("SECRET_ERROR"))
-    t = capped(cell, client, cap=5, teacher_class=ReflectionTeacher if method == "steca" else DrawTeacher)
+    t = capped(cell, client, cap=5, baseline_method=method,
+               teacher_class=ReflectionTeacher if method == "steca" else DrawTeacher)
     def action(output):
         if method == "steca":
             return m.reflect(rows, config, verified, output, cell, teacher_factory=lambda *a, **kw: t)
@@ -139,7 +138,7 @@ def test_label_stage_failure_resume_and_format(bank, tmp_path, monkeypatch, meth
     assert read(result / "teacher_report.json")["transport_failures"] == 0
     # A fresh run keeps the method's original handling of invalid OUTPUT.
     t = capped(tmp_path / "format-teacher", RawClient(texts=["malformed"] * 4), cap=5,
-               teacher_class=ReflectionTeacher if method == "steca" else DrawTeacher)
+               baseline_method=method, teacher_class=ReflectionTeacher if method == "steca" else DrawTeacher)
     if method == "steca":
         t.teacher.client.client.texts = ["Action: go north"]
         with pytest.raises(ValueError):

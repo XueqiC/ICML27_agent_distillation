@@ -17,6 +17,7 @@ from sed.provenance import write_provenance
 from sed.storage import digest, write_json
 from teachers.openai_teacher import Teacher
 from teachers.capped import from_config
+from teachers.baseline_transport import baseline_transport
 
 REFLECTION = ("Above is the interaction history. However, the last step is not optimal and may lead to a wrong direction. "
     "The next step ground truth action is: {action}. Please provide the thought which would lead the agent to generate "
@@ -139,13 +140,14 @@ def reflect(planned, config, verified, output, ledger_root, teacher_factory=from
     write_provenance(output, command="steca_reflection", config=config,
         inputs=[Path(verified) / "manifest.json", config["paths"]["manifest"], config["paths"]["split_freeze"]],
         details={"plan_sha256": digest(planned), "ledger_root": str(ledger_root.resolve()),
-                 "cap": sum(r["deviated"] for r in planned), "teacher": "gpt-6-luna"})
+                 "cap": sum(r["deviated"] for r in planned), "teacher": "gpt-6-luna",
+                 "baseline_transport": baseline_transport("steca").disclosure()})
     candidates = [r for r in planned if r["deviated"]]
     if config["models"]["teacher"]["provider_model_id"] != "gpt-6-luna":
         raise ValueError("STeCa requires the configured gpt-6-luna teacher")
     teacher = teacher_factory(config, output=ledger_root, cache_dir=ledger_root / "cache",
         usage_ledger=ledger_root / "usage.jsonl", run_id="steca-" + digest(planned),
-        cap=len(candidates), teacher_class=ReflectionTeacher)
+        cap=len(candidates), teacher_class=ReflectionTeacher, baseline_method="steca")
     tasks = {t["task_id"]: t for t, _ in seeds(verified, config)}
     reflections = []
     for row in candidates:
