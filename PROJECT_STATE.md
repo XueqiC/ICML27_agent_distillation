@@ -29,6 +29,11 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 15:1x CDT: user OK'd Seed-SFT re-eval after SAD -> plan cells seedsftfix-k{K}s{S} (last checkpoint = main-table
+  'end of schedule', greedy, 8960e0a, OUT reports/runs/eval/seedsft-kveq/<cell>; pre-fix sweep kept). Kang K100 s0
+  same-checkpoint SAG re-eval 46892763: 61 (orig 62), 7/8 flips, inadmissible 18.7% -> collapse is the checkpoint, not
+  eval noise; retrain 46892764 pending. SAD: sadsh-k5s0-train 46893249 RUNNING on 2 B200 (98-100% util, 112G/GPU,
+  host RSS 17G), 14.4M/655M logical in ~6 min -> ~4.5-5 h/cell; K<=10 limit -> 10 h (pending jobs updated).
 - 15:0x CDT user Qs answered (Discord 1562195029861081188 / ...144055328789 / ...333516361741):
   (1) variance: Spearman(inadmissible rate, success) = -0.77 over 55 core cells; all 8 cells <=40 are loop collapses
   (16-81% inadmissible vs 2-8%); small-K support content (Kang K5 s0 has no cool demo -> cool 0/25 vs s1 12/25); eval
