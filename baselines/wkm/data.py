@@ -19,6 +19,13 @@ class PromptStudent(Student):
     def messages(self, history, task, visible_context):
         return self.prompt_messages
 
+    def request_sampling(self, history, task):
+        sampling = super().request_sampling(history, task)
+        # Opt in per request; ordinary student/agent calls keep their defaults.
+        if self.spec.get("stop") is not None:
+            sampling = {**sampling, "stop": self.spec["stop"]}
+        return sampling
+
 
 def source_data(verified, exploration, config):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
@@ -44,7 +51,8 @@ def synthesize(verified, exploration, output, config, student):
                 Path(exploration) / "provenance.json", config["paths"]["manifest"], config["paths"]["split_freeze"]],
         details={"verified": str(Path(verified).resolve()), "student": student.spec, "teacher_calls": 0,
                  "sampling": {"temperature": .5, "top_p": 1, "top_k": -1, "seed": 0},
-                 "task_max_tokens": 512, "state_max_tokens": 128})
+                 "task_max_tokens": 512, "state_max_tokens": 128,
+                 "task_stop": None, "state_stop": ["\n"]})
     rows = []
     for task, expert in experts:
         receipt, sampled = explored[task["task_id"]]
@@ -53,20 +61,20 @@ def synthesize(verified, exploration, output, config, student):
         row = {"task_id": task["task_id"], "parent_seed_id": expert["episode_id"],
             "chosen_sha256": digest(expert), "explored_sha256": digest(sampled),
             "rejected": rejected is not None, "states": [], "calls": []}
-        def generate(prompt, max_tokens):
+        def generate(prompt, max_tokens, stop=None):
             student.prompt_messages = prompt
-            student.spec["max_tokens"] = max_tokens
+            student.spec.update(max_tokens=max_tokens, stop=stop)
             result = student.generate([], task, expert["initial"]["visible"])
             row["calls"].append({"prompt": prompt, "raw_output": result.raw_text, "metadata": result.metadata})
             write_json(output / (digest(task["task_id"]) + ".json"), row)
-            if not result.raw_text.strip() or result.metadata.get("finish_reason") != "stop":
-                raise ValueError("Incomplete self-synthesis; raw output retained")
+            if not result.raw_text.strip() or result.metadata.get("finish_reason") not in {"stop", "length"}:
+                raise ValueError("Invalid self-synthesis output; raw output retained")
             return result.raw_text.strip()
         row["task_knowledge"] = generate(task_synthesis(chosen, rejected), 512)
         trajectory = ""
         for j in range(len(expert["steps"])):
             trajectory += chosen[1 + 2*j]["content"] + "\n"
-            state = generate(state_synthesis(trajectory), 128)
+            state = generate(state_synthesis(trajectory), 128, stop=["\n"])
             row["states"].append(state)
             trajectory += state + "\n" + chosen[2 + 2*j]["content"] + "\n"
         rows.append(row)
@@ -90,9 +98,9 @@ def merge(verified, exploration, synthesis, output, config):
             raise ValueError("Knowledge/execution mismatch")
         calls = row["calls"]
         labels = [row["task_knowledge"], *row["states"]]
-        if (len(calls) != len(labels) or any(c["raw_output"].strip() != text or
-                c["metadata"].get("finish_reason") != "stop" for c, text in zip(calls, labels))):
-            raise ValueError("Knowledge labels differ from completed raw student outputs")
+        if (len(calls) != len(labels) or any(not text.strip() or c["raw_output"].strip() != text or
+                c["metadata"].get("finish_reason") not in {"stop", "length"} for c, text in zip(calls, labels))):
+            raise ValueError("Knowledge labels differ from accepted non-empty raw student outputs")
         # Only these synthesized strings become training labels/context.
         rows.append({k: row[k] for k in ("task_id", "parent_seed_id", "task_knowledge", "states")})
     publish(output, rows, method="wkm", config=config, verified=verified,
