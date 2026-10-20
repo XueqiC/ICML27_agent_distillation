@@ -17,6 +17,23 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **23:4x–00:1x CDT 10-19/20: CREDITS TOPPED UP (user 23:44; probe HTTP 200). USER PRIORITY: core agent-distillation methods all-night.**
+  - Scope: AD/Kang, AD-FTP, SAD, SmartAD, each over K5–K100 × s0–s2. Other baselines wait until tomorrow. The user also asked to combine the APIs and avoid any duplicate teacher use.
+  - **Teacher gate open** (logs/queue/gates/teacher_ok).
+  - **AD/Kang**: K grid 15/15 already done (SAG); full cell waits for the full-TRAIN collection.
+  - **AD-FTP**:
+    - Teacher collections K100 s0/s1/s2 running in parallel on rai (T4 worktree ../ICML27_run_2348ce9; pids 2958214, 2983901 launcher, 2983902 launcher; shared limiter data/adftp_rate_limit). Zero failures so far.
+    - Serial within a set, about 2 min per task, so ETA about 3–3.5 h (roughly 03:30–04:00 CDT).
+    - scratchpad sync_adftp.sh rsyncs each finished collection to hpg $B/reports/adftp-collections/k100_sX, verifies file count + du -sb, and touches gates/adftp_k100_sX_synced.
+    - Keeper plan v4b then runs 15 AD-FTP cells (train 1 GPU 64G 2h → eval greedy+SAG).
+  - **SAD**: 15 cells on T4, ahead of everything except AD-FTP. Preps done for 8; trains k20s0 (group), k5s0, k5s1 (dept, QOSGrpMemLimit) pending. sad-k20s0 (T2) retired to _trash.
+  - **SmartAD**: not implemented before tonight. Spec taken from the paper PDF (K=10 candidates at T=1.0, correct-only, min per-turn macro-mean NLL under the initial student, Eq.5 weights 1/1.5/2 normalized by Σw, LoRA 2 ep lr 2e-4, greedy).
+    - Codex wt/smartad (../ICML27_wt_smartad, launched 23:57 CDT).
+    - Reuses the trusted seed as candidate 1 when its sampling matches, so 9 new candidates per task.
+  - **Full-TRAIN recovery**: Codex wt/ftrecover (../ICML27_wt_ftrecover, launched 23:48 CDT). The tool will import all valid attempts by hash-verified copy into seeds_full_train_r2 with zero new calls, and exclude transport-failed / unknown attempts.
+    - Reason: in 549503d the quota errors consumed attempt slots.
+  - Non-core cells on hold (plan "hold": true): pending AG t1 ×3, gad x0 and lpz-k20s0 g1 were cancelled; lpp k20s0/k5s0 extract c0 completed with the gate open.
+  - Keeper caps: max_jobs 8, max_gpus 16, group allowance 4 GPUs (group: yd26's pending jobs are user-held or waiting on dependencies; ~430G free). Dept QOS is memory-bound (QOSGrpMemLimit, about 917/1000G used by others).
 - **22:1x CDT 10-19: T4 = 2348ce9 deployed; keeper plan v3 (43 cells / 349 stages).**
   - T4 contents:
     - main b1149a7, plus wt/transport bd5873c (baseline teacher transport per upstream / SDK: 600 s, 3 HTTP attempts, separate 429 retries, LEAP 3 tries; seed collection stays 60 s; docs/baselines/TRANSPORT_POLICY.md);
