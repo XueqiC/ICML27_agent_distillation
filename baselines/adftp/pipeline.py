@@ -27,10 +27,13 @@ def main(argv=None):
     parser.add_argument("--rate-limit-dir", default="data/adftp_rate_limit")
     parser.add_argument("--subset-k", type=int, nargs="*", default=[])
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=AD_RECIPE["epochs"])
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.epochs < 1:
+        parser.error("--epochs must be positive")
     if (args.through != "collect" or args.mode == "evaluate") and not args.snapshot:
         parser.error("Training/evaluation requires --snapshot")
     batch_invariant()
@@ -61,7 +64,8 @@ def main(argv=None):
     training = SimpleNamespace(**{**vars(args), "gpus": 1, "training_seed": 0,
                        "output": str(Path(args.output) / "training"), "verified": str(collection)})
     with locked(Path(training.output) / ".pipeline.lock"):
-        identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, "first_thought_prefix": True})
+        identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, "first_thought_prefix": True,
+                                                                   "epochs": args.epochs})
         try:
             if args.mode == "train":
                 result = stage_run(training.output, "train-sft", digest([identity, "sft"]),

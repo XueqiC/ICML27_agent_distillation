@@ -35,6 +35,7 @@ trap 'exit 130' INT
 "$ENV_PYTHON" -m baselines.kang.pipeline --config "${CONFIG:-configs/base.yaml}" \
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$KANG_OUT" \
     --training-seed "${KANG_TRAINING_SEED:-0}" \
+    --epochs "${KANG_EPOCHS:-2}" \
     --train-python "$TRAIN_PYTHON" --mode "${KANG_MODE:-train}" &
 child=$!
 wait "$child"

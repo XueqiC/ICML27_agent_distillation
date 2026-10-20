@@ -18,18 +18,21 @@ from sed.provenance import write_provenance
 from sed.storage import digest, write_json, JsonlLedger, fsync_dir
 from sed.seed_evidence import artifact_hashes, verified_collection_inputs
 from train.dataset import load_tokenizer, build_verified_dataset, mask_report
+from train.convergence import DEFAULT_DELTA, compare_losses, doubling_passes, rule
 from train.modeling import attach_lora, load_student, snapshot_metadata
 from train.optimizer_state import (adamw, learning_rate_at, save_update_state,
                                    trainable_state, assert_trainable_equal, warmth_statistics)
 
 
 def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
-                  passes=None, checkpoint_tokens=(), packing="turn", turn_counts=None):
+                  passes=None, checkpoint_tokens=(), packing="turn", turn_counts=None,
+                  flush_passes=False):
     """Seeded exhaustive passes; thresholds round up to a complete example.
 
     Episode updates close once they reach the budget; episodes are never split.
     Legacy turn updates fit within the budget unless one turn exceeds it.
     Checkpoint thresholds flush on the first complete example reaching them.
+    Ladder plans additionally flush every pass for exact last-pass accounting.
     With both limits supplied the first reached wins. Every final state is saved.
     """
     if (not costs or any(type(c) is not int or c < 1 for c in costs)
@@ -64,6 +67,8 @@ def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
                         "examples_seen": seen, "packing": packing,
                         "passes": seen / len(costs), "token_equivalent_passes": total / sum(costs),
                         "requested_endpoints": list(reached), "final": final})
+        if flush_passes:
+            batches[-1].update(epoch=pass_index, end_of_pass=seen % len(costs) == 0)
         pending, pending_tokens = [], 0
     while True:
         order = list(range(len(costs)))
@@ -81,7 +86,7 @@ def exposure_plan(costs, *, token_budget=512, seed=0, supervised_tokens=None,
             endpoints = [v for v in endpoints if v > total]
             final = ((supervised_tokens is not None and total >= supervised_tokens)
                      or (passes is not None and pass_index + 1 >= passes and position == len(order) - 1))
-            if reached or final or pending_tokens >= token_budget:
+            if reached or final or pending_tokens >= token_budget or (flush_passes and position == len(order) - 1):
                 flush(reached, final)
             if final:
                 return batches
@@ -192,7 +197,8 @@ def checkpoint_metadata(batch, *, updates, wall_seconds, update_seconds, peak_me
 
 def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=None,
                identity_sha256, gradient_clip=1.0, moment_warmup_steps=0,
-               lr_warmup_steps=0, save_every_update_through=0, log_warmth=False):
+               lr_warmup_steps=0, save_every_update_through=0, log_warmth=False,
+               passes_ladder=False, converge_delta=DEFAULT_DELTA):
     import torch
     if not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("Learning rate must be finite and positive")
@@ -201,6 +207,11 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         raise ValueError("Warmup and state-save counts must be nonnegative integers")
     if any(e.get("label_provenance", {}).get("training_eligible") is False for e in examples):
         raise ValueError("Diagnostic examples cannot enter training")
+    if passes_ladder:
+        if moment_warmup_steps or lr_warmup_steps or any("epoch" not in b or b["packing"] != "episode" for b in plan):
+            raise ValueError("Pass ladder requires episode packing, pass boundaries and constant LR without warmup")
+        doubling_passes(plan[-1]["epoch"] + 1)
+        compare_losses(0., 0., converge_delta)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
@@ -213,6 +224,9 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
     empty_visible_counts = [e.get("empty_visible_turns_masked", 0) for e in examples]
     start, compute_seconds, checkpoints = time.monotonic(), 0.0, []
     ledger = JsonlLedger(output / "updates.jsonl")
+    pass_loss = pass_tokens = 0
+    rung_losses, decisions = {}, []
+    convergence = None
     warm = {}
     if moment_warmup_steps:
         warm = {"moment_warmup_exposure": moment_warmup(model, optimizer, examples, plan,
@@ -224,6 +238,9 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         tick = time.monotonic()
         optimizer.zero_grad(set_to_none=True)
         total_loss, actual_tokens = token_mean_backward(model, examples, batch)
+        if passes_ladder:
+            pass_loss += total_loss
+            pass_tokens += actual_tokens
         grad_norm = torch.nn.utils.clip_grad_norm_(parameters, gradient_clip, error_if_nonfinite=True)
         warmth = {"warmth": warmth_statistics(optimizer)} if log_warmth else {}
         if lr_warmup_steps:
@@ -244,6 +261,23 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
                               learning_rate=learning_rate, lr_warmup_steps=lr_warmup_steps,
                               gradient_clip=gradient_clip, identity_sha256=identity_sha256,
                               moment_warmup_steps=moment_warmup_steps, extra=warm, tokenizer=tokenizer)
+        stop = False
+        if passes_ladder and batch["end_of_pass"]:
+            completed = batch["epoch"] + 1
+            if completed & (completed - 1) == 0:
+                rung_losses[completed] = pass_loss / pass_tokens
+                if completed > 1:
+                    decision = {"previous_passes": completed // 2, "passes": completed,
+                                **compare_losses(rung_losses[completed // 2], rung_losses[completed], converge_delta)}
+                    decisions.append(decision)
+                    stop = decision["converged"]
+                convergence = {"rule": rule(converge_delta), "converge_delta": converge_delta,
+                    "max_passes": plan[-1]["epoch"] + 1, "base_passes": 1,
+                    "status": "converged" if stop else "cap_reached" if batch["final"] else "running",
+                    "decisions": list(decisions), "L_last": rung_losses[completed],
+                    "reported_checkpoint": f"checkpoint-tokens-{batch['cumulative_supervised_tokens']}" if stop else None,
+                    "reported_passes": completed if stop else None}
+            pass_loss = pass_tokens = 0
         if batch["requested_endpoints"] or batch["final"]:
             metadata = checkpoint_metadata(batch, updates=update, wall_seconds=time.monotonic() - start,
                 update_seconds=compute_seconds,
@@ -253,6 +287,8 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
             metadata.update(empty_visible_turns_masked=sum(empty_visible_counts),
                             empty_visible_turn_examples=sum(count > 0 for count in empty_visible_counts))
             metadata.update(warm)
+            if passes_ladder:
+                metadata.update(convergence=convergence, final=stop or batch["final"])
             name = f"checkpoint-tokens-{batch['cumulative_supervised_tokens']}"
             staging = output / ("." + name + ".partial")
             staging.mkdir(exist_ok=False)
@@ -273,6 +309,18 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
             write_json(output / "profiling_report.json", {"device": str(device), "checkpoints": checkpoints,
                        "scope": "training loop including checkpoint saves; model/tokenizer load reported separately",
                        "cuda_memory_measured": cuda})
+            if passes_ladder:
+                from sed.storage import file_hash
+                result = {"checkpoints": [c["path"] for c in checkpoints],
+                          "supervised_tokens": batch["cumulative_supervised_tokens"],
+                          "convergence": convergence, "identity_sha256": identity_sha256,
+                          "updates_sha256": file_hash(output / "updates.jsonl")}
+                write_json(output / "result.json", result)
+                # Append outcome provenance without changing the frozen identity
+                # referenced by checkpoint metadata and optimizer states.
+                write_json(output / "convergence_provenance.json", result)
+        if stop:
+            break
     return checkpoints
 
 
@@ -284,6 +332,9 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--supervised-tokens", type=int)
     parser.add_argument("--passes", type=int)
+    parser.add_argument("--passes-ladder", action="store_true", help="Training-loss doubling ladder starting at one pass")
+    parser.add_argument("--converge-delta", type=float, default=DEFAULT_DELTA)
+    parser.add_argument("--max-passes", type=int, help="Ladder cap: a power of two >= 2")
     parser.add_argument("--checkpoint-tokens", type=int, nargs="*", default=[])
     parser.add_argument("--tokens-per-update", type=int, default=512)
     parser.add_argument("--learning-rate", type=float, default=1e-5)
@@ -298,7 +349,19 @@ def main(argv=None):
     parser.add_argument("--packing", choices=("turn", "episode"), default="episode")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args(argv)
-    if args.supervised_tokens is None and args.passes is None:
+    if args.passes_ladder:
+        try:
+            doubling_passes(args.max_passes)
+            compare_losses(0., 0., args.converge_delta)
+        except ValueError as error:
+            parser.error(str(error))
+        if args.passes is not None or args.supervised_tokens is not None or args.checkpoint_tokens:
+            parser.error("--passes-ladder owns the pass limit and doubling checkpoints")
+        if args.packing != "episode" or args.lr_warmup_steps or args.moment_warmup_steps:
+            parser.error("--passes-ladder requires episode packing and constant LR without warmup")
+    elif args.max_passes is not None or args.converge_delta != DEFAULT_DELTA:
+        parser.error("--max-passes/--converge-delta require --passes-ladder")
+    elif args.supervised_tokens is None and args.passes is None:
         parser.error("Specify --supervised-tokens and/or --passes")
     if args.rank < 1 or args.alpha < 1 or not 0 <= args.dropout < 1:
         parser.error("Invalid LoRA settings")
@@ -320,14 +383,21 @@ def main(argv=None):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze,
                                       max_length=args.max_length, packing=args.packing)
+    endpoints = args.checkpoint_tokens
+    if args.passes_ladder:
+        endpoints = [p * sum(e["supervised_tokens"] for e in examples) for p in doubling_passes(args.max_passes)]
     plan = exposure_plan([e["supervised_tokens"] for e in examples], token_budget=args.tokens_per_update,
-                         seed=args.seed, supervised_tokens=args.supervised_tokens, passes=args.passes,
-                         checkpoint_tokens=args.checkpoint_tokens, packing=args.packing,
-                         turn_counts=[e["turn_count"] for e in examples])
+                         seed=args.seed, supervised_tokens=args.supervised_tokens,
+                         passes=args.max_passes if args.passes_ladder else args.passes,
+                         checkpoint_tokens=endpoints, packing=args.packing,
+                         turn_counts=[e["turn_count"] for e in examples], flush_passes=args.passes_ladder)
     report = mask_report(examples, tokenizer)
     # Omit disabled additions even from provenance, preserving the legacy config.
     options = {k: v for k, v in vars(args).items() if v or k not in {
         "moment_warmup_steps", "lr_warmup_steps", "save_every_update_through", "log_warmth"}}
+    if not args.passes_ladder:
+        for key in ("passes_ladder", "converge_delta", "max_passes"):
+            options.pop(key)
     config["sft"] = {**options, "base_snapshot": metadata, "dtype": "bfloat16",
                      "enable_thinking": False, "microbatch": 1, "gradient_checkpointing": True,
                      "loss": "supervised_token_mean_per_update", "attention": "eager",
@@ -337,6 +407,10 @@ def main(argv=None):
                      "scheduler": "constant", "deterministic_algorithms": True}
     if args.lr_warmup_steps:
         config["sft"]["scheduler"] = "linear_warmup_then_constant"
+    if args.passes_ladder:
+        config["sft"]["convergence"] = {"rule": rule(args.converge_delta), "base_passes": 1,
+            "rungs": doubling_passes(args.max_passes), "flush_each_pass": True,
+            "outcome_provenance": "convergence_provenance.json"}
     if args.moment_warmup_steps:
         config["sft"]["moment_warmup_exposure"] = warmup_exposure(examples, plan, args.moment_warmup_steps)
     provenance = write_provenance(output, command="sft", config=config,
@@ -360,7 +434,8 @@ def main(argv=None):
                              moment_warmup_steps=args.moment_warmup_steps,
                              lr_warmup_steps=args.lr_warmup_steps,
                              save_every_update_through=args.save_every_update_through,
-                             log_warmth=args.log_warmth)
+                             log_warmth=args.log_warmth,
+                             **({"passes_ladder": True, "converge_delta": args.converge_delta} if args.passes_ladder else {}))
     print(json.dumps({"checkpoints": [c["path"] for c in checkpoints],
                       "supervised_tokens": checkpoints[-1]["supervised_tokens"]}))
 

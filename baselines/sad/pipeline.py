@@ -1,6 +1,8 @@
 """Hash-bound SAD full tuning and all-checkpoint dev140 evaluation."""
 import argparse
+from decimal import Decimal
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -22,6 +24,15 @@ RECIPE = {"training_seed": 0, "adaptation": "full_parameter_text_fsdp2", "packin
     "processed_token_budget": TOKEN_BUDGET, "checkpoint_denominators": list(DENOMINATORS)}
 
 
+def processed_budget(multiplier):
+    if not math.isfinite(multiplier) or multiplier <= 0:
+        raise ValueError("Budget multiplier must be finite and positive")
+    budget = TOKEN_BUDGET * Decimal(str(multiplier))
+    if not math.isfinite(budget) or budget != int(budget) or budget < 1:
+        raise ValueError("Budget multiplier must produce a positive integer token budget")
+    return int(budget)
+
+
 def training_command(args, output):
     return [args.train_python, "-m", "torch.distributed.run", "--standalone",
         "--nproc_per_node", str(args.gpus), "-m", "baselines.common.fsdp_train",
@@ -29,7 +40,8 @@ def training_command(args, output):
         "--base-snapshot", args.snapshot, "--verified", args.verified, "--output", str(output),
         "--seed", "0", "--max-length", "32768", "--learning-rate", "2e-5",
         "--scheduler", "cosine", "--warmup-ratio", ".03", "--original-batch", "64",
-        "--weight-decay", "0", "--packing", "turn", "--processed-token-budget", str(TOKEN_BUDGET),
+        "--weight-decay", "0", "--packing", "turn", "--processed-token-budget",
+        str(processed_budget(getattr(args, "budget_multiplier", 1.0))),
         "--scoring", args.scoring]
 
 
@@ -43,10 +55,15 @@ def main(argv=None):
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=4)
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default=RECIPE["scoring"])
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--budget-multiplier", type=float, default=1.0)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    try:
+        budget = processed_budget(args.budget_multiplier)
+    except ValueError as error:
+        parser.error(str(error))
     batch_invariant()
     for name in ("snapshot", "verified", "output"):
         setattr(args, name, str(Path(getattr(args, name)).resolve()))
@@ -58,7 +75,8 @@ def main(argv=None):
             from baselines.common.evaluation import evaluate_models
             evaluate_models(args)
             return
-        identity = prepare(args, config, method="sad", recipe={**RECIPE, "scoring": args.scoring})
+        identity = prepare(args, config, method="sad", recipe={**RECIPE, "scoring": args.scoring,
+                                                               "processed_token_budget": budget})
         try:
             if args.mode == "train" and args.through != "prepare":
                 trained = stage_run(args.output, "train-sad", digest([identity, "sad"]),

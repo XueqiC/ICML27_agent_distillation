@@ -401,6 +401,11 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                 (loss * scale).backward()
             for key, value in {"loss": loss.detach(), **metrics}.items():
                 metrics_sum[key] = metrics_sum.get(key, 0.0) + value.detach() * (weight if active else 0.0)
+            # Accounting only: recover the token numerator before trajectory /
+            # SmartAD weight normalization, excluding distributed padding.
+            if objective in {"sft", "smartad", "sad"}:
+                numerator = loss.detach() * (supervised_count(row) if objective == "sft" else 1)
+                metrics_sum["supervised_loss_sum"] = metrics_sum.get("supervised_loss_sum", 0.0) + numerator * active
         norm = torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
         lr_used = optimizer.param_groups[0]["lr"]
         optimizer.step()
@@ -435,10 +440,13 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         if world_size > 1:
             dist.all_reduce(values)
         values /= len(indices)
+        if "supervised_loss_sum" in keys:
+            values[keys.index("supervised_loss_sum")] *= len(indices)
         if hasattr(norm, "full_tensor"):
             norm = norm.full_tensor()
         if ledger:
             ledger.append({"update": update, **batch, "lr": lr_used, "global_batch": len(indices),
+                           "objective": objective,
                            "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca", "smartad"} else "preference pair",
                            "microsteps": len(microsteps), "collective_rounds": sum(rounds),
                            "zero_weight_slots": len(slots) * world_size - len(microsteps),

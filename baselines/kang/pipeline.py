@@ -22,7 +22,7 @@ def training_command(args, output):
     return [args.train_python, "-m", "baselines.common.fsdp_train", "--config", args.config,
         "--objective", "sft", "--adaptation", "kang_lora", "--snapshot", args.snapshot,
         "--base-snapshot", args.snapshot, "--verified", args.verified, "--output", str(output),
-        "--epochs", "2", "--seed", str(training_seed), "--max-length", "32768", "--learning-rate", "2e-4",
+        "--epochs", str(getattr(args, "epochs", RECIPE["epochs"])), "--seed", str(training_seed), "--max-length", "32768", "--learning-rate", "2e-4",
         "--scheduler", "linear", "--warmup-ratio", "0", "--warmup-steps", "0",
         "--original-batch", "8", "--weight-decay", "0", "--packing", RECIPE["packing"]]
 
@@ -44,8 +44,11 @@ def main(argv=None):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--mode", choices=["prepare", "train"], default="train")
     parser.add_argument("--training-seed", type=int, default=0)
+    parser.add_argument("--epochs", type=int, default=RECIPE["epochs"])
     parser.add_argument("--train-python", default=os.environ.get("TRAIN_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.epochs < 1:
+        parser.error("--epochs must be positive")
     args.gpus = 1
     batch_invariant()
     for name in ("snapshot", "verified", "output"):
@@ -54,7 +57,8 @@ def main(argv=None):
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     with locked(Path(args.output) / ".pipeline.lock"):
-        identity = prepare(args, config, method="kang", recipe={**RECIPE, "training_seed": args.training_seed})
+        identity = prepare(args, config, method="kang", recipe={**RECIPE, "training_seed": args.training_seed,
+                                                              "epochs": args.epochs})
         try:
             if args.mode == "train":
                 train_pipeline(args, identity)

@@ -20,12 +20,17 @@ export OMP_NUM_THREADS=4 CUBLAS_WORKSPACE_CONFIG=:4096:8
 args=(--snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$TRAIN_OUT"
       --tokens-per-update "$TOKENS_PER_UPDATE" --learning-rate "$LEARNING_RATE"
       --seed "$TRAIN_SEED" --max-length "$MAX_LENGTH")
-# Set TRAIN_PASSES=0 for a token-only run; with both, the first limit wins.
-if [[ "$TRAIN_PASSES" != 0 ]]; then args+=(--passes "$TRAIN_PASSES"); fi
-if [[ -n "$TRAIN_TOKENS" ]]; then args+=(--supervised-tokens "$TRAIN_TOKENS"); fi
-if [[ -n "$CHECKPOINT_TOKENS" ]]; then
-    read -r -a endpoints <<< "$CHECKPOINT_TOKENS"
-    args+=(--checkpoint-tokens "${endpoints[@]}")
+if [[ "${TRAIN_PASSES_LADDER:-0}" == 1 ]]; then
+    args+=(--passes-ladder --max-passes "${TRAIN_MAX_PASSES:?Set a power-of-two convergence cap}"
+           --converge-delta "${TRAIN_CONVERGE_DELTA:-0.01}" --packing episode)
+else
+    # Set TRAIN_PASSES=0 for a token-only run; with both, the first limit wins.
+    if [[ "$TRAIN_PASSES" != 0 ]]; then args+=(--passes "$TRAIN_PASSES"); fi
+    if [[ -n "$TRAIN_TOKENS" ]]; then args+=(--supervised-tokens "$TRAIN_TOKENS"); fi
+    if [[ -n "$CHECKPOINT_TOKENS" ]]; then
+        read -r -a endpoints <<< "$CHECKPOINT_TOKENS"
+        args+=(--checkpoint-tokens "${endpoints[@]}")
+    fi
 fi
 if [[ -n "${MOMENT_WARMUP_STEPS:-}" && "$MOMENT_WARMUP_STEPS" != 0 ]]; then
     args+=(--moment-warmup-steps "$MOMENT_WARMUP_STEPS")
