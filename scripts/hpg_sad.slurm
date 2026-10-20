@@ -25,4 +25,5 @@ exec "$ENV_PYTHON" -m baselines.sad.pipeline --config "${CONFIG:-configs/base.ya
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SAD_OUT" \
     --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" --vllm-python "$VLLM_PYTHON" \
     --gpus "$NGPUS" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \
+    --scoring "${SAD_SCORING:-shared_history}" \
     --mode "${SAD_MODE:-train}" --through "${SAD_THROUGH:-all}"

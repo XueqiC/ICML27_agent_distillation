@@ -78,6 +78,8 @@ def pack_shared_history(row):
 
     The final history-form reply has no consumers and is omitted. The original
     32768 limit applies to each evaluation context, not this branched layout.
+    Reply labels may contain SAD span-mask holes; native history always retains
+    the complete reply, including its unsupervised text.
     """
     ids, labels, positions, branches, spans = [], [], [], [], []
     history = []
@@ -89,7 +91,9 @@ def pack_shared_history(row):
         if (not isinstance(start, int) or not isinstance(prompt, int)
                 or not 0 < start < prompt < len(source) <= 32768
                 or len(source) != len(target)
-                or target != [-100] * prompt + source[prompt:]):
+                or target[:prompt] != [-100] * prompt
+                or any(label not in (-100, token) for label, token in zip(target[prompt:], source[prompt:]))
+                or not any(label != -100 for label in target[prompt:])):
             raise ValueError("Shared history requires validated exact-prefix turn rows")
         prefix = source[:start]
         if prefix[:len(history)] != history or prefix[:len(previous_completed)] != previous_completed:

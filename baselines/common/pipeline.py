@@ -100,4 +100,8 @@ def update_disclosure(output, identity):
             verified=identity["verified"], collection_sha256=identity["collection_sha256"],
             token_accounting="Training makes zero teacher calls. Source acquisition costs, returned model IDs "
                 "and timestamps remain in the hash-bound verified collection; do not count copied evidence again.")
+    if identity.get("method") == "sad":
+        row["scoring"] = identity.get("recipe", {}).get("scoring", "per_turn")
+        row["processed_token_unit"] = ("Logical per-turn input positions including masked repeated history; "
+                                       "physical_policy_forward_tokens records executed positions separately.")
     write_json(path, row)

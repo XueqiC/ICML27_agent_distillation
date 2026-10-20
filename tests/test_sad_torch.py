@@ -45,7 +45,7 @@ def test_summed_span_ce_gradient_order_budget_and_crossings(tmp_path, monkeypatc
     before = [p.detach().clone() for p in model.parameters()]
     state = train_loop(model, examples, tmp_path / 'train', objective='sad', learning_rate=2e-5,
         scheduler='cosine', warmup_ratio=.03, original_batch=64, processed_token_budget=19,
-        packing='turn', checkpoint_callback=lambda model, state: callbacks.append(state.copy()))
+        packing='turn', scoring='per_turn', checkpoint_callback=lambda model, state: callbacks.append(state.copy()))
     updates = [json.loads(line) for line in (tmp_path / 'train/updates.jsonl').read_text().splitlines()]
     assert [r['indices'] for r in updates] == [[0], [1], [0], [1], [0]]
     assert state['logical_forward_tokens'] == callbacks[-1]['processed_token_positions'] == 23

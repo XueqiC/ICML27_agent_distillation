@@ -102,11 +102,16 @@ def test_all_crossings_publish_even_when_one_batch_crosses_multiple(tmp_path):
         assert state['final'] and state['provenance_sha256'] == digest({"source": "test"})
         assert state['budget_complete'] is (m['fraction'] == '1/1')
         assert state['threshold_overshoot'] >= 0
-    args = SimpleNamespace(train_python='TRAIN', gpus=4, config='CONFIG', snapshot='BASE', verified='VERIFIED')
+    args = SimpleNamespace(train_python='TRAIN', gpus=4, config='CONFIG', snapshot='BASE', verified='VERIFIED',
+                           scoring='shared_history')
     command = training_command(args, output)
     assert command[command.index('--objective') + 1] == 'sad'
     assert command[command.index('--processed-token-budget') + 1] == str(TOKEN_BUDGET)
     assert '--reference' not in command
+    assert command[command.index('--scoring') + 1] == 'shared_history'
+    args.scoring = 'per_turn'
+    command = training_command(args, output)
+    assert command[command.index('--scoring') + 1] == 'per_turn'
 
 
 def test_full_checkpoint_equivalence_gate_rejects_numeric_mismatch():
@@ -139,3 +144,25 @@ def test_training_disclosure_identifies_verified_input(tmp_path, method):
     value = json.loads((tmp_path / 'disclosure.json').read_text())
     assert value['source'] == 'verified_support_collection' and value['expansion'] is False
     assert value['totals']['teacher_calls'] == 0 and value['collection_sha256'] == 'hash'
+
+
+@pytest.mark.parametrize("scoring", [None, "per_turn", "shared_history"])
+def test_pipeline_binds_scoring_to_identity_and_disclosure(tmp_path, monkeypatch, scoring):
+    from baselines.sad import pipeline
+    identities = []
+
+    def prepare(args, config, *, method, recipe):
+        identity = {"method": method, "recipe": recipe, "K": 5, "unique_instances": 5,
+                    "task_groups": 5, "verified": args.verified, "collection_sha256": "hash"}
+        identities.append(identity)
+        write_json(tmp_path / "identity.json", identity)
+        return identity
+
+    monkeypatch.setattr(pipeline, "prepare", prepare)
+    monkeypatch.setattr(pipeline, "load_config", lambda _: {})
+    args = ["--snapshot", "BASE", "--verified", "VERIFIED", "--output", str(tmp_path), "--mode", "prepare"]
+    pipeline.main(args + (["--scoring", scoring] if scoring else []))
+    effective = scoring or "shared_history"
+    assert identities[0]["recipe"]["scoring"] == effective
+    assert json.loads((tmp_path / "disclosure.json").read_text())["scoring"] == effective
+    assert pipeline.RECIPE["scoring"] == "shared_history"

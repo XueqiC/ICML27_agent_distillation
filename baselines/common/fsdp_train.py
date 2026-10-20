@@ -295,7 +295,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
                packing=None, processed_token_budget=None, checkpoint_callback=None,
-               scoring="per_turn", flex_kernel_options=None):
+               scoring=None, flex_kernel_options=None):
     import torch
     import torch.distributed as dist
     if objective not in {"sft", "sad", "dpo", "ipr", "steca"} or not math.isfinite(learning_rate) or learning_rate <= 0:
@@ -307,14 +307,18 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     if len(actual_packings) != 1 or (packing is not None and actual_packings != {packing}):
         raise ValueError("Training packing differs from encoded examples")
     packing, = actual_packings
+    # Preserve the direct-loop preference default; SAD uses whole trajectories.
+    if scoring is None:
+        scoring = "shared_history" if objective == "sad" else "per_turn"
     if scoring not in {"per_turn", "shared_history"}:
         raise ValueError("Scoring must be per_turn or shared_history")
-    if scoring == "shared_history" and (objective not in {"dpo", "ipr"} or packing != "turn"):
-        raise ValueError("Shared-history scoring currently requires turn-packed preferences")
+    if scoring == "shared_history" and (objective not in {"dpo", "ipr", "sad"} or packing != "turn"):
+        raise ValueError("Shared-history scoring requires turn-packed DPO/IPR/SAD rows")
     flex_settings = None
     if scoring == "shared_history":
         flex_settings = configure_flex_attention(model, flex_kernel_options)
-        configure_flex_attention(reference, flex_settings["kernel_options"])
+        if reference is not None:
+            configure_flex_attention(reference, flex_settings["kernel_options"])
     two_pass_backward = objective in {"dpo", "ipr"} and packing == "turn"
     two_pass_turn_backward = two_pass_backward and scoring == "per_turn"
     two_pass_side_backward = two_pass_backward and scoring == "shared_history"
@@ -362,7 +366,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         optimizer.zero_grad(set_to_none=True)
         metrics_sum = {}
         indices = batch["indices"]
-        microsteps = ([(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
+        microsteps = ([(examples[i], 1.0) for i in indices] if objective == "sad" and scoring == "shared_history" else
+                      [(r, 1.0) for i in indices for r in sequence_rows(examples[i])]
                       if objective == "sad" else weighted_microsteps(examples, indices) if objective == "steca" else
                       sft_microsteps(examples, indices) if objective == "sft" else
                       [(examples[i], 1.0) for i in indices])
@@ -379,7 +384,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             # FSDP averages across ranks. Cancel that average and divide by
             # ACTUAL trajectories/pairs, including the final partial batch.
             scale = weight * world_size / len(indices) if active else 0.0
-            loss, metrics = ((-batch_logps(model, [row], device).sum(), {}) if objective == "sad" else
+            loss, metrics = ((-batch_logps(model, [row], device, scoring=scoring).sum(), {}) if objective == "sad" else
                             weighted_objective(model, row, device) if objective == "steca" else
                             sft_objective(model, row, device) if objective == "sft" else
                             dpo_objective(model, reference, row, device, beta=beta,
@@ -407,7 +412,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                 from baselines.common.shared_history import pack_shared_history
                 tokens = sum(len(pack_shared_history(group)["input_ids"]) for group in groups)
                 return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
-                        sum(len(r["input_ids"]) for r in rows), tokens, tokens)
+                        sum(len(r["input_ids"]) for r in rows), tokens, tokens if two_pass_side_backward else 0)
             return (sum(sum(v != -100 for v in r["labels"]) for r in rows),
                     sum(len(r["input_ids"]) for r in rows),
                     sum(len(batch) * max(len(r["input_ids"]) for r, _ in batch)
@@ -449,6 +454,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                 "examples_seen": exposure, "supervised_tokens_seen": supervised,
                 "logical_forward_tokens": forward_tokens, "processed_token_positions": forward_tokens,
                 "physical_policy_forward_tokens": physical_tokens, "packing": packing,
+                "physical_policy_recompute_forward_tokens": recompute_tokens,
+                "physical_reference_forward_tokens": 0, "scoring": scoring, "flex_attention": flex_settings,
                 "loss_normalization": "batch mean of trajectory span-token sums"})
     if cuda:
         torch.cuda.synchronize(device)
@@ -473,7 +480,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca"} else 0,
             "wall_time_seconds": time.monotonic() - started, "memory_per_rank": all_memory,
             "packing": packing, "batch_unit": "trajectory" if objective in {"sft", "sad", "steca"} else "preference pair",
-            "microbatch": 1, "microbatch_unit": packing if objective in {"sft", "sad", "steca"} else "preference pair",
+            "microbatch": 1, "microbatch_unit": ("trajectory" if objective == "sad" and scoring == "shared_history"
+                else packing if objective in {"sft", "sad", "steca"} else "preference pair"),
             "master_dtype": "float32", "compute_dtype": "bfloat16" if cuda else "float32",
             "gradient_clip": 1.0, "weight_decay": weight_decay,
             **({"processed_token_positions": forward_tokens,
@@ -654,7 +662,7 @@ def main(argv=None):
     parser.add_argument("--packing", choices=["episode", "turn"], default="turn",
                         help="SFT forward packing; X5 batches always count trajectories. Preferences always use turn prefixes.")
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"],
-                        help="Preference execution path; defaults to shared_history. SFT retains per_turn.")
+                        help="DPO/IPR/SAD default to shared_history; SFT/STeCa/HAD retain per_turn.")
     add_flex_kernel_options_argument(parser)
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--base-snapshot", required=True)
@@ -676,10 +684,9 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-length", type=int, default=32768)
     args = parser.parse_args(argv)
-    # Only preference objectives have a shared-history path; every other objective keeps per_turn.
-    args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr"} else "per_turn")
-    if args.objective not in {"dpo", "ipr"} and args.scoring != "per_turn":
-        parser.error("Only DPO/IPR preference objectives use shared_history scoring")
+    args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr", "sad"} else "per_turn")
+    if args.objective not in {"dpo", "ipr", "sad"} and args.scoring != "per_turn":
+        parser.error("Only DPO/IPR/SAD objectives use shared_history scoring")
     if args.flex_kernel_options is not None and args.scoring != "shared_history":
         parser.error("Flex kernel options require shared_history scoring")
     flex_settings = flex_attention_settings(args.flex_kernel_options) if args.scoring == "shared_history" else None
@@ -818,7 +825,8 @@ def main(argv=None):
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": args.packing if args.objective in {"sft", "sad", "steca"} else "turn", "microbatch": 1,
                 "batch_unit": "trajectory" if args.objective in {"sft", "sad", "steca"} else "preference pair",
-                "microbatch_unit": args.packing if args.objective in {"sft", "sad", "steca"} else "preference pair",
+                "microbatch_unit": ("trajectory" if args.objective == "sad" and args.scoring == "shared_history"
+                    else args.packing if args.objective in {"sft", "sad", "steca"} else "preference pair"),
                 "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps),
                 "reference_policy": ("fixed_sft" if args.objective == "ipr" else
                                      "fixed_seed_sft_init" if args.objective == "dpo" and
