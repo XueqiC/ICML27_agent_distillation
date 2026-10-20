@@ -1,27 +1,54 @@
-# Teacher transport failures — engineering fix, 2026-10-19
+# Teacher transport failures — engineering fixes, 2026-10-19/20
 
 A stage cannot complete with fewer labels because a teacher request failed.
 The shared transport retains its existing bounded retry policy. Once that policy
 fails, `TeacherCallError` (including budget/halted subclasses) propagates through
 the runner and collector. No SDK exception body is printed or stored.
 
-A returned response must have explicit `status=completed`. Incomplete or unknown
-responses retain output/usage blobs and raise. A completed empty or malformed
-output is a format rejection, not a transport error. Each method retains its
-existing rejection behavior, including fatal format rejection for STeCa and
+A returned response must have known input/output usage and either explicit
+`status=completed` or a recognized output-cap truncation. A response with
+`status=incomplete` is truncated when `incomplete_details.reason=max_output_tokens`,
+or, only when `incomplete_details` is absent/null, its reported `output_tokens`
+is at least the requested `max_output_tokens`. An explicit other reason (including
+`content_filter`) never uses that fallback. Failed, cancelled, in-progress,
+unknown-status and other incomplete responses, or missing usage, retain
+output/usage blobs and raise with the existing transport policy.
+
+2026-10-20: a response truncated at the step/output cap is a model output (upstream: parse error), not a transport failure.
+
+Truncated responses return a normal `TeacherResult` with `truncated=True` (also
+stored in metadata), retaining the raw text, original response status, incomplete
+reason, requested cap and usage. The terminal ledger row is `status=rejected`,
+`error_type=TruncatedOutput`, with the parser result recorded separately.
+Truncations consume their logical slot and all token reservations, never enter
+the reusable success cache, and do not halt a capped collector on restart.
+Reasoning tokens can consume the whole cap with no visible output; these counts
+remain accounting metadata only.
+
+A completed or cap-truncated empty/malformed output reaches ordinary method
+validation. H0 execution (including seed/full-TRAIN collection) records a parser
+error/failed policy step and continues the episode; LEAP validation rejection
+consumes its method try. Parseable returned text still follows the existing
+parser/validator; truncation alone does not force a different label or mask.
+Each method retains its existing rejection behavior, including fatal format
+rejection for STeCa and
 AgentDistill clustering/consolidation, and HAD/GAD retention of unparsable raw
 labels with the existing downstream masks. This does not change algorithms,
 prompts, K, splits, student/teacher identities or caps.
 
 `teacher_report.json` belongs to a stage invocation. It separates
 `transport_failures` (terminal failures), `transport_failed_attempts` (HTTP or
-response failures, including recovered retries), `parser_rejections`, and
-`rejections` (method-level output validation). An output can appear in both parser
-and method counters; these two counters must not be summed as independent calls.
+response failures, including recovered retries), `truncated_outputs`,
+`parser_rejections`, and `rejections` (method-level output validation). Truncations
+are counted once per returned response, with no transport/unknown increment.
+An output can appear in truncation, parser and method counters; these counters
+must not be summed as independent calls.
 Existing `report.json`, `result.json`, and `summary.json` expose these counters
 where present. Per-method disclosure `teacher_outcomes` counts historical failed,
-incomplete and unknown ledger attempts separately from parser rejections. Those
-attempt counts include failed requests that eventually recovered. Billing and
+incomplete and unknown ledger attempts separately from parser rejections and
+`truncated_outputs`. A `TruncatedOutput` ledger row counts as a parser rejection
+only when its separate `parser_error` field is set. Those attempt counts include
+failed requests that eventually recovered. Billing and
 reservations always come from the original ledgers, never from these reports.
 
 ## Recovery
@@ -52,8 +79,8 @@ run; do not reset counters or edit caps in place.
 A failed real execution is retried in a fresh `transport_retries` directory using
 an actual reset and full execution (with normal request-cache reuse). No branch
 state is fabricated. Unknown historical starts fail on discovery before they can
-be retried. Successful or method-rejected completed attempts retain the original
-method slot. Seed/full-TRAIN manifests bind historical failed executions
+be retried. Successful or method-rejected completed/truncated attempts retain
+the original method slot. Seed/full-TRAIN manifests bind historical failed executions
 separately from method attempts. AgentDistill disclosures include retry resets.
 
 Existing stages that were already incorrectly marked complete are not
@@ -79,6 +106,8 @@ reused without calls; excluded attempts remain hashed source evidence.
 
 Tests use CPU, fake environments and stub transports, with the repository's
 network/API prohibition fixture. Regression coverage checks stage failure without
-completion, retained format rejections, real reset on retry, explicit capped
-recovery, non-refundable caps, and resumption to completion. No scientific result
-or faithful baseline reproduction is claimed by this engineering validation.
+completion, cap-truncation classification and method handling, retained format
+rejections, cache exclusion, separate report counters, real reset on retry,
+explicit capped recovery, non-refundable caps, and resumption to completion.
+No scientific result or faithful baseline reproduction is claimed by this
+engineering validation.

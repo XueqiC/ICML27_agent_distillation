@@ -451,7 +451,8 @@ def test_steca_checked_environment_to_reflection_and_training(seed_bank, tmp_pat
         def generate(self, history, task, visible):
             factory_calls.append(visible)
             return TeacherResult("Thought: avoid that direction.\nAction: look", None,
-                {"finish_reason": "stop", "response_status": "completed", "call_id": "fake"})
+                {"finish_reason": "stop", "response_status": "completed", "call_id": "fake",
+                 "usage": {"input_tokens": 13, "output_tokens": 17, "total_tokens": 30}})
     def factory(*args, **kwargs):
         assert kwargs["cap"] == 5 and kwargs["teacher_class"] is ReflectionTeacher
         return FakeTeacher()

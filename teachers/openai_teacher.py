@@ -35,6 +35,11 @@ class TeacherResult(NamedTuple):
     parsed_action: str | None
     metadata: dict
 
+    @property
+    def truncated(self):
+        """Keep the three-field policy tuple and persist the flag in metadata."""
+        return self.metadata.get("truncated") is True
+
 
 class TeacherCallError(RuntimeError):
     pass
@@ -76,11 +81,27 @@ def _usage(response):
         return None
     details = _field(usage, "output_tokens_details", {})
     input_details = _field(usage, "input_tokens_details", {})
-    return {"input_tokens": _field(usage, "input_tokens", 0),
-            "output_tokens": _field(usage, "output_tokens", 0),
+    return {"input_tokens": _field(usage, "input_tokens"),
+            "output_tokens": _field(usage, "output_tokens"),
             "total_tokens": _field(usage, "total_tokens", 0),
             "reasoning_tokens": _field(details, "reasoning_tokens", 0) or 0,
             "cached_input_tokens": _field(input_details, "cached_tokens", 0) or 0}
+
+
+def has_known_usage(usage):
+    return isinstance(usage, dict) and all(
+        type(usage.get(key)) is int and usage[key] >= 0
+        for key in ("input_tokens", "output_tokens"))
+
+
+def _output_cap_truncation(response, usage, max_output_tokens):
+    """Only an explicit cap reason or absent-details token evidence is known."""
+    if _field(response, "status") != "incomplete" or not has_known_usage(usage):
+        return False
+    details = _field(response, "incomplete_details")
+    if details is not None:
+        return _field(details, "reason") == "max_output_tokens"
+    return usage["output_tokens"] >= max_output_tokens
 
 
 def _rate_limit_headers(response):
@@ -282,7 +303,8 @@ class Teacher:
                     raise TeacherCallError("Teacher cache integrity check failed")
                 result = cached["result"]
                 from teachers.stage import require_completed
-                require_completed(TeacherResult(result["raw_text"], result["parsed_action"], result["metadata"]))
+                require_completed(TeacherResult(result["raw_text"], result["parsed_action"], result["metadata"]),
+                                  allow_truncated=False)
                 meta = dict(result["metadata"], cache_hit=True, cache_accessed_at=utc_now(),
                             billed_usage={"input_tokens": 0, "output_tokens": 0,
                                           "reasoning_tokens": 0, "total_tokens": 0})
@@ -445,6 +467,7 @@ class Teacher:
             usage = _usage(response)
             parsed, parser_error = self.parse_response(raw)
             response_status = _field(response, "status")
+            truncated = _output_cap_truncation(response, usage, self.sampling["max_output_tokens"])
             metadata = self._redact({
                 "provider_model_id": self.provider_model_id,
                 "returned_model_id": _field(response, "model"),
@@ -453,24 +476,33 @@ class Teacher:
                 "timestamp": timestamp, "cache_hit": False, "cache_key": key,
                 "call_id": call_id, "run_id": self.run_id, "attempt": attempt,
                 "response_status": response_status, "parser_error": parser_error,
+                "truncated": truncated,
+                "incomplete_reason": _field(_field(response, "incomplete_details"), "reason"),
+                "max_output_tokens": self.sampling["max_output_tokens"],
                 "prompt_ref": prompt_ref,
             })
             if policy:
                 metadata["baseline_transport"] = policy.disclosure()
             result = {"raw_text": raw, "parsed_action": parsed, "metadata": metadata}
             result_ref = self.call_blobs.put(result)
-            complete = response_status == "completed"
-            self.ledger.append(dict(identity, status=("success" if parser_error is None else "rejected") if complete else "incomplete",
+            complete = (response_status == "completed" or truncated) and has_known_usage(usage)
+            status = ("rejected" if truncated or parser_error is not None else "success") if complete else "incomplete"
+            error_type = ("TruncatedOutput" if truncated else parser_error) if complete else "IncompleteTeacherResponse"
+            self.ledger.append(dict(identity, status=status,
                                     result_ref=result_ref, usage=usage,
+                                    truncated=truncated, parser_error=parser_error,
+                                    response_status=response_status, incomplete_reason=metadata["incomplete_reason"],
                                     returned_model_id=metadata["returned_model_id"],
                                     request_id=metadata["request_id"], response_id=metadata["response_id"],
-                                    latency_seconds=latency, error_type=parser_error if complete else "IncompleteTeacherResponse"))
+                                    latency_seconds=latency, error_type=error_type))
             count("_active_requests", -1)
             from teachers.stage import count, require_completed
             if not complete:
                 count("transport_failed_attempts")
                 count("unknown_outcomes")
             require_completed(TeacherResult(raw, parsed, metadata))
+            if truncated:
+                count("truncated_outputs")
             if parser_error is not None:
                 count("parser_rejections")
             # Raw rejected responses stay in the ledger/blob store, not reusable cache.

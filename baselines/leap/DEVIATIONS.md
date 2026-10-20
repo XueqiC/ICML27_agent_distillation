@@ -62,7 +62,7 @@ policy and publication path; this repair did not rerun a B200 merge.
 
 ## 2026-10-19 engineering fix: fail loudly on teacher transport
 
-Transport failures (HTTP errors, timeouts, incomplete/unknown responses, halted
+Transport failures (HTTP errors, timeouts, other incomplete/unknown responses, halted
 collectors and exhausted teacher budgets) raise through the stage boundary.
 Failed stage attempts retain sanitized usage, raw returned outputs, counters and
 real execution prefixes; they never publish a completion with missing labels.
@@ -97,3 +97,5 @@ request. Exhaustion with any unresolved transport evidence still fails loudly.
 The existing three-try extraction policy is retained by explicit user request;
 only correction has the upstream three-try loop. See the shared policy for the
 separate HTTP bounds and quota/429 halt semantics.
+
+2026-10-20: a response truncated at the step/output cap is a model output (upstream: parse error), not a transport failure.

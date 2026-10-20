@@ -44,7 +44,7 @@ only collections accepted by the existing VERIFIED evidence API can be consumed.
 
 ## 2026-10-19 engineering fix: fail loudly on teacher transport
 
-Transport failures (HTTP errors, timeouts, incomplete/unknown responses, halted
+Transport failures (HTTP errors, timeouts, other incomplete/unknown responses, halted
 collectors and exhausted teacher budgets) raise through the stage boundary.
 Failed stage attempts retain sanitized usage, raw returned outputs, counters and
 real execution prefixes; they never publish a completion with missing labels.
@@ -72,3 +72,5 @@ This entry supersedes earlier no-retry/60-second transport descriptions and
 references to capped logical slots as HTTP attempts; labels, masks, prompts,
 environment attempts and training are unchanged. Trusted seed acquisition
 remains at 60 seconds with its existing configuration and verified identities.
+
+2026-10-20: a response truncated at the step/output cap is a model output (upstream: parse error), not a transport failure.
