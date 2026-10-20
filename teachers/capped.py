@@ -1,7 +1,8 @@
-"""Durable teacher caps: a no-retry wrapper and a shared retry reservation ledger.
+"""Durable logical-call caps and a shared, non-refundable reservation ledger.
 
-Every transport invocation consumes one slot, including failures and unknown usage.
-For CappedTeacher, an interrupted reservation or failed HTTP request halts that run.
+Only rate-limit HTTP 429s retry (up to 20 attempts in one logical-call slot).
+Every attempt reserves tokens; quota failures and all other failures halt the run.
+An interrupted reservation also halts the run, including during 429 backoff.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
 """
 import json
@@ -31,12 +32,12 @@ class CollectionBudgetExceeded(BudgetExceeded):
 
 
 class SharedReservations:
-    """Concurrent logical-call/input reservations for the normal retrying Teacher.
+    """Concurrent logical-call/input reservations for retrying teachers.
 
     SQLite commits each reservation before transport; unknown/failed requests are
-    never refunded. Unlike CappedTeacher's no-retry protocol, a logical call may
-    have several HTTP attempts, each reserving its input estimate. Only short
-    transactions hold the writer lock, never network calls or limiter waits.
+    never refunded. A logical call may have several HTTP attempts, each reserving
+    its input estimate. Only short transactions hold the writer lock, never
+    network calls or limiter waits.
     """
     def __init__(self, path, *, max_calls=160_000, max_input_tokens=700_000_000):
         if any(type(v) is not int or v < 0 for v in (max_calls, max_input_tokens)):
@@ -111,8 +112,16 @@ def state_hash(history, task, visible_context):
 
 
 class _HTTPFailure(Exception):
-    def __init__(self, status_code):
-        self.status_code = status_code
+    def __init__(self, raw):
+        self.status_code = raw.status_code
+        self.response = getattr(raw, "http_response", raw)
+        self.body = None
+        if self.status_code == 429:
+            try:
+                self.body = (self.response.json() if hasattr(self.response, "json") else raw.parse())
+            except Exception:
+                pass
+        self.request_id = getattr(self.response, "headers", {}).get("x-request-id")
         super().__init__("Teacher transport did not return HTTP 200")
 
 
@@ -124,9 +133,12 @@ class _Transport:
     def create(self, **kwargs):
         owner = self.owner
         counter = owner._counter
-        if counter["attempts"] >= owner.cap:
-            raise BudgetExceeded("Teacher attempt cap reached")
-        counter["attempts"] += 1
+        # The pending slot spans retries of this logical call. Each transport
+        # attempt still has its own durable ledger/token reservation in Teacher.
+        if not counter["pending"]:
+            if counter["attempts"] >= owner.cap:
+                raise BudgetExceeded("Teacher attempt cap reached")
+            counter["attempts"] += 1
         counter["pending"] = True
         write_json(owner.counter_path, counter)
         if self.client is None:
@@ -137,7 +149,7 @@ class _Transport:
         # Require the HTTP response interface so non-200 (including 201) cannot pass.
         raw = self.client.responses.with_raw_response.create(**kwargs)
         if raw.status_code != 200:
-            raise _HTTPFailure(raw.status_code)
+            raise _HTTPFailure(raw)
         return raw
 
 
@@ -146,8 +158,8 @@ class CappedTeacher:
                  dry_run=False, client=None, teacher_class=Teacher, evaluation_only=False, **teacher_options):
         if type(cap) is not int or cap < 0 or not run_id:
             raise ValueError("Nonnegative integer cap and stable collector run_id required")
-        if "max_attempts" in teacher_options or "purpose" in teacher_options:
-            raise ValueError("Capped collectors fix max_attempts=1 and purpose=generation")
+        if {"max_attempts", "purpose", "retry_rate_limits_only"} & teacher_options.keys():
+            raise ValueError("Capped collectors fix 20 rate-limit-only attempts and purpose")
         if client is not None and getattr(client, "max_retries", 0) != 0:
             raise ValueError("Injected SDK client must disable retries")
         self.counter_path, self.cap = Path(counter_path), cap
@@ -157,7 +169,7 @@ class CappedTeacher:
         self.dry_run, self.run_id = dry_run, run_id
         self._counter, self._planned = None, set()
         self.teacher = teacher_class(cache_dir=cache_dir, usage_ledger=usage_ledger,
-            run_id=run_id, max_attempts=1,
+            run_id=run_id, max_attempts=20, retry_rate_limits_only=True,
             purpose="evaluation" if evaluation_only else "generation", **teacher_options)
         self.teacher.client = _Transport(self, client)
         self.identity = {"schema_version": 1, "run_id": run_id, "cap": cap,
@@ -178,9 +190,15 @@ class CappedTeacher:
         rows = [r for r in rows if r.get("run_id") == self.run_id]
         starts = {r["call_id"] for r in rows if r["status"] == "started"}
         ends = {r["call_id"] for r in rows if r["status"] in {"success", "rejected", "failed"}}
+        logical_starts = {r.get("logical_call_id", r["call_id"]) for r in rows if r["status"] == "started"}
+        completed = {r["logical_call_id"] for r in rows
+                     if r["status"] in {"success", "rejected"} and "logical_call_id" in r}
+        failed = any(r["status"] == "failed" and not (
+            r.get("http_status") == 429 and r.get("retryable") and r.get("will_retry")
+            and r.get("logical_call_id") in completed) for r in rows)
         # Never lower a reservation count. Ledger recovers a missing/stale counter.
-        value["attempts"] = max(value["attempts"], len(starts))
-        if value["pending"] or starts - ends or any(r["status"] == "failed" for r in rows):
+        value["attempts"] = max(value["attempts"], len(logical_starts))
+        if value["pending"] or starts - ends or failed:
             value["halted"] = True
         return value
 

@@ -406,6 +406,16 @@ rows include `rate_limit_headers` with the integer counters
 `x-ratelimit-limit-requests`, `x-ratelimit-limit-tokens`,
 `x-ratelimit-remaining-requests` and `x-ratelimit-remaining-tokens`.
 Only these counters are retained; other headers and malformed values are omitted.
+When remaining requests are zero or remaining tokens cannot cover another
+reservation of the same size, the limiter pauses until the corresponding reset
+or `Retry-After` deadline (60 seconds if neither supplies a positive delay).
+
+`CappedTeacher` retries only rate-limit HTTP 429s, up to 20 transport attempts in
+one logical-call slot. It honors `Retry-After`; otherwise it uses full-jitter
+exponential backoff with a 5-second base and 300-second ceiling. Quota, billing
+and credit errors halt immediately, as do all other transport failures. Every
+retry keeps its ledger entry and non-refundable token reservations. A recovered
+429 does not halt the next call or a restart; an interrupted call still does.
 
 `models.teacher.rate_limit` in `configs/base.yaml` defaults to 450 requests/minute
 and 180,000 tokens/minute **across all workers of one run** (also the Python
@@ -421,8 +431,12 @@ characters per token) plus the output cap, plus 8 framing tokens per message.
 Reservations are separate from returned billed usage; failed requests keep their
 reservations. The existing 429/`Retry-After` backoff remains the safety net, and
 provider cooldowns are shared across workers.
-Independent runs have independent limits; the commands below collect seeds
-sequentially. Keep the limiter state on a filesystem with POSIX lock support.
+Independent runs have independent limits by default. Set
+`TEACHER_RATE_LIMIT_DIR=/shared/cluster/teacher_rate_limit` in every run that
+should share one limiter; it overrides run-specific directories, including
+explicit Python directory arguments. Use matching RPM/TPM settings and a
+filesystem with POSIX lock support. The effective directory is recorded in each
+attempt's usage ledger. The commands below collect seeds sequentially.
 
 `dev140.json` contains every frozen `valid_seen` dev game: **140 instances / 137
 task groups**. The original manifest, split freeze, dev40 and sealed games are

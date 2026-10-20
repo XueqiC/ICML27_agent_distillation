@@ -22,6 +22,7 @@ def offline(monkeypatch, tmp_path):
     monkeypatch.setattr(socket, "getaddrinfo", forbidden)
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("TEACHER_RATE_LIMIT_DIR", raising=False)
     monkeypatch.setenv("SED_SECRETS_FILE", str(tmp_path / "nonexistent.env"))
     try:
         from openai.resources.responses.responses import Responses

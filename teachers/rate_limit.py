@@ -1,4 +1,4 @@
-"""Run-local POSIX limiter: strict rolling-minute request/token reservations.
+"""POSIX limiter: strict rolling-minute request/token reservations.
 
 Every HTTP attempt reserves ceil(prompt_characters / 4), a framing allowance of
 8 tokens per message, and max_output_tokens. OpenAI's TPM admission estimate uses character
@@ -8,9 +8,11 @@ JSON prompt, not encoded bytes. This is an admission estimate, not billed usage;
 429/Retry-After backoff remains the safety net when the estimate is insufficient.
 Reservations, including failed/unknown calls, are never refunded. All workers
 must use the same directory on a filesystem supporting POSIX advisory locks.
+TEACHER_RATE_LIMIT_DIR overrides run-local directories for cluster-wide sharing.
 """
 
 import json
+import os
 from pathlib import Path
 import time
 
@@ -33,7 +35,7 @@ class RateLimiter:
             raise ValueError("Teacher rate limits must be positive integers")
         self.limits = {"requests_per_minute": requests_per_minute,
                        "tokens_per_minute": tokens_per_minute}
-        self.path = Path(directory) / (digest(model) + ".json")
+        self.path = Path(os.environ.get("TEACHER_RATE_LIMIT_DIR") or directory) / (digest(model) + ".json")
         self.clock, self.sleep = clock, sleep
 
     def _read(self):
