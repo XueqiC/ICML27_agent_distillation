@@ -311,6 +311,30 @@ def kangchk(k, s, tree_train):
     retrain = {"cell": f"kangchk-k{k}s{s}-retrain", "tree": tree_train, "stages": [train, evs]}
     return [re_eval, retrain]
 
+
+# Last checkpoint of each Seed-SFT run (max of 40 passes and 400k tokens = the "end of schedule" entry of the main
+# table), read from reports/runs/train/seedsft-<cell>-hpg on 10-20; pre-fix greedy scores 72..115.
+SEEDSFT_LAST = {"k5s0": 400172, "k5s1": 400125, "k5s2": 400446, "k10s0": 400091, "k10s1": 400127, "k10s2": 400059,
+                "k20s0": 416280, "k20s1": 407400, "k20s2": 400351, "k50s0": 915840, "k50s1": 1014840,
+                "k50s2": 981480, "k100s0": 1933720, "k100s1": 2110160, "k100s2": 1969160}
+
+
+def seedsftfix(k, s):
+    """User 10-20 15:08 CDT: re-evaluate Seed-SFT (unmerged LoRA r16 incl. k_proj, served before the k_eq_v fix) after
+    SAD. Same decoding as the original sweep (greedy, batch-invariant dev140), on the AD-FTP/Kang eval tree, new OUT;
+    the pre-fix sweep results stay in place."""
+    cell = f"seedsftfix-k{k}s{s}"
+    tree = EVAL_FIX[T4]
+    verified = f"{B}/data/verified/" + (f"seeds_k{k}_s{s}" if k in (20, 100) else
+                                        f"seeds_k20_s{s}/subsets/k{k}" if k in (5, 10) else f"seeds_k100_s{s}/subsets/k{k}")
+    ckpt = f"{B}/reports/runs/train/seedsft-k{k}s{s}-hpg/checkpoint-tokens-{SEEDSFT_LAST[f'k{k}s{s}']}"
+    e = (f"ADAPTERS=seedsft-k{k}s{s}-last={ckpt},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{tree}/data/manifest/"
+         f"dev140.json,DECODING=greedy,INCLUDE_BASE=0,OUT={B}/reports/runs/eval/seedsft-kveq/k{k}s{s},VERIFIED={verified},"
+         f"WORKERS=16,BATCH_INVARIANT=1")
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"   # as kangfix (15 min, MaxRSS 9.7G)
+    return {"cell": cell, "tree": tree, "stages": [stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", one,
+                                                         "03:00:00", 1, e)]}
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -331,6 +355,8 @@ def main():
     # SmartAD cells wait for their selected pools (gates); ahead of the remaining SAD cells because they are short.
     cells += [smartad(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     cells += [sad(k, s) for k, s in K_CELLS if (k, s) != (20, 0)]
+    # User 10-20 15:08 CDT: Seed-SFT re-evaluation with the serving fix right after SAD (ahead of low priority).
+    cells += [seedsftfix(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     # Low-priority order: stages that fit the dept QOS leftovers first (dept is memory-bound, ~80G free):
     # CPU teacher stages and 1-GPU/32-48G stages (WKM, LEAP, AgentDistill/CoA collection), then 4-GPU/160-256G work.
     held = [c for c in new_methods_k20s0() if c["cell"] in ("wkm-k20s0", "agentdistill-k20s0", "coa-k20s0",
