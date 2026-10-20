@@ -8,6 +8,7 @@ from baselines.agentdistill.sandbox import Rejected, validate
 from baselines.agentdistill.teacher import read
 from sed.provenance import write_provenance
 from sed.storage import digest, write_json
+from teachers.stage import teacher_stage, count
 
 
 def parse_clusters(raw, ids):
@@ -29,6 +30,7 @@ def parse_clusters(raw, ids):
     return clusters
 
 
+@teacher_stage("output", name="agentdistill.abstract/cluster/consolidate")
 def build(kind, source, output, tasks, budget, config):
     output, source = Path(output), Path(source)
     output.mkdir(parents=True, exist_ok=False)
@@ -43,6 +45,7 @@ def build(kind, source, output, tasks, budget, config):
                 validate(tool)
                 rows.append({**row, "tool": tool, "raw_tool_sha256": digest(row["tool"])})
             except (ValueError, TypeError, KeyError):
+                count("rejections")
                 rejected.append({"id": row["id"], "reason": "invalid_abstraction", "raw": raw})
         write_json(output / "abstracted.json", rows)
     elif kind == "cluster":
@@ -55,6 +58,7 @@ def build(kind, source, output, tasks, budget, config):
             try:
                 clusters = parse_clusters(raw, [r["id"] for r in rows])
             except (ValueError, TypeError, KeyError):
+                count("rejections")
                 write_json(output / "rejected.json", {"reason": "invalid_partition", "raw": raw})
                 raise Rejected("Invalid global partition; retained, no automatic redraw") from None
         else:
@@ -81,6 +85,7 @@ def build(kind, source, output, tasks, budget, config):
                         for i in cluster["members"]],
                     "verification": "static_sandbox_validated; behavior_after_rewrite_unknown"})
             except (ValueError, TypeError, KeyError):
+                count("rejections")
                 rejected.append({"cluster": cluster, "reason": "invalid_consolidation", "raw": raw})
         if rejected:
             write_json(output / "rejections.json", rejected)

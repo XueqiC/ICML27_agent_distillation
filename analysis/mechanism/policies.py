@@ -6,7 +6,7 @@ from analysis.mechanism.common import output_guard, read_json
 from sed.react import PROMPT_TEMPLATE
 from sed.storage import digest, locked, write_json
 from students.vllm_student import Student
-from teachers.openai_teacher import Teacher, rate_limit_options
+from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
 
 ADVICE_INSTRUCTION = (
     "For this turn only, write a short visible plan or suggestion for the next decision. "
@@ -58,7 +58,7 @@ class BranchStudent(Student):
         return self.overlay.apply(super().messages(history, task, visible_context))
 
 
-class BudgetExceeded(RuntimeError):
+class BudgetExceeded(TeacherCallError):
     incomplete = True
 
 
@@ -99,6 +99,7 @@ class TeacherBudget:
 class CappedLimiter:
     def __init__(self, limiter, budget, episode_id, namespace):
         self.limiter, self.budget = limiter, budget
+        self.path = limiter.path
         self.episode_id, self.namespace = episode_id, namespace
         self.exhausted = False
 
@@ -147,7 +148,7 @@ class BranchTeacher(Teacher):
                                                    mechanism_namespace=self.namespace))
         except Exception:
             if self.limiter.exhausted:
-                raise BudgetExceeded("Teacher cap reached; incomplete probe is not a failure") from None
+                raise BudgetExceeded("Teacher cap reached; stage NOT complete") from None
             raise
 
 

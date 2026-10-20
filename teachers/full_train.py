@@ -9,8 +9,9 @@ from sed.provenance import code_hashes, safe_config, versions, write_provenance
 from sed.runner import _environment
 from sed.seed_selection import is_full_train, ordered_candidates, validate_selection
 from sed.storage import digest, locked, write_json
-from teachers.capped import SharedReservations
-from teachers.openai_teacher import Teacher, rate_limit_options
+from teachers.capped import SharedReservations, CollectionBudgetExceeded
+from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
+from teachers.stage import teacher_stage, transport_history, execution_attempt
 
 MAX_CALLS = 160_000
 MAX_INPUT_TOKENS = 700_000_000
@@ -67,6 +68,7 @@ def preflight(selection, manifest, freeze, config, output, *, attempts=3, shard_
     return identity
 
 
+@teacher_stage("output", name="teachers.full_train")
 def collect_full_train(selection, manifest, freeze, config, output, *, attempts=3,
                        shard_index=0, shard_count=1, resume=False,
                        max_calls=MAX_CALLS, max_input_tokens=MAX_INPUT_TOKENS,
@@ -126,7 +128,8 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
             failed = [tid for tid, r in last.items() if not r["won"] and r["attempt"] == attempts]
             done = len(verified) + len(failed) == selection["candidates"]
             accounting = budget.snapshot()
-            status = ("complete" if done else "budget_exhausted" if accounting["stopped"]
+            status = ("transport_failed" if any(s["status"] == "transport_failed" for s in shards)
+                      else "budget_exhausted" if accounting["stopped"] else "complete" if done
                       else "interrupted" if any(s["status"] == "interrupted" for s in shards)
                       else "collecting")
             value = {"schema_version": 1, "status": status, "K": len(verified),
@@ -139,7 +142,10 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
                      "attempted_task_groups": len({r["group_id"] for r in all_receipts}),
                      "failed_candidates": failed, "attempts": all_receipts, "verified": verified,
                      "parent_seed_ids": [], "source": "external_frozen_train_pool",
-                     "training_exposure": 0, "budget": accounting}
+                     "training_exposure": 0, "budget": accounting,
+                     "transport_failure_evidence": transport_history(output / "attempts"),
+                     "transport_failures": len(list((output / "attempts").rglob("transport_failure.json"))),
+                     "rejections": sum(r["usage"].get("rejections", 0) for r in all_receipts)}
             write_json(output / "manifest.json", value)
             return value
 
@@ -152,8 +158,12 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
                 for number in range(1, attempts + 1):
                     attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
                     # Recover completed/uncertain attempts even after the budget stopped.
-                    if not (attempt_dir / "started.json").exists() and budget.snapshot()["stopped"]:
-                        return publish("budget_exhausted")
+                    if budget.snapshot()["stopped"]:
+                        retained = execution_attempt(attempt_dir, start="started.json")
+                        episode_path = retained / "episode/episode.json"
+                        episode = json.loads(episode_path.read_text()) if episode_path.exists() else {}
+                        if not (retained / "receipt.json").exists() and not episode.get("complete"):
+                            raise CollectionBudgetExceeded("Collection budget exhausted; stage NOT complete")
                     receipt = collect_attempt(task, number, task["task_id"], config, output,
                         env_factory=env_factory, teacher_factory=teacher, input_paths=input_paths)
                     receipts.append(receipt)
@@ -164,6 +174,9 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
                 if index % 25 == 0:
                     publish("collecting")
             return publish("complete")
+        except TeacherCallError:
+            publish("transport_failed")
+            raise
         except BaseException:
             publish("interrupted")
             raise

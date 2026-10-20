@@ -13,6 +13,7 @@ from sed.seed_evidence import artifact_hashes, load_verified_collection
 from sed.seed_selection import select_seeds, select_full_train
 from sed.storage import write_json
 from teachers.capped import CappedTeacher, CollectorHalted
+from teachers.openai_teacher import TeacherCallError
 from teachers.collect_seeds import collect as seeds
 from test_stage2b_seeds import seed_bank, factories
 
@@ -123,8 +124,8 @@ def test_ftp_transport_failure_stays_halted(seed_bank, tmp_path):
     task_id = load_verified_collection(source, manifest, freeze)[0]["verified"][0]["task_id"]
     calls = []
     kwargs = dict(rate_limit_dir=tmp_path / "limiter", env_factory=env, teacher_factory=stub_factory(calls, fail={task_id}))
-    for _ in range(2):
-        with pytest.raises(CollectorHalted):
+    for expected in (TeacherCallError, CollectorHalted):
+        with pytest.raises(expected):
             ftp.collect(source, manifest, freeze, config, tmp_path / "ftp", **kwargs)
     assert len(calls) == 1
     assert not (tmp_path / "ftp/collection/manifest.json").exists()

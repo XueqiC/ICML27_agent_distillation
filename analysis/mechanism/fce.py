@@ -2,6 +2,8 @@
 import argparse
 import json
 from pathlib import Path
+from teachers.openai_teacher import TeacherCallError
+from teachers.stage import teacher_stage
 
 from analysis.mechanism.branch import run_branch
 from analysis.mechanism.cache import prepare_cache_seed, copy_cache_seed, seed_summary
@@ -169,6 +171,8 @@ def _probe_sample(unit):
         write_json(attempt/("incomplete.json" if incomplete else "failure.json"),
             {"error_type": type(exc).__name__, "t": t, "sample_index": index,
              "status": "incomplete" if incomplete else "error", "success": "unknown"}, exclusive=True)
+        if isinstance(exc, TeacherCallError):
+            raise
         return {"success": "unknown"}
 
 
@@ -204,6 +208,7 @@ def _gap_episode(unit):
     return result
 
 
+@teacher_stage("output", name="run_fce")
 def run_fce(*, gap_path, output, config, max_episode, max_run, budget_dir=None, workers=1,
             seed_teacher_cache_from=None, env_factory=_environment, teacher_factory=make_teacher, branch_fn=run_branch):
     validate_workers(workers)

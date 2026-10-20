@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+from teachers.stage import count
 
 from baselines.agentdistill.prompts import CREATE, messages, policy_template
 from baselines.agentdistill.sandbox import Machine, Rejected, validate
@@ -78,6 +79,7 @@ internal flattened execution metadata. Raw calls and rejected tools are durable.
         except StopIteration as done:
             self.end_tool("completed", done.value)
         except Rejected as exc:
+            count("rejections")
             self.end_tool("rejected", {"error": str(exc)})
         return None
 
@@ -152,6 +154,7 @@ internal flattened execution metadata. Raw calls and rejected tools are durable.
                 self.active["actions"] = 1
                 return self.result(action, result.metadata)
             except (Rejected, ActionParseError, ValueError, TypeError, KeyError, StopIteration) as exc:
+                count("rejections")
                 feedback = "Rejected tool/reply: use the documented interface and current admissible commands."
                 self.log({"turn": self.turns, "status": "rejected", "raw_text": raw,
                           "error_type": type(exc).__name__})

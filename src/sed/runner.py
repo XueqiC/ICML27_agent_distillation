@@ -16,7 +16,7 @@ from sed.provenance import versions, write_provenance
 from sed.storage import digest, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
 from students.vllm_student import ContextOverflow
-from teachers.openai_teacher import Teacher, TeacherResult, rate_limit_options
+from teachers.openai_teacher import Teacher, TeacherResult, TeacherCallError, rate_limit_options
 
 
 class ScriptedPolicy:
@@ -95,6 +95,8 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                "seed": env.seed, "max_episode_steps": env.max_episode_steps,
                "complete": False, "status": "started", "steps": steps,
                "policy_calls": [], "policy_turns_attempted": 0, "action_outcomes": []}
+    if isinstance(policy, Teacher):
+        episode.update(transport_failures=0, rejections=0)
     write_json(output_dir / "episode.json", episode)
     counter = 0
     episode_started = time.monotonic()
@@ -168,6 +170,10 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                                             visible_observation(visible))
             raw, reported_action, metadata = result_policy
             action, outcome = action_outcome(raw, visible["admissible_commands"])
+            if isinstance(policy, Teacher) and outcome in {"parser_error", "inadmissible"}:
+                from teachers.stage import count
+                count("rejections")
+                episode["rejections"] += 1
             episode["action_outcomes"].append(outcome)
             metadata = dict(metadata)
             if isinstance(policy, Teacher):
@@ -226,6 +232,11 @@ def run_episode(env, policy, task, config, output_dir, *, policy_condition,
                error=error, env_steps=1 if phase == "step" else 0, outcome=outcome)
         episode.update(status="incomplete" if incomplete else "error", error_type=error, failed_action=action, complete=False,
                        success="unknown")
+        if isinstance(exc, TeacherCallError):
+            episode.update(teacher_transport_failure=True, transport_failures=1)
+            # Preserve the typed failure after the runner's finally block saves
+            # the actual execution prefix. Collectors must not turn it into loss.
+            raise type(exc)("Teacher transport failed; inspect sanitized episode and usage ledger") from None
         status = "incomplete" if incomplete else "failed"
         raise RuntimeError(f"Episode {status} ({error}); inspect sanitized run artifacts") from None
     finally:

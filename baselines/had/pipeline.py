@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from teachers.stage import ledger_counts
 import re
 import signal
 import sys
@@ -109,8 +110,9 @@ def update_disclosure(output, identity):
                 partial = True
     counter_path = output / "teacher/counter.json"
     counter = json.loads(counter_path.read_text()) if counter_path.exists() else {}
-    billed = [r for r in usage if r.get("status") in {"success", "rejected"}]
+    billed = [r for r in usage if r.get("status") in {"success", "rejected", "incomplete"}]
     disclosure.update(method="had", source="student_had_rollouts_and_paired_black_box_teacher",
+        teacher_outcomes=ledger_counts(usage_path),
         teacher_cap=30000, teacher_counter=str(counter_path), teacher_usage_ledger=str(usage_path),
         unknown_teacher_usage_possible=partial or counter.get("pending", False) or counter.get("halted", False),
         policy_version_unit=RECIPE["policy_version_unit"],

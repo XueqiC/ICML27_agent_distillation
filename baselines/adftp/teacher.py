@@ -2,10 +2,11 @@
 import json
 
 from sed.manifest import authorize_task
-from sed.react import build_messages
+from sed.react import build_messages, action_outcome
 from sed.storage import write_json
 from sed.visibility import visible_observation, visible_task
 from teachers.openai_teacher import Teacher
+from teachers.stage import count
 
 COT_PROMPT = ("Think step by step about how to solve the task in the initial observation. "
               "Write a visible solution plan without taking actions or using tools.")
@@ -58,16 +59,20 @@ class FTPPolicy:
             write_json(self.output / "cot.json", {"raw_text": cot.raw_text, "metadata": cot.metadata,
                        "prefix": self.prefix, "parent_seed_ids": self.task["parent_seed_ids"]})
             if not self.prefix[len("Thought: "):].strip():
+                count("rejections")
                 self.rejection = "empty_first_paragraph"
                 raise FTPRejected(self.rejection)
         self.teacher.teacher.mode = "agent"
         self.teacher.teacher.prefix = self.prefix
         reply = self.teacher.generate(history, self.task, visible_context)
         if not history and not reply.raw_text.startswith(self.prefix):
+            count("rejections")
             self.rejection = "first_reply_prefix_mismatch"
             write_json(self.output / "prefix_rejection.json", {"reason": self.rejection,
                        "raw_text": reply.raw_text, "metadata": reply.metadata, "required_prefix": self.prefix})
             raise FTPRejected(self.rejection)
+        if action_outcome(reply.raw_text, visible_context["admissible_commands"])[1] in {"parser_error", "inadmissible"}:
+            count("rejections")
         usage = reply.metadata.get("usage") or {}
         return reply._replace(metadata={**reply.metadata,
             "mechanism_teacher_provider_id": self.teacher.teacher.provider_model_id,

@@ -279,10 +279,11 @@ def test_interrupted_reservations_consume_slots_without_fake_restore(seed_bank, 
         write_json(cell / "runs" / digest(task["task_id"]) / f"run-{index}/reservation.json",
             {"cell": digest(identity), "task_id": task["task_id"], "run": index, "parent_seed_ids": task["parent_seed_ids"]})
     budget = FakeBudget()
-    collect([task], config, cell, tmp_path / "out", identity, budget,
-            env_factory=lambda *_: pytest.fail("Must not reset interrupted slots"))
-    assert not budget.requests and read(tmp_path / "out/pool.json") == []
-    assert len(read(tmp_path / "out/runs.json")) == 3
+    from teachers.openai_teacher import TeacherCallError
+    with pytest.raises(TeacherCallError, match="NOT complete"):
+        collect([task], config, cell, tmp_path / "out", identity, budget,
+                env_factory=lambda *_: pytest.fail("Must not reset interrupted slots"))
+    assert not budget.requests and not (tmp_path / "out/pool.json").exists()
 
 
 def test_all_three_box_stages_and_one_tool_per_cluster(seed_bank, tmp_path):

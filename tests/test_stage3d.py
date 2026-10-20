@@ -15,6 +15,7 @@ from baselines.leap.teacher import LeapTeacher, TeacherBudget, checked_outcome, 
 from sed.config import load_config
 from sed.storage import digest, write_json
 from test_teacher import FakeClient, response
+from teachers.openai_teacher import TeacherCallError
 from test_stage2b_seeds import seed_bank, factories
 
 
@@ -165,10 +166,16 @@ def test_teacher_cache_covers_privileged_state_and_ablation(tmp_path, task):
 def test_failures_parser_rejections_and_resume_cannot_expand_attempt_cap(tmp_path, task, capsys):
     client = FakeClient([TimeoutError("sk-private-secret"), response("invalid json"), response("still invalid")])
     limited, task = budget(tmp_path, task, client)
-    result = limited.request(task, render("privileged", trajectory(episode()), STATE), length=2, privileged_state=STATE)
-    assert result["status"] == "exhausted" and result["attempts_reserved"] == 3
+    messages = render("privileged", trajectory(episode()), STATE)
+    with pytest.raises(TeacherCallError):
+        limited.request(task, messages, length=2, privileged_state=STATE)
+    assert len(client.requests) == 1
     again, task = budget(tmp_path, task, client)
-    assert again.request(task, render("privileged", trajectory(episode()), STATE), length=2, privileged_state=STATE) == result
+    with pytest.raises(TeacherCallError, match="budget exhausted"):
+        again.request(task, messages, length=2, privileged_state=STATE)
+    with pytest.raises(TeacherCallError, match="budget exhausted"):
+        again.request(task, messages, length=2, privileged_state=STATE)
+    assert not list((tmp_path / "budget").rglob("outcome.json"))
     assert len(client.requests) == 3
     assert "private-secret" not in capsys.readouterr().out
     assert all("private-secret" not in p.read_text() for p in tmp_path.rglob("*") if p.is_file())
@@ -186,6 +193,8 @@ def test_unsupported_sampling_falls_back_within_same_three_attempts(tmp_path, ta
     limited, task = budget(tmp_path, task, client, kind=kind)
     messages = render(kind, trajectory(episode()), STATE if kind == "privileged" else None)
     kwargs = {"length": 2, "privileged_state": STATE} if kind == "privileged" else {}
+    with pytest.raises(TeacherCallError):
+        limited.request(task, messages, **kwargs)
     result = limited.request(task, messages, **kwargs)
     assert result["status"] == "accepted" and result["attempts_reserved"] == len(client.requests) == 2
     assert client.requests[0]["temperature"] == .3 and client.requests[0]["top_p"] == 1
@@ -217,6 +226,8 @@ def test_interruption_reserves_a_slot_and_incomplete_response_is_not_cached(tmp_
     incomplete.status = "incomplete"
     next_client = FakeClient([incomplete, response(correction())])
     limited, task = budget(tmp_path, task, next_client)
+    with pytest.raises(TeacherCallError):
+        limited.request(task, messages, length=2, privileged_state=STATE)
     result = limited.request(task, messages, length=2, privileged_state=STATE)
     assert result["status"] == "accepted" and result["attempts_reserved"] == 3
     assert len(next_client.requests) == 2
@@ -489,7 +500,9 @@ def test_initialization_rejects_wrong_iteration_variant_or_unmerged_adapter(monk
 def test_disclosure_counts_failed_rejected_and_interrupted_usage(tmp_path, task):
     client = FakeClient([TimeoutError("private"), response("invalid"), response("invalid")])
     limited, task = budget(tmp_path / "audit/teacher", task, client)
-    limited.request(task, render("privileged", trajectory(episode()), STATE), length=2, privileged_state=STATE)
+    for _ in range(2):
+        with pytest.raises(TeacherCallError):
+            limited.request(task, render("privileged", trajectory(episode()), STATE), length=2, privileged_state=STATE)
     identity = {"K": 5, "unique_instances": 5, "task_groups": 5,
                 "recipe": {"variant": "privileged", "label": pipeline.LABELS["privileged"]}}
     pipeline.update_disclosure(tmp_path, identity)

@@ -260,6 +260,8 @@ class Teacher:
                 if cached["cache_key"] != key or digest(cached["result"]) != cached["result_sha256"]:
                     raise TeacherCallError("Teacher cache integrity check failed")
                 result = cached["result"]
+                from teachers.stage import require_completed
+                require_completed(TeacherResult(result["raw_text"], result["parsed_action"], result["metadata"]))
                 meta = dict(result["metadata"], cache_hit=True, cache_accessed_at=utc_now(),
                             billed_usage={"input_tokens": 0, "output_tokens": 0,
                                           "reasoning_tokens": 0, "total_tokens": 0})
@@ -301,6 +303,8 @@ class Teacher:
                 preparation_error = type(exc).__name__
                 preparation_incomplete = getattr(exc, "incomplete", False)
             if preparation_error is not None:
+                from teachers.stage import count
+                count("transport_failed_attempts")
                 self.ledger.append(dict(identity, status="incomplete" if preparation_incomplete else "failed", request_started=False,
                                         error_type=preparation_error, usage=None,
                                         latency_seconds=time.monotonic() - started))
@@ -310,6 +314,8 @@ class Teacher:
             # Persist the exact sanitized prompt before any billable request.
             # A durable start with no end marks interrupted/unknown usage.
             self.ledger.append(dict(identity, status="started", usage=None))
+            from teachers.stage import count
+            count("_active_requests")
             response = None
             failure = None
             try:
@@ -355,6 +361,8 @@ class Teacher:
                     self.limiter.defer_until(self.clock() + provider_wait)
             latency = time.monotonic() - started
             if failure is not None:
+                from teachers.stage import count
+                count("transport_failed_attempts")
                 retry = retryable and attempt < self.max_attempts
                 wait = 0
                 if retry:
@@ -367,6 +375,7 @@ class Teacher:
                                     "latency_seconds": latency, "retryable": retryable,
                                     "will_retry": retry, "wait_seconds": wait,
                                     "provider_wait_seconds": provider_wait})
+                count("_active_requests", -1)
                 if retryable and attempt < self.max_attempts:
                     self.sleep(wait)
                     continue
@@ -375,7 +384,7 @@ class Teacher:
             raw = self._redact(_field(response, "output_text", ""))
             usage = _usage(response)
             parsed, parser_error = self.parse_response(raw)
-            response_status = _field(response, "status", "completed")
+            response_status = _field(response, "status")
             metadata = self._redact({
                 "provider_model_id": self.provider_model_id,
                 "returned_model_id": _field(response, "model"),
@@ -388,11 +397,20 @@ class Teacher:
             })
             result = {"raw_text": raw, "parsed_action": parsed, "metadata": metadata}
             result_ref = self.call_blobs.put(result)
-            self.ledger.append(dict(identity, status="success" if parser_error is None else "rejected",
+            complete = response_status == "completed"
+            self.ledger.append(dict(identity, status=("success" if parser_error is None else "rejected") if complete else "incomplete",
                                     result_ref=result_ref, usage=usage,
                                     returned_model_id=metadata["returned_model_id"],
                                     request_id=metadata["request_id"], response_id=metadata["response_id"],
-                                    latency_seconds=latency, error_type=parser_error))
+                                    latency_seconds=latency, error_type=parser_error if complete else "IncompleteTeacherResponse"))
+            count("_active_requests", -1)
+            from teachers.stage import count, require_completed
+            if not complete:
+                count("transport_failed_attempts")
+                count("unknown_outcomes")
+            require_completed(TeacherResult(raw, parsed, metadata))
+            if parser_error is not None:
+                count("parser_rejections")
             # Raw rejected responses stay in the ledger/blob store, not reusable cache.
             if parser_error is None and response_status == "completed":
                 write_json(path, {"cache_key": key, "result": result,

@@ -2,6 +2,7 @@
 import argparse
 import os
 from pathlib import Path
+from teachers.stage import ledger_counts
 import signal
 import sys
 
@@ -89,7 +90,7 @@ def update_disclosure(output, identity):
     report = read(output / "disclosure.json")
     usage, partial = ledger_rows(output / "teacher/usage.jsonl")
     counter = read(output / "teacher/counter.json") if (output / "teacher/counter.json").exists() else {}
-    billed = [r for r in usage if r.get("status") in {"success", "rejected"}]
+    billed = [r for r in usage if r.get("status") in {"success", "rejected", "incomplete"}]
     training = []
     for attempt in sorted((output / "updates").glob("round-*/stages/*/attempt-*")):
         if attempt.parent.name.startswith("sample-"):
@@ -123,6 +124,7 @@ def update_disclosure(output, identity):
         **{role + "_" + k: sum(u.get(k, 0) for t in training if t["role"] == role for u in t["updates"])
            for role in ("actor", "critic") for k in ("examples_seen", "supervised_tokens_seen",
                                                       "logical_forward_tokens", "physical_forward_tokens")})
+    report["teacher_outcomes"] = ledger_counts(output / "teacher/usage.jsonl")
     write_json(output / "disclosure.json", report)
 
 

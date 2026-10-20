@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 import os
 from pathlib import Path
+from teachers.stage import ledger_counts
 import signal
 import subprocess
 import sys
@@ -88,7 +89,7 @@ def run_stages(args, identity, config):
 
 def disclose(output, identity):
     output = Path(output)
-    reservations = sorted((output / "runs").glob("*/run-*/reservation.json"))
+    reservations = sorted((output / "runs").rglob("reservation.json"))
     attempts = []
     for reservation in reservations:
         directory = reservation.parent
@@ -108,7 +109,7 @@ def disclose(output, identity):
         for line in usage_path.read_text().splitlines():
             try:
                 row = json.loads(line)
-                if row.get("status") in {"success", "rejected"}:
+                if row.get("status") in {"success", "rejected", "incomplete"}:
                     usage.append(row)
             except json.JSONDecodeError:
                 partial = True
@@ -119,6 +120,7 @@ def disclose(output, identity):
         "new_tasks": 0, "training_exposure": 0, "attempts": attempts,
         "teacher_cap": teacher_cap(identity["unique_instances"]), "max_runs_per_task": 3,
         "teacher_counter": counter, "teacher_usage_ledger": str(usage_path),
+        "teacher_outcomes": ledger_counts(usage_path),
         "unknown_teacher_usage_possible": partial or counter.get("pending", False) or counter.get("halted", False),
         "unknown_usage_calls": calls - sum(r.get("usage") is not None for r in usage),
         "totals": {"teacher_calls": calls,

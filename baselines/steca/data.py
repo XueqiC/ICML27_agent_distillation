@@ -6,6 +6,7 @@ data_collection/data_cali_alfworld.py:336-356. No upstream API code is imported.
 import math
 import os
 from pathlib import Path
+from teachers.stage import teacher_stage, count, require_completed
 
 from baselines.common.conversation import episode_messages, encode_continuation
 from baselines.common.method_data import checked, publish, read
@@ -128,6 +129,7 @@ def calibrated_reply(raw, expert_action):
     return "Thought: " + thought + "\nAction: " + expert_action
 
 
+@teacher_stage("output", name="steca.reflect")
 def reflect(planned, config, verified, output, ledger_root, teacher_factory=from_config):
     allocated = [os.environ.get(k, "") for k in ("SLURM_JOB_GPUS", "SLURM_STEP_GPUS", "CUDA_VISIBLE_DEVICES")]
     if any(value not in ("", "-1", "NoDevFiles") for value in allocated) or os.environ.get("SLURM_GPUS_ON_NODE", "0") != "0":
@@ -149,11 +151,16 @@ def reflect(planned, config, verified, output, ledger_root, teacher_factory=from
     for row in candidates:
         result = teacher.generate([], tasks[row["task_id"]],
             {"observation": reflection_prompt(row), "admissible_commands": []})
+        require_completed(result)
         record = {"task_id": row["task_id"], "episode_id": row["episode_id"], "j": row["j"],
             "raw_output": result.raw_text, "metadata": result.metadata}
         # Persist before validation; one rejected reflection consumes its only call.
         write_json(output / (digest([row["task_id"], row["j"]]) + ".json"), record)
-        record["reply"] = calibrated_reply(result.raw_text, parse_action(row["expert"][0]["content"]))
+        try:
+            record["reply"] = calibrated_reply(result.raw_text, parse_action(row["expert"][0]["content"]))
+        except ValueError:
+            count("rejections")
+            raise
         reflections.append(record)
     write_json(output / "reflections.json", reflections)
     return reflections

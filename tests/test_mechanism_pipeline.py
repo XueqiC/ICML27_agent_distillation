@@ -71,17 +71,15 @@ def pipeline(tmp_path):
 
 def test_fce_caps_unknown_and_resume_completed_probes(pipeline, tmp_path):
     config, gap, env, teacher, calls, _ = pipeline
-    result = run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
-                     env_factory=env, teacher_factory=teacher)
-    assert result["complete"] is False and result["episodes"][0]["status"] == "incomplete"
-    assert result["episodes"][0]["D_0"] == 1 and result["episodes"][0]["t_star"] is None
+    from teachers.openai_teacher import TeacherCallError
+    for _ in range(2):
+        with pytest.raises(TeacherCallError):
+            run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
+                    env_factory=env, teacher_factory=teacher)
     assert len(calls) == 1
     assert len(list((tmp_path/"capped").rglob("receipt.json"))) == 1
-    result = run_fce(gap_path=gap, output=tmp_path/"capped", config=config, max_episode=1, max_run=1,
-                     env_factory=env, teacher_factory=teacher)
-    assert len(calls) == 1
+    assert not (tmp_path/"capped/fce.json").exists()
     assert len(list((tmp_path/"capped").rglob("incomplete.json"))) == 2
-    assert not list((tmp_path/"capped").rglob("failure.json"))
 
 
 @pytest.mark.parametrize("control_rescues", [False, True])

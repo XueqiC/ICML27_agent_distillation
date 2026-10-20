@@ -2,6 +2,7 @@
 import os
 import json
 from pathlib import Path
+from teachers.stage import ledger_counts
 
 from baselines.common.method_cli import main as cli, require_completed
 from baselines.common.method_data import read
@@ -105,7 +106,7 @@ def update_disclosure(output, identity):
     for line in ledger_path.read_text().splitlines() if ledger_path.exists() else []:
         try:
             row = json.loads(line)
-            if row.get("status") in {"success", "rejected"}:
+            if row.get("status") in {"success", "rejected", "incomplete"}:
                 usage.append(row.get("usage"))
         except json.JSONDecodeError:
             unknown = True
@@ -115,6 +116,7 @@ def update_disclosure(output, identity):
     report["teacher_partial_ledger"] = unknown
     report.update(method="steca", teacher_counter=counter, teacher_usage_ledger=str(output / "teacher/usage.jsonl"),
         calibration_verification="Reflection text is teacher-generated; action/observations remain verified expert evidence.")
+    report["teacher_outcomes"] = ledger_counts(output / "teacher/usage.jsonl")
     write_json(output / "disclosure.json", report)
 
 

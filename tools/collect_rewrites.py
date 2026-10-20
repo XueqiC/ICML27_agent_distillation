@@ -3,6 +3,7 @@ import argparse
 from copy import deepcopy
 import json
 from pathlib import Path
+from teachers.stage import teacher_stage, count, require_completed
 import re
 
 from data.manifest.build_r03_sets import dataset_entry, guarded_task, publish_dataset
@@ -91,6 +92,7 @@ def apply_rewrite(episode, raw):
     return rewritten
 
 
+@teacher_stage("output", name="collect_rewrites")
 def collect(episodes, teacher, output, manifest, freeze):
     entries, rejected, planned = [], 0, []
     output = Path(output)
@@ -105,6 +107,8 @@ def collect(episodes, teacher, output, manifest, freeze):
             JsonlLedger(output / "collection.jsonl").append({**audit, "status": "stopped",
                                                            "error_type": type(exc).__name__})
             raise
+        if not teacher.dry_run:
+            require_completed(result)
         if teacher.dry_run:
             planned.append(result.metadata)
             continue
@@ -112,6 +116,7 @@ def collect(episodes, teacher, output, manifest, freeze):
             rewritten = apply_rewrite(episode, result.raw_text)
         except (ValueError, TypeError, KeyError, AttributeError):
             rejected += 1
+            count("rejections")
             JsonlLedger(output / "collection.jsonl").append({**audit, "accepted": False,
                 "reason": "rewrite_format_or_action_invariance_failed", "raw_output": result.raw_text,
                 "teacher_metadata": result.metadata})
@@ -127,7 +132,7 @@ def collect(episodes, teacher, output, manifest, freeze):
                 "within_cap": all(m["within_cap"] for m in planned),
                 "halted": any(m["halted"] for m in planned)}
     return publish_dataset(output, entries, manifest, freeze, source="R1_P4", rejected=rejected,
-        new_environment_steps=0, new_trusted_trajectories=0,
+        transport_failures=0, rejections=rejected, new_environment_steps=0, new_trusted_trajectories=0,
         verification="unchanged executed parent actions; thought truth unknown")
 
 

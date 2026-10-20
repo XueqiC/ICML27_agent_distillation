@@ -72,7 +72,7 @@ def factories(root, config, losing_tasks, calls):
         class Responses:
             def create(self, **kwargs):
                 calls.append((task["task_id"], str(cache)))
-                return {"output_text": "Thought: I claim I won.\nAction: look", "model": "gpt-6-luna",
+                return {"output_text": "Thought: I claim I won.\nAction: look", "model": "gpt-6-luna", "status": "completed",
                         "usage": {"input_tokens": 20, "output_tokens": 10}, "id": "fake"}
         return Teacher(cache_dir=cache, usage_ledger=ledger, run_id="fake",
                        client=SimpleNamespace(responses=Responses()))
@@ -157,12 +157,16 @@ def test_interrupted_attempt_is_retained_with_unknown_cost(seed_bank, tmp_path, 
         collect(selection, manifest, freeze, config, tmp_path / "out",
                 env_factory=environment, teacher_factory=teacher)
     monkeypatch.setattr(module, "run_episode", original)
+    from teachers.openai_teacher import TeacherCallError
+    with pytest.raises(TeacherCallError, match="NOT complete"):
+        collect(selection, manifest, freeze, config, tmp_path / "out",
+                env_factory=environment, teacher_factory=teacher)
     result = collect(selection, manifest, freeze, config, tmp_path / "out",
                      env_factory=environment, teacher_factory=teacher)
-    assert len(result["attempts"]) == 2 and result["trusted_trajectories"] == 1
-    first = result["attempts"][0]
-    assert first["status"] == "interrupted" and first["success"] == "unknown"
-    assert first["usage"]["unknown_usage_calls"] == 1
+    assert len(result["attempts"]) == result["trusted_trajectories"] == 1
+    assert list((tmp_path / "out").rglob("transport_failure.json"))
+    assert any('"status":"started"' in p.read_text() or '"status": "started"' in p.read_text()
+               for p in (tmp_path / "out").rglob("usage.jsonl"))
 
 
 def test_collection_exhaustion_does_not_claim_k(seed_bank, tmp_path):
