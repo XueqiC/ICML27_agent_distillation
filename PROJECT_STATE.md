@@ -29,6 +29,10 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 14:14 CDT: SmartAD K50s2 = 45/140 greedy (gate 0.012, 0 error/overflow) -> 12/15: K5 53 59 53; K10 63 56 63; K20 82 73 59;
+  K50 88 67 45. K50s2 train curve normal (loss 0.59->0.26, gnorm max 174 like s0/s1), but 26.3% inadmissible actions vs
+  4.5%/3.7% (s0/s1), 79% of them repeat the previous action (open/close/move loops); worse in every task family.
+  K100 retrains (4 h limit) running: s0 16/50, s1 18/50, s2 8/50 updates. SAD 4-GPU trains still pending.
 - 13:14 CDT: SmartAD dev140 greedy 11/15 (base 62), s0 s1 s2: K5 53 59 53; K10 63 56 63; K20 82 73 59; K50 88 67 -.
   Gates pass (0.004-0.027), 0 error/overflow/parser, all served with the k_eq_v rule. smartad-k100s0-train 46869920 hit its
   2 h limit (44/50 updates, ~2.5 min/update; SIGTERM via --signal) -> K100 train limit 04:00:00 (plan.json + generator);
