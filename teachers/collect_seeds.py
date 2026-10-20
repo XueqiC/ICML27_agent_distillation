@@ -30,10 +30,17 @@ def usage_summary(path):
 
 
 def collect_attempt(task, number, selection_parent, config, output, *,
-                    env_factory, teacher_factory, input_paths=()):
+                    env_factory, teacher_factory, input_paths=(), imported=False):
     """Reuse durable receipts; preserve uncertain attempts without paying again."""
-    attempt_dir = execution_attempt(output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}"),
-                                    start="started.json")
+    attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
+    if imported:
+        # full_train validates the frozen import list and receipt hashes before
+        # entering this path. Legacy recovered retries lack logical_call_id.
+        # Do not send their already completed executions through stage retries.
+        if not (attempt_dir / "receipt.json").is_file():
+            raise ValueError("Imported receipt missing; refusing duplicate API use")
+    else:
+        attempt_dir = execution_attempt(attempt_dir, start="started.json")
     episode_dir = attempt_dir / "episode"
     receipt_path = attempt_dir / "receipt.json"
     if receipt_path.exists():

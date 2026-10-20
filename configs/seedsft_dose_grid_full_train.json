@@ -24,7 +24,7 @@
       "selection_rule": "all_train_v1",
       "support_seed": 0,
       "K": null,
-      "verified": "data/verified/seeds_full_train"
+      "verified": "data/verified/seeds_full_train_r2"
     }
   ],
   "partial": true

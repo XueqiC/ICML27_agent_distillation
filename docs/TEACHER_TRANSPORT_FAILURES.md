@@ -61,6 +61,12 @@ retroactively repaired or trusted as new data. Preserve those runs and rerun
 under the new code/provenance. Normal frozen identity checks still apply; this
 fix does not bypass them.
 
+The interrupted full-TRAIN `549503d` run has a dedicated
+[offline migration](FULL_TRAIN_RECOVERY.md). It imports only complete attempts
+into `seeds_full_train_r2` under a new identity, preserves recovered legacy retries,
+and carries forward the entire reservation database. Its imported attempts are
+reused without calls; excluded attempts remain hashed source evidence.
+
 ## Audited callers and offline validation
 
 - LEAP: extract and correct; CoA: teacher and teacher-evaluate.

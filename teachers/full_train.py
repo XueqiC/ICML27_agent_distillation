@@ -45,6 +45,8 @@ def check_output(output, identity, resume):
     if path.exists():
         if not resume:
             raise ValueError("Collection exists; use --resume with the same frozen identity")
+        from teachers.full_train_recovery import checked_recovery_identity
+        identity = checked_recovery_identity(output, identity)
         if json.loads(path.read_text()) != identity:
             raise ValueError("Resume identity changed (selection/config/code/dependencies/shards/caps)")
         if (not (output / "teacher_budget/reservations.sqlite3").is_file()
@@ -54,6 +56,7 @@ def check_output(output, identity, resume):
         # A new shard may have just created the lock file before initialization.
         if any(p.name != ".collection.lock" for p in Path(output).iterdir()):
             raise ValueError("Existing output has no collection identity")
+    return identity
 
 
 def preflight(selection, manifest, freeze, config, output, *, attempts=3, shard_count=1,
@@ -61,11 +64,54 @@ def preflight(selection, manifest, freeze, config, output, *, attempts=3, shard_
     """Read-only validation of every selected game, before launching any worker."""
     identity = collection_identity(selection, manifest, freeze, config, attempts=attempts,
         shard_count=shard_count, max_calls=max_calls, max_input_tokens=max_input_tokens)
-    check_output(output, identity, resume)
+    identity = check_output(output, identity, resume)
+    if "recovery" in identity:
+        from teachers.full_train_recovery import checked_recovery_identity
+        checked_recovery_identity(output, {k: v for k, v in identity.items()
+                                          if k not in {"recovery", "inherited_usage"}}, full=True)
     for candidate in ordered_candidates(selection):
         verify_task_files(config["environment"]["data_root"],
                           resolve_task(manifest, freeze, candidate["task_id"]))
     return identity
+
+
+def publish_collection(output, identity, accounting):
+    """Publish durable shard receipts, including imported attempts before workers start."""
+    output = Path(output)
+    selection = identity["selection"]
+    attempts = identity["attempts_per_candidate"]
+    order = {tid: i for i, tid in enumerate(selection["candidate_order"])}
+    shards = [json.loads(p.read_text()) for p in sorted((output / "shards").glob("*.json"))]
+    all_receipts = sorted((r for shard in shards for r in shard["attempts"]),
+                          key=lambda r: (order[r["task_id"]], r["attempt"]))
+    verified = [r for r in all_receipts if r["won"]]
+    last = {r["task_id"]: r for r in all_receipts}
+    failed = [tid for tid, r in last.items() if not r["won"] and r["attempt"] == attempts]
+    done = len(verified) + len(failed) == selection["candidates"]
+    status = ("budget_exhausted" if accounting["stopped"]
+              else "transport_failed" if any(s["status"] == "transport_failed" for s in shards) else "complete" if done
+              else "interrupted" if any(s["status"] == "interrupted" for s in shards)
+              else "collecting")
+    value = {"schema_version": 1, "status": status, "K": len(verified),
+             "K_counts": "trusted_executed_trajectories", "candidates": selection["candidates"],
+             "selection_rule": selection["selection_rule"], "identity_sha256": digest(identity),
+             "selection_sha256": digest(selection), "trusted_trajectories": len(verified),
+             "unique_instances": len({r["task_id"] for r in verified}),
+             "task_groups": len({r["group_id"] for r in verified}),
+             "attempted_unique_instances": len(last),
+             "attempted_task_groups": len({r["group_id"] for r in all_receipts}),
+             "failed_candidates": failed, "attempts": all_receipts, "verified": verified,
+             "parent_seed_ids": [], "source": "external_frozen_train_pool",
+             "training_exposure": 0, "budget": accounting,
+             "transport_failure_evidence": transport_history(output / "attempts"),
+             "transport_failures": len(list((output / "attempts").rglob("transport_failure.json"))),
+             "rejections": sum(r["usage"].get("rejections", 0) for r in all_receipts)}
+    if "recovery" in identity:
+        value.update(recovery_rule=identity["recovery"]["rule"],
+                     inherited_usage=identity["inherited_usage"],
+                     excluded_source_attempts=len(identity["recovery"]["excluded_attempts"]))
+    write_json(output / "manifest.json", value)
+    return value
 
 
 @teacher_stage("output", name="teachers.full_train")
@@ -81,7 +127,7 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
     if type(shard_index) is not int or not 0 <= shard_index < shard_count:
         raise ValueError("Shard index must be in [0, shard_count)")
     with locked(output / ".collection.lock"):
-        check_output(output, identity, resume)
+        identity = check_output(output, identity, resume)
         if not (output / "identity.json").exists():
             write_json(output / "identity.json", identity, exclusive=True)
         frozen_write(output / "selection.json", selection)
@@ -113,59 +159,38 @@ def collect_full_train(selection, manifest, freeze, config, output, *, attempts=
         return policy
 
     candidates = ordered_candidates(selection)
-    order = {r["task_id"]: i for i, r in enumerate(candidates)}
     receipts = []
+    imported_paths = {r["target_path"] for r in identity.get("recovery", {}).get("imported_attempts", [])}
 
     def publish(status):
         with locked(output / ".collection.lock"):
             write_json(output / "shards" / f"{shard_index}.json",
                        {"shard_index": shard_index, "status": status, "attempts": receipts})
-            shards = [json.loads(p.read_text()) for p in sorted((output / "shards").glob("*.json"))]
-            all_receipts = sorted((r for shard in shards for r in shard["attempts"]),
-                                  key=lambda r: (order[r["task_id"]], r["attempt"]))
-            verified = [r for r in all_receipts if r["won"]]
-            last = {r["task_id"]: r for r in all_receipts}
-            failed = [tid for tid, r in last.items() if not r["won"] and r["attempt"] == attempts]
-            done = len(verified) + len(failed) == selection["candidates"]
-            accounting = budget.snapshot()
-            status = ("transport_failed" if any(s["status"] == "transport_failed" for s in shards)
-                      else "budget_exhausted" if accounting["stopped"] else "complete" if done
-                      else "interrupted" if any(s["status"] == "interrupted" for s in shards)
-                      else "collecting")
-            value = {"schema_version": 1, "status": status, "K": len(verified),
-                     "K_counts": "trusted_executed_trajectories", "candidates": selection["candidates"],
-                     "selection_rule": selection["selection_rule"], "identity_sha256": digest(identity),
-                     "selection_sha256": digest(selection), "trusted_trajectories": len(verified),
-                     "unique_instances": len({r["task_id"] for r in verified}),
-                     "task_groups": len({r["group_id"] for r in verified}),
-                     "attempted_unique_instances": len(last),
-                     "attempted_task_groups": len({r["group_id"] for r in all_receipts}),
-                     "failed_candidates": failed, "attempts": all_receipts, "verified": verified,
-                     "parent_seed_ids": [], "source": "external_frozen_train_pool",
-                     "training_exposure": 0, "budget": accounting,
-                     "transport_failure_evidence": transport_history(output / "attempts"),
-                     "transport_failures": len(list((output / "attempts").rglob("transport_failure.json"))),
-                     "rejections": sum(r["usage"].get("rejections", 0) for r in all_receipts)}
-            write_json(output / "manifest.json", value)
-            return value
+            return publish_collection(output, identity, budget.snapshot())
 
     # Whole-shard ownership prevents concurrent resumptions from duplicating work;
     # the collection lock is held only for short initialization/publication steps.
     with locked(output / "shards" / f"{shard_index}.lock"):
+        if imported_paths:
+            receipts = json.loads((output / "shards" / f"{shard_index}.json").read_text())["attempts"]
         try:
             for index, candidate in enumerate(candidates[shard_index::shard_count]):
                 task = resolve_task(manifest, freeze, candidate["task_id"])
                 for number in range(1, attempts + 1):
                     attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
+                    imported = str(attempt_dir.relative_to(output)) in imported_paths
                     # Recover completed/uncertain attempts even after the budget stopped.
                     if budget.snapshot()["stopped"]:
-                        retained = execution_attempt(attempt_dir, start="started.json")
+                        retained = attempt_dir if imported else execution_attempt(attempt_dir, start="started.json")
                         episode_path = retained / "episode/episode.json"
                         episode = json.loads(episode_path.read_text()) if episode_path.exists() else {}
                         if not (retained / "receipt.json").exists() and not episode.get("complete"):
                             raise CollectionBudgetExceeded("Collection budget exhausted; stage NOT complete")
                     receipt = collect_attempt(task, number, task["task_id"], config, output,
-                        env_factory=env_factory, teacher_factory=teacher, input_paths=input_paths)
+                        env_factory=env_factory, teacher_factory=teacher, input_paths=input_paths,
+                        imported=imported)
+                    receipts = [r for r in receipts if (r["task_id"], r["attempt"]) !=
+                                (receipt["task_id"], receipt["attempt"])]
                     receipts.append(receipt)
                     if receipt["won"]:
                         break
