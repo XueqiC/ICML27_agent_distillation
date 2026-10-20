@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
 from baselines.eto.pipeline import stage_run, run_command
 from baselines.kang.pipeline import RECIPE as AD_RECIPE, training_command as ad_command
-from baselines.smartad.collect import collect, validate_h0
+from baselines.smartad.collect import collect, validate_h0, validate_shard
 from baselines.smartad.select import select, validate_selection
 from sed.config import load_config
 from sed.manifest import load_frozen
@@ -38,6 +38,9 @@ def main(argv=None):
                         choices=["collect", "select", "train", "evaluate"], default="collect")
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
     parser.add_argument("--rate-limit-dir", default="data/smartad_rate_limit")
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--resume", action="store_true", help="Reuse the frozen collection and durable candidate slots")
     parser.add_argument("--subset-k", type=int, nargs="*", default=[])
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
@@ -52,6 +55,12 @@ def main(argv=None):
         parser.error("Preparation is for training only")
     if args.subset_k and args.stage != "collect":
         parser.error("--subset-k is frozen at collection; views publish after selection")
+    if args.stage != "collect" and (args.shard_count != 1 or args.shard_index != 0 or args.resume):
+        parser.error("--shard-index/--shard-count/--resume are for collection only")
+    try:
+        validate_shard(args.shard_index, args.shard_count)
+    except ValueError as error:
+        parser.error(str(error))
     for name in ("verified", "output", "snapshot"):
         if getattr(args, name):
             setattr(args, name, str(Path(getattr(args, name)).resolve()))
@@ -64,6 +73,7 @@ def main(argv=None):
     if args.stage == "collect":
         return collect(args.verified, manifest, freeze, config, args.output,
             rate_limit_dir=args.rate_limit_dir, subset_ks=args.subset_k,
+            shard_index=args.shard_index, shard_count=args.shard_count, resume=args.resume,
             input_paths=[args.config, Path(args.verified) / "manifest.json",
                          config["paths"]["manifest"], config["paths"]["split_freeze"]])
     if args.stage == "select":
