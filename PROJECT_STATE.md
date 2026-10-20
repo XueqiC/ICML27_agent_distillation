@@ -29,6 +29,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 15:2x CDT user on wording: Seed-SFT = trajectory SFT (standard objective: token-mean NLL of teacher agent outputs y_t
+  given h_t, x/o_t conditioning only) + OUR long schedule (LoRA r16, const 1e-5, max(40 passes, 400k tokens)). Renamed in
+  reports: '轨迹 SFT（长训练配置）'; paper-recipe row '轨迹 SFT（AD 配方）' = Kang SFT stage, greedy (offered, 15 evals, no
+  retrain; awaiting user). It is a lower-bound reference, not 'what the data supports': pre-fix 3-seed means still rising
+  at the end for K5-K20 (K5 75->85, K10 88->94, K20 101->108), plateau ~108-115 at K>=50 by 10-20 passes. Comparisons with
+  baselines conflate training amount (K20: 469 vs AD 20 updates) -> proposed matched-update comparison via p03/p05/p10.
 - 15:1x CDT: user OK'd Seed-SFT re-eval after SAD -> plan cells seedsftfix-k{K}s{S} (last checkpoint = main-table
   'end of schedule', greedy, 8960e0a, OUT reports/runs/eval/seedsft-kveq/<cell>; pre-fix sweep kept). Kang K100 s0
   same-checkpoint SAG re-eval 46892763: 61 (orig 62), 7/8 flips, inadmissible 18.7% -> collapse is the checkpoint, not
