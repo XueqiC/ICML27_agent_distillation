@@ -3,6 +3,7 @@ import argparse
 from copy import deepcopy
 import json
 from pathlib import Path
+from teachers.stage import teacher_stage, count, require_completed
 
 from data.manifest.build_r03_sets import dataset_entry, guarded_task, publish_dataset
 from sed.config import load_config
@@ -65,13 +66,17 @@ def correction_episode(original, state, result):
         "visible": deepcopy(state["visible_context"]), "reward": None,
         "terminated": False, "truncated": False, "environment_steps": 0,
         "action_outcome": "unexecuted_teacher_label", "success": "unknown",
-        "policy_metadata": result.metadata})
+        # Cache-access billing lives in collection/usage ledgers. Keep the label
+        # artifact stable when a later request fails and this prefix is reused.
+        "policy_metadata": {k: v for k, v in result.metadata.items()
+                            if k not in {"cache_hit", "cache_accessed_at", "billed_usage"}}})
     for name in ("metrics", "policy_calls", "action_outcomes", "termination"):
         episode.pop(name, None)
     episode["policy_turns_attempted"] = step_index + 1
     return episode
 
 
+@teacher_stage("output", name="collect_corrections")
 def collect(records, selected, teacher, output, manifest, freeze, *, source="R1_P2"):
     output = Path(output)
     resolved = resolve_selection(records, selected)
@@ -88,6 +93,8 @@ def collect(records, selected, teacher, output, manifest, freeze, *, source="R1_
             JsonlLedger(output / "collection.jsonl").append({**audit, "status": "stopped",
                                                            "error_type": type(exc).__name__})
             raise
+        if not teacher.dry_run:
+            require_completed(result)
         if teacher.dry_run:
             planned.append({**audit, **result.metadata})
             continue
@@ -99,6 +106,7 @@ def collect(records, selected, teacher, output, manifest, freeze, *, source="R1_
             "verification": "unknown", "new_environment_steps": 0})
         if not accepted:
             rejected += 1
+            count("rejections")
             continue
         original = json.loads((directory / "episode.json").read_text())
         episode = correction_episode(original, state, result)
@@ -113,7 +121,8 @@ def collect(records, selected, teacher, output, manifest, freeze, *, source="R1_
                 "within_cap": all(r["within_cap"] for r in planned),
                 "halted": any(r["halted"] for r in planned), "states": planned}
     return publish_dataset(output, entries, manifest, freeze, source=source,
-        selected_unique_states=len(resolved), rejected_labels=rejected, verification="unknown",
+        selected_unique_states=len(resolved), rejected_labels=rejected, rejections=rejected,
+        transport_failures=0, verification="unknown",
         supervision="Only final teacher Action line and native turn end; all student prefix tokens masked",
         new_environment_steps=0, trusted_executed_trajectories=0)
 

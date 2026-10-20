@@ -17,7 +17,8 @@ from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode
 from sed.storage import digest, write_json
 from students.vllm_student import Student, context_options
-from teachers.openai_teacher import Teacher, rate_limit_options
+from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
+from teachers.stage import teacher_stage, count, ledger_counts
 
 
 def frozen_tasks(path, manifest, freeze, *, sealed_final=False, policy="student"):
@@ -111,6 +112,11 @@ def _worker(job):
             if episode["status"] != "error":
                 episode.update(status="error", complete=False, success="unknown", error_type="worker_error")
                 write_json(output / "episode.json", episode)
+        if isinstance(exc, TeacherCallError):
+            row = task_result(task, output)
+            write_json(output / "teacher_report.json", {"status": "failed", "transport_failures": 1,
+                                                       "rejections": row["rejections"]})
+            raise
     return task["task_id"]
 
 
@@ -131,6 +137,8 @@ def task_result(task, directory):
            "inadmissible_actions": metrics.get("inadmissible_actions", 0),
            "legal_actions": metrics.get("legal_actions", 0),
            "failed_policy_calls": metrics.get("failed_policy_calls", 0),
+           "transport_failures": episode.get("transport_failures", 0),
+           "rejections": episode.get("rejections", 0),
            "context_overflow_episodes": metrics.get("context_overflow_episodes", 0),
            "termination_reason": episode.get("termination_reason"),
            "termination_step_index": episode.get("termination_step_index"),
@@ -165,6 +173,7 @@ def summarize(rows, wall_time):
                               "Token totals are known-only; unknown counts and failed calls are separate."}
 
 
+@teacher_stage("output", name="eval.teacher/student")
 def run_suite(*, config, tasks_path, output, policy="student", spec=None, workers=4,
               sealed_final=False, inputs=(), worker_fn=_worker):
     if type(workers) is not int or workers < 1:
@@ -233,9 +242,21 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
     jobs = [(task, effective, str(directory), policy, spec, inputs) for task, directory in zip(tasks, directories)]
     started = time.monotonic()
     # spawn prevents environment RNG/backend state leaking between processes.
-    with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as pool:
-        for _ in pool.map(worker_fn, jobs):
-            pass
+    try:
+        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+            for _ in pool.map(worker_fn, jobs):
+                pass
+    finally:
+        # Child processes do not share the stage audit context. Aggregate only
+        # durable teacher evidence, after every worker has stopped writing it.
+        if policy == "teacher":
+            for task, directory in zip(tasks, directories):
+                row = task_result(task, directory)
+                usage = ledger_counts(directory / "teacher_usage.jsonl")
+                count("transport_failures", row["transport_failures"])
+                count("transport_failed_attempts", usage["transport_failures"])
+                count("rejections", row["rejections"])
+                count("parser_rejections", usage["rejections"])
     rows = [task_result(t, d) for t, d in zip(tasks, directories)]
     summary = summarize(rows, time.monotonic() - started)
     summary.update(task_list_sha256=listing["list_sha256"], policy=policy, student=spec,

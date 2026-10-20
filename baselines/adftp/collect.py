@@ -15,7 +15,8 @@ from sed.seed_selection import is_full_train
 from sed.seed_evidence import artifact_hashes, checked_episode, environment_won, load_verified_collection, materialize_subsets
 from sed.storage import digest, locked, write_json, fsync_dir
 from teachers.capped import CappedTeacher, CollectorHalted
-from teachers.openai_teacher import rate_limit_options
+from teachers.openai_teacher import TeacherCallError, rate_limit_options
+from teachers.stage import teacher_stage, execution_attempt, mark_transport_failure, require_execution, usage_counts
 
 
 def read(path):
@@ -26,10 +27,10 @@ def read(path):
 def usage_summary(path):
     rows = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
     # state_link is accounting linkage, never an additional billable request.
-    finished = [r for r in rows if r["status"] in {"success", "rejected", "failed", "cache_hit"}]
+    finished = [r for r in rows if r["status"] in {"success", "rejected", "failed", "incomplete", "cache_hit"}]
     ended = {r["call_id"] for r in finished}
     interrupted = [r for r in rows if r["status"] == "started" and r["call_id"] not in ended]
-    return {"known_billed_tokens": {key: sum((r.get("usage") or {}).get(key, 0) or 0 for r in finished)
+    return {**usage_counts(rows), "known_billed_tokens": {key: sum((r.get("usage") or {}).get(key, 0) or 0 for r in finished)
             for key in ("input_tokens", "output_tokens", "reasoning_tokens")},
         "unknown_usage_calls": sum(r.get("usage") is None for r in finished) + len(interrupted),
         "interrupted_requests": len(interrupted), "ledger_rows": len(rows)}
@@ -55,7 +56,7 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
     accepted = None
     attempts = []
     for number in range(1, 4):
-        directory = work / f"attempt-{number}"
+        directory = execution_attempt(work / f"attempt-{number}", start="started.json")
         if not (directory / "started.json").exists():
             frozen_write(directory / "started.json", {"attempt": number, "parent_seed_ids": task["parent_seed_ids"]})
             # Fresh cache namespace per attempt; resume never resamples a started episode.
@@ -66,6 +67,9 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
                 run_episode(env_factory(task), policy, task, config, directory / "episode",
                     policy_condition="adftp_teacher_h0", purpose="generation",
                     parent_seed_ids=task["parent_seed_ids"])
+            except TeacherCallError:
+                mark_transport_failure(directory)
+                raise
             except RuntimeError:
                 if not (directory / "episode/episode.json").exists():
                     raise
@@ -74,12 +78,13 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
             write_json(directory / "rejection.json", {"reason": policy.rejection})
         episode_file = directory / "episode/episode.json"
         episode = read(episode_file) if episode_file.exists() else {}
+        require_execution(episode)
         won = environment_won(directory / "episode", episode)
         rejection = read(directory / "rejection.json") if (directory / "rejection.json").exists() else {}
         attempts.append({"attempt": number, "won": won, "success": episode.get("success", "unknown"),
             "status": episode.get("status", "interrupted"), "metrics": episode.get("metrics"),
             "rejection": None if won else rejection.get("reason") or "no_verified_environment_win",
-            "episode_dir": f"attempt-{number}/episode"})
+            "episode_dir": str((directory / "episode").relative_to(work))})
         if won:
             accepted = directory / "episode"
             break
@@ -95,6 +100,7 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
     return outcome
 
 
+@teacher_stage("output", name="adftp.collect")
 def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=()):
     output = Path(output).resolve()
@@ -221,6 +227,10 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             "new_environment_steps": sum((a.get("metrics") or {}).get("environment_steps", 0)
                                          for r in receipts for a in r["ftp_attempts"]),
             "unknown_usage_calls": sum(r["usage"]["unknown_usage_calls"] for r in receipts),
+            "transport_failures": sum(r["usage"]["transport_failures"] for r in receipts),
+            "parser_rejections": sum(r["usage"]["rejections"] for r in receipts),
+            "rejections": sum(a["rejection"] in {"empty_first_paragraph", "first_reply_prefix_mismatch"}
+                              for r in receipts for a in r["ftp_attempts"]),
             "known_billed_tokens": {key: sum(r["usage"]["known_billed_tokens"][key] for r in receipts)
                                     for key in ("input_tokens", "output_tokens", "reasoning_tokens")},
             "new_verified_trajectories": sum(not r["fallback"] for r in receipts),

@@ -2,6 +2,8 @@
 import argparse
 import json
 from pathlib import Path
+from teachers.openai_teacher import TeacherCallError
+from teachers.stage import teacher_stage, count
 
 from analysis.mechanism.branch import run_branch
 from analysis.mechanism.common import (attempt_path, budget_directory, completed_branch, gap_episodes, read_json,
@@ -47,6 +49,7 @@ class SharedInterventionTeacher(Teacher):
             return TeacherResult(saved["raw_text"], saved["parsed_action"], meta)
         result = self.teacher.generate(history, task, current)
         if self.advice and (not result.raw_text.strip() or action_outcome(result.raw_text, current["admissible_commands"])[0] is not None):
+            count("rejections")
             raise ValueError("Rejected I3 advice; raw response retained in teacher ledger")
         saved = result._asdict()
         write_json(self.path, {"input_sha256": key, "result": saved, "result_sha256": digest(saved)}, exclusive=True)
@@ -63,7 +66,7 @@ def arm_outcome(samples):
             "sample_successes": count, "greedy_success": by_index[0]["success"]}
 
 
-class SharedOutputIncomplete(RuntimeError):
+class SharedOutputIncomplete(TeacherCallError):
     incomplete = True
 
 
@@ -103,9 +106,12 @@ def _continuation(unit):
         write_json(attempt/("incomplete.json" if incomplete else "failure.json"),
             {"error_type": type(exc).__name__, "arm": arm, "sample_index": index,
              "status": status, "success": "unknown"}, exclusive=True)
+        if isinstance(exc, TeacherCallError):
+            raise
         return {"sample_index": index, "success": "unknown", "status": status}
 
 
+@teacher_stage("output", name="run_interventions")
 def run_interventions(*, gap_path, fce_path, verified, output, config, spec, max_episode, max_run,
                       budget_dir=None, sampling_seed=0, subject="student", workers=1, env_factory=_environment,
                       teacher_factory=make_teacher, student_factory=BranchStudent, branch_fn=run_branch,

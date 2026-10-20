@@ -9,6 +9,8 @@ from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode, episode_metrics
 from sed.seed_evidence import artifact_hashes, environment_won
 from sed.storage import digest, write_json
+from teachers.openai_teacher import TeacherCallError
+from teachers.stage import teacher_stage, execution_attempt, mark_transport_failure
 
 
 def tasks_for(cell, config):
@@ -28,13 +30,17 @@ def checked_run(directory):
     return receipt
 
 
+@teacher_stage("output", name="agentdistill.collect")
 def collect(tasks, config, cell, output, identity, budget, *, env_factory=_environment):
     output, cell = Path(output), Path(cell)
     output.mkdir(parents=True, exist_ok=False)
+    if hasattr(budget, "client"):
+        budget.client.check_health()
     pool, runs = [], []
     for task in tasks:
         for index in range(3):
-            directory = cell / "runs" / digest(task["task_id"]) / f"run-{index}"
+            directory = execution_attempt(cell / "runs" / digest(task["task_id"]) / f"run-{index}",
+                                          start="reservation.json")
             reservation = directory / "reservation.json"
             binding = {"cell": digest(identity), "task_id": task["task_id"], "run": index,
                        "parent_seed_ids": task["parent_seed_ids"]}
@@ -57,6 +63,8 @@ def collect(tasks, config, cell, output, identity, budget, *, env_factory=_envir
                         status = "ok"
                     except BaseException as exc:
                         write_json(directory / "failure.json", {"error_type": type(exc).__name__})
+                        if isinstance(exc, TeacherCallError):
+                            mark_transport_failure(directory)
                         # Never free a reservation. Transport failures remain halted in
                         # the cell-wide CappedTeacher; interrupts retain an unknown run.
                         raise

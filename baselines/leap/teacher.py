@@ -13,6 +13,7 @@ from sed.manifest import frozen_write
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, locked, write_json
 from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
+from teachers.stage import count, require_completed
 
 
 def read(path):
@@ -44,6 +45,9 @@ def checked_outcome(path):
     hashes.pop("outcome.json")
     if hashes != value["artifacts"]:
         raise ValueError("LEAP teacher evidence changed")
+    if value["status"] != "accepted" and any(
+            not (attempt / "result.json").exists() for attempt in path.glob("attempt-*")):
+        raise TeacherCallError("LEAP outcome contains transport-failed/unknown attempts, not format rejections")
     return value
 
 
@@ -99,6 +103,7 @@ class TeacherBudget:
                 return checked_outcome(directory)
             spec = self.config["models"]["teacher"]
             accepted, result = None, None
+            transport_failures, rejections = 0, 0
             for index in range(3):
                 attempt = directory / f"attempt-{index}"
                 if attempt.exists():
@@ -108,6 +113,10 @@ class TeacherBudget:
                         if previous["accepted"]:
                             result, accepted = previous["result"], previous["labels"]
                             break
+                        rejections += 1
+                        count("rejections")
+                    else:
+                        transport_failures += 1
                     continue  # A durable start with no result consumes its slot.
                 attempt.mkdir()
                 sampling, mode = self.sampling()
@@ -121,6 +130,7 @@ class TeacherBudget:
                     **rate_limit_options(spec, self.sampling_root / "rate_limit"))
                 try:
                     response = teacher.generate([], task, {"observation": "", "admissible_commands": []})
+                    require_completed(response)
                 except TeacherCallError:
                     ledger = attempt / "usage.jsonl"
                     outcomes = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
@@ -131,19 +141,21 @@ class TeacherBudget:
                             "parameter": unsupported["unsupported_sampling_parameter"]})
                     write_json(attempt / "failure.json", {"error_type": "TeacherCallError",
                         "usage": "unknown; inspect shared usage ledger", "unsupported_sampling": bool(unsupported)})
-                    # Respect provider timing/backoff even though retries are externally capped.
-                    waits = [r.get("provider_wait_seconds", 0) for r in outcomes]
-                    if index < 2 and waits and max(waits) > 0:
-                        teacher.sleep(max(waits))
-                    continue
+                    # Even an unsupported HTTP sampling parameter is a transport
+                    # failure. The recorded fallback applies on explicit resume;
+                    # it must not hide a failed request in a rejection set.
+                    raise TeacherCallError(
+                        f"LEAP teacher transport failed; stage NOT complete. Evidence: {attempt}. "
+                        "Resume after fixing transport; reserved attempts remain spent."
+                    ) from None
                 result = {"raw_text": response.raw_text, "metadata": response.metadata}
                 try:
-                    if response.metadata.get("response_status") != "completed":
-                        raise ValueError("Incomplete teacher response")
                     accepted = validator(response.raw_text)
                     error = None
                 except (ValueError, TypeError, KeyError, RecursionError) as exc:
                     accepted, error = None, type(exc).__name__
+                    rejections += 1
+                    count("rejections")
                 write_json(attempt / "result.json", {"accepted": accepted is not None,
                     "labels": accepted, "error_type": error, "result": result})
                 if mode != "configured_default":
@@ -153,10 +165,15 @@ class TeacherBudget:
                         "timestamp": response.metadata.get("timestamp")})
                 if accepted is not None:
                     break
+            if accepted is None and transport_failures:
+                raise TeacherCallError(
+                    f"LEAP teacher attempt budget exhausted with {transport_failures} transport-failed/unknown "
+                    f"slots; no rejection outcome published. Retain {directory} and rerun with new provenance.")
             outcome = {"status": "accepted" if accepted is not None else "exhausted",
                 "task_id": task["task_id"], "parent_seed_ids": task["parent_seed_ids"],
                 "labels": accepted, "result": result,
                 "attempts_reserved": len(list(directory.glob("attempt-*"))),
+                "transport_failures": transport_failures, "rejections": rejections,
                 "artifacts": artifact_hashes(directory), "directory": str(directory.resolve())}
             write_json(directory / "outcome.json", outcome, exclusive=True)
             return outcome

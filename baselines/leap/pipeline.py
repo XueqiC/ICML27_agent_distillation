@@ -4,6 +4,7 @@ from copy import deepcopy
 from importlib.metadata import version
 import os
 from pathlib import Path
+from teachers.stage import ledger_counts
 import signal
 import sys
 
@@ -22,6 +23,7 @@ from sed.provenance import versions, write_provenance
 from sed.runner import episode_metrics
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, file_hash, locked, write_json
+from teachers.stage import teacher_stage
 
 
 def teacher_caps(k, variant):
@@ -53,6 +55,7 @@ def collect_experts(args, config, identity, tasks, output):
         "excluded": sum(not r["available"] for r in records), "trusted_trajectories_added": 0})
 
 
+@teacher_stage("output", name="leap.extract")
 def extract_states(args, config, identity, tasks, experts, output):
     budget = TeacherBudget(Path(args.output) / "audit/teacher/extraction", tasks=tasks,
         config=config, kind="extract", iteration=0, run_identity=digest(identity),
@@ -88,6 +91,7 @@ def extract_states(args, config, identity, tasks, experts, output):
         "extraction_failed": sum(r["status"] == "exhausted" for r in states)})
 
 
+@teacher_stage("output", name="leap.correct")
 def correct_rollouts(args, config, identity, tasks, exploration, states, iteration, output):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     rollouts = checked_rollouts(exploration, manifest, freeze)
@@ -270,7 +274,7 @@ def update_disclosure(output, identity):
         token_accounting="All teacher attempts/cached raw outputs in audit/teacher; original seed usage remains in bound receipts. "
             "Corrected labels have unknown verification. Every retry/failed rollout/expert transition and training exposure is retained.")
     report["totals"].update(teacher_calls=len(starts),
-        teacher_returned=sum(r["status"] in {"success", "rejected"} for r in ends),
+        teacher_returned=sum(r["status"] in {"success", "rejected", "incomplete"} for r in ends),
         teacher_usage_known=len(usage),
         teacher_attempt_slots_reserved=len(list((output / "audit/teacher").glob("*/requests/*/attempt-*/start.json"))),
         teacher_logical_calls=len(list((output / "audit/teacher").glob("*/requests/*/binding.json"))),
@@ -284,6 +288,8 @@ def update_disclosure(output, identity):
         expert_environment_steps=sum((r["metrics"] or {}).get("environment_steps", 0) for r in experts),
         expert_environment_episodes=sum(r["environment_episode_started"] for r in experts),
         expert_resets_confirmed=sum(r["environment_reset_confirmed"] for r in experts))
+    report["teacher_outcomes"] = {key: sum(ledger_counts(p)[key] for p in (output / "audit/teacher").rglob("usage.jsonl"))
+        for key in ("transport_failures", "rejections", "unknown_ledger_rows")}
     write_json(output / "disclosure.json", report)
 
 

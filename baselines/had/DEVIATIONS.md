@@ -40,3 +40,20 @@ No GPU/cluster execution, paid API calls or scientific evaluation was performed
 for this implementation. Distributed GPU memory fit, throughput and live provider
 temperature support remain untested. The full-training collection is forthcoming;
 only collections accepted by the existing VERIFIED evidence API can be consumed.
+
+
+## 2026-10-19 engineering fix: fail loudly on teacher transport
+
+Transport failures (HTTP errors, timeouts, incomplete/unknown responses, halted
+collectors and exhausted teacher budgets) raise through the stage boundary.
+Failed stage attempts retain sanitized usage, raw returned outputs, counters and
+real execution prefixes; they never publish a completion with missing labels.
+Completed malformed/invalid outputs keep this method's existing rejection or
+masking behavior. `teacher_report.json` counts terminal transport failures,
+failed HTTP attempts, parser rejections and method rejections separately. Existing
+reports include the same counters; disclosure ledgers retain historical failures.
+
+This is an **engineering fix, no algorithm change**: prompts, labeling/masking,
+selection, trusted K, task scope and configured caps are unchanged. See
+[`docs/TEACHER_TRANSPORT_FAILURES.md`](../../docs/TEACHER_TRANSPORT_FAILURES.md)
+for recovery, non-refundable reservations and the offline regression matrix.

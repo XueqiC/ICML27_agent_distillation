@@ -4,6 +4,7 @@ Only rate-limit HTTP 429s retry (up to 20 attempts in one logical-call slot).
 Every attempt reserves tokens; quota failures and all other failures halt the run.
 An interrupted reservation also halts the run, including during 429 backoff.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
+Explicit recovery acknowledges failures without refunding any reservation.
 """
 import json
 import sqlite3
@@ -186,14 +187,24 @@ class CappedTeacher:
         if value["identity"] != self.identity:
             raise ValueError("Collector identity/cap changed")
         ledger = self.teacher.ledger.path
-        rows = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
+        try:
+            rows = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
+        except ValueError:
+            raise TeacherCallError("Teacher usage ledger is incomplete/unknown; inspect retained evidence") from None
         rows = [r for r in rows if r.get("run_id") == self.run_id]
+        all_rows = rows
+        recovery = value.get("recovery")
+        if recovery:
+            boundary = recovery["through_rows"]
+            if len(rows) < boundary or digest(rows[:boundary]) != recovery["ledger_prefix_sha256"]:
+                raise TeacherCallError("Recovered teacher ledger changed; refusing to reset accounting")
+            rows = rows[boundary:]
         starts = {r["call_id"] for r in rows if r["status"] == "started"}
-        ends = {r["call_id"] for r in rows if r["status"] in {"success", "rejected", "failed"}}
-        logical_starts = {r.get("logical_call_id", r["call_id"]) for r in rows if r["status"] == "started"}
+        ends = {r["call_id"] for r in rows if r["status"] in {"success", "rejected", "failed", "incomplete"}}
+        logical_starts = {r.get("logical_call_id", r["call_id"]) for r in all_rows if r["status"] == "started"}
         completed = {r["logical_call_id"] for r in rows
                      if r["status"] in {"success", "rejected"} and "logical_call_id" in r}
-        failed = any(r["status"] == "failed" and not (
+        failed = any(r["status"] in {"failed", "incomplete"} and not (
             r.get("http_status") == 429 and r.get("retryable") and r.get("will_retry")
             and r.get("logical_call_id") in completed) for r in rows)
         # Never lower a reservation count. Ledger recovers a missing/stale counter.
@@ -201,6 +212,10 @@ class CappedTeacher:
         if value["pending"] or starts - ends or failed:
             value["halted"] = True
         return value
+
+    def check_health(self):
+        if self._read_counter()["halted"]:
+            raise CollectorHalted("Teacher transport halted; inspect retained evidence and explicitly recover or rerun")
 
     def _cached(self, key):
         path = self.teacher.cache_dir / (key + ".json")
@@ -240,8 +255,8 @@ class CappedTeacher:
             write_json(self.counter_path, self._counter)
             try:
                 result = self.teacher.generate(history, task, visible_context)
-                if not result.raw_text.strip() or result.metadata.get("response_status") != "completed":
-                    raise TeacherCallError("Empty/incomplete teacher response; see usage ledger")
+                from teachers.stage import require_completed
+                require_completed(result)
             except BaseException:
                 self._counter.update(halted=True, pending=False)
                 write_json(self.counter_path, self._counter)

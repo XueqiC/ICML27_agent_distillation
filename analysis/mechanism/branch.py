@@ -16,6 +16,7 @@ from sed.runner import _environment, check_replay_result, run_episode
 from sed.storage import digest, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
 from teachers.openai_teacher import Teacher, TeacherResult
+from teachers.stage import teacher_stage, count
 
 
 class CheckedEnvironment:
@@ -112,6 +113,7 @@ class BranchPolicy:
                 write_json(self.directory / "intervention.json", self.intervention)
                 # Keep a disobedient response as a rejected attempt, never execute it.
                 if action_outcome(advice_result.raw_text, current["admissible_commands"])[0] is not None:
+                    count("rejections")
                     raise ValueError("I3 teacher advice included an action")
                 suffix = "Advice: " + advice_result.raw_text
             elif self.arm == "I4":
@@ -144,6 +146,7 @@ class BranchPolicy:
             self.continuation.close()
 
 
+@teacher_stage("output", name="mechanism.branch")
 def run_branch(env, continuation, task, config, parent, t, output, *, arm="takeover", sample_index=0,
                sampling_seed=0, teacher=None, example=None, parent_path=None, inputs=(), replay_check=True):
     authorize_episode(parent)

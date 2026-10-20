@@ -6,8 +6,9 @@ from baselines.agentdistill import RECIPE, teacher_cap
 from sed.manifest import authorize_task, frozen_write
 from sed.storage import digest, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
-from teachers.capped import from_config
-from teachers.openai_teacher import Teacher
+from teachers.capped import from_config, BudgetExceeded
+from teachers.openai_teacher import Teacher, TeacherResult
+from teachers.stage import require_completed
 
 
 class PromptTeacher(Teacher):
@@ -47,6 +48,7 @@ class Budget:
         authorize_task(task, "generation")
         if task["source_split"] != "train" or role not in self.limit:
             raise ValueError("Teacher requests require support TRAIN and a registered role")
+        self.client.check_health()
         visible = visible_observation(visible or {"observation": "", "admissible_commands": []})
         from sed.react import build_messages
         messages = build_messages(visible_history(history), visible_task(task), visible, prompt_template=prompt)
@@ -56,16 +58,19 @@ class Budget:
         if not (directory / "request.json").exists():
             used = len(list((self.root / "requests" / role).glob("*/request.json")))
             if used >= self.limit[role]:
-                raise ValueError("Teacher logical role cap reached")
+                raise BudgetExceeded("Teacher logical role cap reached; no label returned")
         frozen_write(directory / "request.json", record)
         result_path = directory / "result.json"
         if result_path.exists():
             result = read(result_path)
             if result["request_sha256"] != digest(record) or result["result_sha256"] != digest(result["response"]):
                 raise ValueError("Teacher response identity changed")
+            require_completed(TeacherResult(result["response"]["raw_text"], None,
+                                            result["response"]["metadata"]))
             return result["response"]["raw_text"]
         self.client.teacher.request = {"slot": slot, "messages": messages}
         result = self.client.generate(visible_history(history), task, visible)
+        require_completed(result)
         response = {"raw_text": result.raw_text, "metadata": result.metadata}
         write_json(result_path, {"request_sha256": digest(record), "response": response,
             "result_sha256": digest(response)}, exclusive=True)

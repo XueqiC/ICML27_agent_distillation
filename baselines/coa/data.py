@@ -14,6 +14,8 @@ from sed.provenance import write_provenance
 from sed.runner import _environment, run_episode, replay_episode
 from sed.seed_evidence import artifact_hashes, checked_episode, load_verified_collection
 from sed.storage import digest, write_json
+from teachers.openai_teacher import TeacherCallError
+from teachers.stage import teacher_stage, execution_attempt, mark_transport_failure, require_execution
 
 
 def read(path):
@@ -38,6 +40,8 @@ def checked_record(record):
     if hashes != record["artifacts"] or read(directory / "receipt.json") != record:
         raise ValueError("CoA execution evidence changed")
     episode = read(directory / "episode/episode.json") if (directory / "episode/episode.json").exists() else None
+    if episode is not None:
+        require_execution(episode)
     if episode is not None and (episode["task_id"] != record["task_id"]
             or episode.get("sealed") or episode["split"] != ("dev" if record["evaluation"] else "train")):
         raise ValueError("CoA execution task/split differs from its receipt")
@@ -48,6 +52,7 @@ def checked_record(record):
     return episode
 
 
+@teacher_stage("output", name="coa.teacher/teacher-evaluate")
 def collect(config, listing, tasks, output, cell, identity, *, evaluation=False,
             env_factory=_environment, capped=None):
     require_cpu()
@@ -61,11 +66,14 @@ def collect(config, listing, tasks, output, cell, identity, *, evaluation=False,
         raise ValueError("CoA teacher cap requires the shared 40-turn H0 limit")
     namespace = "teacher_eval" if evaluation else "teacher"
     capped = capped or budget(config, cell / namespace, identity, tasks, evaluation=evaluation)
+    if hasattr(capped, "check_health"):
+        capped.check_health()
     runs = RECIPE["teacher_eval_runs" if evaluation else "teacher_runs"]
     records, rows = [], []
     for task in tasks:
         for index in range(runs):
-            directory = cell / namespace / "executions" / digest([task["task_id"], index])
+            directory = execution_attempt(cell / namespace / "executions" / digest([task["task_id"], index]),
+                                          start="start.json")
             parents = [] if evaluation else listing["parent_seed_ids"][task["task_id"]]
             binding = {"identity": digest(identity), "task_id": task["task_id"], "run_index": index,
                        "evaluation": evaluation, "parent_seed_ids": parents}
@@ -80,23 +88,8 @@ def collect(config, listing, tasks, output, cell, identity, *, evaluation=False,
                 continue
             directory.mkdir(parents=True, exist_ok=True)
             if (directory / "start.json").exists():
-                # No reset/replay/cache recombination that pretends to be the
-                # interrupted run. Its reserved slot remains spent.
-                if read(directory / "start.json") != binding:
-                    raise ValueError("Interrupted system run binding changed")
-                write_json(directory / "interrupted.json", {"status": "interrupted",
-                    "verification": "unknown", "run_slot_spent": True})
-                record = {**binding, "status": "interrupted", "directory": str(directory.resolve()),
-                    "success": "unknown", "replay": {"matched": False, "environment_episodes": 0,
-                    "environment_steps": 0, "unknown_costs_possible": True},
-                    "source": "coa_multi_agent_teacher", "trusted_seed": False,
-                    "trusted_trajectories_added": 0, "training_eligible": False,
-                    "artifacts": artifact_hashes(directory)}
-                write_json(directory / "receipt.json", record, exclusive=True)
-                records.append(record)
-                if evaluation:
-                    rows.append(task_result(task, directory / "episode"))
-                continue
+                mark_transport_failure(directory)
+                raise TeacherCallError("Unpublished CoA execution; inspect retained evidence before rerunning")
             write_json(directory / "start.json", binding, exclusive=True)
             replay = {"matched": False, "environment_episodes": 0, "environment_steps": 0}
             status, episode = "error", None
@@ -122,6 +115,9 @@ def collect(config, listing, tasks, output, cell, identity, *, evaluation=False,
                 status = "ok"
             except Exception as exc:
                 write_json(directory / "failure.json", {"error_type": type(exc).__name__})
+                if isinstance(exc, TeacherCallError):
+                    mark_transport_failure(directory)
+                    raise
             record = {**binding, "status": status, "directory": str(directory.resolve()),
                 "success": episode.get("success", "unknown") if episode else "unknown",
                 "replay": replay, "source": "coa_multi_agent_teacher", "trusted_seed": False,

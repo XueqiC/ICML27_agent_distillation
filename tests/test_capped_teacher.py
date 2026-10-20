@@ -70,8 +70,10 @@ def test_empty_and_timeout_raise_no_secret_persistence(tmp_path, task, visible):
     with pytest.raises(TeacherCallError, match="sanitized"):
         capped(tmp_path, client).generate([], task, visible)
     assert "SECRET_RAW_EXCEPTION" not in (tmp_path / "usage.jsonl").read_text()
-    with pytest.raises(TeacherCallError, match="Empty"):
-        capped(tmp_path / "empty", RawClient(texts=[""])).generate([], task, visible)
+    empty = capped(tmp_path / "empty", RawClient(texts=[""]))
+    result = empty.generate([], task, visible)
+    assert result.metadata["parser_error"] == "ActionParseError"
+    assert not empty._read_counter()["halted"]
 
 
 def test_dry_run_reads_cache_dedupes_without_transport_or_counter(tmp_path, task, visible):

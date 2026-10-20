@@ -308,13 +308,12 @@ def test_interrupted_teacher_run_spends_slot_without_fake_restore(tmp_path, monk
             pytest.fail("Interrupted run was restarted")
     config = {"environment": {"max_episode_steps": 40}, "paths": {"manifest": "unused", "split_freeze": "unused"}}
     out = tmp_path / "out"
-    collect(config, listing, [task], out, cell, identity, capped=NeverCalled(),
-            env_factory=lambda *a: pytest.fail("Fake restoration/reset"))
-    receipts = data.read(out / "receipts.json")
-    assert len(receipts) == 3 and all(r["status"] == "interrupted" and not r["training_eligible"] for r in receipts)
-    assert all(r["success"] == "unknown" for r in receipts)
-    for r in receipts:
-        assert checked_record(r) is None
+    from teachers.openai_teacher import TeacherCallError
+    with pytest.raises(TeacherCallError, match="NOT complete"):
+        collect(config, listing, [task], tmp_path / "out", cell, identity, capped=NeverCalled(),
+                env_factory=lambda *a: pytest.fail("Fake restoration/reset"))
+    assert not (tmp_path / "out/receipts.json").exists()
+    assert json.loads((tmp_path / "out/teacher_report.json").read_text())["transport_failures"] == 1
 
 
 def test_collection_rejects_dev_as_training_before_environment(tmp_path):

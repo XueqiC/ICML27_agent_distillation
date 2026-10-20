@@ -1,5 +1,6 @@
 """Executed H0 histories and one durable, capped black-box draw per history."""
 from pathlib import Path
+from teachers.stage import teacher_stage, count, require_completed
 
 from baselines.common.explore import checked_rollouts
 from baselines.common.method_data import read
@@ -44,6 +45,7 @@ def visited_states(exploration, verified, config, round_index):
     return result
 
 
+@teacher_stage("output", name="gad.teacher-r")
 def collect(exploration, verified, output, config, *, cell, identity, round_index, teacher=None):
     require_cpu_teacher()
     states = visited_states(exploration, verified, config, round_index)
@@ -70,6 +72,9 @@ def collect(exploration, verified, output, config, *, cell, identity, round_inde
         task = dict(resolve_task(manifest, freeze, state["task_id"]), parent_seed_ids=state["parent_seed_ids"])
         ledger.append({"state_id": state["state_id"], "status": "started"})
         reply = teacher.generate(state["history"], task, state["visible"])
+        require_completed(reply)
+        if reply.metadata.get("parser_error"):
+            count("rejections")
         cache = teacher.teacher.cache_dir / (reply.metadata["cache_key"] + ".json")
         label = {"raw_text": reply.raw_text, "parsed_action": reply.parsed_action,
                  "metadata": reply.metadata, "cache_path": str(cache), "cache_sha256": file_hash(cache)}

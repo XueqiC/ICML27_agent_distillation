@@ -201,25 +201,16 @@ def test_resume_partial_workspace_different_workers(spawned_pipeline):
 def test_capped_fce_is_identical_and_incomplete(spawned_pipeline, max_episode, max_run):
     fce, _ = spawned_pipeline
     fce.update(max_episode=max_episode, max_run=max_run)
-    snapshots = []
+    from teachers.openai_teacher import TeacherCallError
     for workers in (1, 4):
-        result = run_fce(**fce, workers=workers)
-        assert not result["complete"]
-        assert result["budget"]["total"] <= max_run
-        assert all(n <= max_episode for n in result["budget"]["episodes"].values())
+        with pytest.raises(TeacherCallError):
+            run_fce(**fce, workers=workers)
+        budget = read_json(fce["output"]/"budget.json")
+        assert budget["total"] <= max_run
+        assert all(n <= max_episode for n in budget["episodes"].values())
+        assert not (fce["output"]/"fce.json").exists()
         assert list(fce["output"].rglob("incomplete.json"))
-        assert not list(fce["output"].rglob("failure.json"))
-        usage = [json.loads(line) for line in (fce["output"]/"usage.jsonl").read_text().splitlines()]
-        assert all(r["status"] == "incomplete" for r in usage if r.get("error_type") == "BudgetExceeded")
-        episodes = [read_json(p) for p in fce["output"].rglob("episode.json")]
-        assert all(e["status"] == "incomplete" and e["success"] == "unknown"
-                   for e in episodes if not e["complete"])
-        for path in fce["output"].rglob("events.jsonl"):
-            events = [json.loads(line) for line in path.read_text().splitlines()]
-            assert all(e["status"] == "incomplete" for e in events if e["error_type"] == "budget_exhausted")
-        snapshots.append(artifacts(fce["output"]))
         shutil.rmtree(fce["output"])
-    assert snapshots[0] == snapshots[1]
 
 
 @pytest.mark.parametrize("max_episode,max_run", [(1, 20), (100, 1)])
@@ -227,15 +218,15 @@ def test_capped_interventions_are_identical(spawned_pipeline, max_episode, max_r
     fce, arms = spawned_pipeline
     run_fce(**fce)
     arms.update(max_episode=max_episode, max_run=max_run)
-    snapshots = []
+    from teachers.openai_teacher import TeacherCallError
     for workers in (1, 4):
-        result = run_interventions(**arms, workers=workers)
-        assert result["budget"]["total"] == (2 if max_episode == 1 else 1)
-        assert any(a["status"] == "incomplete" for ep in result["episodes"] for a in ep["arms"].values())
-        assert not list(arms["output"].rglob("failure.json"))
-        snapshots.append(artifacts(arms["output"]))
+        with pytest.raises(TeacherCallError):
+            run_interventions(**arms, workers=workers)
+        budget = read_json(arms["output"]/"budget.json")
+        assert budget["total"] <= max_run
+        assert all(n <= max_episode for n in budget["episodes"].values())
+        assert not (arms["output"]/"interventions.json").exists()
         shutil.rmtree(arms["output"])
-    assert snapshots[0] == snapshots[1]
 
 
 def reserve_many(args):

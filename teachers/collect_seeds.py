@@ -13,7 +13,8 @@ from sed.seed_evidence import artifact_hashes, environment_won, materialize_subs
 from sed.seed_extension import extension_source, copy_inherited_attempts, check_inherited_views
 from sed.seed_selection import is_full_train, validate_selection
 from sed.storage import digest, locked, write_json
-from teachers.openai_teacher import Teacher, rate_limit_options
+from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
+from teachers.stage import teacher_stage, execution_attempt, mark_transport_failure, require_execution, usage_counts, transport_history
 
 
 def usage_summary(path):
@@ -21,7 +22,7 @@ def usage_summary(path):
     ends = {r["call_id"] for r in rows if r["status"] != "started"}
     finished = [r for r in rows if r["status"] != "started"]
     interrupted = [r for r in rows if r["status"] == "started" and r["call_id"] not in ends]
-    return {"known_billed_tokens": {key: sum((r.get("usage") or {}).get(key, 0) or 0
+    return {**usage_counts(rows), "known_billed_tokens": {key: sum((r.get("usage") or {}).get(key, 0) or 0
                                             for r in finished)
                                     for key in ("input_tokens", "output_tokens", "reasoning_tokens")},
             "unknown_usage_calls": sum(r.get("usage") is None for r in finished) + len(interrupted),
@@ -31,7 +32,8 @@ def usage_summary(path):
 def collect_attempt(task, number, selection_parent, config, output, *,
                     env_factory, teacher_factory, input_paths=()):
     """Reuse durable receipts; preserve uncertain attempts without paying again."""
-    attempt_dir = output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}")
+    attempt_dir = execution_attempt(output / "attempts" / (digest(task["task_id"])[:20] + f"-{number}"),
+                                    start="started.json")
     episode_dir = attempt_dir / "episode"
     receipt_path = attempt_dir / "receipt.json"
     if receipt_path.exists():
@@ -65,11 +67,15 @@ def collect_attempt(task, number, selection_parent, config, output, *,
                 run_episode(env, policy, task, config, episode_dir,
                             policy_condition="seed_teacher_react", purpose="generation",
                             input_paths=input_paths)
+            except TeacherCallError:
+                mark_transport_failure(attempt_dir)
+                raise
             except RuntimeError:
                 if not (episode_dir / "episode.json").exists():
                     raise
         episode_path = episode_dir / "episode.json"
         episode = json.loads(episode_path.read_text()) if episode_path.exists() else {}
+        require_execution(episode)
         won = environment_won(episode_dir, episode)
         receipt = {"task_id": task["task_id"], "group_id": task["group_id"],
                    "task_type": task["task_type"], "attempt": number,
@@ -89,6 +95,7 @@ def collect_attempt(task, number, selection_parent, config, output, *,
     return receipt
 
 
+@teacher_stage("output", name="teachers.collect_seeds")
 def collect(selection, manifest, freeze, config, output, *, attempts=3,
             env_factory=None, teacher_factory=None, input_paths=(), extend_from=None,
             resume=False, shard_index=0, shard_count=1,
@@ -155,7 +162,10 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                      "attempted_task_groups": len({r["group_id"] for r in receipts}),
                      "attempts": receipts, "verified": verified,
                      "parent_seed_ids": [], "source": "external_frozen_train_pool",
-                     "training_exposure": 0}
+                     "training_exposure": 0,
+                     "transport_failure_evidence": transport_history(output / "attempts"),
+                     "transport_failures": len(list((output / "attempts").rglob("transport_failure.json"))),
+                     "rejections": sum(r["usage"].get("rejections", 0) for r in receipts)}
             if inherited is not None:
                 value.update(extension_source=reference, source="extended_frozen_train_collection",
                     reused_attempts=len(inherited["attempts"]),
@@ -193,8 +203,12 @@ def collect(selection, manifest, freeze, config, output, *, attempts=3,
                         return publish("exhausted")
                 task = resolve_task(manifest, freeze, candidate["task_id"])
                 for number in range(1, attempts + 1):
-                    receipt = collect_attempt(task, number, selection_parent, config, output,
-                        env_factory=env_factory, teacher_factory=teacher_factory, input_paths=input_paths)
+                    try:
+                        receipt = collect_attempt(task, number, selection_parent, config, output,
+                            env_factory=env_factory, teacher_factory=teacher_factory, input_paths=input_paths)
+                    except TeacherCallError:
+                        publish("transport_failed")
+                        raise
                     receipts.append(receipt)
                     if receipt["won"]:
                         verified.append(receipt)

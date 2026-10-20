@@ -20,7 +20,7 @@ from sed.seed_selection import ALL_TRAIN_RULE, main as select_main, ordered_cand
 from sed.storage import JsonlLedger, digest, write_json
 from teachers.collect_seeds import collect
 from teachers.full_train import preflight
-from teachers.openai_teacher import Teacher
+from teachers.openai_teacher import Teacher, TeacherCallError
 
 
 def test_frozen_full_selection_counts_determinism_and_cli(tmp_path):
@@ -80,7 +80,7 @@ def factories(bank, calls, losing=()):
                 assert kwargs["model"] == config["models"]["teacher"]["provider_model_id"]
                 assert kwargs["max_output_tokens"] == config["models"]["teacher"]["sampling"]["max_output_tokens"]
                 JsonlLedger(calls).append({"task_id": task["task_id"], "cache": str(cache)})
-                return {"output_text": "Thought: inspect.\nAction: look", "model": "gpt-6-luna",
+                return {"output_text": "Thought: inspect.\nAction: look", "model": "gpt-6-luna", "status": "completed",
                         "usage": {"input_tokens": 20, "output_tokens": 10}, "id": "fake"}
         spec = config["models"]["teacher"]
         return Teacher(cache_dir=cache, usage_ledger=ledger, run_id="fake",
@@ -101,7 +101,7 @@ def run_shards(bank, output, calls, *, cap=160_000, losing=()):
     try:
         for process in processes:
             process.join(30)
-            assert process.exitcode == 0
+            assert process.exitcode == (1 if cap == 1 else 0)
     finally:
         for process in processes:
             if process.is_alive():
@@ -142,12 +142,13 @@ def test_cap_stops_cleanly_and_resume_never_repays(full_bank, tmp_path, caps, ex
     calls, output = tmp_path / "calls.jsonl", tmp_path / "collection"
     environment, teacher = factories(full_bank, calls)
     kwargs = dict(env_factory=environment, teacher_factory=teacher, **caps)
-    result = collect(selection, manifest, freeze, config, output, **kwargs)
-    assert result["status"] == "budget_exhausted"
+    for resume in (False, True):
+        with pytest.raises(TeacherCallError, match="NOT complete"):
+            collect(selection, manifest, freeze, config, output, resume=resume, **kwargs)
+    result = json.loads((output / "manifest.json").read_text())
+    assert result["status"] == "transport_failed"
     assert result["budget"]["logical_calls"] == expected
-    assert result["attempts"][-1]["status"] == "incomplete"
-    assert result["attempts"][-1]["success"] == "unknown"
-    assert collect(selection, manifest, freeze, config, output, resume=True, **kwargs) == result
+    assert all(r["status"] == "ok" for r in result["attempts"])
     assert (len(calls.read_text().splitlines()) if calls.exists() else 0) == expected
     with pytest.raises(ValueError, match="exactly K"):
         load_verified_collection(output, manifest, freeze)
@@ -156,7 +157,7 @@ def test_cap_stops_cleanly_and_resume_never_repays(full_bank, tmp_path, caps, ex
 def test_process_shards_share_hard_cap(full_bank, tmp_path):
     calls, output = tmp_path / "calls.jsonl", tmp_path / "collection"
     result = run_shards(full_bank, output, calls, cap=1)
-    assert result["status"] == "budget_exhausted"
+    assert result["status"] == "transport_failed"
     assert result["budget"]["logical_calls"] == result["budget"]["transport_reservations"] == 1
     assert len(calls.read_text().splitlines()) == 1
     again = run_shards(full_bank, output, calls, cap=1)
@@ -240,8 +241,9 @@ def test_missing_budget_cannot_reset_caps(full_bank, tmp_path):
     _, manifest, freeze, selection, config = full_bank
     calls, output = tmp_path / "calls.jsonl", tmp_path / "collection"
     environment, teacher = factories(full_bank, calls)
-    collect(selection, manifest, freeze, config, output, max_calls=1,
-            env_factory=environment, teacher_factory=teacher)
+    with pytest.raises(TeacherCallError):
+        collect(selection, manifest, freeze, config, output, max_calls=1,
+                env_factory=environment, teacher_factory=teacher)
     (output / "teacher_budget/reservations.sqlite3").unlink()
     with pytest.raises(ValueError, match="refusing to reset"):
         collect(selection, manifest, freeze, config, output, max_calls=1, resume=True,

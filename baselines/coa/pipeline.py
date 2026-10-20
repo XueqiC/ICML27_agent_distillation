@@ -4,6 +4,7 @@ from copy import deepcopy
 import hashlib
 import os
 from pathlib import Path
+from teachers.stage import ledger_counts
 import re
 import signal
 import subprocess
@@ -241,7 +242,7 @@ def update_disclosure(output, identity, *, evaluation=False):
             except ValueError:
                 partial = True
     counter = read(counter_path) if counter_path.exists() else {}
-    usage = [r.get("usage") for r in rows if r.get("status") in {"success", "rejected"}]
+    usage = [r.get("usage") for r in rows if r.get("status") in {"success", "rejected", "incomplete"}]
     episodes = []
     roots = [output / namespace] if evaluation else [output / namespace, output / "stages"]
     for root in roots:
@@ -273,7 +274,7 @@ def update_disclosure(output, identity, *, evaluation=False):
             replay_steps += row.get("environment_steps", 0)
             replay_resets += row.get("environment_episodes", 0)
             unknown_replay_costs |= bool(row.get("environment_steps_unknown", 0))
-    for path in (output / namespace / "executions").glob("*/receipt.json"):
+    for path in (output / namespace / "executions").rglob("receipt.json"):
         replay = read(path)["replay"]
         replay_steps += replay.get("environment_steps", 0)
         replay_resets += replay.get("environment_episodes", 0)
@@ -299,6 +300,7 @@ def update_disclosure(output, identity, *, evaluation=False):
         "environment_steps": sum(e["metrics"].get("environment_steps", 0) for e in episodes),
         "trusted_trajectories_added": 0, "new_unique_instances": 0,
         "accounting": "All failures, raw responses, per-call usage, rejection decisions and duplicate exposures retained. K counts original trusted seeds only."}
+    report["teacher_outcomes"] = ledger_counts(output / namespace / "usage.jsonl")
     write_json(output / (namespace + "/disclosure.json" if evaluation else "disclosure.json"), report)
 
 

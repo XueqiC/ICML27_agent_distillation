@@ -8,6 +8,7 @@ from baselines.coa.protocol import SYSTEM, blocks, h0_reply, messages
 from sed.storage import JsonlLedger, digest
 from sed.visibility import visible_observation
 from teachers.capped import CappedTeacher
+from teachers.stage import count, require_completed
 from teachers.openai_teacher import Teacher, TeacherResult, rate_limit_options
 
 ROLE_PROMPT = """You are one role of an ALFWorld chain-of-agents teacher. Use only the
@@ -81,6 +82,7 @@ class MultiAgentTeacher:
                     "history": messages(self.turns, page), "current_agent_outputs": outputs}, ensure_ascii=False),
                     "admissible_commands": page["admissible_commands"]}
                 result = self.capped.generate([], self.task, context)
+                require_completed(result)
                 calls += 1
                 usages.append(result.metadata.get("billed_usage"))
                 record = {"step": len(history), "agent": role, "state": context["observation"],
@@ -104,6 +106,9 @@ class MultiAgentTeacher:
                     record.update(status="accepted", output=rendered)
                     outputs.append(rendered)
                     records.append({"agent": role, "output": rendered})
+                except (ValueError, TypeError, KeyError):
+                    count("rejections")
+                    raise
                 finally:
                     self.ledger.append(record)
             if selected == "alfworld":
@@ -113,6 +118,8 @@ class MultiAgentTeacher:
             raise AssertionError("Controller exceeded fixed call bound")
         reply = "\n".join(outputs)
         bridge, action, outcome = h0_reply(reply, page["admissible_commands"])
+        if outcome in {"parser_error", "inadmissible"}:
+            count("rejections")
         self.turns.append({"visible": page, "reply": reply})
         usage = {key: sum(u[key] for u in usages) if all(u is not None and u.get(key) is not None for u in usages)
                  else None for key in ("input_tokens", "output_tokens", "reasoning_tokens")}
