@@ -115,7 +115,8 @@ def _worker(job):
         if isinstance(exc, TeacherCallError):
             row = task_result(task, output)
             write_json(output / "teacher_report.json", {"status": "failed", "transport_failures": 1,
-                                                       "rejections": row["rejections"]})
+                "rejections": row["rejections"],
+                "truncated_outputs": ledger_counts(output / "teacher_usage.jsonl")["truncated_outputs"]})
             raise
     return task["task_id"]
 
@@ -257,6 +258,7 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
                 count("transport_failed_attempts", usage["transport_failures"])
                 count("rejections", row["rejections"])
                 count("parser_rejections", usage["rejections"])
+                count("truncated_outputs", usage["truncated_outputs"])
     rows = [task_result(t, d) for t, d in zip(tasks, directories)]
     summary = summarize(rows, time.monotonic() - started)
     summary.update(task_list_sha256=listing["list_sha256"], policy=policy, student=spec,

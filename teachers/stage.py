@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from sed.storage import digest, locked, write_json
-from teachers.openai_teacher import TeacherCallError
+from teachers.openai_teacher import TeacherCallError, has_known_usage
 
 _audit = ContextVar("teacher_stage_audit", default=None)
 
@@ -33,7 +33,7 @@ def teacher_stage(output_arg, *, name=None):
             existed = output.exists()
             dry_run = getattr(bound.arguments.get("teacher"), "dry_run", False)
             audit = dict(transport_failures=0, transport_failed_attempts=0,
-                         rejections=0, parser_rejections=0, unknown_outcomes=0)
+                         rejections=0, parser_rejections=0, truncated_outputs=0, unknown_outcomes=0)
             parent = _audit.get()
             token = _audit.set(audit)
             status, error_type = "complete", None
@@ -89,10 +89,14 @@ def teacher_stage(output_arg, *, name=None):
     return decorate
 
 
-def require_completed(result):
-    """A completed empty/malformed OUTPUT is a rejection, not a lost request."""
-    if result.metadata.get("response_status") != "completed":
+def require_completed(result, *, allow_truncated=True):
+    """Known cap truncation reaches method validation, but never success cache."""
+    status = result.metadata.get("response_status")
+    known = status == "completed" or (allow_truncated and status == "incomplete" and result.truncated)
+    if not known or (not allow_truncated and result.truncated):
         raise TeacherCallError("Teacher response outcome is incomplete/unknown; inspect retained evidence")
+    if not has_known_usage(result.metadata.get("usage")):
+        raise TeacherCallError("Teacher response usage is missing/unknown; inspect retained evidence")
     return result
 
 
@@ -158,13 +162,16 @@ def mark_transport_failure(directory):
 
 
 def usage_counts(rows):
-    """Count HTTP failures/unknown attempts separately from output rejections."""
+    """Separate transport, parser rejection and cap truncation (which may overlap)."""
     ended = {r.get("call_id") for r in rows if r.get("status") in
              {"success", "rejected", "failed", "incomplete"}}
     return {
         "transport_failures": sum(r.get("status") in {"failed", "incomplete"} for r in rows)
             + sum(r.get("status") == "started" and r.get("call_id") not in ended for r in rows),
-        "rejections": sum(r.get("status") == "rejected" for r in rows),
+        "rejections": sum(r.get("status") == "rejected" and (
+            r.get("error_type") != "TruncatedOutput" or r.get("parser_error") is not None) for r in rows),
+        "truncated_outputs": sum(r.get("status") == "rejected" and
+                                 r.get("error_type") == "TruncatedOutput" for r in rows),
     }
 
 

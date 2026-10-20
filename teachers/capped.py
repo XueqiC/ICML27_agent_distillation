@@ -3,6 +3,7 @@
 By default only rate-limit HTTP 429s retry (up to 20 attempts in one slot).
 Baselines opt into their audited upstream HTTP policy in that same logical slot.
 Every attempt reserves tokens; exhausted transport and quota failures halt.
+Cap-truncated outputs consume their slot as rejected outputs without halting.
 An interrupted reservation also halts the run, including during 429 backoff.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
 Explicit recovery acknowledges failures without refunding any reservation.
@@ -228,6 +229,10 @@ class CappedTeacher:
         cached = json.loads(path.read_text())
         if cached["cache_key"] != key or digest(cached["result"]) != cached["result_sha256"]:
             raise TeacherCallError("Teacher cache integrity check failed")
+        from teachers.stage import require_completed
+        result = cached["result"]
+        require_completed(TeacherResult(result["raw_text"], result["parsed_action"], result["metadata"]),
+                          allow_truncated=False)
         return True
 
     def generate(self, history, task, visible_context):

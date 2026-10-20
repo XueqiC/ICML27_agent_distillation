@@ -294,7 +294,7 @@ def update_disclosure(output, identity):
         expert_environment_episodes=sum(r["environment_episode_started"] for r in experts),
         expert_resets_confirmed=sum(r["environment_reset_confirmed"] for r in experts))
     report["teacher_outcomes"] = {key: sum(ledger_counts(p)[key] for p in (output / "audit/teacher").rglob("usage.jsonl"))
-        for key in ("transport_failures", "rejections", "unknown_ledger_rows")}
+        for key in ("transport_failures", "rejections", "truncated_outputs", "unknown_ledger_rows")}
     write_json(output / "disclosure.json", report)
 
 
