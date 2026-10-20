@@ -380,6 +380,11 @@ def test_default_identity_has_no_control_fields_or_empty_cli_drift(cell, tmp_pat
                    "snapshot", "config_sha256", "snapshot_artifact_sha256", "gpus", "tasks_sha256", "code_sha256"}
     if method != "eto":
         legacy_keys |= {"method", "batch_invariant"}
+    if method == "leap":
+        legacy_keys.add("baseline_transport")
+        assert original["baseline_transport"]["timeout_seconds"] == 600
+        assert original["baseline_transport"]["http_attempts"] == 3
+        assert original["baseline_transport"]["method_level_tries"] == 3
     assert set(original) == legacy_keys
     assert original["recipe"] == module.RECIPE
     assert control.model_record(original, "sft", "checkpoint") == {"name": "sft", "checkpoint": "checkpoint"}

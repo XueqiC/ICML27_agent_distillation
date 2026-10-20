@@ -15,6 +15,7 @@ from sed.seed_evidence import load_verified_collection
 from sed.storage import digest, file_hash, JsonlLedger, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
 from teachers.capped import from_config
+from teachers.baseline_transport import baseline_transport
 from teachers.openai_teacher import Teacher
 from train.dataset import encode_turn
 
@@ -101,9 +102,10 @@ def collect(exploration, verified, output, config, *, cell, identity, round_inde
     if teacher is None:
         teacher = from_config(config, output=cell / "teacher", cache_dir=cell / "teacher/cache",
             usage_ledger=cell / "teacher/usage.jsonl", run_id="had-" + digest(identity),
-            cap=RECIPE["teacher_cap"], teacher_class=DrawTeacher,
+            cap=RECIPE["teacher_cap"], teacher_class=DrawTeacher, baseline_method="had",
             sampling={**config["models"]["teacher"]["sampling"], "temperature": 1.0})
     effective = {**config, "had_teacher": {"sampling": teacher.teacher.sampling,
+        "baseline_transport": baseline_transport("had").disclosure(),
         "max_attempts": teacher.teacher.max_attempts,
         "retry_rate_limits_only": teacher.teacher.retry_rate_limits_only,
         "cap": RECIPE["teacher_cap"], "counter_path": str(teacher.counter_path)}}

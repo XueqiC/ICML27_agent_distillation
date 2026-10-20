@@ -164,19 +164,19 @@ def test_teacher_cache_covers_privileged_state_and_ablation(tmp_path, task):
 
 
 def test_failures_parser_rejections_and_resume_cannot_expand_attempt_cap(tmp_path, task, capsys):
-    client = FakeClient([TimeoutError("sk-private-secret"), response("invalid json"), response("still invalid")])
+    client = FakeClient([TimeoutError("sk-private-secret")] * 3 + [response("invalid json"), response("still invalid")])
     limited, task = budget(tmp_path, task, client)
     messages = render("privileged", trajectory(episode()), STATE)
     with pytest.raises(TeacherCallError):
         limited.request(task, messages, length=2, privileged_state=STATE)
-    assert len(client.requests) == 1
+    assert len(client.requests) == 5
     again, task = budget(tmp_path, task, client)
     with pytest.raises(TeacherCallError, match="budget exhausted"):
         again.request(task, messages, length=2, privileged_state=STATE)
     with pytest.raises(TeacherCallError, match="budget exhausted"):
         again.request(task, messages, length=2, privileged_state=STATE)
     assert not list((tmp_path / "budget").rglob("outcome.json"))
-    assert len(client.requests) == 3
+    assert len(client.requests) == 5
     assert "private-secret" not in capsys.readouterr().out
     assert all("private-secret" not in p.read_text() for p in tmp_path.rglob("*") if p.is_file())
 
@@ -193,8 +193,6 @@ def test_unsupported_sampling_falls_back_within_same_three_attempts(tmp_path, ta
     limited, task = budget(tmp_path, task, client, kind=kind)
     messages = render(kind, trajectory(episode()), STATE if kind == "privileged" else None)
     kwargs = {"length": 2, "privileged_state": STATE} if kind == "privileged" else {}
-    with pytest.raises(TeacherCallError):
-        limited.request(task, messages, **kwargs)
     result = limited.request(task, messages, **kwargs)
     assert result["status"] == "accepted" and result["attempts_reserved"] == len(client.requests) == 2
     assert client.requests[0]["temperature"] == .3 and client.requests[0]["top_p"] == 1
@@ -226,8 +224,6 @@ def test_interruption_reserves_a_slot_and_incomplete_response_is_not_cached(tmp_
     incomplete.status = "incomplete"
     next_client = FakeClient([incomplete, response(correction())])
     limited, task = budget(tmp_path, task, next_client)
-    with pytest.raises(TeacherCallError):
-        limited.request(task, messages, length=2, privileged_state=STATE)
     result = limited.request(task, messages, length=2, privileged_state=STATE)
     assert result["status"] == "accepted" and result["attempts_reserved"] == 3
     assert len(next_client.requests) == 2
@@ -324,8 +320,10 @@ def test_four_iteration_chain_merged_init_aggregation_resume_and_empty(tmp_path,
 
 def test_caps_and_launcher():
     caps = pipeline.teacher_caps(20, "privileged")
-    assert caps["extraction"] == {"logical_calls": 20, "api_attempts": 60}
-    assert list(caps["correction_by_iteration"].values()) == [{"logical_calls": 20, "api_attempts": 60}] * 3
+    expected = {"logical_calls": 20, "method_attempts": 60,
+                "http_attempts_excluding_rate_limits": 180, "http_attempts_upper_bound": 1320}
+    assert caps["extraction"] == expected
+    assert list(caps["correction_by_iteration"].values()) == [expected] * 3
     assert pipeline.teacher_caps(20, "zero")["extraction"]["logical_calls"] == 0
     launch = Path("scripts/hpg_leap.slurm").read_text()
     assert "#SBATCH --gpus=1" in launch and "VLLM_BATCH_INVARIANT=1" in launch
@@ -498,7 +496,7 @@ def test_initialization_rejects_wrong_iteration_variant_or_unmerged_adapter(monk
 
 
 def test_disclosure_counts_failed_rejected_and_interrupted_usage(tmp_path, task):
-    client = FakeClient([TimeoutError("private"), response("invalid"), response("invalid")])
+    client = FakeClient([TimeoutError("private")] * 3 + [response("invalid"), response("invalid")])
     limited, task = budget(tmp_path / "audit/teacher", task, client)
     for _ in range(2):
         with pytest.raises(TeacherCallError):
@@ -507,7 +505,7 @@ def test_disclosure_counts_failed_rejected_and_interrupted_usage(tmp_path, task)
                 "recipe": {"variant": "privileged", "label": pipeline.LABELS["privileged"]}}
     pipeline.update_disclosure(tmp_path, identity)
     report = read(tmp_path / "disclosure.json")["totals"]
-    assert report["teacher_calls"] == report["teacher_attempt_slots_reserved"] == 3
-    assert report["teacher_logical_calls"] == 1 and report["teacher_failed_attempts"] == 1
+    assert report["teacher_calls"] == 5 and report["teacher_attempt_slots_reserved"] == 3
+    assert report["teacher_logical_calls"] == 1 and report["teacher_failed_attempts"] == 3
     assert report["teacher_returned"] == report["teacher_usage_known"] == 2
-    assert report["teacher_unknown_usage"] == 1 and report["teacher_input_tokens"] == 26
+    assert report["teacher_unknown_usage"] == 3 and report["teacher_input_tokens"] == 26

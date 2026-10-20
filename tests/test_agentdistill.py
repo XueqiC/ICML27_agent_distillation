@@ -181,10 +181,10 @@ def test_student_cannot_create_tools_and_invalid_calls_use_model_budget(tmp_path
 
 
 def budget_factory(client):
-    def factory(config, *, output, cache_dir, usage_ledger, run_id, cap, teacher_class, sampling):
+    def factory(config, *, output, cache_dir, usage_ledger, run_id, cap, teacher_class, sampling, baseline_method):
         return CappedTeacher(counter_path=Path(output) / "counter.json", cap=cap,
             cache_dir=cache_dir, usage_ledger=usage_ledger, run_id=run_id, client=client,
-            teacher_class=teacher_class, sampling=sampling, sleep=lambda _: None)
+            teacher_class=teacher_class, sampling=sampling, baseline_method=baseline_method, sleep=lambda _: None)
     return factory
 
 
@@ -219,7 +219,7 @@ def test_failed_transport_stays_halted_and_sanitized(tmp_path, task):
         budget = Budget(tmp_path, config, identity, factory=budget_factory(client))
         with pytest.raises((CollectorHalted, RuntimeError)):
             budget.request(["run", i], "manager", task, "act")
-    assert len(client.requests) == 1
+    assert len(client.requests) == 3
     assert all("SECRET_SDK_EXCEPTION" not in p.read_text() for p in tmp_path.rglob("*.json*"))
 
 

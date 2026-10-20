@@ -56,7 +56,7 @@ def budget(config, directory, identity, tasks, *, evaluation=False, client=None)
         evaluation_only=evaluation, teacher_class=RoleTeacher, client=client,
         provider_model_id=spec["provider_model_id"], prompt_template=ROLE_PROMPT,
         sampling={"max_output_tokens": RECIPE["teacher_output_tokens"]},
-        timeout_seconds=spec["timeout_seconds"], secrets_file=config["paths"]["secrets_file"],
+        baseline_method="coa", secrets_file=config["paths"]["secrets_file"],
         **rate_limit_options(spec, directory / "rate_limit"))
 
 

@@ -13,6 +13,8 @@ from sed.manifest import frozen_write
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, locked, write_json
 from teachers.openai_teacher import Teacher, TeacherCallError, rate_limit_options
+from teachers.openai_teacher import TeacherQuotaError, TeacherRateLimitError
+from teachers.baseline_transport import baseline_transport
 from teachers.stage import count, require_completed
 
 
@@ -70,7 +72,8 @@ class TeacherBudget:
         self.sampling_root = Path(sampling_root or self.root.parent)
         self.binding = {"kind": kind, "iteration": iteration, "run_identity": run_identity,
             "tasks_sha256": digest(tasks), "logical_call_cap": len(tasks),
-            "api_attempt_cap": 3 * len(tasks), "attempts_per_task": 3,
+            "method_attempt_cap": 3 * len(tasks), "attempts_per_task": 3,
+            "baseline_transport": baseline_transport("leap").disclosure(),
             "max_output_tokens": max_output_tokens, "teacher": config["models"]["teacher"],
             "sampling_policy": "try official .3/1 on actual request; explicit unsupported parameter => configured default"}
         frozen_write(self.root / "identity.json", self.binding)
@@ -116,6 +119,9 @@ class TeacherBudget:
                         rejections += 1
                         count("rejections")
                     else:
+                        failure = attempt / "failure.json"
+                        if failure.exists() and read(failure).get("halt"):
+                            raise TeacherCallError("LEAP rate-limit/quota halt retained; inspect evidence before rerunning")
                         transport_failures += 1
                     continue  # A durable start with no result consumes its slot.
                 attempt.mkdir()
@@ -125,13 +131,13 @@ class TeacherBudget:
                 teacher = self.factory(messages=messages, validator=validator,
                     cache_dir=self.sampling_root / "cache", usage_ledger=attempt / "usage.jsonl",
                     run_id=digest(binding), provider_model_id=spec["provider_model_id"], sampling=sampling,
-                    max_attempts=1, timeout_seconds=spec["timeout_seconds"], purpose="generation",
+                    baseline_method="leap", purpose="generation",
                     secrets_file=self.config["paths"]["secrets_file"],
                     **rate_limit_options(spec, self.sampling_root / "rate_limit"))
                 try:
                     response = teacher.generate([], task, {"observation": "", "admissible_commands": []})
                     require_completed(response)
-                except TeacherCallError:
+                except TeacherCallError as exc:
                     ledger = attempt / "usage.jsonl"
                     outcomes = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
                     unsupported = next((r for r in outcomes if r.get("unsupported_sampling_parameter")), None)
@@ -139,15 +145,16 @@ class TeacherBudget:
                         write_json(self.sampling_root / "sampling.json", {"mode": "configured_default",
                             "reason": "Responses rejected official sampling", "evidence": str(ledger.resolve()),
                             "parameter": unsupported["unsupported_sampling_parameter"]})
-                    write_json(attempt / "failure.json", {"error_type": "TeacherCallError",
-                        "usage": "unknown; inspect shared usage ledger", "unsupported_sampling": bool(unsupported)})
-                    # Even an unsupported HTTP sampling parameter is a transport
-                    # failure. The recorded fallback applies on explicit resume;
-                    # it must not hide a failed request in a rejection set.
-                    raise TeacherCallError(
-                        f"LEAP teacher transport failed; stage NOT complete. Evidence: {attempt}. "
-                        "Resume after fixing transport; reserved attempts remain spent."
-                    ) from None
+                    halt = isinstance(exc, (TeacherQuotaError, TeacherRateLimitError))
+                    write_json(attempt / "failure.json", {"error_type": type(exc).__name__,
+                        "usage": "unknown; inspect shared usage ledger", "unsupported_sampling": bool(unsupported),
+                        "halt": halt, "method_try_consumed": not halt})
+                    if halt:
+                        raise
+                    # Upstream's outer try includes transport, parsing and validation.
+                    # Keep all failed HTTP evidence even when a later try succeeds.
+                    transport_failures += 1
+                    continue
                 result = {"raw_text": response.raw_text, "metadata": response.metadata}
                 try:
                     accepted = validator(response.raw_text)

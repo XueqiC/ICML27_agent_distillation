@@ -280,6 +280,7 @@ def update_disclosure(output, identity, *, evaluation=False):
         replay_resets += replay.get("environment_episodes", 0)
         unknown_replay_costs |= replay.get("unknown_costs_possible", False)
     report = {"method": "coa", "evaluation_only": evaluation, "K": identity["K"],
+        **({"baseline_transport": identity["baseline_transport"]} if "baseline_transport" in identity else {}),
         "unique_instances": identity["unique_instances"], "task_groups": identity["task_groups"],
         "teacher_counter": counter, "teacher_usage_ledger": str(usage_path),
         "teacher_cap": counter.get("identity", {}).get("cap", (140 if evaluation else identity["unique_instances"])

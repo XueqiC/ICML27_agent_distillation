@@ -41,7 +41,7 @@ class Budget:
                       "abstract": 120 * n, "cluster": 1, "consolidate": 120 * n}
         self.client = factory(config, output=self.root, cache_dir=self.root / "cache",
             usage_ledger=self.root / "usage.jsonl", run_id="agentdistill-" + self.identity,
-            cap=self.cap, teacher_class=PromptTeacher,
+            cap=self.cap, teacher_class=PromptTeacher, baseline_method="agentdistill",
             sampling={**config["models"]["teacher"]["sampling"], "max_output_tokens": RECIPE["box_output_tokens"]})
 
     def request(self, slot, role, task, prompt, history=(), visible=None):

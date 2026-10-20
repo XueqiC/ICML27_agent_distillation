@@ -24,13 +24,18 @@ from sed.runner import episode_metrics
 from sed.seed_evidence import artifact_hashes
 from sed.storage import digest, file_hash, locked, write_json
 from teachers.stage import teacher_stage
+from teachers.baseline_transport import baseline_transport
 
 
 def teacher_caps(k, variant):
-    return {"extraction": {"logical_calls": k if variant == "privileged" else 0,
-                          "api_attempts": 3 * k if variant == "privileged" else 0},
-        "correction_by_iteration": {str(i): {"logical_calls": k, "api_attempts": 3 * k} for i in range(1, 4)},
-        "max_attempts_per_logical_call": 3}
+    policy = baseline_transport("leap")
+    def caps(n):
+        return {"logical_calls": n, "method_attempts": 3 * n,
+                "http_attempts_excluding_rate_limits": 3 * n * policy.http_attempts,
+                "http_attempts_upper_bound": 3 * n * (policy.http_attempts + policy.rate_limit_attempts - 1)}
+    return {"extraction": caps(k if variant == "privileged" else 0),
+        "correction_by_iteration": {str(i): caps(k) for i in range(1, 4)},
+        "max_attempts_per_logical_call": 3, "baseline_transport": policy.disclosure()}
 
 
 def training_command(args, *, snapshot, sets, iteration, output):

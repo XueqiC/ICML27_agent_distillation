@@ -43,6 +43,9 @@ def prepare(args, config, *, method, recipe, unrestricted_verified_size=False, r
         "config_sha256": digest(config), "gpus": args.gpus, "tasks_sha256": digest(listing), "batch_invariant": True,
         "code_sha256": code_hashes(Path(__file__).resolve().parents[2])}
     from baselines.common.dose_control import bind_init
+    from teachers.baseline_transport import SOURCES, baseline_transport
+    if method in SOURCES:
+        identity["baseline_transport"] = baseline_transport(method).disclosure()
     bind_init(args, config, identity)
     output.mkdir(parents=True, exist_ok=True)
     frozen_write(output / "identity.json", identity)
@@ -59,6 +62,8 @@ def update_disclosure(output, identity):
     exploration_disclosure(output, identity)
     path = output / "disclosure.json"
     row = json.loads(path.read_text())
+    if "baseline_transport" in identity:
+        row["baseline_transport"] = identity["baseline_transport"]
     trainings = []
     for attempt in sorted((output / "stages").glob("train-*/attempt-*")):
         updates = attempt / "output/updates.jsonl"

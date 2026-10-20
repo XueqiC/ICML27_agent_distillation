@@ -1,7 +1,8 @@
 """Durable logical-call caps and a shared, non-refundable reservation ledger.
 
-Only rate-limit HTTP 429s retry (up to 20 attempts in one logical-call slot).
-Every attempt reserves tokens; quota failures and all other failures halt the run.
+By default only rate-limit HTTP 429s retry (up to 20 attempts in one slot).
+Baselines opt into their audited upstream HTTP policy in that same logical slot.
+Every attempt reserves tokens; exhausted transport and quota failures halt.
 An interrupted reservation also halts the run, including during 429 backoff.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
 Explicit recovery acknowledges failures without refunding any reservation.
@@ -146,7 +147,7 @@ class _Transport:
             from openai import OpenAI
             secret = read_api_key(owner.teacher.secrets_file)
             owner.teacher._secret = secret
-            self.client = OpenAI(api_key=secret, max_retries=0, timeout=owner.teacher.timeout_seconds)
+            self.client = OpenAI(api_key=secret, max_retries=0, timeout=owner.teacher.client_timeout())
         # Require the HTTP response interface so non-200 (including 201) cannot pass.
         raw = self.client.responses.with_raw_response.create(**kwargs)
         if raw.status_code != 200:
@@ -180,6 +181,8 @@ class CappedTeacher:
                          "prompt_template_sha256": digest(self.teacher.prompt_template)}
         if evaluation_only:
             self.identity["purpose"] = "dev_evaluation_only"
+        if self.teacher.transport_policy:
+            self.identity["baseline_transport"] = self.teacher.transport_policy.disclosure()
 
     def _read_counter(self):
         value = (json.loads(self.counter_path.read_text()) if self.counter_path.exists() else
@@ -205,7 +208,8 @@ class CappedTeacher:
         completed = {r["logical_call_id"] for r in rows
                      if r["status"] in {"success", "rejected"} and "logical_call_id" in r}
         failed = any(r["status"] in {"failed", "incomplete"} and not (
-            r.get("http_status") == 429 and r.get("retryable") and r.get("will_retry")
+            (r.get("http_status") == 429 or self.teacher.transport_policy is not None)
+            and r.get("retryable") and r.get("will_retry")
             and r.get("logical_call_id") in completed) for r in rows)
         # Never lower a reservation count. Ledger recovers a missing/stale counter.
         value["attempts"] = max(value["attempts"], len(logical_starts))
@@ -271,12 +275,13 @@ class CappedTeacher:
 
 
 def from_config(config, *, output, cache_dir, usage_ledger, run_id, cap, dry_run=False,
-                teacher_class=Teacher, sampling=None):
+                teacher_class=Teacher, sampling=None, baseline_method=None):
     from teachers.openai_teacher import rate_limit_options
     spec = config["models"]["teacher"]
     return CappedTeacher(counter_path=Path(output) / "counter.json", cap=cap,
         cache_dir=cache_dir, usage_ledger=usage_ledger, run_id=run_id, dry_run=dry_run,
         teacher_class=teacher_class, provider_model_id=spec["provider_model_id"],
+        baseline_method=baseline_method,
         sampling=sampling or spec["sampling"], timeout_seconds=spec["timeout_seconds"],
         secrets_file=config["paths"]["secrets_file"],
         **rate_limit_options(spec, Path(usage_ledger).parent / "r03_rate_limit"))

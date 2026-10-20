@@ -57,3 +57,18 @@ This is an **engineering fix, no algorithm change**: prompts, labeling/masking,
 selection, trusted K, task scope and configured caps are unchanged. See
 [`docs/TEACHER_TRANSPORT_FAILURES.md`](../../docs/TEACHER_TRANSPORT_FAILURES.md)
 for recovery, non-refundable reservations and the offline regression matrix.
+
+## 2026-10-19 baseline transport correction
+
+**engineering fix: matches upstream client defaults**. The shared opt-in
+[transport policy](../../docs/baselines/TRANSPORT_POLICY.md) supplies 600-second
+read/write/pool and 5-second connection timeouts, three audited HTTP attempts
+(SDK max_retries=2 behavior), and SDK exponential backoff/Retry-After handling.
+Shared-key rate-limit 429s retain retry429 backoff up to 20 attempts without
+spending another logical slot or method try; quota 429s halt immediately.
+Exhaustion fails loudly through `teachers/stage.py`, never as a rejection.
+Run/counter identities, disclosures and HTTP ledgers record the effective policy.
+This entry supersedes earlier no-retry/60-second transport descriptions and
+references to capped logical slots as HTTP attempts; labels, masks, prompts,
+environment attempts and training are unchanged. Trusted seed acquisition
+remains at 60 seconds with its existing configuration and verified identities.
