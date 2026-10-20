@@ -240,6 +240,22 @@ LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10
                [("privileged", k, s) for k, s in ((5, 1), (5, 2), (10, 1), (10, 2), (20, 1), (20, 2))]
 
 
+def kangfix(k, s):
+    """Re-evaluate the finished Kang/AD cells (SAG, as before) with the k_eq_v serving fix, on the AD-FTP eval tree so
+    every core method shares one eval harness. New OUT; the pre-fix kang-<cell>-tp-sag results stay in place."""
+    cell = f"kangfix-k{k}s{s}"
+    tree = EVAL_FIX[T4]
+    verified = f"{B}/data/verified/" + (f"seeds_k{k}_s{s}" if k in (20, 100) else
+                                        f"seeds_k20_s{s}/subsets/k{k}" if k in (5, 10) else f"seeds_k100_s{s}/subsets/k{k}")
+    adapter = f"{BL}/kang-k{k}s{s}-tp/stages/train-sft/attempt-000/output/checkpoint"
+    e = (f"ADAPTERS=kang-k{k}s{s}-tp={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{tree}/data/manifest/dev140.json,DECODING=sag,"
+         f"INCLUDE_BASE=0,OUT={B}/reports/runs/eval/baselines/kang-k{k}s{s}-tp-sag-kveq,VERIFIED={verified},"
+         f"WORKERS=16,BATCH_INVARIANT=1")
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"   # sacct: kang-tp-sag 15 min, MaxRSS 9.7G
+    return {"cell": cell, "tree": tree, "stages": [stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", one,
+                                                         "03:00:00", 1, e)]}
+
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -249,6 +265,8 @@ def main():
     # running jobs of held cells are still tracked.
     # sadsh-k20s0 first: SAD trains are the long pole (hours on 4 GPUs), AD-FTP stages take 5-30 min.
     cells = [sad(20, 0)] + [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    # 10-20 08:4x CDT: Kang evals re-run with the k_eq_v serving fix (pre-fix served V without the k_proj LoRA delta).
+    cells += [kangfix(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     # SAD: T4 per-turn scoring needed ~31 h per cell (sad-k20s0 reached the 1/8 checkpoint in 3.9 h; cancelled
     # 10-20 04:49 CDT after 1/8, its updates.jsonl is the per-turn reference curve). All 15 cells run on T5 with
     # shared-history packing (sadsh-*), k20s0 first (top of the plan) so its curve can be compared with the per-turn reference.
@@ -272,7 +290,7 @@ def main():
     # Eval stages of trees with a serving fix use it; all other eval stages wait until their tree has one.
     for c in cells:
         for st in c["stages"]:
-            if "eval" in st["name"] and not st.get("gate"):
+            if "eval" in st["name"] and not st.get("gate") and c["tree"] not in EVAL_FIX.values():
                 if c["tree"] in EVAL_FIX and not c.get("lowprio"):
                     st["tree"] = EVAL_FIX[c["tree"]]
                 else:
