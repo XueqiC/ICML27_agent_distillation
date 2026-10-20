@@ -29,6 +29,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 11:14 CDT: Kang re-eval COMPLETE 15/15 (SAG, post-fix; pre-fix in parens), s0 s1 s2: K5 56(57) 94(98) 67(68);
+  K10 75(80) 69(71) 88(85); K20 77(63) 76(75) 97(110); K50 94(90) 94(89) 104(104); K100 62(67) 94(102) 106(108).
+  Means K5 72.3, K10 77.3, K20 83.3, K50 97.3, K100 87.3 (base 62). Gates pass (mean adapter_err 0.009-0.018), 0 error/overflow.
+  SmartAD K100 selections done on hpg (46855474/46857329/46858097, 53-59 min): trusted fallback 6/9/7 of 100 tasks; gates
+  smartad_k100_s{0,1,2}_synced open 10:43-10:48 CDT; keeper running SmartAD train/eval (k5s0, k10s0 trains done, evals running).
+  SAD trains sadsh-k20s0/k5s0/k5s1 still pending on dept (Priority).
 - 10:14 CDT: AD-FTP grid done (14/15; K100s0 diverged). SAG s0/s1/s2: K5 69/46/58, K10 37/55/47, K20 5/60/38, K50 13/93/93,
   K100 div/99/99. Kang re-eval (SAG, post-fix; pre-fix in parens) 11/15: K5 56(57) 94(98) 67(68); K10 75(80) 69(71) -;
   K20 77(63) 76(75) -; K50 94(90) 94(89) -; K100 62(67) 94(102) - (s0 s1 s2). grid_check regex now includes smartadsel|kangfix.
