@@ -26,6 +26,9 @@ def main(argv=None):
     parser.add_argument("--through", choices=["collect", "train", "all"], default="collect")
     parser.add_argument("--rate-limit-dir", default="data/adftp_rate_limit")
     parser.add_argument("--subset-k", type=int, nargs="*", default=[])
+    parser.add_argument("--subset-view", action="append", default=[], metavar="K=PATH")
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
@@ -51,7 +54,8 @@ def main(argv=None):
             parser.error("Use --through train --mode prepare to prepare training; collection is explicit")
         manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
         collect(args.verified, manifest, freeze, config, args.output,
-                rate_limit_dir=args.rate_limit_dir, subset_ks=args.subset_k,
+                rate_limit_dir=args.rate_limit_dir, subset_ks=args.subset_k, subset_views=args.subset_view,
+                shard_index=args.shard_index, shard_count=args.shard_count,
                 input_paths=[args.config, Path(args.verified) / "manifest.json",
                              config["paths"]["manifest"], config["paths"]["split_freeze"]])
         if args.through == "collect":

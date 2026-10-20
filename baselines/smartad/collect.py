@@ -5,6 +5,7 @@ from pathlib import Path
 from baselines.adftp.collect import usage_summary
 from baselines.common.explore import training_tasks
 from baselines.smartad.paths import PathResolver
+from baselines.common.collection_views import bind_views, collection_identity, check_support, validate_shard
 from baselines.smartad.teacher import (CANDIDATES, CALLS_PER_TASK, REQUESTED_SAMPLING,
                                       SmartADPolicy, default_teacher, effective_sampling, read)
 from sed.manifest import frozen_write, resolve_task, verify_task_files
@@ -124,12 +125,6 @@ def validate_h0(config):
             or config["training"]["student_step_token_cap"] != 1024):
         raise ValueError("SmartAD requires H0: 40 turns, thinking off, 1024 output tokens")
 
-
-def validate_shard(shard_index, shard_count):
-    if type(shard_count) is not int or shard_count < 1:
-        raise ValueError("Positive shard count required")
-    if type(shard_index) is not int or not 0 <= shard_index < shard_count:
-        raise ValueError("Shard index must be in [0, shard_count)")
 
 
 def checked_candidate(record):
@@ -268,7 +263,7 @@ def collect_shard(source, manifest, freeze, config, output, identity, parents, s
 
 def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             env_factory=None, teacher_factory=default_teacher, input_paths=(), subset_ks=(),
-            shard_index=0, shard_count=1, resume=True):
+            shard_index=0, shard_count=1, resume=True, subset_views=()):
     validate_shard(shard_index, shard_count)
     output = Path(output).resolve()
     source, selection, source_root = load_verified_collection(verified, manifest, freeze)
@@ -280,6 +275,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             raise ValueError("SmartAD output/limiter must be outside original seed storage")
     if (is_full_train(selection) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
         raise ValueError("Nested views require smaller positive K and a few-shot source")
+    bindings = bind_views(verified, source, selection, manifest, freeze, subset_views, subset_ks=subset_ks)
     validate_h0(config)
     parents = {r["task_id"]: [checked_episode(source_root, r)["episode_id"]] for r in source["verified"]}
     ids = list(parents)
@@ -294,11 +290,13 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         "candidates_per_task": CANDIDATES, "calls_per_task_cap": CALLS_PER_TASK,
         "per_cell_call_cap": CALLS_PER_TASK * len(ids),
         "subset_ks": sorted(set(subset_ks)), "rate_limit_dir": str(Path(rate_limit_dir).resolve())}
+    if bindings:
+        identity["subset_views"] = bindings
     env_factory = env_factory or (lambda task: _environment(config, task))
     with locked(output / ".pipeline.lock"):
         if not resume and (output / "identity.json").exists():
             raise ValueError("Collection exists; use --resume with the same frozen identity")
-        frozen_write(output / "identity.json", identity)
+        identity = collection_identity(output, identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_collect", config=config,
                 inputs=input_paths, details=identity)
@@ -309,13 +307,46 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         collect_shard(source, manifest, freeze, config, output, identity, parents, source_root,
             shard_index=shard_index, shard_count=shard_count, report_output=report_output,
             rate_limit_dir=rate_limit_dir, teacher_factory=teacher_factory, env_factory=env_factory)
+    if bindings and (output / "candidates.json").exists():
+        materialize_pool_views(output, manifest, freeze, bindings)
     return output
+
+
+def pool_view(pool, binding):
+    tasks = [t for t in pool["tasks"] if t["task_id"] in binding["task_ids"]]
+    if {t["task_id"] for t in tasks} != set(binding["task_ids"]):
+        raise ValueError("Candidate view task_id mismatch")
+    return {"schema_version": 1, "status": "complete", "K": binding["K"],
+            "K_counts": "trusted_executed_trajectories", "support_view": binding,
+            "parent_pool": {"path": "../..", "sha256": digest(pool)}, "tasks": tasks,
+            "unique_instances": len(tasks),
+            "task_groups": len({t["source_receipt"]["group_id"] for t in tasks}),
+            "new_teacher_calls": 0, "new_environment_steps": 0, "training_exposure": 0}
+
+
+def materialize_pool_views(root, manifest, freeze, bindings):
+    pool = read(root / "candidates.json")
+    with locked(root / ".views.lock"):
+        for binding in bindings:
+            check_support(binding, manifest, freeze)
+            frozen_write(root / "subsets" / f"k{binding['K']}" / "candidates.json", pool_view(pool, binding))
 
 
 def load_pool(root, manifest, freeze, *, resolver=None):
     resolver = resolver or PathResolver()
     root = resolver.resolve(Path(root).resolve())
-    identity, pool = read(root / "identity.json"), read(root / "candidates.json")
+    pool = read(root / "candidates.json")
+    if "parent_pool" in pool:
+        parent = root / pool["parent_pool"]["path"]
+        full, identity, _, _, _ = load_pool(parent, manifest, freeze, resolver=resolver)
+        binding = pool["support_view"]
+        if binding not in identity.get("subset_views", []) or digest(full) != pool["parent_pool"]["sha256"]:
+            raise ValueError("Candidate view parent/support binding changed")
+        source, selection, source_root = check_support(binding, manifest, freeze, resolver=resolver)
+        if pool != pool_view(full, binding):
+            raise ValueError("Candidate view task_id/evidence mismatch")
+        return pool, identity, source, selection, source_root
+    identity = read(root / "identity.json")
     source, selection, source_root = load_verified_collection(
         resolver.resolve(identity["source_verified"]), manifest, freeze)
     if (pool["status"] != "complete" or pool["identity_sha256"] != digest(identity)

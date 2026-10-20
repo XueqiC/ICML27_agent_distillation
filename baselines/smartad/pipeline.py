@@ -45,6 +45,8 @@ def main(argv=None):
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--resume", action="store_true", help="Reuse the frozen collection and durable candidate slots")
     parser.add_argument("--subset-k", type=int, nargs="*", default=[])
+    parser.add_argument("--subset-view", action="append", default=[], metavar="K=PATH")
+    parser.add_argument("--merge-scores", action="store_true", help="CPU-only checked merge of all selection shards")
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
@@ -62,10 +64,14 @@ def main(argv=None):
         parser.error("Select/train/evaluate require --snapshot")
     if args.mode == "prepare" and args.stage != "train":
         parser.error("Preparation is for training only")
-    if args.subset_k and args.stage != "collect":
-        parser.error("--subset-k is frozen at collection; views publish after selection")
-    if args.stage != "collect" and (args.shard_count != 1 or args.shard_index != 0 or args.resume):
-        parser.error("--shard-index/--shard-count/--resume are for collection only")
+    if (args.subset_k or args.subset_view) and args.stage != "collect":
+        parser.error("--subset-k/--subset-view are frozen at collection; views publish after selection")
+    if args.stage not in {"collect", "select"} and (args.shard_count != 1 or args.shard_index != 0):
+        parser.error("Shards are for collection/selection only")
+    if args.resume and args.stage != "collect":
+        parser.error("--resume is for collection only; selection always reuses score receipts")
+    if args.merge_scores and args.stage != "select":
+        parser.error("--merge-scores is for selection only")
     try:
         validate_shard(args.shard_index, args.shard_count)
     except ValueError as error:
@@ -81,12 +87,13 @@ def main(argv=None):
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     if args.stage == "collect":
         return collect(args.verified, manifest, freeze, config, args.output,
-            rate_limit_dir=args.rate_limit_dir, subset_ks=args.subset_k,
+            rate_limit_dir=args.rate_limit_dir, subset_ks=args.subset_k, subset_views=args.subset_view,
             shard_index=args.shard_index, shard_count=args.shard_count, resume=args.resume,
             input_paths=[args.config, Path(args.verified) / "manifest.json",
                          config["paths"]["manifest"], config["paths"]["split_freeze"]])
     if args.stage == "select":
-        return select(args.verified, args.snapshot, config, manifest, freeze, args.output, path_map=args.path_map)
+        return select(args.verified, args.snapshot, config, manifest, freeze, args.output, path_map=args.path_map,
+                      shard_index=args.shard_index, shard_count=args.shard_count, merge=args.merge_scores)
     validate_selection(args.verified, manifest, freeze, args.snapshot)
     training = SimpleNamespace(**{**vars(args), "gpus": 1, "training_seed": 0,
                                   "output": str(Path(args.output) / "training")})
