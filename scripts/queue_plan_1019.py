@@ -151,7 +151,7 @@ def new_methods_k20s0():
         ("coa-k20s0", coa), ("coa-k20s0-teval", coa_teval))]
 
 
-# batch-1 LEAP cells whose correction stages lost teacher requests to the 10-19 429 contention (scan 21:1x CDT):
+# batch-1 LEAP cells whose correction stages lost teacher requests to the 10-19 429 contention (scan 20:5x CDT):
 # restarted fresh on T3; the tainted run directories are moved to _trash first.
 LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10, 1), (10, 2), (20, 1), (20, 2))] + \
                [("privileged", k, s) for k, s in ((5, 1), (5, 2), (10, 1), (10, 2), (20, 1), (20, 2))]
@@ -160,13 +160,13 @@ LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    # Plan v2 (10-19 22:1x CDT). LEAP is out: its teacher calls used a 60 s timeout with one HTTP attempt per method
+    # Plan v2 (10-19 21:0x CDT). LEAP is out: its teacher calls used a 60 s timeout with one HTTP attempt per method
     # slot, which censored correction latencies at 60 s (p50 48 s, 119 timeouts) -> every LEAP cell, s0 included,
     # reruns on a tree with upstream-faithful transport (SDK defaults: 600 s, retries). Methods that call the
     # teacher (STeCa, GAD, AgentDistill, CoA, HAD) wait for that tree too; teacher-free cells run now.
     cells = [sad_k20s0()] + [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
     cells += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
-    plan = {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 0}, "cells": cells}
+    plan = {"limits": {"max_jobs": 8, "max_gpus": 12, "max_group_gpus": 0}, "cells": cells}
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
     state_path = out / "state.json"
     if not state_path.exists():  # jobs that were RUNNING when the queue was cleared (10-19 20:3x CDT)
