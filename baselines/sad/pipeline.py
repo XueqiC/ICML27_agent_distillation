@@ -13,6 +13,7 @@ from sed.config import load_config
 from sed.storage import digest, locked, write_json
 
 RECIPE = {"training_seed": 0, "adaptation": "full_parameter_text_fsdp2", "packing": "turn",
+    "scoring": "shared_history",
     "learning_rate": 2e-5, "scheduler": "cosine", "warmup_ratio": .03, "original_batch": 64,
     "weight_decay": 0., "gradient_clip": 1., "max_length": 32768,
     "loss": "batch mean of summed one-hot CE on Thought and Action + turn-end spans",
@@ -28,7 +29,8 @@ def training_command(args, output):
         "--base-snapshot", args.snapshot, "--verified", args.verified, "--output", str(output),
         "--seed", "0", "--max-length", "32768", "--learning-rate", "2e-5",
         "--scheduler", "cosine", "--warmup-ratio", ".03", "--original-batch", "64",
-        "--weight-decay", "0", "--packing", "turn", "--processed-token-budget", str(TOKEN_BUDGET)]
+        "--weight-decay", "0", "--packing", "turn", "--processed-token-budget", str(TOKEN_BUDGET),
+        "--scoring", args.scoring]
 
 
 def main(argv=None):
@@ -39,6 +41,7 @@ def main(argv=None):
     parser.add_argument("--mode", choices=["prepare", "train", "evaluate"], default="train")
     parser.add_argument("--through", choices=["prepare", "train", "all"], default="all")
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=4)
+    parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default=RECIPE["scoring"])
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
@@ -55,7 +58,7 @@ def main(argv=None):
             from baselines.common.evaluation import evaluate_models
             evaluate_models(args)
             return
-        identity = prepare(args, config, method="sad", recipe=RECIPE)
+        identity = prepare(args, config, method="sad", recipe={**RECIPE, "scoring": args.scoring})
         try:
             if args.mode == "train" and args.through != "prepare":
                 trained = stage_run(args.output, "train-sad", digest([identity, "sad"]),

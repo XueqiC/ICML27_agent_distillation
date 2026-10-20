@@ -281,3 +281,72 @@ def test_runtime_failure_preserves_completed_measurements(tmp_path, monkeypatch)
     assert report["phase"] == "per_turn/no_grad_per_turn"
     assert report["incomplete_pair"]["paths"]["per_turn"]["measurements"]["no_grad_sums"]["forward_tokens"] > 0
     assert not model._forward_pre_hooks
+
+
+def test_sad_preparation_loader_uses_checked_collection_and_real_span_encoder(tmp_path, monkeypatch):
+    from test_sad import CharTokenizer, episode
+    from baselines.sad.data import curriculum, encode_episode
+    from sed.storage import write_json
+    root = tmp_path / "sad-k20s0"
+    prepare_output = root / "stages/prepare/attempt-000/output"
+    prepare_output.mkdir(parents=True)
+    verified = tmp_path / "verified"
+    evidence = tmp_path / "evidence"
+    episodes = []
+    for i, reply in enumerate(("Thought: longer reason\nNote: MASK\nAction: look", "Action: look")):
+        source = episode(reply)
+        source.update(episode_id=f"seed-{i}", task_id=f"train/{i}")
+        source["steps"] *= 2
+        episodes.append(source)
+    collection = {"verified": ["receipt-0", "receipt-1"], "K": 2}
+    config = {"paths": {"manifest": "manifest", "split_freeze": "freeze"}}
+    manifest, freeze = {"fixture": "manifest"}, {"fixture": "freeze"}
+    listing = {"task_ids": [e["task_id"] for e in episodes],
+               "parent_seed_ids": {e["task_id"]: [e["episode_id"]] for e in episodes},
+               "manifest_sha256": digest(manifest), "split_freeze_sha256": digest(freeze)}
+    identity = {"method": "sad", "verified": str(verified), "K": 2,
+                "config_sha256": digest(config), "tasks_sha256": digest(listing),
+                "collection_sha256": digest(collection)}  # Historical per-turn prepare identity.
+    for path, value in ((root / "identity.json", identity), (root / "tasks.json", listing),
+                        (root / "provenance.json", {}), (verified / "manifest.json", collection),
+                        (verified / "identity.json", {})):
+        write_json(path, value)
+
+    def checked(root_arg, receipts):
+        assert root_arg == evidence and receipts == collection["verified"]
+        return iter(episodes)
+
+    def load(path, manifest_arg, freeze_arg):
+        assert path == str(verified) and manifest_arg == manifest and freeze_arg == freeze
+        return collection, {}, evidence
+
+    monkeypatch.setattr("sed.manifest.load_frozen", lambda *args: (manifest, freeze))
+    monkeypatch.setattr("sed.seed_evidence.load_verified_collection", load)
+    monkeypatch.setattr("sed.seed_evidence.checked_episodes", checked)
+    tokenizer = CharTokenizer()
+    expected = curriculum([encode_episode(e, tokenizer) for e in episodes])
+    for directory in (root, prepare_output):
+        rows, metadata = gate.load_sad_rows(directory, config, tokenizer, 1)
+        assert rows == expected[:1] and rows[0]["label_provenance"]["task_id"] == "train/1"
+        assert metadata["prepared_scoring"] == "per_turn"
+        assert metadata["encoded_rows_sha256"] == digest(rows)
+        assert metadata["training_token_plan"]["processed_token_budget"] == 655_000_000
+        assert metadata["available_rows"] == 2
+    for count in (0, 3):
+        with pytest.raises(ValueError, match="no silent undersampling"):
+            gate.load_sad_rows(root, config, tokenizer, count)
+    with pytest.raises(ValueError, match="identity/config/tasks"):
+        gate.load_sad_rows(root, {}, tokenizer, 1)
+    write_json(root / "tasks.json", {**listing, "task_ids": ["test/sealed"]})
+    with pytest.raises(ValueError, match="identity/config/tasks"):
+        gate.load_sad_rows(root, config, tokenizer, 1)
+
+
+def test_sad_cli_requires_gpu_and_records_span_objective(tmp_path):
+    output = tmp_path / "sad-cpu-rejected.json"
+    assert gate.main(["--sad-prepared", str(tmp_path), "--output", str(output)]) == 1
+    report = json.loads(output.read_text())
+    assert not report["gpu_acceptance"] and report["status"] == "error"
+    assert report["settings"]["gradient_objective"] == "negative SAD span-token sum"
+    assert report["settings"]["teacher_calls"] == report["settings"]["training_updates"] == 0
+    assert report["rows"] == []

@@ -2,6 +2,7 @@
 
 Run with configs/hpg.env sourced and TRAIN_PYTHON, before production use:
   python -m tools.validate_shared_history_gpu --pairs STAGE/output --output REPORT.json
+  python -m tools.validate_shared_history_gpu --sad-prepared SAD_RUN --output REPORT.json
 
 The CLI requires exactly one visible GPU and local bf16 weights. CPU entry points
 exist solely for offline tiny-model tests; they cannot certify GPU acceptance.
@@ -73,6 +74,59 @@ def load_pairs(directory, config, tokenizer, count):
         "selected_pairs_sha256": digest(selected), "encoded_pairs_sha256": digest(encoded),
         "stage_artifact_sha256": {p: file_hash(directory / p)
                                   for p in ("pairs.json", "provenance.json", "report.json")}}
+
+
+def load_sad_rows(directory, config, tokenizer, count):
+    """Resolve a prepared SAD run (or its prepare output) to verified evidence.
+
+    Preparation binds identity.json/tasks.json at the run root. Re-encode the
+    original collection with the training encoder/curriculum; never trust an
+    arbitrary serialized training row or regenerate teacher data.
+    """
+    from baselines.sad.data import curriculum, encode_episode, token_plan
+    from sed.manifest import load_frozen
+    from sed.seed_evidence import checked_episodes, load_verified_collection
+    directory = Path(directory).resolve()
+    if not directory.is_dir():
+        raise ValueError("SAD prepared directory does not exist")
+    root = next((p for p in (directory, *directory.parents) if (p / "identity.json").is_file()
+                 and (p / "tasks.json").is_file()), None)
+    if root is None:
+        raise ValueError("Expected prepared SAD identity.json and tasks.json at the run root")
+    identity = json.loads((root / "identity.json").read_text())
+    listing = json.loads((root / "tasks.json").read_text())
+    if (identity["method"] != "sad" or identity["config_sha256"] != digest(config)
+            or identity["tasks_sha256"] != digest(listing)):
+        raise ValueError("Prepared SAD identity/config/tasks differ")
+    manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+    collection, _, evidence = load_verified_collection(identity["verified"], manifest, freeze)
+    if identity["collection_sha256"] != digest(collection):
+        raise ValueError("Prepared SAD verified collection changed")
+    episodes = list(checked_episodes(evidence, collection["verified"]))
+    if (listing["task_ids"] != [e["task_id"] for e in episodes]
+            or listing["parent_seed_ids"] != {e["task_id"]: [e["episode_id"]] for e in episodes}
+            or listing["manifest_sha256"] != digest(manifest)
+            or listing["split_freeze_sha256"] != digest(freeze)):
+        raise ValueError("Prepared SAD task/parent/split binding changed")
+    if not 1 <= count <= len(episodes):
+        raise ValueError("Requested SAD row count must be positive and available; no silent undersampling")
+    encoded = curriculum([encode_episode(e, tokenizer, max_length=MAX_LENGTH) for e in episodes])
+    rows = encoded[:count]
+    return rows, {"method": "sad", "directory": str(directory), "prepared_root": str(root),
+        "verified": identity["verified"], "available_rows": len(encoded), "selected_indices": list(range(count)),
+        "selection": "first N in stable SAD complexity curriculum; no filtering",
+        "encoder": "baselines.sad.data.encode_episode", "packing": "turn", "max_length": MAX_LENGTH,
+        "no_truncation": True, "K": identity["K"], "collection_sha256": digest(collection),
+        "prepared_scoring": identity.get("recipe", {}).get("scoring", "per_turn"),
+        "training_token_plan": token_plan(encoded),
+        "encoded_rows_sha256": digest(rows), "encoded_curriculum_sha256": digest(encoded),
+        "stage_artifact_sha256": {str(p): file_hash(p) for p in (
+            root / "identity.json", root / "tasks.json", root / "provenance.json",
+            Path(identity["verified"]) / "manifest.json", Path(identity["verified"]) / "identity.json")}}
+
+
+def _sides(row):
+    return ("sad",) if "sad" in row else SIDES
 
 
 def select_gradients(model):
@@ -187,7 +241,7 @@ def _scores(model, pair, device, scoring, *, per_turn=False):
     model.eval()
     with torch.no_grad():
         values, tokens = {}, {}
-        for side in SIDES:
+        for side in _sides(pair):
             row = pair[side]
             if not per_turn:
                 values[side] = float(_score(model, row, device, scoring))
@@ -207,7 +261,7 @@ def _scores(model, pair, device, scoring, *, per_turn=False):
 
 
 def _gradients(model, pair, parameters, device, scoring):
-    """Derivative of chosen SUM - rejected SUM, freeing each turn/side graph.
+    """Derivative of chosen SUM - rejected SUM, or SAD's negative span SUM.
 
     Accumulate bf16 unit gradients in fp32, avoiding bf16 rounding on every
     turn's addition. This is a linear sum, with no averaging or DPO weighting.
@@ -218,7 +272,7 @@ def _gradients(model, pair, parameters, device, scoring):
     model.train()
     accumulated, objective = {}, 0.0
     with torch.enable_grad():
-        for side, sign in (("chosen", 1.0), ("rejected", -1.0)):
+        for side, sign in ((("sad", -1.0),) if "sad" in pair else (("chosen", 1.0), ("rejected", -1.0))):
             units = [pair[side]] if scoring == "shared_history" else sequence_rows(pair[side])
             for unit in units:
                 value = _score(model, unit, device, scoring) * sign
@@ -241,13 +295,14 @@ def forward_counts(pair):
                    "shared_history": len(pack_shared_history(pair[side])["input_ids"]),
                    "supervised_turns": len(sequence_rows(pair[side])),
                    "supervised_tokens": sum(sum(v != -100 for v in t["labels"])
-                                            for t in sequence_rows(pair[side]))} for side in SIDES}
+                                            for t in sequence_rows(pair[side]))} for side in _sides(pair)}
 
 
 def compare_pair(model, pair, parameters, device, *, progress=None):
     """Shared CPU-test/GPU comparison code; CPU uses the dense SDPA test oracle."""
     import torch
     gpu = torch.device(device).type == "cuda"
+    sides = _sides(pair)
     record = {"task_id": pair["task_id"], "forward_tokens_per_pass": forward_counts(pair), "paths": {}}
     snapshots = {}
     for scoring in SCORINGS:
@@ -260,6 +315,8 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
         model.set_attn_implementation(backend)
         sums, sum_metrics = _measure(model, device, lambda: _scores(model, pair, device, scoring))
         path.update(side_sums=sums)
+        if sides == ("sad",):
+            path["loss"] = -sums["sad"]
         path["measurements"]["no_grad_sums"] = sum_metrics
         if progress:
             progress(f"{scoring}/no_grad_per_turn", record)
@@ -272,16 +329,18 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
             model, device, lambda: _gradients(model, pair, parameters, device, scoring))
         path.update(gradient_objective=objective)
         path["measurements"]["forward_backward"] = grad_metrics
-        expected = sum(record["forward_tokens_per_pass"][side][scoring] for side in SIDES)
+        expected = sum(record["forward_tokens_per_pass"][side][scoring] for side in sides)
         if any(m["forward_tokens"] != expected for m in (sum_metrics, turn_metrics, grad_metrics)):
             raise ValueError("Observed forward token counts differ from encoded layout")
     record["comparisons"] = {}
     for name, (reference, actual) in COMPARISONS.items():
         old, new = (record["paths"][scoring] for scoring in (reference, actual))
         comparison = record["comparisons"][name] = {"reference_path": reference, "actual_path": actual,
-            "side_sums": {side: scalar_difference(old["side_sums"][side], new["side_sums"][side]) for side in SIDES},
+            "side_sums": {side: scalar_difference(old["side_sums"][side], new["side_sums"][side]) for side in sides},
             "turns": {}, "tokens": {}}
-        for side in SIDES:
+        if sides == ("sad",):
+            comparison["loss_difference"] = scalar_difference(old["loss"], new["loss"])
+        for side in sides:
             if len(old["turn_logps"][side]) != len(new["turn_logps"][side]):
                 raise ValueError("Per-turn score counts differ")
             comparison["turns"][side] = [
@@ -297,6 +356,11 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
     return record
 
 
+def compare_sad(model, row, parameters, device, *, progress=None):
+    return compare_pair(model, {"task_id": row["label_provenance"]["task_id"], "sad": row},
+                        parameters, device, progress=progress)
+
+
 def _pooled_token_difference(rows):
     count = sum(row["token_count"] for row in rows)
     finite = bool(count) and all(row["finite"] for row in rows)
@@ -307,10 +371,11 @@ def _pooled_token_difference(rows):
 
 
 def _summarize_comparison(records):
-    sides = [r["side_sums"][s] for r in records for s in SIDES]
-    turns = [v for r in records for s in SIDES for v in r["turns"][s]]
+    side_names = tuple(records[0]["side_sums"]) if records else SIDES
+    sides = [r["side_sums"][s] for r in records for s in side_names]
+    turns = [v for r in records for s in side_names for v in r["turns"][s]]
     grads = [v for r in records for v in r["gradients"].values()]
-    tokens = [r["tokens"][s] for r in records for s in SIDES]
+    tokens = [r["tokens"][s] for r in records for s in side_names]
     finite = bool(records and sides and turns and grads) and all(v["finite"] for v in [*sides, *turns, *grads, *tokens,
         *[r["gradient_objective_difference"] for r in records]])
 
@@ -324,13 +389,15 @@ def _summarize_comparison(records):
         "max_side_relative_difference": side_rel,
         "max_turn_absolute_difference": maximum(turns, "absolute_difference"),
         "max_turn_relative_difference": maximum(turns, "relative_difference"),
+        "max_loss_absolute_difference": maximum(
+            [r["loss_difference"] for r in records if "loss_difference" in r], "absolute_difference"),
         "max_gradient_relative_l2": grad_rel,
         "max_side_relative_difference_by_side": {side: maximum(
-            [r["side_sums"][side] for r in records], "relative_difference") for side in SIDES},
+            [r["side_sums"][side] for r in records], "relative_difference") for side in side_names},
         "max_gradient_relative_l2_by_tensor": {name: maximum(
             [r["gradients"][name] for r in records], "relative_l2") for name in (records[0]["gradients"] if records else {})},
         "tokens": _pooled_token_difference(tokens),
-        "tokens_by_side": {side: _pooled_token_difference([r["tokens"][side] for r in records]) for side in SIDES}}
+        "tokens_by_side": {side: _pooled_token_difference([r["tokens"][side] for r in records]) for side in side_names}}
 
 
 def summarize(records):
@@ -374,9 +441,12 @@ def aggregate_measurements(records):
 
 
 def _print_pair(index, record):
+    unit = "row" if "sad" in record["forward_tokens_per_pass"] else "pair"
     for name, comparison in record["comparisons"].items():
-        print(f"pair={index} {name}: {comparison['reference_path']} vs {comparison['actual_path']}", flush=True)
-        for side in SIDES:
+        print(f"{unit}={index} {name}: {comparison['reference_path']} vs {comparison['actual_path']}", flush=True)
+        if "loss_difference" in comparison:
+            print(f"  SAD loss: {comparison['loss_difference']}", flush=True)
+        for side in comparison["side_sums"]:
             delta = comparison["side_sums"][side]
             tokens = comparison["tokens"][side]
             print(f"  {side}: signed={delta['signed_difference']} abs={delta['absolute_difference']} "
@@ -386,36 +456,43 @@ def _print_pair(index, record):
                 print(f"    turn={turn}: signed={delta['signed_difference']} abs={delta['absolute_difference']} "
                       f"rel={delta['relative_difference']} "
                       f"token_MAE={delta['tokens']['mean_absolute_difference_nats_per_token']}", flush=True)
-    print(f"pair={index} tokens/pass={record['forward_tokens_per_pass']}", flush=True)
+    print(f"{unit}={index} tokens/pass={record['forward_tokens_per_pass']}", flush=True)
     for scoring, path in record["paths"].items():
-        print(f"pair={index} {scoring} measurements={json.dumps(path['measurements'])}", flush=True)
+        print(f"{unit}={index} {scoring} measurements={json.dumps(path['measurements'])}", flush=True)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pairs", required=True, help="ETO/IPR pairs stage output directory (contains pairs.json)")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--pairs", help="ETO/IPR pairs stage output directory (contains pairs.json)")
+    source.add_argument("--sad-prepared", help="Prepared SAD run root, or its stages/prepare output directory")
     parser.add_argument("--output", required=True, help="JSON report, also written on numerical/runtime failure")
-    parser.add_argument("--num-pairs", "-n", type=int, default=4)
+    parser.add_argument("--num-pairs", "--num-rows", "-n", type=int, default=4)
     parser.add_argument("--snapshot", default=os.environ.get("MODEL_PATH"), help="Defaults to configs/hpg.env MODEL_PATH")
     parser.add_argument("--config", default="configs/base.yaml")
     add_flex_kernel_options_argument(parser)
     args = parser.parse_args(argv)
+    records_key = "rows" if args.sad_prepared else "pairs"
+    unit = "row" if args.sad_prepared else "pair"
     print(f"PASS requires packing-only (per_turn_flex vs shared_history) bf16 side-sum relative difference "
           f"<= {SIDE_RTOL:g}, every gradient tensor relative L2 <= {GRAD_RTOL:g}, and all paths' scores/gradients "
           f"finite and present (no NaN/Inf). Kernel-only differences and token MAE (HF/vLLM base tolerance "
           f"{TOKEN_ATOL:g} nats/token) are diagnostics.", flush=True)
     report = {"status": "running", "passed": False, "gpu_acceptance": False, "criteria": criteria(),
         "scope": "single-GPU real-student bf16 packing acceptance with a matched Flex control; not FSDP/optimizer/scientific validation",
-        "settings": {"num_pairs": args.num_pairs, "max_length": MAX_LENGTH, "packing": "turn",
+        "settings": {f"num_{records_key}": args.num_pairs, "max_length": MAX_LENGTH, "packing": "turn",
                      "dtype": "bfloat16", "gradient_accumulation_dtype": "float32", "seed": 0,
-                     "gradient_checkpointing": "non-reentrant", "gradient_objective": "chosen sum - rejected sum",
+                     "gradient_checkpointing": "non-reentrant",
+                     "objective": "sad" if args.sad_prepared else "preference",
+                     "gradient_objective": "negative SAD span-token sum" if args.sad_prepared else "chosen sum - rejected sum",
                      "training_updates": 0, "teacher_calls": 0},
-        "measurement_notes": "One model; per-pair gradients; timings include masks, cold compilation and CPU gradient "
+        "measurement_notes": "One model; gradients per example; timings include masks, cold compilation and CPU gradient "
             "snapshots, no warmup. Peaks include resident weights and fp32 gradient accumulation. "
             "Root forward tokens exclude decoder checkpoint recomputation. Per-turn/token diagnostics share a separate pass. "
             "CPU tests use dense SDPA mask oracles for both Flex layouts; only CUDA executes the matched Flex kernels.",
-        "pairs": [], "phase": "setup", "inputs": {
-            "pairs_directory": str(Path(args.pairs).resolve()), "snapshot": args.snapshot,
+        records_key: [], "phase": "setup", "inputs": {
+            ("sad_prepared_directory" if args.sad_prepared else "pairs_directory"):
+                str(Path(args.sad_prepared or args.pairs).resolve()), "snapshot": args.snapshot,
             "config": args.config, "output": args.output}}
     save_report(args.output, report)
     try:
@@ -451,12 +528,14 @@ def main(argv=None):
             "student": config["models"]["student"], "snapshot": metadata,
             "flex_attention": report["settings"]["flex_attention"],
             "template_sha256": digest(tokenizer.chat_template)}
-        report["phase"] = "checked_pair_loading_and_encoding"
+        report["phase"] = f"checked_{unit}_loading_and_encoding"
         save_report(args.output, report)
-        pairs, report["data"] = load_pairs(args.pairs, config, tokenizer, args.num_pairs)
+        pairs, report["data"] = (load_sad_rows(args.sad_prepared, config, tokenizer, args.num_pairs)
+                                 if args.sad_prepared else load_pairs(args.pairs, config, tokenizer, args.num_pairs))
         _, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-        report["data"]["unique_instances"] = len({p["task_id"] for p in pairs})
-        report["data"]["task_groups"] = len({freeze["assignments"][p["task_id"]]["group_id"] for p in pairs})
+        task_ids = [p["label_provenance"]["task_id"] if args.sad_prepared else p["task_id"] for p in pairs]
+        report["data"]["unique_instances"] = len(set(task_ids))
+        report["data"]["task_groups"] = len({freeze["assignments"][t]["group_id"] for t in task_ids})
         report["phase"] = "load_real_student"
         save_report(args.output, report)
         model = load_student(args.snapshot, device="cuda:0", dtype="bfloat16")
@@ -470,18 +549,19 @@ def main(argv=None):
         report["model_config"] = model.config.to_dict()
         for index, pair in enumerate(pairs):
             def progress(phase, record):
-                report["phase"] = f"pair_{index}/{phase}"
-                report["incomplete_pair"] = record
+                report["phase"] = f"{unit}_{index}/{phase}"
+                report[f"incomplete_{unit}"] = record
                 save_report(args.output, report)
 
-            print(f"Comparing pair {index + 1}/{len(pairs)}", flush=True)
-            record = compare_pair(model, pair, parameters, "cuda:0", progress=progress)
-            report["pairs"].append(record)
-            report.pop("incomplete_pair", None)
+            print(f"Comparing {unit} {index + 1}/{len(pairs)}", flush=True)
+            compare = compare_sad if args.sad_prepared else compare_pair
+            record = compare(model, pair, parameters, "cuda:0", progress=progress)
+            report[records_key].append(record)
+            report.pop(f"incomplete_{unit}", None)
             save_report(args.output, report)
             _print_pair(index, record)
-        report["summary"] = summarize(report["pairs"])
-        report["measurements_over_all_pairs"] = aggregate_measurements(report["pairs"])
+        report["summary"] = summarize(report[records_key])
+        report[f"measurements_over_all_{records_key}"] = aggregate_measurements(report[records_key])
         report["passed"] = report["gpu_acceptance"] = report["summary"]["passed"]
         report["status"] = "pass" if report["passed"] else "fail"
         report["phase"] = "complete"

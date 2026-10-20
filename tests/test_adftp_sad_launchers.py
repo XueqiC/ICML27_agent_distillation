@@ -33,6 +33,13 @@ def test_wrappers_select_stages(tmp_path, method, through, mode):
     args = json.loads((tmp_path / 'args.json').read_text())
     assert args[:2] == ['-m', f'baselines.{method}.pipeline']
     assert args[args.index('--through') + 1] == through
+    if method == 'sad':
+        assert args[args.index('--scoring') + 1] == 'shared_history'
+        env['SAD_SCORING'] = 'per_turn'
+        result = subprocess.run(['bash', 'scripts/hpg_sad.slurm'], env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        args = json.loads((tmp_path / 'args.json').read_text())
+        assert args[args.index('--scoring') + 1] == 'per_turn'
     if through == 'collect':
         assert '--snapshot' not in args
         env['SLURM_JOB_GPUS'] = '0'
@@ -70,3 +77,21 @@ def test_full_evaluation_requires_gate_before_dev140(tmp_path, monkeypatch, pass
             evaluation.evaluate_models(args)
         assert not any('eval/run_suite.py' in c for c in calls)
     assert '--hf-only' in calls[0] and '--hf-reference' in calls[1]
+
+
+def test_sad_acceptance_wrapper_uses_existing_preparation(tmp_path):
+    fake = tmp_path / "python"
+    fake.write_text('#!' + sys.executable + '\nimport json,os,sys\n'
+                    'open(os.environ["ARGS"],"w").write(json.dumps(sys.argv[1:]))\n')
+    fake.chmod(0o755)
+    env = {**os.environ, "PROJECT_ROOT": str(Path.cwd()), "HPG_CONFIG": str(Path("configs/hpg.env").resolve()),
+           "TRAIN_PYTHON": str(fake), "MODEL_PATH": str(tmp_path), "SAD_PREPARED": str(tmp_path),
+           "OUTPUT": str(tmp_path / "report.json"), "ARGS": str(tmp_path / "args.json"), "NUM_ROWS": "2"}
+    script = Path("scripts/hpg_validate_sad_shared_history.slurm")
+    result = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    args = json.loads((tmp_path / "args.json").read_text())
+    assert args[:2] == ["-m", "tools.validate_shared_history_gpu"]
+    assert args[args.index("--sad-prepared") + 1] == str(tmp_path)
+    assert args[args.index("--num-rows") + 1] == "2"
+    assert "#SBATCH --gpus=1" in script.read_text() and "#SBATCH --time=01:00:00" in script.read_text()
