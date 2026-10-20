@@ -29,6 +29,10 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 08:14 CDT check: post-fix AD-FTP dev140 K5s0 62/69, K10s0 31/37 (greedy/SAG; pre-fix 65/70, 37/43).
+  adftp-k100s0 DIVERGED in training (loss 0.41->9.0 at updates 10-14, gnorm<=42k; model -6.2 nats/token on own data) -> gate
+  cannot pass; blocked pending user (retrain? coupled with FTP re-collection decision). agd-k20s0-eval FAILED: gate compare runs
+  under ENV_PYTHON without transformers (fix: train_python) - low prio, deferred, cell blocked.
 - 07:42 CDT check: adftp-k10s2-eval 46832873 FAILED (pre-fix gate 0.0514 > tol 0.050, same k_eq_v cause) -> cell unblocked, eval reruns on 8960e0a.
 
 ### 06:5x CDT 10-20: vLLM Gemma-4 LoRA serving bug found; all evals gated
