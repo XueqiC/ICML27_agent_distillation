@@ -240,7 +240,7 @@ def main():
     for c in held:
         c["lowprio"] = True
     cells += held
-    plan = {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4, "max_lowprio_jobs": 4,
+    plan = {"limits": {"max_jobs": 9, "max_gpus": 16, "max_group_gpus": 4, "max_lowprio_jobs": 3,
                        "max_lowprio_gpus": 8}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
