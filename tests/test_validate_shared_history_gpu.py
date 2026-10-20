@@ -95,8 +95,11 @@ def test_encoding_and_numerical_comparison_cpu(tmp_path, monkeypatch, method):
     record = gate.compare_pair(model, pairs[0], parameters, "cpu")
     summary = gate.summarize([record])
     assert summary["passed"], summary
-    assert summary["max_side_relative_difference"] < 1e-5
-    assert summary["max_gradient_relative_l2"] < 1e-4
+    assert summary["acceptance_comparison"] == "packing_only"
+    for comparison in summary["comparisons"].values():
+        assert comparison["max_side_relative_difference"] < 1e-5
+        assert comparison["max_gradient_relative_l2"] < 1e-4
+        assert comparison["tokens"]["mean_absolute_difference_nats_per_token"] < 1e-5
     for scoring in gate.SCORINGS:
         path = record["paths"][scoring]
         expected_tokens = sum(record["forward_tokens_per_pass"][s][scoring] for s in gate.SIDES)
@@ -104,6 +107,14 @@ def test_encoding_and_numerical_comparison_cpu(tmp_path, monkeypatch, method):
             assert measurement["forward_tokens"] == expected_tokens
             assert measurement["max_memory_allocated_bytes"] is None
             assert measurement["wall_seconds"] > 0
+            assert measurement["forward_calls"] == (2 if scoring == "shared_history" else
+                sum(len(sequence_rows(pairs[0][s])) for s in gate.SIDES))
+        for side in gate.SIDES:
+            assert len(path["token_logps"][side]) == len(sequence_rows(pairs[0][side]))
+            assert path["side_sums"][side] == pytest.approx(sum(path["turn_logps"][side]), rel=1e-6)
+            assert [len(v) for v in path["token_logps"][side]] == [
+                sum(v != -100 for v in t["labels"]) for t in sequence_rows(pairs[0][side])]
+    assert record["paths"]["per_turn_flex"]["flex_attention"] == record["paths"]["shared_history"]["flex_attention"]
     assert sum(record["forward_tokens_per_pass"][s]["shared_history"] for s in gate.SIDES) < sum(
         record["forward_tokens_per_pass"][s]["per_turn"] for s in gate.SIDES)
     aggregate = gate.aggregate_measurements([record, record])
@@ -112,7 +123,8 @@ def test_encoding_and_numerical_comparison_cpu(tmp_path, monkeypatch, method):
             assert aggregate[scoring][phase]["forward_tokens"] == 2 * measurement["forward_tokens"]
             assert aggregate[scoring][phase]["max_memory_allocated_bytes"] is None
     if method == "ipr":
-        assert len(record["turns"]["chosen"]) == 1 and len(record["turns"]["rejected"]) == 2
+        turns = record["comparisons"]["packing_only"]["turns"]
+        assert len(turns["chosen"]) == 1 and len(turns["rejected"]) == 2
         assert pairs[0]["chosen"]["label_provenance"]["masked_prefix_turns"] == 1
     for name, p in model.named_parameters():
         assert torch.equal(p, before[name]) and p.grad is None
@@ -135,28 +147,33 @@ def test_encoding_and_numerical_comparison_cpu(tmp_path, monkeypatch, method):
 
 
 def passing_record():
-    return {"side_sums": {side: gate.scalar_difference(-100.0, -100.0) for side in gate.SIDES},
+    comparison = {"side_sums": {side: gate.scalar_difference(-100.0, -100.0) for side in gate.SIDES},
         "turns": {side: [gate.scalar_difference(-100.0, -100.0)] for side in gate.SIDES},
+        "tokens": {side: gate.token_difference([-100.0], [-100.0]) for side in gate.SIDES},
         "gradients": {"weight": gate.gradient_difference(torch.ones(2), torch.ones(2))},
         "gradient_objective_difference": gate.scalar_difference(0.0, 0.0)}
+    return {"comparisons": {name: deepcopy(comparison) for name in gate.COMPARISONS}}
 
 
-@pytest.mark.parametrize("failure", ["side", "gradient", "nan_score", "nan_gradient", "missing_gradient", "zero_gradient"])
+@pytest.mark.parametrize("failure", ["side", "gradient", "nan_score", "nan_token", "nan_gradient", "missing_gradient", "zero_gradient"])
 def test_gate_fails_on_numerical_mismatch_and_nonfinite(tmp_path, failure):
     record = passing_record()
     assert gate.summarize([record])["passed"]
+    comparison = record["comparisons"]["packing_only"]
     if failure == "side":
-        record["side_sums"]["chosen"] = gate.scalar_difference(-100.0, -100.201)
+        comparison["side_sums"]["chosen"] = gate.scalar_difference(-100.0, -100.101)
     elif failure == "gradient":
-        record["gradients"]["weight"] = gate.gradient_difference(torch.ones(2), torch.ones(2) * 1.021)
+        comparison["gradients"]["weight"] = gate.gradient_difference(torch.ones(2), torch.ones(2) * 1.021)
     elif failure == "nan_score":
-        record["turns"]["chosen"][0] = gate.scalar_difference(-100.0, float("nan"))
+        comparison["turns"]["chosen"][0] = gate.scalar_difference(-100.0, float("nan"))
+    elif failure == "nan_token":
+        comparison["tokens"]["chosen"] = gate.token_difference([-100.0], [float("nan")])
     elif failure == "nan_gradient":
-        record["gradients"]["weight"] = gate.gradient_difference(torch.ones(2), torch.tensor([float("nan"), 0.]))
+        comparison["gradients"]["weight"] = gate.gradient_difference(torch.ones(2), torch.tensor([float("nan"), 0.]))
     elif failure == "missing_gradient":
-        record["gradients"]["weight"] = gate.gradient_difference(None, None)
+        comparison["gradients"]["weight"] = gate.gradient_difference(None, None)
     else:
-        record["gradients"]["weight"] = gate.gradient_difference(torch.zeros(2), torch.ones(2))
+        comparison["gradients"]["weight"] = gate.gradient_difference(torch.zeros(2), torch.ones(2))
     summary = gate.summarize([record])
     assert not summary["passed"]
     gate.save_report(tmp_path / "failure.json", {"summary": summary, "pairs": [record], "raw_nan": float("nan")})
@@ -165,12 +182,55 @@ def test_gate_fails_on_numerical_mismatch_and_nonfinite(tmp_path, failure):
     assert json.loads(text)["raw_nan"] is None
 
 
+def test_only_packing_magnitude_gates_acceptance():
+    record = passing_record()
+    for name in ("kernel_only", "combined"):
+        comparison = record["comparisons"][name]
+        comparison["side_sums"]["chosen"] = gate.scalar_difference(-100.0, -100.37)
+        comparison["gradients"]["weight"] = gate.gradient_difference(torch.ones(2), torch.ones(2) * 1.15)
+        comparison["tokens"]["chosen"] = gate.token_difference([-1.0], [-1.1])
+    summary = gate.summarize([record])
+    assert summary["passed"]
+    assert not summary["comparisons"]["kernel_only"]["tokens_by_side"]["chosen"]["within_hf_vllm_tolerance"]
+    # Even the packing token tolerance is a diagnostic, not an extra gate.
+    record["comparisons"]["packing_only"]["tokens"]["chosen"] = gate.token_difference([-1.0], [-1.1])
+    assert gate.summarize([record])["passed"]
+    record["comparisons"]["kernel_only"]["gradients"]["weight"] = gate.gradient_difference(None, None)
+    assert not gate.summarize([record])["passed"]
+
+
+def test_packing_gate_inclusive_boundaries():
+    record = passing_record()
+    comparison = record["comparisons"]["packing_only"]
+    comparison["side_sums"]["chosen"] = gate.scalar_difference(-1000.0, -1001.0)
+    comparison["gradients"]["weight"] = gate.gradient_difference(torch.tensor([1000.]), torch.tensor([1020.]))
+    assert gate.summarize([record])["passed"]
+    comparison["side_sums"]["chosen"] = gate.scalar_difference(-1000.0, -1001.001)
+    assert not gate.summarize([record])["passed"]
+
+
+def test_token_mae_prevents_cancellation_and_pools_by_token_count():
+    row = gate.token_difference([-2.0, -2.0], [-1.75, -2.25])
+    assert row["mean_absolute_difference_nats_per_token"] == 0.25
+    assert not row["within_hf_vllm_tolerance"]
+    pooled = gate._pooled_token_difference([row, gate.token_difference([-2.0] * 8, [-2.0] * 8)])
+    assert pooled["token_count"] == 10
+    assert pooled["mean_absolute_difference_nats_per_token"] == 0.05
+    assert pooled["within_hf_vllm_tolerance"]
+    for a, b in (([], []), ([-1.0], [-1.0, -2.0])):
+        with pytest.raises(ValueError, match="token counts"):
+            gate.token_difference(a, b)
+    assert not gate.summarize([])["passed"]
+
+
 def test_cli_refuses_cpu_and_writes_failure_report(tmp_path, capsys):
     output = tmp_path / "gpu-rejected.json"
     assert gate.main(["--pairs", str(tmp_path / "absent"), "--output", str(output)]) == 1
     report = json.loads(output.read_text())
     assert report["status"] == "error" and not report["passed"] and not report["gpu_acceptance"]
-    assert report["criteria"]["side_sum_relative_difference_max"] == 2e-3
+    assert report["criteria"]["side_sum_relative_difference_max"] == 1e-3
+    assert report["criteria"]["acceptance_comparison"] == "packing_only"
+    assert report["criteria"]["hf_vllm_token_tolerance_nats"] == 0.05
     assert report["criteria"]["gradient_relative_l2_per_tensor_max"] == 2e-2
     assert report["error_message"] == "Exactly one visible GPU and one process required"
     assert report["error_repr"] == repr(ValueError(report["error_message"]))

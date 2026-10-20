@@ -229,33 +229,59 @@ def validate_model(model):
     return config
 
 
-def shared_history_logps(model, rows, device, *, per_turn=False):
+def supervised_token_logps(logits, target):
+    """Selected-token diagnostics, in label order, without a full fp32 copy."""
+    import torch
+    chunks = [[] for _ in range(len(target))]
+    for start in range(0, target.shape[1], 128):
+        labels = target[:, start:start + 128]
+        active = labels != -100
+        values = logits[:, start:start + 128].float().log_softmax(-1).gather(
+            -1, labels.masked_fill(~active, 0).unsqueeze(-1)).squeeze(-1)
+        for i in range(len(target)):
+            chunks[i].append(values[i, active[i]])
+    return [torch.cat(parts) for parts in chunks]
+
+
+def shared_history_logps(model, rows, device, *, per_turn=False, per_token=False):
     """One packed forward per side (rows may also be batched for diagnostics)."""
+    return masked_logps(model, [pack_shared_history(row) for row in rows], device,
+                        per_turn=per_turn, per_token=per_token)
+
+
+def masked_logps(model, rows, device, *, per_turn=False, per_token=False):
+    """Score explicit layouts through the same mask builder and kernel routing.
+
+    The GPU validator also supplies ordinary, unbranched causal turn layouts.
+    """
     import torch
     from baselines.eto.official_loss import OfficialLoss
+    if per_turn and per_token:
+        raise ValueError("Choose per-turn or per-token diagnostics")
     config = validate_model(model)
     settings = configure_flex_attention(model)
-    packed = [pack_shared_history(row) for row in rows]
-    length = max(len(row["input_ids"]) for row in packed)
+    length = max(len(row["input_ids"]) for row in rows)
     ids = torch.zeros((len(rows), length), dtype=torch.long, device=device)
     labels = torch.full_like(ids, -100)
-    for i, row in enumerate(packed):
+    for i, row in enumerate(rows):
         n = len(row["input_ids"])
         ids[i, :n] = torch.tensor(row["input_ids"], device=device)
         labels[i, :n] = torch.tensor(row["labels"], device=device)
-    position_ids, masks = attention_masks(packed, config, device, backend=config._attn_implementation)
+    position_ids, masks = attention_masks(rows, config, device, backend=config._attn_implementation)
     keep = torch.nonzero((labels[:, 1:] != -100).any(dim=0)).flatten()
     kwargs = ({"shared_history_kernel_options": settings["kernel_options"]}
               if config._attn_implementation == "flex_attention" else {})
     logits = model(input_ids=ids, attention_mask=masks, position_ids=position_ids,
                    use_cache=False, logits_to_keep=keep, **kwargs).logits
     target = labels[:, keep + 1]
+    if per_token:
+        return supervised_token_logps(logits, target)
     if per_turn:
         return [torch.stack([OfficialLoss.get_batch_logps(
             logits[i:i+1, (keep + 1 >= span["start"]) & (keep + 1 < span["stop"])].float(),
             target[i:i+1, (keep + 1 >= span["start"]) & (keep + 1 < span["stop"])].clone(),
             average_log_prob=False, is_encoder_decoder=True)[0]
-            for span in row["assistant_spans"]]) for i, row in enumerate(packed)]
+            for span in row["assistant_spans"]]) for i, row in enumerate(rows)]
     return sum(OfficialLoss.get_batch_logps(logits[:, start:start+128].float(),
                target[:, start:start+128].clone(), average_log_prob=False, is_encoder_decoder=True)
                for start in range(0, len(keep), 128))

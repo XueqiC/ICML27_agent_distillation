@@ -124,3 +124,58 @@ unchanged from `31e4875`; no scientific assertion was relaxed or suppressed.
 Skips are for missing ALFWorld, local probe artifacts, and a real seed collection.
 All changed-path tests, including the simulated-rank CLI/provenance checks,
 passed in the full run. `git diff --check` also passed.
+
+## Matched Flex control — 2026-10-19
+
+The user reports that the 32x32 hpg run executes but fails the old SDPA-versus-
+packed-Flex thresholds: side-sum relative difference 0.0037 and gradient relative
+L2 0.06–0.15. Signed per-turn differences also occur on each side's first turn.
+Kernel numerics are a hypothesis to test; these observations do not establish
+packing equivalence. No GPU was run for this follow-up.
+
+`tools.validate_shared_history_gpu` now measures three paths on the same model:
+
+- `per_turn`: the existing SDPA scorer, one forward per supervised turn.
+- `per_turn_flex`: the same input IDs and labels, one forward per turn, sequential
+  positions and a single unbranched causal history. Its full/sliding BlockMasks
+  use the same `attention_masks` builder, block metadata and kernel-option routing
+  as `shared_history`. Defaults and `--flex-kernel-options` apply to both paths,
+  including non-reentrant checkpoint recomputation.
+- `shared_history`: the existing packed Flex scorer, one forward per side.
+
+Pair reports and aggregate summaries contain `comparisons.kernel_only`
+(`per_turn` vs `per_turn_flex`), `comparisons.packing_only` (`per_turn_flex` vs
+`shared_history`), and `comparisons.combined` (the original comparison). Each
+reports side sums, per-turn signed/absolute/relative differences, gradient
+objective differences, and every selected tensor's gradient relative L2. The
+reference path supplies the relative denominator.
+
+Acceptance uses only the **packing-only magnitudes**: every side-sum relative
+difference must be <=1e-3 and every gradient tensor's relative L2 <=2e-2. All
+three paths must still produce finite scores and present, finite selected
+gradients. The kernel-only magnitude is diagnostic.
+
+The per-turn diagnostic pass also collects the actual supervised-token
+log-probabilities, retaining causal target alignment and 128-token fp32
+log-softmax chunks. Each comparison reports `mean(abs(actual - reference))`
+per turn, per side, and pooled by token count across pairs. This is not the
+absolute difference of turn sums divided by token count: opposite token errors
+cannot cancel. Reports compare these means with the project's HF/vLLM gate
+base tolerance of **0.05 nats/token** (`tools/check_lora_serving.py`);
+this is a diagnostic reference, not an additional packing acceptance threshold
+or a reproduction of the serving gate's noise-adjusted rule.
+
+CPU verification uses dense SDPA mask oracles; the large-head routing tests
+mock only the compiled Flex boundary. Tests cover both causal/sliding masks,
+default/overridden tiles, checkpoint recomputation, unchanged input/forward-token
+counts, token-error cancellation, token-weighted aggregation, threshold
+boundaries, diagnostic-only kernel differences, and nonfinite/missing results.
+
+```text
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /home/xueqi/tf5-env/bin/python -m pytest -q \
+  tests/test_validate_shared_history_gpu.py tests/test_shared_history_torch.py
+54 passed (25.57 s)
+```
+
+GPU bf16 acceptance remains pending the next hpg run.

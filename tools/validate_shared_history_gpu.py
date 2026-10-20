@@ -17,24 +17,33 @@ import time
 import traceback
 
 from baselines.common.conversation import sequence_rows
-from baselines.common.fsdp_train import batch_logps
+from baselines.common.fsdp_train import batch_logps, sequence_logps
 from baselines.common.shared_history import (add_flex_kernel_options_argument, configure_flex_attention,
-    flex_attention_settings, pack_shared_history, shared_history_logps, validate_model)
+    flex_attention_settings, masked_logps, pack_shared_history, shared_history_logps, validate_model)
 from sed.storage import digest, file_hash, write_json
 
 MAX_LENGTH = 32768
-SIDE_RTOL = 2e-3
+SIDE_RTOL = 1e-3
 GRAD_RTOL = 2e-2
+TOKEN_ATOL = 0.05  # Project HF/vLLM gate's base mean-absolute tolerance (nats/token).
 SIDES = ("chosen", "rejected")
-SCORINGS = ("per_turn", "shared_history")
+SCORINGS = ("per_turn", "per_turn_flex", "shared_history")
+COMPARISONS = {"kernel_only": ("per_turn", "per_turn_flex"),
+               "packing_only": ("per_turn_flex", "shared_history"),
+               "combined": ("per_turn", "shared_history")}
 
 
 def criteria():
-    return {"side_sum_relative_difference_max": SIDE_RTOL,
+    return {"acceptance_comparison": "packing_only",
+            "side_sum_relative_difference_max": SIDE_RTOL,
             "gradient_relative_l2_per_tensor_max": GRAD_RTOL,
             "require_all_finite": True, "require_all_selected_gradients": True,
-            "relative_denominator": "abs(per_turn) or L2(per_turn); zero/zero=0, nonzero/zero fails",
-            "per_turn_differences": "reported diagnostics; side-sum threshold is the score gate"}
+            "relative_denominator": "abs(reference path) or L2(reference path); zero/zero=0, nonzero/zero fails",
+            "per_turn_differences": "reported diagnostics; side-sum threshold is the score gate",
+            "kernel_only_difference": "diagnostic; numerical magnitude does not gate acceptance",
+            "token_mean_absolute_difference": "mean(abs(actual token logp - reference token logp)); diagnostic only",
+            "hf_vllm_token_tolerance_nats": TOKEN_ATOL,
+            "hf_vllm_token_tolerance_source": "tools/check_lora_serving.py: MEAN_TOLERANCE (base tolerance)"}
 
 
 def load_pairs(directory, config, tokenizer, count):
@@ -87,11 +96,24 @@ def _relative(error, reference):
 def scalar_difference(reference, actual):
     finite = math.isfinite(reference) and math.isfinite(actual)
     error = abs(actual - reference) if finite else None
-    return {"per_turn": reference if math.isfinite(reference) else None,
-            "shared_history": actual if math.isfinite(actual) else None,
+    return {"reference": reference if math.isfinite(reference) else None,
+            "actual": actual if math.isfinite(actual) else None,
+            "signed_difference": actual - reference if finite else None,
             "absolute_difference": error,
             "relative_difference": _relative(error, abs(reference)) if finite else None,
             "finite": finite}
+
+
+def token_difference(reference, actual):
+    if not reference or len(reference) != len(actual):
+        raise ValueError("Supervised token counts differ or are empty")
+    finite = all(math.isfinite(v) for v in (*reference, *actual))
+    total = math.fsum(abs(b - a) for a, b in zip(reference, actual)) if finite else None
+    mean = total / len(reference) if finite else None
+    return {"token_count": len(reference), "absolute_difference_sum": total,
+            "mean_absolute_difference_nats_per_token": mean, "finite": finite,
+            "hf_vllm_tolerance_nats_per_token": TOKEN_ATOL,
+            "within_hf_vllm_tolerance": mean is not None and mean <= TOKEN_ATOL}
 
 
 def gradient_difference(reference, actual):
@@ -139,21 +161,49 @@ def _measure(model, device, operation):
         model.zero_grad(set_to_none=True)
 
 
+def per_turn_flex_logps(model, row, device, *, per_token=False):
+    """One unchanged turn per forward; ordinary causal/sliding masks, no packing."""
+    import torch
+    values = []
+    for turn in sequence_rows(row):
+        n = len(turn["input_ids"])
+        if (not 1 < n <= MAX_LENGTH or len(turn["labels"]) != n or turn["labels"][0] != -100
+                or not any(v != -100 for v in turn["labels"])):
+            raise ValueError("Invalid untruncated causal training example")
+        layout = {"input_ids": turn["input_ids"], "labels": turn["labels"],
+                  "position_ids": list(range(n)), "branches": [0] * n}
+        values.append(masked_logps(model, [layout], device, per_token=per_token)[0])
+    return torch.cat(values) if per_token else sum(values)
+
+
+def _score(model, row, device, scoring):
+    if scoring == "per_turn_flex":
+        return per_turn_flex_logps(model, row, device)
+    return batch_logps(model, [row], device, scoring=scoring)[0]
+
+
 def _scores(model, pair, device, scoring, *, per_turn=False):
     import torch
     model.eval()
     with torch.no_grad():
-        values = {}
+        values, tokens = {}, {}
         for side in SIDES:
             row = pair[side]
             if not per_turn:
-                values[side] = float(batch_logps(model, [row], device, scoring=scoring)[0])
-            elif scoring == "shared_history":
-                values[side] = shared_history_logps(model, [row], device, per_turn=True)[0].tolist()
+                values[side] = float(_score(model, row, device, scoring))
             else:
-                values[side] = [float(batch_logps(model, [turn], device, scoring="per_turn")[0])
-                                for turn in sequence_rows(row)]
-        return values
+                if scoring == "shared_history":
+                    token_values = shared_history_logps(model, [row], device, per_token=True)[0]
+                elif scoring == "per_turn_flex":
+                    token_values = per_turn_flex_logps(model, row, device, per_token=True)
+                else:
+                    token_values = torch.cat([sequence_logps(model, [turn], device, per_token=True)[0]
+                                              for turn in sequence_rows(row)])
+                counts = [sum(v != -100 for v in turn["labels"]) for turn in sequence_rows(row)]
+                chunks = token_values.split(counts)
+                values[side] = [float(chunk.sum()) for chunk in chunks]
+                tokens[side] = [chunk.tolist() for chunk in chunks]
+        return (values, tokens) if per_turn else values
 
 
 def _gradients(model, pair, parameters, device, scoring):
@@ -171,7 +221,7 @@ def _gradients(model, pair, parameters, device, scoring):
         for side, sign in (("chosen", 1.0), ("rejected", -1.0)):
             units = [pair[side]] if scoring == "shared_history" else sequence_rows(pair[side])
             for unit in units:
-                value = batch_logps(model, [unit], device, scoring=scoring)[0] * sign
+                value = _score(model, unit, device, scoring) * sign
                 objective += float(value.detach())
                 value.backward()
                 for name, parameter in parameters.items():
@@ -187,6 +237,7 @@ def _gradients(model, pair, parameters, device, scoring):
 
 def forward_counts(pair):
     return {side: {"per_turn": sum(len(t["input_ids"]) for t in sequence_rows(pair[side])),
+                   "per_turn_flex": sum(len(t["input_ids"]) for t in sequence_rows(pair[side])),
                    "shared_history": len(pack_shared_history(pair[side])["input_ids"]),
                    "supervised_turns": len(sequence_rows(pair[side])),
                    "supervised_tokens": sum(sum(v != -100 for v in t["labels"])
@@ -200,9 +251,9 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
     record = {"task_id": pair["task_id"], "forward_tokens_per_pass": forward_counts(pair), "paths": {}}
     snapshots = {}
     for scoring in SCORINGS:
-        backend = "flex_attention" if gpu and scoring == "shared_history" else "sdpa"
+        backend = "flex_attention" if gpu and scoring != "per_turn" else "sdpa"
         path = record["paths"][scoring] = {"attention": backend, "measurements": {}}
-        if scoring == "shared_history":
+        if scoring != "per_turn":
             path["flex_attention"] = configure_flex_attention(model)
         if progress:
             progress(f"{scoring}/no_grad_sums", record)
@@ -212,8 +263,8 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
         path["measurements"]["no_grad_sums"] = sum_metrics
         if progress:
             progress(f"{scoring}/no_grad_per_turn", record)
-        turns, turn_metrics = _measure(model, device, lambda: _scores(model, pair, device, scoring, per_turn=True))
-        path.update(turn_logps=turns)
+        (turns, tokens), turn_metrics = _measure(model, device, lambda: _scores(model, pair, device, scoring, per_turn=True))
+        path.update(turn_logps=turns, token_logps=tokens)
         path["measurements"]["no_grad_per_turn"] = turn_metrics
         if progress:
             progress(f"{scoring}/forward_backward", record)
@@ -224,25 +275,43 @@ def compare_pair(model, pair, parameters, device, *, progress=None):
         expected = sum(record["forward_tokens_per_pass"][side][scoring] for side in SIDES)
         if any(m["forward_tokens"] != expected for m in (sum_metrics, turn_metrics, grad_metrics)):
             raise ValueError("Observed forward token counts differ from encoded layout")
-    old, new = (record["paths"][scoring] for scoring in SCORINGS)
-    record["side_sums"] = {side: scalar_difference(old["side_sums"][side], new["side_sums"][side]) for side in SIDES}
-    record["turns"] = {}
-    for side in SIDES:
-        if len(old["turn_logps"][side]) != len(new["turn_logps"][side]):
-            raise ValueError("Per-turn score counts differ")
-        record["turns"][side] = [scalar_difference(a, b)
-                                  for a, b in zip(old["turn_logps"][side], new["turn_logps"][side])]
-    record["gradients"] = {name: gradient_difference(snapshots["per_turn"][name],
-                                                   snapshots["shared_history"][name]) for name in parameters}
-    record["gradient_objective_difference"] = scalar_difference(old["gradient_objective"], new["gradient_objective"])
+    record["comparisons"] = {}
+    for name, (reference, actual) in COMPARISONS.items():
+        old, new = (record["paths"][scoring] for scoring in (reference, actual))
+        comparison = record["comparisons"][name] = {"reference_path": reference, "actual_path": actual,
+            "side_sums": {side: scalar_difference(old["side_sums"][side], new["side_sums"][side]) for side in SIDES},
+            "turns": {}, "tokens": {}}
+        for side in SIDES:
+            if len(old["turn_logps"][side]) != len(new["turn_logps"][side]):
+                raise ValueError("Per-turn score counts differ")
+            comparison["turns"][side] = [
+                {**scalar_difference(a, b), "tokens": token_difference(at, bt)}
+                for a, b, at, bt in zip(old["turn_logps"][side], new["turn_logps"][side],
+                                        old["token_logps"][side], new["token_logps"][side])]
+            comparison["tokens"][side] = token_difference(
+                [v for turn in old["token_logps"][side] for v in turn],
+                [v for turn in new["token_logps"][side] for v in turn])
+        comparison["gradients"] = {key: gradient_difference(snapshots[reference][key],
+                                                           snapshots[actual][key]) for key in parameters}
+        comparison["gradient_objective_difference"] = scalar_difference(old["gradient_objective"], new["gradient_objective"])
     return record
 
 
-def summarize(records):
+def _pooled_token_difference(rows):
+    count = sum(row["token_count"] for row in rows)
+    finite = bool(count) and all(row["finite"] for row in rows)
+    mean = math.fsum(row["absolute_difference_sum"] for row in rows) / count if finite else None
+    return {"token_count": count, "mean_absolute_difference_nats_per_token": mean, "finite": finite,
+            "hf_vllm_tolerance_nats_per_token": TOKEN_ATOL,
+            "within_hf_vllm_tolerance": mean is not None and mean <= TOKEN_ATOL}
+
+
+def _summarize_comparison(records):
     sides = [r["side_sums"][s] for r in records for s in SIDES]
     turns = [v for r in records for s in SIDES for v in r["turns"][s]]
     grads = [v for r in records for v in r["gradients"].values()]
-    finite = bool(records and sides and turns and grads) and all(v["finite"] for v in [*sides, *turns, *grads,
+    tokens = [r["tokens"][s] for r in records for s in SIDES]
+    finite = bool(records and sides and turns and grads) and all(v["finite"] for v in [*sides, *turns, *grads, *tokens,
         *[r["gradient_objective_difference"] for r in records]])
 
     def maximum(rows, key):
@@ -260,8 +329,21 @@ def summarize(records):
             [r["side_sums"][side] for r in records], "relative_difference") for side in SIDES},
         "max_gradient_relative_l2_by_tensor": {name: maximum(
             [r["gradients"][name] for r in records], "relative_l2") for name in (records[0]["gradients"] if records else {})},
-        "passed": bool(finite and side_rel is not None and side_rel <= SIDE_RTOL
-                       and grad_rel is not None and grad_rel <= GRAD_RTOL)}
+        "tokens": _pooled_token_difference(tokens),
+        "tokens_by_side": {side: _pooled_token_difference([r["tokens"][side] for r in records]) for side in SIDES}}
+
+
+def summarize(records):
+    comparisons = {name: {"reference_path": reference, "actual_path": actual,
+                         **_summarize_comparison([r["comparisons"][name] for r in records])}
+                   for name, (reference, actual) in COMPARISONS.items()}
+    packing = comparisons["packing_only"]
+    finite = all(c["all_finite_and_present"] for c in comparisons.values())
+    side_rel, grad_rel = packing["max_side_relative_difference"], packing["max_gradient_relative_l2"]
+    return {"acceptance_comparison": "packing_only", "all_finite_and_present": finite,
+            "comparisons": comparisons,
+            "passed": bool(finite and side_rel is not None and side_rel <= SIDE_RTOL
+                           and grad_rel is not None and grad_rel <= GRAD_RTOL)}
 
 
 def _json_safe(value):
@@ -292,11 +374,18 @@ def aggregate_measurements(records):
 
 
 def _print_pair(index, record):
-    for side in SIDES:
-        delta = record["side_sums"][side]
-        print(f"pair={index} {side}: abs={delta['absolute_difference']} rel={delta['relative_difference']}", flush=True)
-        for turn, delta in enumerate(record["turns"][side]):
-            print(f"  turn={turn}: abs={delta['absolute_difference']} rel={delta['relative_difference']}", flush=True)
+    for name, comparison in record["comparisons"].items():
+        print(f"pair={index} {name}: {comparison['reference_path']} vs {comparison['actual_path']}", flush=True)
+        for side in SIDES:
+            delta = comparison["side_sums"][side]
+            tokens = comparison["tokens"][side]
+            print(f"  {side}: signed={delta['signed_difference']} abs={delta['absolute_difference']} "
+                  f"rel={delta['relative_difference']} token_MAE={tokens['mean_absolute_difference_nats_per_token']} "
+                  f"nats/token (HF/vLLM base tolerance={TOKEN_ATOL:g}, within={tokens['within_hf_vllm_tolerance']})", flush=True)
+            for turn, delta in enumerate(comparison["turns"][side]):
+                print(f"    turn={turn}: signed={delta['signed_difference']} abs={delta['absolute_difference']} "
+                      f"rel={delta['relative_difference']} "
+                      f"token_MAE={delta['tokens']['mean_absolute_difference_nats_per_token']}", flush=True)
     print(f"pair={index} tokens/pass={record['forward_tokens_per_pass']}", flush=True)
     for scoring, path in record["paths"].items():
         print(f"pair={index} {scoring} measurements={json.dumps(path['measurements'])}", flush=True)
@@ -311,17 +400,20 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     add_flex_kernel_options_argument(parser)
     args = parser.parse_args(argv)
-    print(f"PASS requires every bf16 side-sum relative difference <= {SIDE_RTOL:g}, every gradient tensor "
-          f"relative L2 <= {GRAD_RTOL:g}, and all scores/gradients finite and present (no NaN/Inf).", flush=True)
+    print(f"PASS requires packing-only (per_turn_flex vs shared_history) bf16 side-sum relative difference "
+          f"<= {SIDE_RTOL:g}, every gradient tensor relative L2 <= {GRAD_RTOL:g}, and all paths' scores/gradients "
+          f"finite and present (no NaN/Inf). Kernel-only differences and token MAE (HF/vLLM base tolerance "
+          f"{TOKEN_ATOL:g} nats/token) are diagnostics.", flush=True)
     report = {"status": "running", "passed": False, "gpu_acceptance": False, "criteria": criteria(),
-        "scope": "single-GPU real-student bf16 kernel acceptance; not FSDP/optimizer/scientific validation",
+        "scope": "single-GPU real-student bf16 packing acceptance with a matched Flex control; not FSDP/optimizer/scientific validation",
         "settings": {"num_pairs": args.num_pairs, "max_length": MAX_LENGTH, "packing": "turn",
                      "dtype": "bfloat16", "gradient_accumulation_dtype": "float32", "seed": 0,
                      "gradient_checkpointing": "non-reentrant", "gradient_objective": "chosen sum - rejected sum",
                      "training_updates": 0, "teacher_calls": 0},
         "measurement_notes": "One model; per-pair gradients; timings include masks, cold compilation and CPU gradient "
             "snapshots, no warmup. Peaks include resident weights and fp32 gradient accumulation. "
-            "Root forward tokens exclude decoder checkpoint recomputation. Per-turn diagnostics are a separate pass.",
+            "Root forward tokens exclude decoder checkpoint recomputation. Per-turn/token diagnostics share a separate pass. "
+            "CPU tests use dense SDPA mask oracles for both Flex layouts; only CUDA executes the matched Flex kernels.",
         "pairs": [], "phase": "setup", "inputs": {
             "pairs_directory": str(Path(args.pairs).resolve()), "snapshot": args.snapshot,
             "config": args.config, "output": args.output}}

@@ -230,9 +230,11 @@ def test_flex_interface_forward_matches_per_turn(monkeypatch):
 
 @pytest.mark.parametrize("checkpointing", [False, True])
 @pytest.mark.parametrize("options", [None, {"BLOCK_M": 16, "BLOCK_N": 16, "bwd_BLOCK_M1": 32, "bwd_BLOCK_N1": 32}])
-def test_large_head_kernel_options_reach_flex_and_checkpoint_recomputation(monkeypatch, checkpointing, options):
+@pytest.mark.parametrize("scoring", ["shared_history", "per_turn_flex"])
+def test_large_head_kernel_options_reach_flex_and_checkpoint_recomputation(monkeypatch, checkpointing, options, scoring):
     from transformers import Gemma4UnifiedTextConfig, Gemma4UnifiedConfig, Gemma4UnifiedForConditionalGeneration
     from torch.nn.attention.flex_attention import BlockMask
+    from tools.validate_shared_history_gpu import per_turn_flex_logps
     torch.set_num_threads(1)
     torch.manual_seed(42)
     text = Gemma4UnifiedTextConfig(vocab_size=128, hidden_size=32, intermediate_size=64,
@@ -269,21 +271,28 @@ def test_large_head_kernel_options_reach_flex_and_checkpoint_recomputation(monke
         qi = torch.arange(q.shape[-2])[None, None, :, None]
         ki = torch.arange(k.shape[-2])[None, None, None, :]
         mask = block_mask.mask_mod(b, 0, qi, ki)
+        if scoring == "per_turn_flex":
+            expected_mask = qi >= ki
+            if q.shape[-1] == 256:
+                expected_mask = expected_mask & (qi - ki < text.sliding_window)
+            assert torch.equal(mask, expected_mask)
         return torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask,
             scale=kwargs["scale"], enable_gqa=kwargs["enable_gqa"])
 
     monkeypatch.setattr("transformers.integrations.flex_attention.compile_friendly_flex_attention", flex_boundary)
     rows = [random_conversation(1, 2)]
     expected = batch_logps(original, rows, "cpu")
-    actual = shared_history_logps(packed, rows, "cpu")
-    assert calls == [(256, None), (512, expected_options)]
+    actual = (shared_history_logps(packed, rows, "cpu") if scoring == "shared_history"
+              else per_turn_flex_logps(packed, rows[0], "cpu").unsqueeze(0))
+    forwards = 1 if scoring == "shared_history" else len(sequence_rows(rows[0]))
+    assert calls == [(256, None), (512, expected_options)] * forwards
     torch.testing.assert_close(actual, expected, rtol=1e-5, atol=1e-5)
     actual.sum().backward()
     assert all(p.grad is None or torch.isfinite(p.grad).all() for p in packed.parameters())
     if checkpointing:
-        assert len(calls) == 4 and {head for head, _ in calls[2:]} == {256, 512}
+        assert len(calls) == 4 * forwards and {head for head, _ in calls[2 * forwards:]} == {256, 512}
     else:
-        assert len(calls) == 2
+        assert len(calls) == 2 * forwards
 
 
 @pytest.mark.parametrize("options", [[], {"BLOCK_M": 256}, {"BLOCK_N": 48}, {"BLOCK_M": 8},

@@ -151,7 +151,7 @@ def batch_logps(model, rows, device, *, rounds=None, scoring="per_turn"):
     return sum(scores)
 
 
-def sequence_logps(model, rows, device):
+def sequence_logps(model, rows, device, *, per_token=False):
     """Exact summed assistant log-probs, materializing only target predecessors.
 
     Selected logits are already causally aligned. Calling the verbatim scorer
@@ -177,6 +177,9 @@ def sequence_logps(model, rows, device):
     logits = model(input_ids=ids, attention_mask=attention, use_cache=False,
                    logits_to_keep=positions).logits
     target = labels[:, positions + 1]
+    if per_token:
+        from baselines.common.shared_history import supervised_token_logps
+        return supervised_token_logps(logits, target)
     # Small log-softmax chunks avoid a second full fp32 vocabulary tensor.
     values = [OfficialLoss.get_batch_logps(logits[:, start:start + 128].float(),
                        target[:, start:start + 128].clone(), average_log_prob=False,
