@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **19:4x CDT 10-19: 429 CONTENTION INCIDENT.** rai full-TRAIN collection paced at 1.8M/2M tpm + hpg teacher stages → HTTP 429s: LEAP correction stages recorded rejected corrections
+  (lpz k5s0 rej 1/0/2, lpz k5s1 1/2/1, lpp k5s1 2/2/3, lpz k10s0 3, lpz k10s1 5 of 5, lpp k10s1 6 of 7 …; 429 files in audit/teacher/correction-*), AgentDistill k20s0 teacher halted (first call 429),
+  CoA k20s0 teacher halted → data empty → result stopped_empty_sft (silent). ACTIONS: held 50 pending LEAP teacher (c) jobs; cancelled CoA/GAD/AgentDistill dependents; Codex wt/retry429 (pid 1634290):
+  rate-limit 429 retry with backoff, quota 429 still halts, shared limiter dir. TODO after collection ends (~21:30) + fix: halted teacher must fail stages (CoA etc.); scan all ledgers since 14:10;
+  invalidate (move to _trash) every LEAP correct-i stage with 429-reduced corrections and all later stages, rerun; rerun AgentDistill/CoA/GAD k20s0 fresh. LEAP 0% K5 s0 result (64/62/61/64) is TAINTED.
+  Also: GAD failed for missing third_party/LMOps/gad in tree (synced to 08d3c47 and 1155125). Shared-history GPU check now runs but fails thresholds (side sums 0.37%, grads 6–15%);
+  per-turn diffs random incl. turn 1 → likely kernel numerics; Codex adding per_turn_flex control (pid 1625002).
 - **18:2x CDT 10-19:** main 08d3c47 (all 8 new methods merged incl. CoA; 226 CPU tests pass). Batch 2 SUBMITTED (K20 s0 of SAD/WKM/STeCa/GAD/AgentDistill/CoA, see exp_log).
   Shared-history fix (tree e20cb73) GPU checks 46741186/87 queued. Codex: wt/hadco co-scheduled HAD runner (pid 1409396). AD-FTP collection waits for full-TRAIN collection.
 - **18:1x CDT 10-19:** first batch-1 result: LEAP 0% K5 s0 dev140 64/62/61/64 (iter 0–3; base 62); corrections 2/2/1. Batch 1: 66 links done, 0 failures; group-account K5 chains nearly done.
