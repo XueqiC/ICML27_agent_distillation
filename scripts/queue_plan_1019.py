@@ -20,7 +20,9 @@ T3 = "b1149a7"   # 10-19 evening: + 429 retry, fail-loud teacher transport, WKM 
 EMB = ("/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--sentence-transformers--all-MiniLM-L6-v2/"
        "snapshots/1110a243fdf4706b3f48f1d95db1a4f5529b4d41")
 NB = f"{B}/reports/new_baselines"  # AgentDistill/CoA outputs must live outside reports/runs
-TEACHER_GATE = {"pid_gone": COLLECTOR_PID}  # every teacher stage waits for the rai collection (shared API key)
+# Every teacher stage waits for this file. Create it by hand only once the OpenAI key has credits (out since 10-19
+# 17:55 CDT) and the API budget across rai and hpg is settled.
+TEACHER_GATE = {"file": "/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/teacher_ok"}
 
 
 def verified(k, s):
@@ -61,7 +63,7 @@ def leap(var, k, s, start, tree=T1, gate=True):
     cpu = "--partition=hpg-milan --gpus=0 --cpus-per-task=2 --mem=8G"
     gpu = "--gpus=1 --cpus-per-task=4 --mem=32G"
     gh = {5: "01:30:00", 10: "01:30:00", 20: "02:30:00", 50: "07:00:00", 100: "12:00:00"}[k]
-    g = {"pid_gone": COLLECTOR_PID} if gate else None
+    g = TEACHER_GATE if gate else None
     first = "extract" if var == "privileged" else "data-0"
     # extract (privileged) asks the teacher; data-0 (0% privileged) does not
     out = [stage(f"{cell}-c0", "scripts/hpg_leap.slurm", cpu, "04:00:00", 0, f"{e},LEAP_THROUGH={first}",

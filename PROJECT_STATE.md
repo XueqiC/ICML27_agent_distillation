@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+- **21:0x–21:2x CDT 10-19: OPENAI CREDITS EXHAUSTED at ~17:55 CDT** (last success 22:55:53Z).
+  - Probe: HTTP 429 `insufficient_quota` / `credit_balance_exhausted` ("You have no credits remaining").
+  - Every teacher call since then failed, on rai and hpg. The 19:4x "429 contention" diagnosis was incomplete: before 17:55 there was real contention; after 17:55 it was the credits.
+  - Full-TRAIN collection (old tree 549503d, retried quota 429s for 3 h) **stopped by me at 21:1x CDT** (TERM to launcher 228787; all shards exited).
+    - State: 1,406 trusted / 1,907 attempted of 3,553; 4,542 attempts recorded (2,189 ok, 2,353 error, mostly quota).
+    - Settled usage 14:10–17:55: 57,342 calls, 292.9M input / 3.46M output tokens.
+    - Resume needs the fail-loud recovery procedure (docs/TEACHER_TRANSPORT_FAILURES.md) so that quota-failed attempts do not count as task failures.
+  - User asked to top up (Discord 1561924281720381494). **All teacher work paused until then**: collection, AD-FTP, LEAP, STeCa, GAD, CoA, AgentDistill, HAD.
+  - Keeper teacher gate is now the file logs/queue/gates/teacher_ok (create it by hand).
 - **21:0x CDT 10-19: LEAP TRANSPORT BUG → whole LEAP grid reruns (s0 included).**
   - The bug: LEAP teacher calls used Teacher(max_attempts=1, timeout 60 s) per method try, while upstream LEAP uses openai.OpenAI() SDK defaults (600 s, max_retries 2) inside a 3-try loop.
   - Evidence: success latencies are censored at the timeout (correction p50 48 s, p90 58 s, max 60.1 s; extraction p50 3.8 s). Lost requests were recorded as rejections: 119 APITimeoutError + 200 RateLimitError. privileged k100s0 lost 11/114 to timeouts (10-06/07), k50s0 3/63.
