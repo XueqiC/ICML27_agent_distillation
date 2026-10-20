@@ -240,6 +240,19 @@ LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10
                [("privileged", k, s) for k, s in ((5, 1), (5, 2), (10, 1), (10, 2), (20, 1), (20, 2))]
 
 
+def smartadsel(s):
+    """SmartAD K100 selection on hpg (rai: ~36 s/candidate on one 48 GB card). The pool was collected on rai and copied
+    to the same relative layout; --path-map relocates its absolute evidence paths (hash-checked, disclosed)."""
+    cell = f"smartadsel-k100s{s}"
+    e = (f"SMARTAD_OUT={SMARTAD_SEL}/k100_s{s},VERIFIED={B}/reports/runs/smartad-collections/k100_s{s},"
+         f"SMARTAD_THROUGH=select,SMARTAD_PATH_MAP=/home/xueqi/hq/projects/ICML27_agent_distillation={B},"
+         f"WORKERS=16,BATCH_INVARIANT=1")
+    gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/smartad_pool_k100_s{s}_on_hpg"}
+    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    return {"cell": cell, "tree": "e7e4311", "stages": [stage(f"{cell}-select", "scripts/hpg_smartad.slurm", one,
+                                                              "08:00:00", 1, e, gate)]}
+
+
 def kangfix(k, s):
     """Re-evaluate the finished Kang/AD cells (SAG, as before) with the k_eq_v serving fix, on the AD-FTP eval tree so
     every core method shares one eval harness. New OUT; the pre-fix kang-<cell>-tp-sag results stay in place."""
@@ -264,7 +277,9 @@ def main():
     # collections land), SAD (15 cells here), SmartAD (to implement). Everything else is on hold until tomorrow;
     # running jobs of held cells are still tracked.
     # sadsh-k20s0 first: SAD trains are the long pole (hours on 4 GPUs), AD-FTP stages take 5-30 min.
-    cells = [sad(20, 0)] + [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
+    # 10-20 09:4x CDT: SmartAD selection moved from rai to hpg (top priority: it gates all 15 SmartAD cells).
+    cells = [smartadsel(s) for s in (0, 1, 2)]
+    cells += [sad(20, 0)] + [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     # 10-20 08:4x CDT: Kang evals re-run with the k_eq_v serving fix (pre-fix served V without the k_proj LoRA delta).
     cells += [kangfix(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
     # SAD: T4 per-turn scoring needed ~31 h per cell (sad-k20s0 reached the 1/8 checkpoint in 3.9 h; cancelled
