@@ -29,6 +29,19 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 15:3x-15:4x CDT user: (a) OK continuation 'as long as fully trained'; (b) MAIN TABLE = 轨迹 SFT, AD (= AD-FTP + SAG, named
+  'AD'), SAD, SmartAD, all 15/15 -> report, then add quick-to-complete baselines; (c) full support set = training set?
+  (d) 'ALL training in our tables must converge, per standard LLM distillation'.
+  Answers: train split 3,553 games; full-TRAIN r2 collection complete: 3,098 trusted (87.2%), 455 never solved; types
+  simple 777 / two 752 / clean 530 / cool 399 / heat 342 / look 298. Full-cell costs: 轨迹 SFT, SAD no teacher calls;
+  AD needs FTP re-collection ~84k calls (~0.7x full collection tokens); SmartAD ~640k calls / ~3.3B input (~5x, ~30 h at
+  key limit) + ~70 GPU-h selection -> user to decide. Sync of seeds_full_train_r2 (17G, 980k files) to hpg started:
+  scratchpad/sync_full_train.sh pid 3655297, log logs/sync_full_train.log, gate gates/full_train_on_hpg.
+  Convergence evidence (s1 train loss end): 轨迹 SFT 0.000/0.006/0.014 (K5/20/100) vs AD 0.20-0.24, AD-FTP 0.30-0.35,
+  SmartAD 0.18-0.19 (2 epochs = 10-50 updates). PROPOSED (awaiting user, Discord 1562202861033619528): converged when
+  doubling training changes last-epoch mean train loss by < 0.01 nats/token; only epochs change (schedule stretched,
+  retrain from scratch; ladder 2->4->8->16...); 轨迹 SFT continues (const lr): K5 converged, K20/K100 not; alternative =
+  val-loss early stopping on 200 held-out full-TRAIN teacher trajectories. Replaces the dev-based continuation rule.
 - 15:3x CDT user: keep ONE reference, named plainly '轨迹 SFT' (no AD-recipe row); AD = trajectory SFT + FTP + SAG +
   its own recipe. Chosen: the existing 15 Seed-SFT runs (standard objective, largest training amount). 'Sufficient
   training' not yet met for K5-K20 (still rising at end) -> proposed: continue those 9 runs from their last checkpoint
