@@ -34,7 +34,9 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   root cause open (FTP multi-Action first turns only weakly associated with gradient spikes). Pending user: FTP fix + retrain?
 - SmartAD pools complete 1000/1000 x3 (09:04 CDT). Selection on rai too slow (36 s/candidate, ~10 h/seed): moving to hpg B200 —
   Codex wt/smartadrelocate (path map + hash checks, bg bkz8jn30c), pool sync to hpg (bg bfy7xics9, log logs/sync_smartad_pools.log).
-  rai s0 selection (pid 2462497 via smartad_post.sh 783964) continues as fallback; stop both before hpg selection writes.
+  -> 09:4x CDT: fix e7e4311 deployed (main 1ddc8ca); plan v10 cells smartadsel-k100s{0,1,2} (top priority, gated on
+  gates/smartad_pool_k100_sX_on_hpg); s0 running 46855474 (8.7 s/candidate, ~2.4 h). rai fallback stopped (226 scores, unused).
+  Gate watcher scratchpad/smartad_sel_gate.sh (pid 2667278) opens gates/smartad_k100_sX_synced when hpg result.json is complete.
 - SmartAD collection: first launcher exited 1 at 08:02 CDT (956/950/964 of 1000; one HTTP 400 in k100_s1 shard 7 made the
   launcher skip its completion pass, so deferred candidate-01 slots never ran). Failed slot quarantined (reports/runs/
   smartad-collections/_quarantine/k100_s1/README.md); relaunched --resume 08:23 CDT (launcher pid 1874049, bg borrsbjsb).
