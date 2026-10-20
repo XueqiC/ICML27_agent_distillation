@@ -94,6 +94,18 @@ G4 = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=256G"
 G1 = "--partition=hpg-b200 --gpus=1 --cpus-per-task=4 --mem=48G"
 
 
+def sad(k, s):
+    """SAD cell on T4 (one-hot KL = CE on the trusted seeds; no teacher calls)."""
+    cell = f"sad-k{k}s{s}"
+    e = f"SAD_OUT={BL}/{cell},NGPUS=4"
+    C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
+    return {"cell": cell, "tree": T4, "stages": [
+        multi(f"{cell}-prep", C4, "02:00:00", 0, "scripts/hpg_sad.slurm", "SAD_THROUGH", "prepare", e, k=k, s=s),
+        multi(f"{cell}-train", G4, "24:00:00", 4, "scripts/hpg_sad.slurm", "SAD_THROUGH", "train", e, k=k, s=s),
+        multi(f"{cell}-eval", G1, "10:00:00", 1, "scripts/hpg_sad.slurm", "SAD_THROUGH", "all", e, k=k, s=s,
+              mode=("SAD_MODE", "evaluate"))]}
+
+
 def sad_k20s0():
     e = f"SAD_OUT={BL}/sad-k20s0,NGPUS=4"
     return {"cell": "sad-k20s0", "tree": T2, "stages": [
@@ -184,22 +196,26 @@ LEAP_RESTART = [("zero", k, s) for k, s in ((5, 0), (5, 1), (5, 2), (10, 0), (10
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    # Plan v3 (10-19 22:3x CDT), list order = priority:
-    #   running teacher-free cells -> first cells of the T4 methods (validate before widening) -> LEAP K grid.
-    # Every teacher stage waits for TEACHER_GATE (OpenAI credits out since 17:55 CDT). Full cells wait for the
-    # full-TRAIN collection; HAD waits for co-scheduling support in the keeper.
-    cells = [sad_k20s0()] + [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
-    cells += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
-    cells += [preference("eto", 20, 0), preference("ipr", 20, 0)]
-    cells += [c for c in new_methods_k20s0() if c["cell"] in ("steca-k20s0", "gad-k20s0")]
-    cells += [leap(v, 20, 0, "c0", tree=T4) for v in ("zero", "privileged")]
-    cells += [leap(v, k, s, "c0", tree=T4) for v in ("zero", "privileged") for k, s in K_CELLS if (k, s) != (20, 0)]
-    cells += [c for c in new_methods_k20s0() if c["cell"] in ("agentdistill-k20s0", "coa-k20s0", "coa-k20s0-teval")]
-    plan = {"limits": {"max_jobs": 8, "max_gpus": 12, "max_group_gpus": 0}, "cells": cells}
+    # Plan v4 (10-19 23:5x CDT, user priority): core agent-distillation methods first, every K x s0-s2:
+    # AD/Kang (K grid already complete), AD-FTP (collection running on rai; training cells added when the FTP
+    # collections land), SAD (15 cells here), SmartAD (to implement). Everything else is on hold until tomorrow;
+    # running jobs of held cells are still tracked.
+    cells = [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
+    held = [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
+    held += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
+    held += [preference("eto", 20, 0), preference("ipr", 20, 0)]
+    held += [c for c in new_methods_k20s0() if c["cell"] in ("steca-k20s0", "gad-k20s0")]
+    held += [leap(v, 20, 0, "c0", tree=T4) for v in ("zero", "privileged")]
+    held += [leap(v, k, s, "c0", tree=T4) for v in ("zero", "privileged") for k, s in K_CELLS if (k, s) != (20, 0)]
+    held += [c for c in new_methods_k20s0() if c["cell"] in ("agentdistill-k20s0", "coa-k20s0", "coa-k20s0-teval")]
+    for c in held:
+        c["hold"] = True
+    cells += held
+    plan = {"limits": {"max_jobs": 8, "max_gpus": 12, "max_group_gpus": 4}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
-    print(f"{len(cells)} cells, {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
+    print(f"{len(cells)} cells ({len(held)} held), {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
 
 
 if __name__ == "__main__":

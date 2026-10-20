@@ -11,6 +11,7 @@ Files (all under --dir, re-read every loop so cells and limits can be edited whi
   plan.json   {"limits": {"max_jobs": 8, "max_gpus": 16, "max_group_gpus": 4},
                "cells": [{"cell": ..., "tree": sha, "stages": [stage, ...]}, ...]}   (list order = priority)
      stage   {"name", "script", "res", "time", "gpus", "exports", optional "gate": {"pid_gone": N} | {"file": path}}
+     cell "hold": true keeps a cell out of submission (its queued job, if any, is still tracked)
   state.json  {cell: {"done": [stage names], "active": {"name", "id"} | null, "blocked": reason | null}}
   PAUSE       if present, nothing is submitted (tracking continues)
   keeper.log  one line per event: SUBMIT / COMPLETED / FAILED / CELL_DONE / SSH_FAIL / ERROR
@@ -128,7 +129,7 @@ def step(dir_, dry):
     paused = (dir_ / "PAUSE").exists()
     for cell in plan["cells"]:
         st = state.setdefault(cell["cell"], {"done": [], "active": None, "blocked": None})
-        if st["active"] or st["blocked"]:
+        if st["active"] or st["blocked"] or cell.get("hold"):
             continue
         todo = [s for s in cell["stages"] if s["name"] not in st["done"]]
         if not todo:
@@ -142,10 +143,12 @@ def step(dir_, dry):
         g = int(stage["gpus"])
         if total + 1 > limits["max_jobs"] or gpus + g > limits["max_gpus"]:
             continue  # a smaller later stage may still fit
+        # CPU stages and GPU stages that fit the group allowance go to the group account (memory headroom on the
+        # dept QOS is usually the binding limit); everything else to the department.
         if stage.get("account") == "dept":
             account = DEPT
-        elif stage.get("account") == "group" or g == 0 or group_gpus + g <= limits["max_group_gpus"]:
-            account = GROUP if g <= 2 else DEPT
+        elif g == 0 or group_gpus + g <= limits["max_group_gpus"]:
+            account = GROUP
         else:
             account = DEPT
         if dry:
