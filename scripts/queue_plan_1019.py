@@ -219,7 +219,13 @@ def main():
     # collections land), SAD (15 cells here), SmartAD (to implement). Everything else is on hold until tomorrow;
     # running jobs of held cells are still tracked.
     cells = [adftp(k, s) for s in (0, 1, 2) for k in (5, 10, 20, 50, 100)]
-    cells += [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
+    # SAD on T4 uses per-turn scoring: measured 5.2M of the 655M processed positions in 17 min on 4 B200 (~35 h per
+    # cell, past the 24 h limit). The spec calls for shared-history packing (exact; same logical budget), so the SAD
+    # grid waits for that tree. sad-k20s0 keeps running on T4 as the per-turn reference for the equivalence check.
+    sad_cells = [sad(k, s) for k, s in [(20, 0)] + [c for c in K_CELLS if c != (20, 0)]]
+    for c in sad_cells[1:]:
+        c["hold"] = True
+    cells += sad_cells
     held = [c for c in new_methods_k20s0() if c["cell"] == "wkm-k20s0"]
     held += [agentgym(k, s, "x0") for k in (50, 100) for s in (1, 2)]
     held += [preference("eto", 20, 0), preference("ipr", 20, 0)]
