@@ -17,6 +17,20 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 17:1x CDT 10-20: chain grid launch state
+- main 20cb697 = views (4001161) + convergence (7f3771b) + chain collections (feec885) + shared-history/multi-GPU
+  SFT/SmartAD (wt/shsft; dropout 0.05 kept, expected-gradient equivalence; user OK 16:47). CPU tests: 99 + 165 + 112
+  (torch, incl. 2-process gloo == 1-process LoRA) pass. Deployed hpg ICML27_runs/20cb697, LONI /work/xueqic/hq/ICML27_runs/20cb697.
+- Views written on rai: seeds_full_train_r2/subsets/k{30,100,300,500} (full order sha c0b43778…; all distinct groups).
+- Keeper plan b4bf9ff: 40 cells on 20cb697: sadc-k{K}-b{1,05}, tsft-k{K}-e{2,4,8,16}, adc-k{K}-e{2,4,8,16}; gates
+  chain_views_on_hpg (SAD), tsft_ready, adc_ready, eval_<cell> (only the reported rung is evaluated). All closed.
+- hpg: shsft-gpucheck 46909768 (B200 acceptance, VERIFIED seeds_k20_s0) running; watcher bjkkg9tbo -> open tsft_ready.
+- rai: chain collections launched 16:44 CDT (scratchpad/run_chain_collect.sh, run tree ../ICML27_run_d7ad7fe, limiter
+  data/teacher_rate_limit_chain): adftp pid 43085 (logs/chain_collect_adftp.log), smartad pid 43086; still in preflight.
+- Data sync to hpg via the Mac tunnel still copying (pid 3655297); views need a separate copy after it. LONI copy done
+  (original 980,253 files match; subsets copied separately). LONI smoke tsft-k30-e2-loni job 1117994 (gpu2, 2 A100),
+  wrapper /work/xueqic/hq/ICML27_loni_wrap.sh, env /work/xueqic/hq/ICML27_loni.env. Codex wt/viewcache (pid 44089).
+
 ### 15:4x-16:0x CDT 10-20: NEW MAIN GRID (user) — supersedes the K5-K100 x 3-seed grid
 - Grid: K in {30, 100, 300, 500} first (later 1000, 2000, all = 3,098), seed 0 only, nested stratified views of
   data/verified/seeds_full_train_r2 (rule stratified_nested_v2). Target (user): K<=500 x 4 methods by 23:00 CDT 10-20.
