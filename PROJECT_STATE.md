@@ -29,6 +29,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 15:3x CDT user: keep ONE reference, named plainly '轨迹 SFT' (no AD-recipe row); AD = trajectory SFT + FTP + SAG +
+  its own recipe. Chosen: the existing 15 Seed-SFT runs (standard objective, largest training amount). 'Sufficient
+  training' not yet met for K5-K20 (still rising at end) -> proposed: continue those 9 runs from their last checkpoint
+  (train/continue_from_state.py, optimizer state, constant lr) to 800k tokens, eval 400k+800k with fixed serving; stop
+  when the doubling gain is within eval noise (~+-7), else double again; same rule for all K, endpoint only.
+  ASKED USER to confirm the dev140-based stopping rule (Discord 1562201320306516020) before submitting.
 - 15:2x CDT user on wording: Seed-SFT = trajectory SFT (standard objective: token-mean NLL of teacher agent outputs y_t
   given h_t, x/o_t conditioning only) + OUR long schedule (LoRA r16, const 1e-5, max(40 passes, 400k tokens)). Renamed in
   reports: '轨迹 SFT（长训练配置）'; paper-recipe row '轨迹 SFT（AD 配方）' = Kang SFT stage, greedy (offered, 15 evals, no
