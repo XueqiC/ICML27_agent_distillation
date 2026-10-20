@@ -1,7 +1,7 @@
 """Versioned, immutable TRAIN group sampling; no trajectories are claimed here."""
 
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 import random
 
 from sed.manifest import TASK_TYPES, frozen_write, load_frozen, authorize_task, resolve_task
@@ -9,6 +9,81 @@ from sed.storage import digest
 
 RULE = "stratified_groups_v1"
 ALL_TRAIN_RULE = "all_train_v1"
+NESTED_RULE = "stratified_nested_v2"
+NESTED_GRID_K = (30, 100, 300, 500, 1000, 2000)
+
+
+def is_stratified_nested(selection):
+    return selection.get("selection_rule") == NESTED_RULE
+
+
+def stratified_nested_order(source, *, seed=0):
+    """Order verified instances only; no episode content or candidate failures.
+
+    Integer deficits avoid floating-point tie drift. Sorting before each seeded
+    shuffle makes the order independent of receipt/dict traversal order.
+    """
+    if type(seed) is not int:
+        raise ValueError("Invalid nested support seed")
+    groups, seen, group_types = defaultdict(lambda: defaultdict(list)), set(), {}
+    for receipt in source["verified"]:
+        row = {key: receipt[key] for key in ("task_id", "group_id", "task_type")}
+        tid, group, kind = row["task_id"], row["group_id"], row["task_type"]
+        if tid in seen or kind not in TASK_TYPES or group_types.setdefault(group, kind) != kind:
+            raise ValueError("Nested universe requires unique instances and single-type groups")
+        seen.add(tid)
+        groups[kind][group].append(row)
+    if not seen:
+        raise ValueError("Nested universe has no verified trajectories")
+    types = sorted(TASK_TYPES)
+    queues = {}
+    for kind in types:
+        group_order = sorted(groups[kind])
+        random.Random(digest([seed, "groups", kind])).shuffle(group_order)
+        rows = []
+        for group in group_order:
+            trials = sorted(groups[kind][group], key=lambda r: r["task_id"])
+            random.Random(digest([seed, "instances", kind, group])).shuffle(trials)
+            rows.append(trials)
+        queues[kind] = [trials[round_] for round_ in range(max(map(len, rows), default=0))
+                        for trials in rows if round_ < len(trials)]
+    totals = {kind: len(queues[kind]) for kind in types}
+    counts, order, size = dict.fromkeys(types, 0), [], len(seen)
+    for n in range(1, size + 1):
+        # max keeps the first type in the recorded fixed order on exact ties.
+        kind = max((t for t in types if counts[t] < totals[t]),
+                   key=lambda t: n * totals[t] - size * counts[t])
+        order.append(queues[kind][counts[kind]])
+        counts[kind] += 1
+    return order
+
+
+def select_nested_verified(source, large, *, k, seed=0, order=None):
+    """A prefix of a complete all_train_v1 verified universe (not candidates)."""
+    if source.get("status") != "complete" or not is_full_train(large):
+        raise ValueError("Nested v2 requires a complete all_train_v1 source")
+    if type(seed) is not int or type(k) is not int or not 1 <= k <= len(source["verified"]):
+        raise ValueError("Nested K must be positive and at most the verified universe size")
+    order = stratified_nested_order(source, seed=seed) if order is None else order
+    types = sorted(TASK_TYPES)
+    selected = {kind: [r for r in order[:k] if r["task_type"] == kind] for kind in types}
+    counts = {kind: len(rows) for kind, rows in selected.items()}
+    groups = Counter(r["group_id"] for r in order[:k])
+    result = dict(schema_version=1, selection_rule=NESTED_RULE, seed=seed, K=k,
+                  K_counts="trusted_executed_trajectories", trusted_trajectories=k,
+                  selected_unique_instances=k, selected_task_groups=len(groups),
+                  multi_trial_groups=sum(n > 1 for n in groups.values()),
+                  split="train", source_split="train", type_order=types,
+                  quotas=counts, counts_by_task_type=counts, selected=selected,
+                  replacements={kind: [] for kind in types},
+                  task_order=[r["task_id"] for r in order[:k]],
+                  full_order_sha256=digest([r["task_id"] for r in order]),
+                  universe_size=len(order),
+                  source_manifest_sha256=digest(source), source_selection_sha256=digest(large),
+                  manifest_sha256=large["manifest_sha256"], split_freeze_sha256=large["split_freeze_sha256"],
+                  external_resource="verified full TRAIN trajectories; breadth-first sibling trials per type")
+    result["selection_sha256"] = digest(result)
+    return result
 
 
 def is_full_train(selection):

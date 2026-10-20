@@ -12,7 +12,7 @@ from sed.provenance import code_hashes, safe_config, versions, write_provenance
 from sed.react import PROMPT_TEMPLATE, PROMPT_VERSION
 from sed.runner import _environment, run_episode
 from sed.seed_evidence import artifact_hashes, checked_episode, environment_won, load_verified_collection
-from sed.seed_selection import is_full_train
+from sed.seed_selection import is_full_train, is_stratified_nested
 from sed.storage import BlobStore, digest, locked, write_json
 from teachers.baseline_transport import baseline_transport
 from teachers.openai_teacher import TeacherCallError
@@ -278,7 +278,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         if any(directory.is_relative_to(root) for root in
                (source_root, Path(config["paths"]["raw"]).resolve(), Path(config["paths"]["verified"]).resolve())):
             raise ValueError("SmartAD output/limiter must be outside original seed storage")
-    if (is_full_train(selection) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
+    if ((is_full_train(selection) or is_stratified_nested(selection)) and subset_ks) or any(k < 1 or k >= selection["K"] for k in subset_ks):
         raise ValueError("Nested views require smaller positive K and a few-shot source")
     validate_h0(config)
     parents = {r["task_id"]: [checked_episode(source_root, r)["episode_id"]] for r in source["verified"]}

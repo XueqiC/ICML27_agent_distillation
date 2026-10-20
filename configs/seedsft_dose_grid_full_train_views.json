@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "created": "2026-10-20",
+  "status": "requires_collection_tokenization",
+  "rule": "union of passes {3,5,10,20,30,40} and token budgets {100k,200k,400k}; token points within 5% of a pass point are merged into it; training runs to the largest point; LoRA r16/a32, AdamW 1e-5, 512 tokens/update, episode packing, training seed 0",
+  "pass_checkpoints": [
+    3,
+    5,
+    10,
+    20,
+    30,
+    40
+  ],
+  "token_checkpoints": [
+    100000,
+    200000,
+    400000
+  ],
+  "merge_relative_to": "token_budget",
+  "merge_fraction": 0.05,
+  "runs": [
+    {
+      "name": "k30s0",
+      "selection_rule": "stratified_nested_v2",
+      "support_seed": 0,
+      "K": 30,
+      "verified": "data/verified/seeds_full_train_r2/subsets/k30"
+    },
+    {
+      "name": "k100s0",
+      "selection_rule": "stratified_nested_v2",
+      "support_seed": 0,
+      "K": 100,
+      "verified": "data/verified/seeds_full_train_r2/subsets/k100"
+    },
+    {
+      "name": "k300s0",
+      "selection_rule": "stratified_nested_v2",
+      "support_seed": 0,
+      "K": 300,
+      "verified": "data/verified/seeds_full_train_r2/subsets/k300"
+    },
+    {
+      "name": "k500s0",
+      "selection_rule": "stratified_nested_v2",
+      "support_seed": 0,
+      "K": 500,
+      "verified": "data/verified/seeds_full_train_r2/subsets/k500"
+    }
+  ],
+  "partial": true,
+  "support_selection_rule": "stratified_nested_v2"
+}

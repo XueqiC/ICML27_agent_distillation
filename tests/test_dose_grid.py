@@ -31,6 +31,8 @@ def fake_collections(tmp_path, monkeypatch):
         def collection(path, *_):
             run = runs[path]
             selection = {"K": run["K"], "seed": run["support_seed"]}
+            if "selection_rule" in run:
+                selection["selection_rule"] = run["selection_rule"]
             return selection, selection, path
 
         def examples(path, tokenizer, *_args, **kwargs):
@@ -194,3 +196,37 @@ def test_prepare_cli_accepts_partial_template(partial_template, fake_collections
     grid = json.loads(output.read_text())
     assert grid["preparation"]["inputs"][str(PARTIAL_TEMPLATE)] == file_hash(PARTIAL_TEMPLATE)
     assert dose.load_ready_run(output, 5) == grid["runs"][5]
+
+
+def test_nested_grid_and_future_prefixes(fake_collections, tmp_path):
+    from sed.seed_selection import NESTED_RULE, NESTED_GRID_K
+    template = json.loads(Path("configs/seedsft_dose_grid_full_train_views.json").read_text())
+    assert [r["K"] for r in template["runs"]] == [30, 100, 300, 500]
+    for k in (1000, 2000):
+        template["runs"].append(dict(template["runs"][0], K=k, name=f"k{k}s0"))
+        template["runs"][-1]["verified"] = f"source/subsets/k{k}"
+    measured, _ = fake_collections(template)
+    grid = dose.prepare_grid(template, SimpleNamespace(chat_template="fake"), {}, {})
+    assert len(measured) == 6
+    assert grid["support_registration"]["selection_rule"] == NESTED_RULE
+    assert grid["support_registration"]["Ks"] == list(NESTED_GRID_K)
+    path = tmp_path / "ready.json"
+    write_json(path, grid)
+    assert dose.load_ready_run(path, 5)["K"] == 2000
+
+
+@pytest.mark.parametrize("mutation", ["seed", "duplicate", "legacy_collection", "legacy_grid"])
+def test_nested_grid_rejects_wrong_identity(fake_collections, mutation):
+    template = json.loads(Path("configs/seedsft_dose_grid_full_train_views.json").read_text())
+    template["runs"] = [template["runs"][1]]  # K100 belongs to both grids; rule must distinguish them.
+    if mutation == "seed":
+        template["runs"][0].update(support_seed=1, name="k100s1")
+    elif mutation == "duplicate":
+        template["runs"].append(deepcopy(template["runs"][0]))
+    elif mutation == "legacy_collection":
+        template["runs"][0]["selection_rule"] = "stratified_groups_v1"
+    else:
+        del template["support_selection_rule"]
+    fake_collections(template)
+    with pytest.raises(ValueError, match="registered runs|selection rule"):
+        dose.prepare_grid(template, SimpleNamespace(chat_template="fake"), {}, {})

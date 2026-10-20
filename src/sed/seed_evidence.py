@@ -10,8 +10,10 @@ from itertools import islice
 from pathlib import Path
 
 from sed.manifest import authorize_task, resolve_task, frozen_write
-from sed.seed_selection import is_full_train, select_seeds, validate_selection, validate_extension_selection
-from sed.storage import BlobStore, file_hash, digest, locked
+from sed.seed_selection import (is_full_train, is_stratified_nested, select_nested_verified,
+                                stratified_nested_order, select_seeds, validate_selection,
+                                validate_extension_selection)
+from sed.storage import BlobStore, file_hash, digest, locked, write_json
 
 
 def environment_won(directory, episode):
@@ -263,15 +265,24 @@ def receipt_path(root, receipt):
 
 
 def _subset_values(root, source, large, small):
-    validate_extension_selection(small, large)
+    nested = is_stratified_nested(small)
+    if nested:
+        expected = select_nested_verified(source, large, k=small["K"], seed=small["seed"])
+        if small != expected:
+            raise ValueError("Nested selection differs from the full verified prefix")
+    else:
+        validate_extension_selection(small, large)
     parents = {r["task_id"] for rows in small["selected"].values() for r in rows}
     verified = [r for r in source["verified"] if r["selection_parent_task_id"] in parents]
+    if nested:
+        by_task = {r["task_id"]: r for r in verified}
+        verified = [by_task[tid] for tid in small["task_order"]]
     attempts = [r for r in source["attempts"] if r["selection_parent_task_id"] in parents]
     if len(verified) != small["K"] or {r["selection_parent_task_id"] for r in verified} != parents:
         raise ValueError("Source lacks verified evidence for every subset slot")
     reference = {"path": "../..", "manifest_sha256": digest(source),
-                 "selection_sha256": digest(large), "K": large["K"]}
-    identity = {"selection": small, "mode": "reuse_verified_parent_slots_v1",
+                 "selection_sha256": digest(large), "K": source["K"] if nested else large["K"]}
+    identity = {"selection": small, "mode": "reuse_verified_nested_v2" if nested else "reuse_verified_parent_slots_v1",
                 "source_collection": reference}
     value = {"schema_version": 1, "status": "complete", "K": small["K"],
              "K_counts": "trusted_executed_trajectories", "identity_sha256": digest(identity),
@@ -298,7 +309,9 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     collection = json.loads((root / "manifest.json").read_text())
     selection = json.loads((root / "selection.json").read_text())
     identity = json.loads((root / "identity.json").read_text())
-    validate_selection(selection, manifest, freeze)
+    nested = is_stratified_nested(selection)
+    if not nested:
+        validate_selection(selection, manifest, freeze)
     full_train = is_full_train(selection)
     if (collection["status"] != "complete" or collection["selection_sha256"] != digest(selection)
             or (not full_train and len(collection["verified"]) != selection["K"])
@@ -314,6 +327,19 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
             raise ValueError("Nested collection differs from shared source receipts")
     else:
         evidence_root = root
+        if nested:
+            # FTP/SmartAD publish new executions on exactly the original view's
+            # support. Keep that view hash-bound, with its full-source validation.
+            reference = identity.get("support_view")
+            if not reference:
+                raise ValueError("Nested v2 publication requires a bound support view")
+            support_root = (root / reference["path"]).resolve()
+            support_manifest = json.loads((support_root / "manifest.json").read_text())
+            if "source_collection" not in support_manifest or support_root == root:
+                raise ValueError("Support reference must point directly to a nested view")
+            support, original, _ = load_verified_collection(support_root, manifest, freeze)
+            if digest(support) != reference["manifest_sha256"] or selection != original:
+                raise ValueError("Publication differs from its bound support view")
         from sed.seed_extension import check_inherited_views
         check_inherited_views(root, collection, selection, manifest, freeze, _subset_values)
     candidates = {r["task_id"] for kind in selection["type_order"]
@@ -346,7 +372,7 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
             if (task["source_split"] != "train" or receipt["task_id"] not in candidates
                     or receipt["group_id"] != task["group_id"] or receipt["task_type"] != task["task_type"]
                     or parents.get(receipt["selection_parent_task_id"]) != task["task_type"]
-                    or (full_train and receipt["selection_parent_task_id"] != task["task_id"])):
+                    or ((full_train or nested) and receipt["selection_parent_task_id"] != task["task_id"])):
                 raise ValueError("Receipt differs from frozen TRAIN selection")
     groups, slots, counts = set(), set(), Counter()
     instances = set()
@@ -355,7 +381,7 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
         for receipt, hashes in zip(collection["verified"], readers):
             task = resolve_task(manifest, freeze, receipt["task_id"])
             if (receipt not in collection["attempts"] or receipt["won"] is not True
-                    or (not full_train and task["group_id"] in groups)
+                    or (not (full_train or nested) and task["group_id"] in groups)
                     or receipt["selection_parent_task_id"] in slots):
                 raise ValueError("Seeds must be distinct TRAIN groups and selection slots")
             episode = checked_episode(evidence_root, receipt, _hashes=hashes)
@@ -380,6 +406,14 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
                 or collection["attempted_unique_instances"] != len(candidates)
                 or collection["attempted_task_groups"] != selection["selected_task_groups"]):
             raise ValueError("Full TRAIN requires every candidate's first success or all three failed attempts")
+    elif nested:
+        if (list(r["task_id"] for r in collection["verified"]) != selection["task_order"]
+                or any(counts[kind] != quota for kind, quota in selection["quotas"].items())
+                or collection["K"] != selection["K"]
+                or collection["trusted_trajectories"] != len(instances)
+                or collection["unique_instances"] != len(instances)
+                or collection["task_groups"] != len(groups)):
+            raise ValueError("Verified trajectories differ from nested prefix/counts")
     elif (any(counts[kind] != quota for kind, quota in selection["quotas"].items())
             or collection["K"] != selection["K"] or collection["trusted_trajectories"] != len(groups)
             or collection["unique_instances"] != len(groups) or collection["task_groups"] != len(groups)):
@@ -390,13 +424,19 @@ def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
 def verified_collection_inputs(root, manifest, freeze):
     """Return provenance inputs for a validated collection or nested subset."""
     root = Path(root)
-    collection, _, evidence_root = load_verified_collection(root, manifest, freeze)
+    collection, selection, evidence_root = load_verified_collection(root, manifest, freeze)
     if "source_collection" in collection:
         inputs = [root / "manifest.json", root / "identity.json", root / "selection.json",
                   evidence_root / "manifest.json", evidence_root / "provenance.json"]
     else:
         inputs = [root / "manifest.json", root / "provenance.json"]
     identity = json.loads((evidence_root / "identity.json").read_text())
+    if is_stratified_nested(selection):
+        inputs.extend(p for p in (evidence_root / "identity.json", evidence_root / "selection.json")
+                      if p not in inputs)
+        if "support_view" in identity:
+            support_root = (evidence_root / identity["support_view"]["path"]).resolve()
+            inputs.extend(verified_collection_inputs(support_root, manifest, freeze))
     if "extension_source" in identity:
         origin = (evidence_root / identity["extension_source"]["path"]).resolve()
         inputs.extend([evidence_root / "identity.json", evidence_root / "selection.json",
@@ -415,6 +455,8 @@ def materialize_subsets(root, manifest, freeze, ks):
         source, large, _ = load_verified_collection(root, manifest, freeze, allow_subset=False)
         if is_full_train(large):
             raise ValueError("Full TRAIN does not define nested few-shot subsets")
+        if is_stratified_nested(large):
+            raise ValueError("Create nested v2 views directly from the full TRAIN source")
         values = []
         for k in sorted(set(ks)):
             small = select_seeds(manifest, freeze, k=k, seed=large["seed"], rule=large["selection_rule"])
@@ -425,3 +467,44 @@ def materialize_subsets(root, manifest, freeze, ks):
             frozen_write(output / "identity.json", identity)
             frozen_write(output / "manifest.json", value)
         return [value for _, _, _, value in values]
+
+
+def support_view_reference(verified, output, source, selection):
+    """Extra identity binding for new FTP/SmartAD publications only."""
+    if not is_stratified_nested(selection):
+        return {}
+    if "source_collection" not in source:
+        raise ValueError("Nested v2 teacher collection requires an original support view")
+    return {"support_view": {"path": os.path.relpath(Path(verified).resolve(), Path(output).resolve()),
+                             "manifest_sha256": digest(source)}}
+
+
+def materialize_full_train_views(root, manifest, freeze, ks, *, seed=0, dry_run=False):
+    """New v2 views only. Dry run is read-only, including no lock-file creation."""
+    root = Path(root).resolve()
+    ks = list(ks)
+    if not ks or any(type(k) is not int or k < 1 for k in ks) or len(set(ks)) != len(ks):
+        raise ValueError("View Ks must be distinct positive integers")
+    outputs = [root / "subsets" / f"k{k}" for k in sorted(ks)]
+    if (root / "subsets").is_symlink():
+        raise ValueError("Subsets directory must not be a symlink")
+    if any(os.path.lexists(output) for output in outputs):
+        raise FileExistsError("Target view already exists; refusing to overwrite")
+    source, large, _ = load_verified_collection(root, manifest, freeze, allow_subset=False)
+    if not is_full_train(large):
+        raise ValueError("Nested v2 requires a complete all_train_v1 source")
+    order = stratified_nested_order(source, seed=seed)
+    values = []
+    for output, k in zip(outputs, sorted(ks)):
+        small = select_nested_verified(source, large, k=k, seed=seed, order=order)
+        identity, value = _subset_values(root, source, large, small)
+        values.append((output, small, identity, value))
+    if not dry_run:
+        # Reserve new directories exclusively; never open an existing source file
+        # for writing (including the collector's existing lock file).
+        for output, _, _, _ in values:
+            output.mkdir(parents=True, exist_ok=False)
+        for output, small, identity, value in values:
+            for name, record in (("selection", small), ("identity", identity), ("manifest", value)):
+                write_json(output / (name + ".json"), record, exclusive=True)
+    return [small for _, small, _, _ in values]
