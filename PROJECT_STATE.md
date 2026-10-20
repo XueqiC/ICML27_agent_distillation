@@ -29,6 +29,7 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   k5s1 57/49, k10s1 56/57, k20s1 54/64 (greedy/SAG, pre-fix).
 - Kang re-eval: 15 cells kangfix-k{K}s{S} (SAG, 8960e0a, OUT=reports/runs/eval/baselines/kang-<cell>-tp-sag-kveq; old dirs kept).
 - Pending user decision: AD-FTP multi-Action first replies (18/21/18 of 100 episodes).
+- 07:42 CDT check: adftp-k10s2-eval 46832873 FAILED (pre-fix gate 0.0514 > tol 0.050, same k_eq_v cause) -> cell unblocked, eval reruns on 8960e0a.
 
 ### 06:5x CDT 10-20: vLLM Gemma-4 LoRA serving bug found; all evals gated
 - adftp K20/K50/K100 s0 evals FAILED the LoRA gate (adapter_err 0.082/0.346/... vs tol ~0.056, growing with K). Root cause verified in source:
