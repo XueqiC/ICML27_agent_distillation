@@ -383,7 +383,7 @@ SAD_EVAL_TREE = "b9f9a80"
 LADDER_TREE = "c6b15b2"
 # Long ladder rungs also get an hpg training stage (LONI gpu2 is saturated; first start estimate 10-21 15:41 CDT):
 # whichever cluster starts a rung first keeps it (scratchpad dedupe_ladder.py cancels the pending twin).
-HPG_LADDER = {500: (32, 16, 8), 300: (32, 16, 8), 100: (64, 32, 16), 30: (128, 64, 32)}
+HPG_LADDER = {500: (64, 32, 16, 8), 300: (64, 32, 16, 8), 100: (64, 32, 16), 30: (128, 64, 32)}
 
 
 def lora_rung(method, k, epochs, lr=None):
@@ -526,6 +526,15 @@ def chain_cells():
         if e not in HPG_LADDER[k]:
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     adc += lad
+    # 10-21 14:3x CDT: tsft K300 16->32 still drops ~0.05 -> e64 rungs for tsft K300/K500 (hpg train + LONI twin).
+    # Pre-registered 5e-5 fallback ladders (tsft K30: e4 rung failed at 1e-4; adc K500: e4 rung failed) train on LONI;
+    # eval-only gated cells here so the reported rung can be evaluated.
+    adc += [lora_rung("tsft", k, 64, lr="1e-4") for k in (500, 300)]
+    fb = [lora_rung("tsft", 30, e, lr="5e-5") for e in (128, 64, 32, 16, 8, 4, 2)]
+    fb += [lora_rung("adc", 500, e, lr="5e-5") for e in (32, 16, 8, 4, 2)]
+    for c in fb:
+        c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+    adc += fb
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
     # the masking fix lands (K30 contains none of them and runs).
