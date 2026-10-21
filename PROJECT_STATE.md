@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 20:2x CDT 10-20
+- User topped up $20 (01:12Z). resume_chain_after_topup.sh: probe 200, recovered 32+32 quota-halted counters (transport_fixed),
+  relaunched adftp + smartad chain collections with --resume (logs/chain_collect_*.log). SmartAD reuse NOT applied for K<=500
+  (would change the collection identity and void 4,269 calls; saves only ~$2) — revisit for larger K.
+- User asked whether ALFWorld is required / smaller common benchmark: recommended keeping ALFWorld (standard for ETO, IPR,
+  WKM, LEAP, AgentGym, SAD), K<=500 first, WebShop as a second benchmark later. Awaiting user.
+
 ### 20:1x CDT 10-20
 - User: last top-up was $20. That bought ~615M input (92% cached) + 9.4M output (rai ledgers since 04:44Z). K<=500 remainder
   ~$12 (AD ~$1, SmartAD ~$11); suggested topping up $20. Offered SmartAD reuse: full-TRAIN trajectory as candidate-01 (provider
