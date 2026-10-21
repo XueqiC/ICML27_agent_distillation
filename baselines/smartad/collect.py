@@ -88,6 +88,8 @@ def _candidate(config, task, directory, identity, rate_limit_dir, sampling_root,
     collection_identity = read(Path(sampling_root) / "identity.json")
     retry = collection_identity.get("chain_recovery", {}).get("retry_directories", {}).get(
         str(directory.relative_to(sampling_root)))
+    from teachers.smartad_resume import fresh_directory
+    retry = fresh_directory(sampling_root, directory.relative_to(sampling_root)) or retry
     if retry:
         directory = Path(sampling_root) / retry
         directory.mkdir(parents=True, exist_ok=True)
@@ -311,6 +313,12 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
     with locked(output / ".pipeline.lock"):
         if not resume and (output / "identity.json").exists():
             raise ValueError("Collection exists; use --resume with the same frozen identity")
+        if (output / "identity.json").exists():
+            from teachers.smartad_resume import amend, check_resume_identity, registered
+            stored = read(output / "identity.json")
+            if registered(output, stored):
+                check_resume_identity(stored, identity)
+                amend(output, resume=resume)
         identity = collection_identity(output, identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_collect", config=config,

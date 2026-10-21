@@ -7,6 +7,8 @@ Cap-truncated outputs consume their slot as rejected outputs without halting.
 An interrupted reservation also halts the run, including during 429 backoff.
 Use one counter/run ID for a collector; never reset it to resume a failed run.
 Explicit recovery acknowledges failures without refunding any reservation.
+The registered SmartAD r2 amendment archives an entire void sample and gives
+its single resample a separate counter; it never resets this counter in place.
 """
 import json
 import sqlite3

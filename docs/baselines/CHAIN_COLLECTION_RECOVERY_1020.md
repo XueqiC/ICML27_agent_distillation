@@ -313,3 +313,196 @@ CUDA_VISIBLE_DEVICES='' .venv/bin/python -m pytest -q \
 
 No commit, push, real teacher request, real environment execution, or write into
 `reports/runs` was performed for this task.
+
+## Bounded SmartAD r2 amendment, 2026-10-21
+
+`smartad_interrupted_sample_20261021_v1` amends this same rule only for the
+existing `chain_k500_s0_r2` identity
+`fa77630d6af4610728db88c0d185d2722fa7e73049a8192490a164e02ce93d28`.
+It requires `--resume`; there is no identity override flag or r3 migration.
+`recover_chain_collection` still refuses an already recovered source.
+
+The user-directed policy voids the partial episode of a candidate whose **r1**
+latest outcome is its hash-bound, credited quota-void 429. The explicit
+2026-10-21 decision also admits its r2 retry only when that retry restarted at
+step zero with the inherited shortened cap `41 - (old_attempts - 1)`, spent
+exactly that remainder, and ended in **BudgetExceeded at counter 41 before the
+episode finished**. Both the r1 interrupted sample and this r2 truncated retry
+are void. Eligibility requires no `candidate.json`, an unfinished/unknown
+episode, and membership in this cell's recovery classification. Other outcomes,
+completed/imported candidates, changed protocols/caps, pending or unresolved
+requests, and candidates outside that classification remain ineligible. At most 23 slots
+can receive one new sample, from a real environment reset at step zero, with
+unchanged task/sampling and a separate 41-logical-call counter. This adds at most
+943 logical calls. Existing HTTP retry policy remains in force; 943 is not a
+bound on physical HTTP attempts including retries. No quota call is credited
+twice, and completed/imported candidates are untouched.
+
+Before any launch, all eligibility checks run. A durable amendment plan binds
+membership, original identity, code/dependency versions, per-slot old attempts,
+source attempts, new cap, file hashes and their aggregate SHA256. Each record's
+`void_attempts` identifies both executions, their parent seeds, episode IDs,
+terminal event/audit references, ledger hashes, spent calls, status counts,
+known billed tokens, unknown usage, and actual environment transitions. The plan
+and dry-run summary aggregate these as `spent_and_void_usage`, separately for
+r1 and r2. Voiding excludes the samples from training; it does not refund cost.
+Each old slot's
+payload (including its original and r2 retry executions, ledgers and counters)
+is moved into `attempt_archive/smartad_interrupted_sample_20261021_v1/` inside
+that slot. A per-slot `amendment.json` and final plan digest bind these files.
+Moves are journaled and restartable after a crash; archives are hash-checked on
+resume. `resampled/attempt-1/` has no inherited cap-credit file or cache, so its
+counter begins at zero and cannot spend more than 41 logical calls. A repeated
+amendment resumes that same sample; it cannot archive/resample it again.
+
+Recovery identity stays byte-identical. Only this registered amendment permits
+a code/dependency upgrade on resume; it records runtime hashes under
+`resume_versions/` while keeping all protocol fields fixed. Imported evidence
+and sampling-fallback references resolve to the archived originals. Accounting
+maps archived ledgers back to their canonical identities: r1 usage remains
+inherited, r2 suffix usage remains new, and neither is counted twice.
+
+The offline entry point (no launch or teacher/environment construction) is:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+python -m tools.amend_smartad_resume \
+  --output /home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/smartad-chain/chain_k500_s0_r2 \
+  --resume --dry-run
+```
+
+`--details` includes per-candidate diagnostics/inventories. Dry runs take no
+locks and write no files/cache entries. The collection launcher includes the
+same classification in `--resume --dry-run`, and applies an eligible amendment
+under the pipeline lock before starting shards. Direct collector resumes use
+the same preflight. The existing flattened shard iteration covers all remaining
+slots; the launcher's deferred second pass resolves candidate-01 ownership.
+
+After this branch is committed and merged, with the existing r2 workers stopped,
+run the following from a new detached worktree of that merge commit. Replace
+the merge-SHA placeholder; no merge commit was created during implementation.
+The first Python command applies the offline amendment; the final launcher
+starts real collection and may call the teacher.
+
+```bash
+set -euo pipefail
+base=/home/xueqi/hq/projects/ICML27_agent_distillation
+smartad_merge='<MERGE_COMMIT_SHA>'
+runtime="/home/xueqi/hq/projects/ICML27_smartadresume_${smartad_merge:0:12}"
+git -C "$base" worktree add --detach "$runtime" "$smartad_merge"
+cd "$runtime"
+export PROJECT_ROOT="$runtime" ENV_PYTHON="$base/.venv/bin/python"
+export CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:.
+export ALFWORLD_DATA_ROOT=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1
+export TEACHER_RATE_LIMIT_DIR="$base/data/teacher_rate_limit_chain"
+support="$base/data/verified/seeds_full_train_r2/subsets"
+cell="$base/reports/runs/smartad-chain/chain_k500_s0_r2"
+
+# 1. Apply; archive both void attempts, no teacher calls.
+"$ENV_PYTHON" -m tools.amend_smartad_resume --output "$cell" --resume
+
+# 2. Resume on the pinned merge tree, including the deferred candidate-01 pass.
+bash scripts/rai_collect_smartad.sh \
+  --cell chain_k500_s0_r2 --source-view "$support/k500" \
+  --subset-view "30=$support/k30" --subset-view "100=$support/k100" \
+  --subset-view "300=$support/k300" \
+  --output-root "$base/reports/runs/smartad-chain" \
+  --rate-limit-dir "$TEACHER_RATE_LIMIT_DIR" \
+  --config configs/base.yaml --log-root "$base/logs" --shards 32 --resume
+```
+
+### Authorized shortened-cap retries and spent-and-void cost
+
+All 23 active `transport_retries/attempt-1/teacher/usage.jsonl` ledgers contain
+later r2 calls: **265 spent-and-void requests total**, comprising **264 successful
+outputs and one `ActionParseError` rejection**. These are paid/spent history,
+retained with their raw outputs and token/transition accounting; they are not
+refunded or counted as fresh restart calls. Their terminal execution errors are
+`BudgetExceeded`, verified from the final event's content-addressed audit blob.
+The inherited shortened cap ended the r2 retries before episode completion;
+these are not completed SmartAD method failures. The user's explicit extension
+authorizes exactly this case. No amendment has been applied to real data.
+
+For every row below, `credit = 1`, runtime cap = 41, final active counter = 41.
+The recovery seeded `initial_attempts = old_attempts - 1`; fresh execution had
+only `remaining_cap = 41 - initial_attempts = 42 - old_attempts`. Every retry
+spent precisely that remainder, then `CappedTeacher.generate` rejected the
+next uncached call at `attempts >= cap`, before `_Transport.create` or a ledger
+`started` row. These are per-candidate budget checks, not a shared limiter or
+collection-wide cap. None qualified for the original cap extension: r1's
+terminal error was quota transport failure, not `BudgetExceeded`, and its
+counter had not reached 41. The original recovery disclosed reduced-budget
+warnings but still scheduled fresh, step-zero executions with those remainders.
+The 23 r1 attempts spent 701 requests, including the 23 already credited quota
+voids; r2 spent another 265. Thus their pre-amendment history contains **966
+requests**, all preserved. The one-time fresh allocation adds **at most
+23 × 41 = 943 logical calls**, with transport retries accounted separately.
+
+The read-only audit reports these known billed token counts and actual
+transitions for the void samples (reasoning tokens are usage metadata and are
+included in output tokens, not an additional token charge):
+
+| Phase | Requests | Input tokens | Output tokens | Reasoning tokens | Environment transitions |
+|---|---:|---:|---:|---:|---:|
+| r1 | 701 | 3,474,347 | 35,484 | 15,872 | 678 |
+| r2 | 265 | 860,689 | 12,304 | 4,783 | 264 |
+
+| Work key | Candidate | r1 attempts | Credited floor | Remaining cap / r2 requests |
+|---|---|---:|---:|---:|
+| 28c23fb7ef7fc116afe9 | 05 | 37 | 36 | 5 |
+| 28c23fb7ef7fc116afe9 | 07 | 40 | 39 | 2 |
+| 28c23fb7ef7fc116afe9 | 10 | 32 | 31 | 10 |
+| 2b5fbe408dcc7f26d7ba | 06 | 31 | 30 | 11 |
+| 48e11ffb325186075100 | 05 | 32 | 31 | 10 |
+| 866995f6ed8ef3e2c0a6 | 05 | 32 | 31 | 10 |
+| b979abd14a4d8cd9b4b2 | 02 | 27 | 26 | 15 |
+| b979abd14a4d8cd9b4b2 | 03 | 24 | 23 | 18 |
+| b979abd14a4d8cd9b4b2 | 04 | 28 | 27 | 14 |
+| b979abd14a4d8cd9b4b2 | 05 | 32 | 31 | 10 |
+| b979abd14a4d8cd9b4b2 | 06 | 22 | 21 | 20 |
+| b979abd14a4d8cd9b4b2 | 07 | 29 | 28 | 13 |
+| b979abd14a4d8cd9b4b2 | 08 | 26 | 25 | 16 |
+| b979abd14a4d8cd9b4b2 | 09 | 25 | 24 | 17 |
+| b979abd14a4d8cd9b4b2 | 10 | 25 | 24 | 17 |
+| bac9a1f7f8f37d29bb74 | 02 | 34 | 33 | 8 |
+| bac9a1f7f8f37d29bb74 | 03 | 34 | 33 | 8 |
+| bac9a1f7f8f37d29bb74 | 05 | 36 | 35 | 6 |
+| bac9a1f7f8f37d29bb74 | 06 | 35 | 34 | 7 |
+| bac9a1f7f8f37d29bb74 | 07 | 36 | 35 | 6 |
+| bac9a1f7f8f37d29bb74 | 08 | 32 | 31 | 10 |
+| d6659d63a83c027a2c76 | 06 | 40 | 39 | 2 |
+| fe9295dd42b03bf4ff3d | 02 | 12 | 11 | 30 |
+
+For example, `2b5fbe408dcc7f26d7ba/candidate-06`'s last active success is
+`2026-10-21T04:03:37.673860+00:00`; the r1 ledger's last timestamp is
+`2026-10-20T22:44:55.534121+00:00`, but transport admission was after the
+registered 22:45 quota cutoff. The active failures therefore occurred after
+those r2 calls, not before any r2 request.
+
+The cell contains **1,437 final candidates total**, comprising **265 imports
+and 1,172 completed in r2**. Alongside 23 unfinished slots, this leaves **3,540
+never-started candidates** out of 5,000. Repeated trajectories are not new tasks.
+
+Fail-fast is intentional: `_candidate` prohibits re-entering unresolved
+executions, `collect_shard` propagates the exception, and `teacher_stage` writes
+a sanitized failed-stage report and rethrows. Catching that error and continuing
+would change the infrastructure-failure policy. This amendment preserves it;
+synthetic tests check that one unknown transport failure still stops the shard.
+The bug is assigning a reduced inherited remainder to a fresh 40-turn sample,
+not the deliberate failure propagation.
+
+The interrupted slots map to 23 distinct flattened shard owners:
+`0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 21, 23, 24, 28, 30, 31`.
+
+Validation: **202 passed** (31 amendment tests plus 171 regression tests) with
+`CUDA_VISIBLE_DEVICES=''`, covering `test_smartad_resume`, `test_chain_recovery`,
+`test_capped_teacher`, `test_smartad`, `test_smartad_shards`,
+`test_chain_collections`, and `test_smartad_relocation`. The new synthetic tests
+cover eligibility/refusals, step-zero resampling, all slots over 32 shards plus
+the deferred pass, unchanged imports/source, archive crash recovery, idempotence,
+no second credit, cap bounds, frozen protocol, code-upgrade provenance, the
+shortened-cap r2 eligibility/refusals, spent-and-void request/token/transition
+accounting (including the parse rejection), and the no-launch offline CLI.
+The real read-only dry run exits 0 with `interrupted_to_restart: 23`,
+`refused: 0`, `ready: true`, and `extra_call_upper_bound: 943`;
+no real teacher calls, launches, cell writes, commits, or pushes were performed.

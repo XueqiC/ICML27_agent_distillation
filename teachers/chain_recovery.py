@@ -2,6 +2,11 @@
 
 Small copy/inventory primitives are shared with full_train_recovery, the accepted
 full-TRAIN migration precedent. Only this registered incident permits cap credits.
+
+The bounded smartad_interrupted_sample_20261021_v1 amendment in smartad_resume
+archives interrupted samples inside the existing registered r2 cell on resume,
+then permits one fresh 41-call sample per eligible slot (at most 23 / 943).
+It never re-credits quota calls or permits r2 to be used as a recovery source.
 """
 from collections import Counter
 from datetime import datetime, timezone
@@ -435,7 +440,15 @@ def recovery_identity(output, proposed):
     recovery = stored["chain_recovery"]
     expected = {**proposed, "chain_recovery": recovery}
     if expected != stored:
-        raise ValueError("Recovery identity/code/config changed")
+        from teachers.smartad_resume import COMPLETE, read_plan, registered
+        protocol = lambda row: {k: v for k, v in row.items() if k not in {"code_sha256", "dependencies"}}
+        if (not registered(output, stored) or not (Path(output) / COMPLETE).exists()
+                or not read_plan(output, stored) or protocol(expected) != protocol(stored)):
+            raise ValueError("Recovery identity/code/config changed")
+        from sed.manifest import frozen_write
+        runtime = {"identity_sha256": digest(stored), "code_sha256": proposed["code_sha256"],
+                   "dependencies": proposed["dependencies"]}
+        frozen_write(Path(output) / "resume_versions" / (digest(runtime) + ".json"), runtime)
     check_imports(output, stored)
     return stored
 
@@ -444,6 +457,9 @@ def check_imports(output, identity=None):
     output = Path(output)
     identity = identity or read_json(output / "identity.json")
     recovery = identity["chain_recovery"]
+    from teachers.smartad_resume import archived_path, check_archives, read_plan
+    plan = read_plan(output, identity)
+    check_archives(output, plan)
     marker = read_json(output / "recovery/complete.json")
     files = read_json(output / "recovery/source_files.json")
     immutable = read_json(output / "recovery/immutable_files.json")
@@ -451,7 +467,8 @@ def check_imports(output, identity=None):
             or digest(immutable) != recovery["immutable_files_sha256"]):
         raise ValueError("Recovery inventory/identity hash mismatch")
     for name, sha in immutable.items():
-        if not (output / name).is_file() or file_hash(output / name) != sha:
+        path = archived_path(output, name, plan) if plan else output / name
+        if not path.is_file() or file_hash(path) != sha:
             raise ValueError("Imported evidence missing or changed; refusing duplicate calls")
     for relative, sha in recovery["credits"].items():
         credit = read_json(credit_file(output, relative))
@@ -462,7 +479,7 @@ def check_imports(output, identity=None):
             raise ValueError("Cap-extension hash mismatch")
         effective_cap(credit, recovery)
         if not credit["final"]:
-            counter = output / relative
+            counter = archived_path(output, relative, plan) if plan else output / relative
             if not counter.is_file() or read_json(counter.with_name("cap_credit.json")) != credit:
                 raise ValueError("Inherited counter or cap-credit missing/changed")
             rows = ledger_rows(counter.with_name("usage.jsonl"))
@@ -604,7 +621,10 @@ def evidence_path(output, path):
     identity = read_json(output / "identity.json")
     recovery = identity.get("chain_recovery")
     if recovery and path.is_relative_to(recovery["source"]):
-        return output / path.relative_to(recovery["source"])
+        path = output / path.relative_to(recovery["source"])
+    if path.is_relative_to(output):
+        from teachers.smartad_resume import archived_path
+        return archived_path(output, path.relative_to(output))
     return path
 
 
@@ -614,11 +634,13 @@ def collection_accounting(output, identity):
     recovery = identity.get("chain_recovery")
     if not recovery:
         return {}
+    from teachers.smartad_resume import original_relative, read_plan
+    plan = read_plan(output, identity)
     rows = []
     records = {p: read_json(credit_file(output, p)) for p in recovery["credits"]}
     skipped = {r["source_counter"] for p, r in records.items() if p != r["source_counter"]}
     for ledger in (output / "work").rglob("usage.jsonl"):
-        relative = str(ledger.with_name("counter.json").relative_to(output))
+        relative = original_relative(ledger.with_name("counter.json").relative_to(output), plan)
         if relative in skipped:
             continue
         data = ledger_rows(ledger)
@@ -628,11 +650,14 @@ def collection_accounting(output, identity):
     current = usage(rows)
     source_files = read_json(output / "recovery/source_files.json")
     current["environment_steps"] = sum((read_json(p).get("metrics") or {}).get("environment_steps", 0)
-        for p in (output / "work").rglob("episode/episode.json") if str(p.relative_to(output)) not in source_files)
+        for p in (output / "work").rglob("episode/episode.json")
+        if original_relative(p.relative_to(output), plan) not in source_files)
+    extra = (plan or {}).get("extra_call_upper_bound", 0)
     return {"inherited_usage": recovery["inherited_usage"], "new_usage": current,
+            "smartad_resume_amendment": plan, "amendment_extra_call_upper_bound": extra,
             "cap_extensions": list(recovery.get("cap_extensions", {}).values()),
             "total_extension_calls": sum(e["extension"] for e in recovery.get("cap_extensions", {}).values()),
-            "effective_per_cell_call_cap": identity["per_cell_call_cap"] +
+            "effective_per_cell_call_cap": identity["per_cell_call_cap"] + extra +
                 sum(e["extension"] for e in recovery.get("cap_extensions", {}).values()),
             "new_teacher_calls": current["http_calls"],
             "new_environment_steps": current["environment_steps"],

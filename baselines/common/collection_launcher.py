@@ -67,6 +67,13 @@ def main(argv=None):
                 if any(old.get(k) != v for k, v in expected.items()) or old.get("subset_views", []) != bindings:
                     raise ValueError("Existing cell identity/source/config/limiter/views mismatch")
             recovery = None
+            amendment = None
+            if output.exists() and args.resume and args.method == "smartad" and not args.recover_from:
+                from teachers.smartad_resume import amend, display, registered
+                if registered(output, old):
+                    amendment = display(amend(output, resume=True, dry_run=True))
+                    if not amendment["ready"] and not args.dry_run:
+                        raise ValueError("SmartAD resume amendment refused; inspect --resume --dry-run classification")
             if args.recover_from:
                 from teachers.chain_recovery import recover_chain_collection
                 old = read(Path(args.recover_from) / "identity.json")
@@ -94,6 +101,8 @@ def main(argv=None):
                           "subsets": bindings, "commands": commands})
             if recovery:
                 plans[-1]["recovery"] = recovery
+            if amendment:
+                plans[-1]["amendment"] = amendment
     except (ValueError, OSError, KeyError) as error:
         # Never dump provider exceptions or process environment.
         parser.error(str(error))
@@ -118,6 +127,10 @@ def main(argv=None):
         if args.recover_from:
             recover_chain_collection(args.recover_from, plans[0]["output"], args.method,
                                      manifest, freeze, config)
+        for plan in plans:
+            if "amendment" in plan:
+                with locked(Path(plan["output"]) / ".pipeline.lock"):
+                    amend(plan["output"], resume=True)
         def launch(plan):
             for index, command in enumerate(plan["commands"]):
                 with tempfile.NamedTemporaryFile(prefix=f"collect_{args.method}_{plan['cell']}_shard{index}.",
