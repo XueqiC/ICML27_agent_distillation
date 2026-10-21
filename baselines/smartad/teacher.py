@@ -41,6 +41,8 @@ class SmartADTeacher(CappedTeacher):
 
     The rejected request spends one of the 41 logical reservations. No probes,
     candidate retries, or budget refunds. Other failures retain the normal halt.
+    The explicit chain_quota_void_20261020_v1 r2 amendment is a separate,
+    bounded exception: an archived interrupted sample may be resampled once.
     """
     def __init__(self, *, sampling_root, **kwargs):
         self.sampling_root = Path(sampling_root)
