@@ -428,9 +428,11 @@ def chain_cells():
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
     # the masking fix lands (K30 contains none of them and runs).
+    # 21:0x CDT: the fix is main fb22f09 (SAD/SmartAD mask parser-rejected replies; Kang/AD unchanged): SAD K100-K500
+    # run on that tree (their 20cb697 outputs moved to _superseded/sadc-20cb697); K30 (no such replies) stays on 20cb697.
     for c in sad1 + sad05:
         if not c["cell"].startswith("sadc-k30-"):
-            c["hold"] = True
+            c["tree"] = "fb22f09"
     # User 20:23 CDT: trajectory SFT, AD and SmartAD are the top priority; SAD after them.
     return tsft + adc + sad1 + sad05
 
