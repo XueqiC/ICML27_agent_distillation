@@ -373,13 +373,13 @@ def sadc(k, mult):
 
 
 
-def lora_rung(method, k, epochs):
+def lora_rung(method, k, epochs, lr=None):
     """Trajectory SFT ("tsft": the K trusted trajectories) or AD ("adc": FTP-recollected trajectories of the same K
     tasks) with AD's SFT recipe (LoRA r64/a128/dropout .05, lr 2e-4 linear, batch 8) for `epochs` epochs:
     shared-history scoring, data parallel over NGPUS (b' = min(8, N // 8) trajectories per update; 3 at K30).
     Rungs 2 (paper), 4, 8, 16 run concurrently (32 only if 16 is not converged); only the reported rung is evaluated
     (trajectory SFT greedy, AD with SAG)."""
-    cell = f"{method}-k{k}-e{epochs}"
+    cell = f"{method}-k{k}-e{epochs}" + (f"-lr{lr}" if lr else "")   # 10-21: lr suffix = stabilised ladder (LONI-trained)
     n = 2 if k == 30 else 4
     per_epoch = {30: 10, 100: 13, 300: 38, 500: 63}[k]          # updates per epoch
     hours = 0.5 + epochs * per_epoch * (8 if n == 4 else 6) / 3600 * 2.5   # 8 s/update is an estimate: margin 2.5x
@@ -423,7 +423,12 @@ def chain_cells():
         c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     sad05 = [sadc(k, 0.5) for k in (500, 300, 100, 30)]
     adc = [lora_rung("adc", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
-    for c in adc:
+    # 10-21 02:3x CDT: stabilised ladder (lr 1e-4, no warmup; registered deviation, probe report
+    # reports/engineering/lora_stability_probe_1021.md) trained on LONI tree c6b15b2; hpg evaluates only the reported
+    # (converged) rung of each method x K, opened per cell by its gate.
+    ladder = {30: (2, 4, 8, 16, 32, 64, 128), 100: (2, 4, 8, 16, 32, 64), 300: (2, 4, 8, 16, 32), 500: (2, 4, 8, 16, 32)}
+    adc += [lora_rung(m, k, e, lr="1e-4") for m in ("tsft", "adc") for k in (500, 300, 100, 30) for e in ladder[k]]
+    for c in tsft + adc:
         c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
