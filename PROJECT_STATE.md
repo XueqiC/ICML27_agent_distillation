@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:2x CDT 10-21 — SmartAD collection finishing
+- Old launcher 652148 finished; third launcher 1429312 (tree 3318b54) running 32 shards, 0 failures; 4,998/5,000 done; the 2
+  operator-interrupt slots are resampling in resampled/attempt-1. Then the deferred candidate-01 pass + candidates.json.
+  Watcher b0vr45wn9 waits for candidates.json status=complete.
+- Next: copy chain_k500_s0_r2 (13G) to hpg (+ LONI), SmartAD selection (1 GPU per shard, --shard-index/--shard-count, then
+  --merge-scores on CPU; SMARTAD_PATH_MAP for the relocated pool), then the 1e-4 training ladder, then gated evals.
 ### 08:1x CDT 10-21 — paper-recipe column nearly complete
 - AD K500 paper recipe 0/140 (training diverged at update ~36, 2e-4). SAD K30 x1 (= converged) 49/140.
 - Paper-recipe column (dev140, base 62): tsft K30 10 / K100 0* / K300 109 / K500 108; AD K30 73 / K100 95 / K300 84 /
