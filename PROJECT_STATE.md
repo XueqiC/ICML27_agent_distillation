@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:4x CDT 10-20 queue state
+- hpg (keeper, tree 20cb697, 10-job cap): pending sadc-k500/k300/k100-b1-train, tsft-k500-e{4,8,16}, tsft-k300-e16;
+  sadc-*-b05 preps done/running; all GPU jobs Priority (B200 partition full). tsft-k500-e2/k300-e2 held (only needed
+  if e4 were converged vs e2). max_gpus 36. tsft K30/K100 cells on hpg are eval-only.
+- LONI (wrapper ICML27_loni_wrap.sh, loni_submit_tsft.sh): tsft-k30-e{2,4,8,16} 1118561-64, tsft-k100-e{2,4,8,16}
+  1118565-69, gpu2 x2 A100, outputs /work/xueqic/hq/ICML27_data/reports/runs/baselines/<cell>; copy adapters to hpg
+  $BL/<cell> before opening eval_<cell>. All pending (Priority).
+- After top-up: scratchpad/resume_chain_after_topup.sh (probe 200 -> verify all 64 halted counters are non-retryable
+  429 after 22:45Z (checked: 32+32) -> teachers.recover --reason transport_fixed -> relaunch with --resume on d7ad7fe).
+- main bbba030 = + validation cache (wt/viewcache: K30 load 303 s -> 77 s warm); not deployed (running trees fixed).
+- Watcher bjglg32mm: notifies when the first new-grid train is RUNNING (then check its early log).
+
 ### 19:1x CDT 10-20 update
 - B200 acceptance 46909768 (shared-history SFT/SmartAD, dropout 0, seeds_k20_s0 4 rows): pre-set gates fail, but
   kernel-only control (per_turn SDPA vs Flex, same packing) shows the same gradient errors: lora_B rel L2 median
