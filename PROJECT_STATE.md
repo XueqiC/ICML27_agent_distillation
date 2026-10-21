@@ -17,6 +17,21 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:1x CDT 10-20 update
+- B200 acceptance 46909768 (shared-history SFT/SmartAD, dropout 0, seeds_k20_s0 4 rows): pre-set gates fail, but
+  kernel-only control (per_turn SDPA vs Flex, same packing) shows the same gradient errors: lora_B rel L2 median
+  0.42 (kernel) vs 0.31 (packing); early layers L0-L11 ~1.2-1.7 in both, late layers 0.03-0.1; loss rel diff <0.9%.
+  ACCEPTED on the SAD/DPO basis (packing differences at kernel-swap bf16 level). Report $T/reports/engineering/
+  sft_shared_history_gpu_r1-{sft,smartad}.json (tree 20cb697). Gates shsft_gpu_ok, tsft_ready opened 19:1x CDT.
+- OpenAI credits exhausted: last success 17:45 CDT (22:45:37Z); chain collections (adftp 3,504 / smartad 4,269 calls
+  recorded) stopped fail-loud (TeacherQuotaError, 32/32 shards each). User asked to top up (Discord 1562257725650370621).
+  Resume after top-up with the transport-failure recovery procedure (no duplicate calls).
+- Data verified: seeds_full_train_r2 without subsets = sha 14f44691f84be61c on rai, hpg and LONI (980,253 files);
+  subsets (12 files) sha 560b83092b156642 on hpg and LONI. Gate chain_views_on_hpg opened; keeper submitting SAD.
+- LONI smoke tsft-k30-e2-loni 1117994 COMPLETED 20.6 min (A100x2): 20 updates, b'=3, shared_history, ~24 s/update,
+  loss 0.87 -> 0.35 (not converged at 2 epochs). LONI env works.
+- Session usage limit hit ~17:10-19:10 CDT (no progress in that window).
+
 ### 17:1x CDT 10-20: chain grid launch state
 - main 20cb697 = views (4001161) + convergence (7f3771b) + chain collections (feec885) + shared-history/multi-GPU
   SFT/SmartAD (wt/shsft; dropout 0.05 kept, expected-gradient equivalence; user OK 16:47). CPU tests: 99 + 165 + 112
