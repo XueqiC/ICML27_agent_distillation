@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:1x CDT 10-21 — hourly
+- sadc-k300-b1-train COMPLETED (2:16, 4 GPUs) -> gate eval_sadc-k300-b1 opened (paper column); x0.5 46930070 pending.
+- SmartAD selection 4 shards running (~1 h). adc-k300-e32 / adc-k100-e32 lr1e-4 run on LONI (hpg twins cancelled by dedupe).
 ### 12:1x CDT 10-21 — first converged-column results
 - Converged column (dev140, base 62): AD K30 (1e-4, e64, SAG) 109; SAD K30 (x1) 49; SAD K100 (x0.5) 109.
 - SmartAD pool verified on hpg 12:12 CDT (889,928 files); selection shards submitted 12:13 CDT: smartadselc-s0..s3of4 47038188/90/93/94 (merge gate via gate_smartad_scored.sh pid 884142).
