@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 03:0x CDT 10-21 — first paper-recipe results
+### 02:5x CDT 10-21 — first paper-recipe results
 - Trajectory SFT, paper recipe (lr 2e-4, 2 epochs, greedy), dev140 (base 62/140): K30 10, K100 0 (diverged training,
   78% inadmissible), K300 109, K500 108. AD paper-recipe evals K30/K100/K300 running (46958579/52/51); SAD K100 x1 eval 46962140.
 - SAD K30 converged at x1 (x0.5 vs x1 delta ~1e-8); eval gate eval_sadc-k30-b1 opened.
