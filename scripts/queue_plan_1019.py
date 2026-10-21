@@ -439,6 +439,7 @@ def lora_rung(method, k, epochs, lr=None):
 SMARTAD_CHAIN = f"{B}/reports/runs/smartad-chain/chain_k500_s0_r2"
 SMARTAD_CHAIN_SEL = f"{B}/reports/smartad-selection/chain_k500_s0_r2"
 SMARTAD_SEL_SHARDS = 4
+HASH_CACHE = f"{B}/../.sed-hash-receipts"   # persistent metadata receipts (sed.hash_receipts), shared by hpg stages
 
 
 def smartadselc(i):
@@ -457,10 +458,12 @@ def smartadselc(i):
 def smartadselc_merge():
     e = (f"SMARTAD_OUT={SMARTAD_CHAIN_SEL},VERIFIED={SMARTAD_CHAIN},SMARTAD_THROUGH=select,SMARTAD_MERGE_SCORES=1,"
          f"SMARTAD_PATH_MAP=/home/xueqi/hq/projects/ICML27_agent_distillation={B},"
-         f"SMARTAD_SELECTION_SHARDS={SMARTAD_SEL_SHARDS},WORKERS=16,BATCH_INVARIANT=1")
-    cpu = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=32G"
+         f"SMARTAD_SELECTION_SHARDS={SMARTAD_SEL_SHARDS},WORKERS=16,BATCH_INVARIANT=1,SED_HASH_CACHE_DIR={HASH_CACHE}")
+    # 10-21 16:1x CDT: 47046998 hit its 2 h limit in the final load_verified_collection (re-hashing the 980k-file
+    # full-TRAIN support bank on Lustre; the default receipt cache lives in the job TMPDIR). 8 h + persistent cache.
+    cpu = "--partition=hpg-milan --gpus=0 --cpus-per-task=8 --mem=32G"
     return {"cell": "smartadselc-merge", "tree": "3318b54", "stages": [stage("smartadselc-merge", "scripts/hpg_smartad.slurm",
-            cpu, "02:00:00", 0, e, {"file": f"{GATES}/smartad_chain_scored"})]}
+            cpu, "08:00:00", 0, e, {"file": f"{GATES}/smartad_chain_scored"})]}
 
 
 SMARTAD_CHAIN_COLL = f"{SMARTAD_CHAIN_SEL}/collection"
@@ -480,7 +483,8 @@ def smc_rung(k, epochs, lr):
     out = f"{BL}/{cell}"
     verified = SMARTAD_CHAIN_COLL + ("" if k == 500 else f"/subsets/k{k}")
     e = (f"SMARTAD_OUT={out},VERIFIED={verified},SMARTAD_THROUGH=train,SMARTAD_EPOCHS={epochs},SMARTAD_LR={lr},"
-         f"SMARTAD_WARMUP=0,SMARTAD_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+         f"SMARTAD_WARMUP=0,SMARTAD_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1,"
+         f"SED_HASH_CACHE_DIR={HASH_CACHE}")
     res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
     train = stage(f"{cell}-train", "scripts/hpg_smartad.slurm", res, hh, n, e, {"file": f"{GATES}/smartad_selected"})
     train["tree"] = SMC_LADDER_TREE   # paper column and ladder on one tree (none started before 102a35d)
