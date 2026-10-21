@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:3x CDT 10-21 — checks
+- LONI tsft-k30-e2-lr1e-4 1119419 running: update 1 lr 0.0001 (override plumbing verified), loss 0.87.
+- LONI adc-k500-e2 1119418 (paper recipe) running past startup: lr 2e-4; provenance empty_visible_turns_masked 1 at
+  look_at_obj_in_light-Pillow-None-DeskLamp-320 step 15 (as scanned).
 ### 03:2x CDT 10-21 — AD paper-recipe results; two failures fixed
 - AD paper recipe (FTP data, 2e-4, 2 epochs, SAG), dev140: K30 73, K100 95, K300 84 (K500 rerun 1119418 queued on LONI).
 - tsft-k30-e128-lr1e-4-train 46963841 FAILED (9 s, empty log): hpg tree c6b15b2 lacked .venv symlink + third_party/ (git
