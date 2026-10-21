@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:2x CDT 10-21 — AD paper-recipe results; two failures fixed
+- AD paper recipe (FTP data, 2e-4, 2 epochs, SAG), dev140: K30 73, K100 95, K300 84 (K500 rerun 1119418 queued on LONI).
+- tsft-k30-e128-lr1e-4-train 46963841 FAILED (9 s, empty log): hpg tree c6b15b2 lacked .venv symlink + third_party/ (git
+  archive excludes untracked); fixed in place, cell unblocked. Deploy rule: hpg trees need `.venv ->
+  $B/.venv` and third_party/ copied (LONI trees do not: LONI env sets the pythons).
+- sadc-k100-b1-eval 46962140 FAILED: tools.check_full_serving --endpoint runs under ENV_PYTHON (no torch/transformers).
+  Latent since affb477; no SAD full-checkpoint eval has passed on hpg. Codex wt/sadeval (pid 664502): run it with
+  TRAIN_PYTHON (CUDA hidden) + optional SAD_EVAL_FRACTIONS (default all five checkpoints). eval_sadc-k30-b1 gate held
+  (gates/_held_eval_sadc-k30-b1) until the fix; sadc-k100-b1 blocked in keeper state.
 ### 03:2x CDT 10-21 — SmartAD r2 relaunched on the race fix
 - main f796565 = merge wt/smartadresume2: after COMPLETE, amend() verifies the frozen plan only (no classify while shards run);
   45 resume tests pass. Status before relaunch: completed 1,238 + imported 265, restart 21 (2 of 23 already done),
