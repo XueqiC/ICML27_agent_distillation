@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 21:4x CDT 10-20
+- Collections calling again since 21:08 (AD) / 21:10 (SmartAD). AD-FTP chain collection exited 21:43 CDT: BudgetExceeded on 3 tasks
+  (work 42167910…, b979abd1…, a524fd09…; chain positions 19/125/130) — each had 1 quota-rejected call (unbilled) counted in
+  the per-task cap 123, so attempt 3 hit the cap; their 3 shards aborted; 460/500 final, 40 missing (spread over all K).
+  Codex wt/chainrecover (pid 2203392): recovery like full_train_recovery — new dir, hash-verified import, void quota
+  calls credited against the cap, run only the 40; SmartAD variant too. SmartAD collection still running (pid 1415431).
+- hpg: tsft-k500-e16 193/1008 upd at 21:14 (~12 s/upd, ETA ~00:15 CDT); sadc-k30-b05 95M/327M logical (ETA ~23:50).
+
 ### 21:0x CDT 10-20 decision (user OK 21:04)
 - Main table: each method's training to convergence (doubling ladder, train-loss rule) = main number; ALSO report the paper's
   own epoch count (2 epochs for AD/SmartAD/trajectory SFT; SAD's x1 budget) as a 'paper recipe' column. So every e2 rung is
