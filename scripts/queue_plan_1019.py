@@ -413,6 +413,11 @@ def lora_rung(method, k, epochs):
 def chain_cells():
     sad1 = [sadc(k, 1) for k in (500, 300, 100, 30)]
     tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    # 19:2x CDT: trajectory-SFT training for K30/K100 runs on LONI (A100, smoke tsft-k30-e2-loni passed; hpg's B200
+    # partition is congested); only their evaluation stages run here, after the adapters are copied back.
+    for c in tsft:
+        if c["cell"].startswith(("tsft-k30-", "tsft-k100-")):
+            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     sad05 = [sadc(k, 0.5) for k in (500, 300, 100, 30)]
     adc = [lora_rung("adc", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
     return sad1 + tsft + sad05 + adc
