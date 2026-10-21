@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 16:2x CDT 10-21 — SAD K300 converged at x1; SmartAD merge retry
+- SAD convergence complete except K500: K30 x1 (49), K100 x0.5 (109), K300 x1 (127); K500 x2 queued (x0.5->x1 delta 0.162).
+- smartadselc-merge hit its 2 h limit in the final verification (full-TRAIN support re-hash). Retry: 8 h, 8 CPUs, persistent
+  SED_HASH_CACHE_DIR (also added to SmartAD train stages). Gate watcher 1904567 still waiting for CELL_DONE.
 ### 15:1x CDT 10-21 — results
 - tsft K100 converged (e64) 112/140. SAD K300 x1 (paper) 127/140 (x0.5 training; if x0.5->x1 converges, 127 is also the
   converged entry). SmartAD merge 47046998 at 1:17 of 2:00, publishing the collection (selection json written 14:44 CDT).
