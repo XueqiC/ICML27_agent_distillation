@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:2x CDT 10-21 — hourly
+- hpg: adc-k500-e8-lr1e-4 and adc-k300-e8-lr1e-4 train COMPLETED (--nodes=1 fix confirmed). sadc-k500-b05-train running
+  (4 GPUs 97-100%; a 0% sample was a sync point; 30 updates). SmartAD pool rsync attempt 3 in progress (pid 875919).
 ### 09:1x CDT 10-21 — SmartAD collection COMPLETE; selection set up
 - chain_k500_s0_r2 COMPLETE (launcher exit 0 14:02Z = 09:02 CDT): 500 tasks x 10 candidates = 5,000; 3,147 correct; tasks by
   #correct: 0:40, 1:34, 2:30, 3:29, 4:27, 5:31, 6:28, 7:40, 8:49, 9:57, 10:135. api_attempts 102,387 (new teacher calls 97,859),
