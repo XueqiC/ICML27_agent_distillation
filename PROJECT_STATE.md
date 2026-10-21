@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 04:3x CDT 10-21 — SAD K100 x1 diverged; SmartAD launcher handoff
+### 04:1x CDT 10-21 — SAD K100 x1 diverged; SmartAD launcher handoff
 - SAD convergence: K100 x0.5 (48 epochs, L_last 3e-5, valid) vs x1 (96 epochs): x1 DIVERGED at update 45 (loss 451,
   grad norm 8.3e4, lr ~2e-5 at peak), stuck at 4.22 for 89 epochs -> invalid (within-rung + cross-rung). K500 x1 valid
   (L_last 0.0043, smooth). Added sadc-k100-b025 (x0.25, tree fb22f09; plan d85e0ef): if x0.25 -> x0.5 delta < 0.01, x0.5
