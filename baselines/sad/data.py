@@ -3,6 +3,7 @@ import math
 import re
 
 from baselines.common.conversation import conversation, sequence_rows
+from baselines.common.parser_mask import mask_parser_rejected_replies
 from baselines.common.schedule import dose
 from train.dataset import TURN_ID, TURN_TOKEN
 
@@ -29,9 +30,13 @@ def spans(reply):
 
 def encode_episode(episode, tokenizer, *, max_length=32768):
     example = conversation(episode, tokenizer, source="trusted_teacher_seed",
-                           packing="turn", max_length=max_length)
+                           packing="turn", max_length=max_length, allow_empty_visible=True)
+    mask_parser_rejected_replies(example, episode)
     reason = action = 0
     for row, step in zip(example["turns"], episode["steps"]):
+        if row["label_provenance"]["parser_rejected_reply_masked"]:
+            row.update(reason_tokens=0, action_tokens=0, sad_spans=[])
+            continue
         reply = step["action_raw"].strip()
         target = reply + TURN_TOKEN
         encoded = tokenizer(target, add_special_tokens=False, return_offsets_mapping=True)

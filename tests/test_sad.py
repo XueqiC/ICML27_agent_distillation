@@ -57,8 +57,9 @@ def test_sad_masks_only_reason_action_turn_end_and_curriculum():
     short = encode_episode(episode('Action: look'), tokenizer)
     assert short["reason_tokens"] == 0
     assert curriculum([row, short, dict(short, tag="tie")])[0:2] == [short, dict(short, tag="tie")]
-    with pytest.raises(ValueError, match="Action line"):
-        encode_episode(episode('Thought: no action'), tokenizer)
+    rejected = encode_episode(episode('Thought: no action'), tokenizer)
+    assert rejected["supervised_tokens"] == rejected["complexity"] == 0
+    assert set(rejected["turns"][0]["labels"]) == {-100}
     with pytest.raises(ValueError, match="no truncation"):
         encode_episode(episode(reply), tokenizer, max_length=1)
     sealed = episode('Action: look'); sealed["split"] = "test"

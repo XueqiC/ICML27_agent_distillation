@@ -357,6 +357,9 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     two_pass_turn_backward = two_pass_backward and scoring == "per_turn"
     two_pass_side_backward = two_pass_backward and scoring == "shared_history"
     empty_visible_counts = []
+    from baselines.common.parser_mask import parser_rejection_counts
+    parser_mask_accounting = ({"parser_rejection_mask": parser_rejection_counts(examples)}
+                              if objective in {"sad", "smartad"} else {})
     for example in examples:
         groups = [example] if objective in {"sft", "sad", "steca", "smartad"} else [example["chosen"], example["rejected"]]
         # Count each stage input once, independently of epochs/rank padding.
@@ -495,7 +498,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                            "physical_reference_forward_tokens": physical_tokens if objective not in {"sft", "sad", "steca", "smartad"} else 0,
                            **dict(zip(keys, values.cpu().tolist()))}, unique_key="update")
         if checkpoint_callback is not None:
-            checkpoint_callback(model, {**plan, "updates": update, "seed": seed,
+            checkpoint_callback(model, {**plan, **parser_mask_accounting, "updates": update, "seed": seed,
                 "examples_seen": exposure, "supervised_tokens_seen": supervised,
                 "logical_forward_tokens": forward_tokens, "processed_token_positions": forward_tokens,
                 "physical_policy_forward_tokens": physical_tokens, "packing": packing,
@@ -511,7 +514,7 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         dist.all_gather_object(all_memory, memory)
     else:
         all_memory = [memory]
-    return {**plan, "updates": update, "seed": seed, "examples_seen": exposure,
+    return {**plan, **parser_mask_accounting, "updates": update, "seed": seed, "examples_seen": exposure,
             "rng_seed_policy": "seed + rank", "rng_seed": seed + rank,
             "dropout_equivalence": equivalence,
             "empty_visible_turns_masked": sum(empty_visible_counts),

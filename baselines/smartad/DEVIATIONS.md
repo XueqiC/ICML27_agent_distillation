@@ -18,6 +18,7 @@ collection or GPU experiment. Offline tests do not establish scientific results.
 | §3.2 / Eq. 3–4 selection | Initial base student in bf16, eval mode, no gradient, exact full preceding H0 OFF context for every assistant turn. Per-token mean NLL inside each turn, then equal mean across turns. Include the native assistant turn-end target as in the shared SFT encoding. Score all correct candidates, choose minimum; ties use stable candidate ID. Incorrect candidates retain a null score and rejection. Selection is fixed before training, never iterated or tuned on dev. |
 | Zero correct candidates | Keep the existing trusted executed demonstration, preserving the support task set. This user-requested AD-FTP-style fallback is outside the paper's successful-pool assumption. Count per-task fallbacks in `smartad_selection.json` and collection manifests; preserve all failed candidates. |
 | §3.3 reason/action/final | H0's executed `Action:` line, including its header and command, is action; the last assistant turn's action span is final. If multiple Action lines appear, H0 executes the last one. All other supervised text, whitespace/format tokens and native turn-end token are reason. Weights 1 / 1.5 / 2. Offsets must reproduce the exact target IDs; a token overlapping an action span takes its action/final weight. Observations, system/user text, previous turns and OFF prompt prefill stay masked at −100 with zero weight. Unlike SAD, SmartAD supervises all visible assistant text. |
+| Parser-rejected teacher replies (2026-10-20) | Before segmentation, mask the complete target when H0 `parse_action(action_raw)` raises `ActionParseError`. When recorded `action_outcome` is present, use `parser_error` and fail if it disagrees with parsing the original raw reply. Retain the reply verbatim in visible history; all labels −100, segment labels absent and weights zero, including native turn end. Parsed replies retain the existing reason/action/final rules. This explicit user-registered deviation is shared with SAD and also covers trusted fallback demonstrations. Candidate correctness filtering and Eq. 3 selection are unchanged. |
 | Eq. 5 | Sum per-token CE × label-position weight, divided by the sum of weights over the actual effective batch. Stream complete turns and accumulate gradients against that one denominator. This is neither a mean of turn losses nor a mean of trajectory means. No extra division by token count or number of turns. |
 | Appendix A training | LoRA SFT, two epochs, AdamW 2e-4, gradient checkpointing. Shared AD/Kang unspecified details: r64/α128/dropout .05 on all seven attention/MLP language-model linear projections; frozen multimodal towers, fp32 adapter masters, bf16 base/compute; linear schedule, no warmup, seed 0, turn packing, weight decay 0, clipping 1. |
 | Effective batch 4 on two GPUs | One GPU with streamed accumulation. Shared rule `b' = min(4, max(1, floor(N/8)))`, N = selected trajectories, counting each trajectory once. Final partial batches use their actual weight denominator. |
@@ -33,6 +34,20 @@ returned teacher IDs/timestamps, raw outputs, token usage, negative executions,
 parent seeds and training exposures remain in provenance and audit artifacts.
 Training loads only the shared visible-field whitelist. Audit outcomes are used
 only for correctness filtering and accounting, never as prompt input.
+
+Parser-mask accounting is stored in each example's `label_provenance` (and thus
+`example_sources.json`) and aggregated as `parser_rejection_mask` in the training
+stage's `result.json` and checkpoint training state: affected `episodes`, masked
+`replies`, and `supervised_tokens_removed`. Count each input episode once,
+independent of epochs/rank padding. Removed tokens mean assistant-all target
+positions before segmentation, including native turn end. Per-turn provenance
+identifies each masked reply and its removed-token count. Fully masked turns
+have no scoring forward or weight in Eq. 5; later exact-context turns preserve
+their text in both scoring paths.
+
+This deviation applies only to SAD and SmartAD. Trajectory SFT / AD
+(`baselines/kang`, `baselines/adftp`) retain their official assistant-all recipe
+and supervise every reply, including H0 parser rejections.
 
 ## Stage usage
 
