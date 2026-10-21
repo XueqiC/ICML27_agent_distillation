@@ -506,3 +506,98 @@ accounting (including the parse rejection), and the no-launch offline CLI.
 The real read-only dry run exits 0 with `interrupted_to_restart: 23`,
 `refused: 0`, `ready: true`, and `extra_call_upper_bound: 943`;
 no real teacher calls, launches, cell writes, commits, or pushes were performed.
+
+## Separate operator-interruption amendment, 2026-10-21
+
+`smartad_operator_interrupt_20261021_v1` is separately registered for the same
+`chain_k500_s0_r2` identity
+`fa77630d6af4610728db88c0d185d2722fa7e73049a8192490a164e02ce93d28`.
+The first amendment, `smartad_interrupted_sample_20261021_v1`, is already
+COMPLETE and remains frozen to its original 23 slots. Its plan, completion
+record, archives and membership are unchanged by this second amendment.
+
+At **2026-10-21 09:17:30Z**, the operator sent SIGTERM to the first resume
+launcher (tree `9d909b0`, PID `218145`). Its `stop()` handler terminated its
+last two live shards, 10 and 13, during teacher calls; the workers unwound with
+`KeyboardInterrupt`. This is an **operator interruption**, not a method or
+provider failure. The operator subsequently acknowledged both counters with
+`teachers.recover --reason interruption_reviewed`, producing each
+`teacher/recoveries/0000.json`, preserving all reservations and clearing the
+halt. On relaunch (tree `f796565`), shards 10 and 13 failed because `_candidate`
+does not re-enter an existing `started.json` and `require_execution` rejects
+the incomplete episode. Other running shards do not justify expanding this
+amendment's membership.
+
+The complete allowlist is:
+
+| Slot relative to the cell | Spent counter attempts | Requests with unknown outcome |
+| --- | ---: | ---: |
+| `work/501b2815d5ab7f82152f/candidate-10` | 2 | 1 |
+| `work/581264b0fd84a99a2e1c/candidate-09` | 6 | 1 |
+
+Each slot must have no `candidate.json`, no prior amendment/import/retry, and
+an incomplete episode. Every ledger row must belong to its current counter's
+`run_id`. Earlier requests must have matching success rows, with only success
+and state-link outcomes; exactly one unmatched `started` must be the final
+row. Rejections, failures, additional unresolved starts and any rows after the
+interrupted start refuse eligibility. The counter must be recovered, unhalted,
+nonpending and still at the registered 2 or 6 attempts. Its sole recovery,
+`recoveries/0000.json`, must use reason `interruption_reviewed`, bind the full
+ledger prefix and match the previous counter without refund. Missing or
+changed evidence refuses application. No other slots are discovered or
+reclassified, including while unrelated shards are running.
+
+Both partial samples are **spent and void**. Their eight attempts include the
+two in-flight requests whose outcomes and usage remain unknown; those two are
+not additional attempts on top of eight. Six successful requests retain their
+known usage and six executed transitions. The plan and dry-run disclosure
+record attempts by slot, request/logical-call totals, unknown usage, known
+tokens, parent seeds, episode and call IDs, recovery hashes and all archived
+file hashes. No request, token or transition is refunded; no quota credit is
+added and unknown usage is never treated as zero billing.
+
+One fresh step-zero sample per slot receives a separate zero-initialized
+41-logical-call counter: **2 × 41 = 82 extra logical calls**. Existing HTTP
+retry rules remain unchanged, so 82 does not bound physical HTTP attempts
+including retries. Both amendments together authorize at most **943 + 82 =
+1,025** extra logical calls; their historical spend remains in accounting.
+These are repeated trajectories on existing tasks, not new tasks or new K.
+
+Application publishes `recovery/smartad_operator_interrupt_20261021_v1/plan.json`
+before moving evidence, archives each old attempt under its own slot's
+`attempt_archive/smartad_operator_interrupt_20261021_v1/`, writes the slot's
+`amendment.json`, then publishes `complete.json` bound to the plan digest.
+The second plan also binds the first plan's digest. Atomic entry renames and
+hash verification allow a crash to resume the same journal. The collector uses
+`resampled/attempt-1/` for these two slots just as for the first amendment's
+slots. It never re-enters or resamples the archived execution a second time.
+Fresh destinations are created lazily by their owning collectors.
+
+The default CLI amendment is unchanged. The explicit offline path is:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+python -m tools.amend_smartad_resume \
+  --amendment smartad_operator_interrupt_20261021_v1 \
+  --output /home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/smartad-chain/chain_k500_s0_r2 \
+  --resume --dry-run
+```
+
+Omitting `--dry-run` applies the offline journal under the pipeline lock; it
+does not launch anything or construct a teacher. Only this explicit CLI path
+enrolls the second amendment. Collector and launcher resumes verify both
+published amendments and can finish a pending journal. After COMPLETE,
+verification (including the second amendment's dry run and the launcher's dry
+run) checks the frozen plan and archives without reclassifying candidates.
+Staggered shard starts therefore cannot expand membership or grant another
+sample. Dry runs acquire no locks and write no files or caches.
+
+Validation for the second amendment: **258 distinct tests passed**: 42 new
+operator-interruption tests, 45 existing first-amendment tests, and 171
+recovery/counter/SmartAD/sharding/collection/relocation regressions, using
+`CUDA_VISIBLE_DEVICES=''` and the offline fake-client/environment fixtures.
+Two regression cases initially detected source-code hash changes during edits;
+both passed on rerun after edits stopped. Additional targeted reruns verified
+archive and publication crashes against the final inventory checks. No real
+amendment application, teacher calls, job launches, commits or pushes were
+performed as part of this implementation.
