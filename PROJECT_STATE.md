@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:0x CDT 10-21 — stab merged (main c6b15b2), 1e-4 ladder submitted on LONI
+- main c6b15b2 = merge wt/stab (6104f0d): KANG_/ADFTP_/SMARTAD_ LR+WARMUP overrides, within- + cross-rung divergence check,
+  AD-FTP `--allow-empty-visible-replies` (verified on real data: K500 masks exactly 1 step, K300 0). 193 CPU tests pass.
+  Deployed LONI /work/xueqic/hq/ICML27_runs/c6b15b2 and hpg ICML27_runs/c6b15b2 (git archive + GIT_COMMIT).
+- LONI: adc-k500-e2 rerun 1119418 (paper recipe, c6b15b2; failed run moved to baselines/_superseded/adc-k500-e2-b086c72-emptyreply).
+  1e-4 ladder 1119419-1119469 (46 jobs; script /work/xueqic/hq/loni_submit_ladder.sh, cells <m>-k<K>-e<E>-lr1e-4):
+  tsft + adc, K30 e2..e128, K100 e2..e64, K300/K500 e2..e32. Cancelled superseded 2e-4 tsft-k500-e8 (diverged) / tsft-k300-e16.
+- Paper-recipe adapters copied to hpg + verified (logs/sync_adapters_loni_hpg.log): tsft-k30/k100/k300/k500-e2, adc-k30-e2,
+  adc-k100-e2; gate watcher scratchpad/sync_and_gate.sh pid 4045348 (also adc-k300-e2 when done). Keeper submitted evals
+  tsft-k500/k300/k100/k30-e2-eval 46955026/29/30/31. Plan (35e5ca6): tsft/adc eval-only on hpg, AD evals read r2, gated
+  eval cells for every 1e-4 rung (open only the reported rung). dedupe loop stopped (obsolete).
+
 ### 01:4x CDT 10-21 — probe done, lr 1e-4 chosen; AD K500 empty reply; SmartAD r2 stalled
 - Probe (K100, 4 epochs = 52 updates, epoch means): 2e-4 paper 0.33/0.26/1.10/1.14 (diverged); 2e-4+10% warmup 0.44/0.39/0.22/0.186
   (1 spike); **1e-4 0.35/0.23/0.19/0.171 (no spike, chosen)**; 5e-5 0.37/0.23/0.20/0.188 (no spike, smallest grad norms = fallback).
@@ -26,9 +38,11 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   AD-FTP training only. Cause: adc-k500-e2 (LONI 1119272) FAILED at startup "Template transformed or removed the visible teacher
   reply" — 1/500 trajectories (look_at_obj_in_light-Pillow-None-DeskLamp-320, step 15) has action_raw "" (teacher used the
   1024-token cap on reasoning; parser_error; episode succeeded). K30/K100/K300 views do not contain it (scan: CPU, 500 episodes, 1 bad).
-- SmartAD chain r2 exited 1 at 05:59Z: 23/32 shards died at 03:57Z on BudgetExceeded (no request made) — each shard's first
-  item was a candidate interrupted by the 22:44Z quota 429 (counter 12–40/41, partial episode); 9 shards finished. 1,437 new +
-  265 imported candidates of 5,000; ~3,300 never started. Recovery tool refuses r2 as a source (no repeated credits). Codex
+- SmartAD chain r2 exited 1 at 05:59Z: 23/32 shards died ~04:02-04:05Z on BudgetExceeded — each shard's first item was a
+  candidate interrupted by the 22:44Z quota 429; r2 restarted it with the inherited remaining cap 41-(old_attempts-1), the
+  23 retries made 265 calls (264 ok, 1 parse rejection; in per-retry ledgers, not the top-level usage.jsonl — my first
+  'no request made' reading was wrong) and hit 41 before finishing; 9 shards finished. 1,437 done (incl. 265 imported),
+  3,540 never started, 23 refused (Codex dry run). Recovery tool refuses r2 as a source (no repeated credits). Codex
   wt/smartadresume (pid 3948286, worktree ../ICML27_wt_smartadresume, prompt scratchpad/codex_smartadresume.md): restart the 23
   fresh with cap 41 (<= 943 extra calls) as an amendment inside r2, dry run only.
 - hpg: AD-FTP collection copy verified (269,669 files, gate adftp_chain_on_hpg). sadc-k500-b1-train 46930054 started 01:59 EDT
