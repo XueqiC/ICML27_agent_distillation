@@ -355,7 +355,7 @@ def sadc(k, mult):
     160G for 2 ranks, 256G for 4 (the per-turn 4-GPU run's working value). Walltime from sadsh-k5s0 (14.4M logical
     positions in ~6 min on 2 B200, i.e. ~4.5-5 h per 655M on 2 GPUs). Evaluation of a rung is gated: only the reported
     (first converged) rung is evaluated."""
-    tag = {0.5: "05", 1: "1", 2: "2", 4: "4"}[mult]
+    tag = {0.25: "025", 0.5: "05", 1: "1", 2: "2", 4: "4"}[mult]
     cell = f"sadc-k{k}-b{tag}"
     n = 4 if k >= 300 else 2
     hours = 5.0 * mult * (2 / n) * 1.6 + 0.5
@@ -460,7 +460,13 @@ def chain_cells():
         if not c["cell"].startswith("sadc-k30-"):
             c["tree"] = "fb22f09"
     # User 20:23 CDT: trajectory SFT, AD and SmartAD are the top priority; SAD after them.
-    return tsft + adc + sad1 + sad05
+    # 10-21 04:2x CDT: SAD K100 x1 diverged at update 45 (loss 451, grad norm 8e4 at lr ~2e-5; last epoch 4.22, invalid)
+    # while x0.5 ended at 3e-5 (valid). The doubling rule one rung lower: x0.25 vs x0.5 decides whether x0.5 is the
+    # converged rung; x1 stays the paper-recipe column (reported as diverged).
+    sad025 = [sadc(100, 0.25)]
+    for c in sad025:
+        c["tree"] = "fb22f09"
+    return tsft + adc + sad1 + sad05 + sad025
 
 def main():
     out = Path(sys.argv[1])
