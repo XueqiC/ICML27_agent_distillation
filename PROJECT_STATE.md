@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:3x CDT 10-21 — SAD K100 x1 diverged; SmartAD launcher handoff
+- SAD convergence: K100 x0.5 (48 epochs, L_last 3e-5, valid) vs x1 (96 epochs): x1 DIVERGED at update 45 (loss 451,
+  grad norm 8.3e4, lr ~2e-5 at peak), stuck at 4.22 for 89 epochs -> invalid (within-rung + cross-rung). K500 x1 valid
+  (L_last 0.0043, smooth). Added sadc-k100-b025 (x0.25, tree fb22f09; plan d85e0ef): if x0.25 -> x0.5 delta < 0.01, x0.5
+  is the converged rung; x1 stays the paper-recipe column, reported as diverged. reports/runs/convergence/sadc-k100-b05_vs_b1.json.
+- hpg: sadc-k500-b1 + sadc-k100-b05 train COMPLETED. adc-k30-e128-lr1e-4-train 46965917 running (preflight hashing at check).
+  Dedupe: tsft-k30-e128/e32 -> LONI (hpg twins cancelled by our dedupe), tsft-k30-e64 / tsft-k300-e16 / adc-k30-e128 -> hpg.
+  LONI now runs 9 of ours (tsft K30 e4..e128, K100 e2/e4/e8, adc-k500-e2).
+- SmartAD: relaunch (652148) was blocked by the old launcher's .smartad.launcher.lock. I SIGTERMed old launcher 218145 —
+  its handler terminated its last 2 shards (10, 13) mid-episode (my error; memory feedback-read-signal-handlers-before-kill):
+  2 counters halted (501b2815/candidate-10 at 2 attempts, 581264b0/candidate-09 at 6) -> teachers.recover
+  --reason interruption_reviewed (no refund). Old launcher hung in futex_wait -> kill -9 after all children reaped. The
+  relaunch then started 32 shards (~04:2x CDT). Watcher checks failures at +30 min.
 ### 03:3x CDT 10-21 — checks
 - LONI tsft-k30-e2-lr1e-4 1119419 running: update 1 lr 0.0001 (override plumbing verified), loss 0.87.
 - LONI adc-k500-e2 1119418 (paper recipe) running past startup: lr 2e-4; provenance empty_visible_turns_masked 1 at
