@@ -97,8 +97,9 @@ def multi(name, res, time, gpus, wrapper, var, stages, extra, k=20, s=0, mode=No
     return d
 
 
-G4 = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=256G"
-G1 = "--partition=hpg-b200 --gpus=1 --cpus-per-task=4 --mem=48G"
+# 10-21 06:1x CDT: --nodes=1 everywhere: multi-GPU stages were split across 2 nodes (torchrun --standalone -> invalid device ordinal).
+G4 = "--partition=hpg-b200 --nodes=1 --gpus=4 --cpus-per-task=8 --mem=256G"
+G1 = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=4 --mem=48G"
 
 
 def sad(k, s):
@@ -120,7 +121,7 @@ def sad(k, s):
     n = 2
     e = f"SAD_OUT={BL}/{cell},NGPUS={n}"
     C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
-    G2S = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem=160G"
+    G2S = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem=160G"
     return {"cell": cell, "tree": T5, "stages": [
         multi(f"{cell}-prep", C4, "02:00:00", 0, "scripts/hpg_sad.slurm", "SAD_THROUGH", "prepare", e, k=k, s=s),
         # Measured 10-20 (sadsh-k5s0-train 46893249, 2 B200): 14.4M of 655M logical positions in ~6 min of training
@@ -143,7 +144,7 @@ def adftp(k, s):
     src = f"{ADFTP_SRC}/k100_s{s}/collection" + ("" if k == 100 else f"/subsets/k{k}")
     e = f"ADFTP_OUT={BL}/{cell},VERIFIED={src},WORKERS=16,BATCH_INVARIANT=1"
     gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/adftp_k100_s{s}_synced"}
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=64G"
     return {"cell": cell, "tree": T4, "stages": [
         stage(f"{cell}-train", "scripts/hpg_adftp.slurm", one, "02:00:00", 1, f"{e},ADFTP_THROUGH=train", gate),
         stage(f"{cell}-eval", "scripts/hpg_adftp.slurm", one, "03:00:00", 1,
@@ -162,7 +163,7 @@ def smartad(k, s):
     src = f"{SMARTAD_SEL}/k100_s{s}/collection" + ("" if k == 100 else f"/subsets/k{k}")
     e = f"SMARTAD_OUT={BL}/{cell},VERIFIED={src},WORKERS=16,BATCH_INVARIANT=1"
     gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/smartad_k100_s{s}_synced"}
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=64G"
     return {"cell": cell, "tree": T6, "stages": [
         # K100 = 50 updates at ~2.5 min each (46869920 timed out at 2 h after 44); K<=50 finish in <= 1.3 h.
         stage(f"{cell}-train", "scripts/hpg_smartad.slurm", one, "04:00:00" if k == 100 else "02:00:00", 1,
@@ -236,9 +237,9 @@ def preference(method, k, s):
     up = method.upper()
     cell = f"{method}-k{k}s{s}"
     e = f"{up}_OUT={BL}/{cell},VERIFIED={verified(k, s)},NGPUS=4,WORKERS=16,BATCH_INVARIANT=1"
-    sft = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=96G"
-    dpo = "--partition=hpg-b200 --gpus=4 --cpus-per-task=8 --mem=256G"
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=6 --mem=32G"
+    sft = "--partition=hpg-b200 --nodes=1 --gpus=4 --cpus-per-task=8 --mem=96G"
+    dpo = "--partition=hpg-b200 --nodes=1 --gpus=4 --cpus-per-task=8 --mem=256G"
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=6 --mem=32G"
     script = f"scripts/hpg_{method}.slurm"
     out = [stage(f"{cell}-sft", script, sft, "03:00:00", 4, f"{e},{up}_THROUGH=sft")]
     for i in range(1, (3 if method == "eto" else 6) + 1):
@@ -265,7 +266,7 @@ def smartadsel(s):
          f"SMARTAD_THROUGH=select,SMARTAD_PATH_MAP=/home/xueqi/hq/projects/ICML27_agent_distillation={B},"
          f"WORKERS=16,BATCH_INVARIANT=1")
     gate = {"file": f"/home/xueqi/hq/projects/ICML27_agent_distillation/logs/queue/gates/smartad_pool_k100_s{s}_on_hpg"}
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=64G"
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=64G"
     return {"cell": cell, "tree": "e7e4311", "stages": [stage(f"{cell}-select", "scripts/hpg_smartad.slurm", one,
                                                               "08:00:00", 1, e, gate)]}
 
@@ -281,7 +282,7 @@ def kangfix(k, s):
     e = (f"ADAPTERS=kang-k{k}s{s}-tp={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{tree}/data/manifest/dev140.json,DECODING=sag,"
          f"INCLUDE_BASE=0,OUT={B}/reports/runs/eval/baselines/kang-k{k}s{s}-tp-sag-kveq,VERIFIED={verified},"
          f"WORKERS=16,BATCH_INVARIANT=1")
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"   # sacct: kang-tp-sag 15 min, MaxRSS 9.7G
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=48G"   # sacct: kang-tp-sag 15 min, MaxRSS 9.7G
     return {"cell": cell, "tree": tree, "stages": [stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", one,
                                                          "03:00:00", 1, e)]}
 
@@ -294,7 +295,7 @@ def kangchk(k, s, tree_train):
     (SAG, new OUT); (2) an identical retrain on the tree whose code hashes match the cell's identity (def44a9, 176/176
     files), into a new output tree, then the same SAG evaluation."""
     v = f"{B}/data/verified/seeds_k{k}_s{s}"
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=48G"
     tasks = f"/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{EVAL_FIX[T4]}/data/manifest/dev140.json"
     def ev(name, model, adapter, out):
         return stage(name, "scripts/hpg_eval_adapters.slurm", one, "03:00:00", 1,
@@ -333,7 +334,7 @@ def seedsftfix(k, s):
     e = (f"ADAPTERS=seedsft-k{k}s{s}-last={ckpt},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{tree}/data/manifest/"
          f"dev140.json,DECODING=greedy,INCLUDE_BASE=0,OUT={B}/reports/runs/eval/seedsft-kveq/k{k}s{s},VERIFIED={verified},"
          f"WORKERS=16,BATCH_INVARIANT=1")
-    one = "--partition=hpg-b200 --gpus=1 --cpus-per-task=8 --mem=48G"   # as kangfix (15 min, MaxRSS 9.7G)
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=48G"   # as kangfix (15 min, MaxRSS 9.7G)
     return {"cell": cell, "tree": tree, "stages": [stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", one,
                                                          "03:00:00", 1, e)]}
 
@@ -363,7 +364,7 @@ def sadc(k, mult):
     base = (f"WRAPPER=scripts/hpg_sad.slurm,STAGE_VAR=SAD_THROUGH,VERIFIED={chain_view(k)},SED_SECRETS_FILE={SECRETS},"
             f"WORKERS=16,BATCH_INVARIANT=1,SAD_OUT={BL}/{cell},NGPUS={n},SAD_BUDGET_MULT={mult}")
     C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
-    GT = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={256 if n == 4 else 160}G"
+    GT = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={256 if n == 4 else 160}G"
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [
         stage(f"{cell}-prep", "scripts/hpg_multi_stage.slurm", C4, "02:00:00", 0, f"{base},STAGES=prepare", CHAIN_GATE),
         stage(f"{cell}-train", "scripts/hpg_multi_stage.slurm", GT, hh, n, f"{base},STAGES=train"),
@@ -414,19 +415,23 @@ def lora_rung(method, k, epochs, lr=None):
              (f",ADFTP_LR={lr},ADFTP_WARMUP=0" if lr else ""))
         adapter, decoding = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint", "sag"
         gate = {"file": f"{GATES}/adc_ready"}   # + the AD-FTP chain collection verified on hpg
-    res = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={160 if n == 4 else 96}G"
+    res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={160 if n == 4 else 96}G"
     if lr:
         # 10-21: stabilised ladder on tree c6b15b2 (lr/warmup overrides, AD empty-reply masking). sacct 46922829
         # (tsft K500, 4 B200): 6.8 s/update, MaxRSS 50.7G -> 96G (4 GPUs) / 64G (2 GPUs), time margin 1.6x.
-        res = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
+        res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
         hours = 0.5 + epochs * per_epoch * (8 if n == 4 else 6) / 3600 * 1.6
         hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     train = stage(f"{cell}-train", script, res, hh, n, e, gate)
     if lr:
         train["tree"] = LADDER_TREE
+    # 10-21: the serving-equivalence check builds 8 fixed prompts from VERIFIED with strict encoding; the AD K500
+    # collection holds one empty teacher reply (masked in training) -> ValueError (adc-k500-e2-eval 46980745). AD K500
+    # evals take their prompts from the K300 view of the same collection (harness input only; training unchanged).
+    eval_verified = verified + "/subsets/k300" if (method == "adc" and k == 500) else verified
     ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
                f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
-               f"dev140.json,DECODING={decoding},INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={verified},"
+               f"dev140.json,DECODING={decoding},INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={eval_verified},"
                f"WORKERS=16,BATCH_INVARIANT=1", {"file": f"{GATES}/eval_{cell}"})
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [train, ev]}
 
