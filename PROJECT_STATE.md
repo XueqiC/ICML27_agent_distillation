@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:4x CDT 10-21 — SmartAD r2 resumed (amendment)
+- main 9d909b0 = merge wt/smartadresume (bec2b1b): amendment smartad_interrupted_sample_20261021_v1 (teachers/smartad_resume.py,
+  tools/amend_smartad_resume.py; disclosure docs/baselines/CHAIN_COLLECTION_RECOVERY_1020.md): the 23 candidates whose r1
+  attempt hit the credited quota 429 and whose r2 retry exhausted the inherited shortened cap are archived (both attempts
+  void: r1 701 calls, r2 265 calls) and resampled once from step 0 with cap 41 (<= 943 calls). 352 tests pass.
+  Applied offline 03:4x CDT (recovery/smartad_interrupted_sample_20261021_v1/{plan,complete}.json); dry run: completed 1,172 +
+  imported 265, restart 23, never started 3,540, refused 0, upper bound 146,083 calls.
+- Resume launched on runtime tree ../ICML27_run_9d909b0: scratchpad/run_smartad_resume.sh pid 218142, log
+  logs/chain_r2_smartad_resume.log, 32 shards.
+- Credits: settled since the $20 top-up (01:12Z) ~138M input (91% cached) + 2.4M output (r2 cells incl. imported rows) —
+  about 1/4 of the top-up by the 20:1x estimate; remaining ~100k calls expected (~3.8k input / 70 output per call). Margin
+  is thin; asked the user to consider topping up.
+
 ### 02:0x CDT 10-21 — stab merged (main c6b15b2), 1e-4 ladder submitted on LONI
 - main c6b15b2 = merge wt/stab (6104f0d): KANG_/ADFTP_/SMARTAD_ LR+WARMUP overrides, within- + cross-rung divergence check,
   AD-FTP `--allow-empty-visible-replies` (verified on real data: K500 masks exactly 1 step, K300 0). 193 CPU tests pass.

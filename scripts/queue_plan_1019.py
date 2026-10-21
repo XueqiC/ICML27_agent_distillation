@@ -373,6 +373,12 @@ def sadc(k, mult):
 
 
 
+LADDER_TREE = "c6b15b2"
+# Long ladder rungs also get an hpg training stage (LONI gpu2 is saturated; first start estimate 10-21 15:41 CDT):
+# whichever cluster starts a rung first keeps it (scratchpad dedupe_ladder.py cancels the pending twin).
+HPG_LADDER = {500: (32, 16, 8), 300: (32, 16, 8), 100: (64, 32, 16), 30: (128, 64, 32)}
+
+
 def lora_rung(method, k, epochs, lr=None):
     """Trajectory SFT ("tsft": the K trusted trajectories) or AD ("adc": FTP-recollected trajectories of the same K
     tasks) with AD's SFT recipe (LoRA r64/a128/dropout .05, lr 2e-4 linear, batch 8) for `epochs` epochs:
@@ -388,7 +394,7 @@ def lora_rung(method, k, epochs, lr=None):
     if method == "tsft":
         verified, script = chain_view(k), "scripts/hpg_kang.slurm"
         e = (f"KANG_OUT={out},VERIFIED={verified},KANG_MODE=train,KANG_EPOCHS={epochs},KANG_SCORING=shared_history,"
-             f"NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+             f"NGPUS={n},WORKERS=16,BATCH_INVARIANT=1" + (f",KANG_LR={lr},KANG_WARMUP=0" if lr else ""))
         # one gate file per method, opened by hand once the chain views are verified on hpg AND the B200
         # shared-history acceptance passed (the keeper takes a single gate per stage)
         adapter, decoding, gate = (f"{out}/stages/train-sft/attempt-000/output/checkpoint", "greedy",
@@ -398,11 +404,20 @@ def lora_rung(method, k, epochs, lr=None):
                     ("" if k == 500 else f"/subsets/k{k}"))
         script = "scripts/hpg_adftp.slurm"
         e = (f"ADFTP_OUT={out},VERIFIED={verified},ADFTP_THROUGH=train,ADFTP_EPOCHS={epochs},"
-             f"ADFTP_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+             f"ADFTP_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1" +
+             (f",ADFTP_LR={lr},ADFTP_WARMUP=0" if lr else ""))
         adapter, decoding = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint", "sag"
         gate = {"file": f"{GATES}/adc_ready"}   # + the AD-FTP chain collection verified on hpg
     res = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={160 if n == 4 else 96}G"
+    if lr:
+        # 10-21: stabilised ladder on tree c6b15b2 (lr/warmup overrides, AD empty-reply masking). sacct 46922829
+        # (tsft K500, 4 B200): 6.8 s/update, MaxRSS 50.7G -> 96G (4 GPUs) / 64G (2 GPUs), time margin 1.6x.
+        res = f"--partition=hpg-b200 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
+        hours = 0.5 + epochs * per_epoch * (8 if n == 4 else 6) / 3600 * 1.6
+        hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     train = stage(f"{cell}-train", script, res, hh, n, e, gate)
+    if lr:
+        train["tree"] = LADDER_TREE
     ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
                f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
                f"dev140.json,DECODING={decoding},INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={verified},"
@@ -427,9 +442,15 @@ def chain_cells():
     # reports/engineering/lora_stability_probe_1021.md) trained on LONI tree c6b15b2; hpg evaluates only the reported
     # (converged) rung of each method x K, opened per cell by its gate.
     ladder = {30: (2, 4, 8, 16, 32, 64, 128), 100: (2, 4, 8, 16, 32, 64), 300: (2, 4, 8, 16, 32), 500: (2, 4, 8, 16, 32)}
-    adc += [lora_rung(m, k, e, lr="1e-4") for m in ("tsft", "adc") for k in (500, 300, 100, 30) for e in ladder[k]]
     for c in tsft + adc:
         c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+    lad = [lora_rung(m, k, e, lr="1e-4") for m in ("tsft", "adc") for k in (500, 300, 100, 30)
+           for e in sorted(ladder[k], reverse=True)]
+    for c in lad:
+        k, e = int(c["cell"].split("-k")[1].split("-")[0]), int(c["cell"].split("-e")[1].split("-")[0])
+        if e not in HPG_LADDER[k]:
+            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+    adc += lad
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
     # the masking fix lands (K30 contains none of them and runs).
