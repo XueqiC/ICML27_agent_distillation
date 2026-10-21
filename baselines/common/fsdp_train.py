@@ -684,7 +684,8 @@ def train_lora(args):
                             for episode in checked_episodes(root, collection["verified"])]
             else:
                 examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
-                                         packing=args.packing, max_length=args.max_length)
+                                         packing=args.packing, max_length=args.max_length,
+                                         allow_empty_visible=getattr(args, "allow_empty_visible_replies", False))
                             for episode in checked_episodes(root, collection["verified"])]
             if args.method_data:
                 from baselines.wkm.data import training_examples
@@ -692,6 +693,12 @@ def train_lora(args):
             return config, collection, examples, tokenizer.chat_template
 
         config, collection, examples, chat_template = rank_zero_data(rank, world, prepare_data, group)
+        empty_replies = {}
+        if getattr(args, "allow_empty_visible_replies", False):
+            locations = [{"task_id": turn["task_id"], "step_index": turn["turn_index"]}
+                         for example in examples for turn in example["label_provenance"]["turns"]
+                         if turn.get("empty_visible_reply_masked")]
+            empty_replies = {"empty_visible_turns_masked": len(locations), "masked_empty_replies": locations}
         plan = dose(len(examples), args.original_batch, epochs=args.epochs)
         model = prepare_lora_model(args.snapshot, device=str(device), adaptation=args.adaptation,
                                    scoring=args.scoring, flex_kernel_options=args.flex_kernel_options)
@@ -710,7 +717,7 @@ def train_lora(args):
             config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": peft_config.r,
                 "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout,
                 "targets": sorted(peft_config.target_modules)}
-            config["baseline_training"] = {**vars(args), **plan, "world_size": world,
+            config["baseline_training"] = {**vars(args), **plan, **empty_replies, "world_size": world,
                 "dropout_equivalence": dropout_equivalence(model),
                 "rng_seed_policy": "seed + rank", "rank_seeds": [args.seed + r for r in range(world)],
                 "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
@@ -742,7 +749,7 @@ def train_lora(args):
                 scoring=args.scoring, flex_kernel_options=args.flex_kernel_options,
                 rank=rank, world_size=world, replicated_lora=True)
         state.update(adaptation=args.adaptation, frozen_base_dtype="bfloat16", world_size=world,
-                     data_parallel="replicated_lora_gradient_mean_before_clip")
+                     data_parallel="replicated_lora_gradient_mean_before_clip", **empty_replies)
 
         def publish():
             staging = output / ".checkpoint.partial"
@@ -763,6 +770,8 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had", "smartad"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
+    parser.add_argument("--allow-empty-visible-replies", action="store_true",
+                        help="AD-FTP SFT: retain empty teacher replies as history with zero labels")
     parser.add_argument("--had-data")
     parser.add_argument("--had-identity")
     parser.add_argument("--had-round", type=int)
@@ -792,6 +801,8 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-length", type=int, default=32768)
     args = parser.parse_args(argv)
+    if args.allow_empty_visible_replies and (args.objective != "sft" or args.adaptation != "kang_lora"):
+        parser.error("--allow-empty-visible-replies requires --objective sft and --adaptation kang_lora")
     args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr", "sad"} else "per_turn")
     if args.objective not in {"dpo", "ipr", "sad", "sft", "smartad"} and args.scoring != "per_turn":
         parser.error("Only DPO/IPR/SAD/SFT/SmartAD objectives use shared_history scoring")
@@ -837,8 +848,9 @@ def main(argv=None):
     if args.objective == "smartad":
         if (args.adaptation != "kang_lora" or args.packing != "turn" or args.method_data
                 or args.epochs != 2 or args.original_batch != 4 or args.seed != 0
-                or args.learning_rate != 2e-4 or args.scheduler != "linear"
-                or args.warmup_steps != 0 or args.weight_decay != 0):
+                or not math.isfinite(args.learning_rate) or args.learning_rate <= 0
+                or args.scheduler != "linear" or not 0 <= args.warmup_ratio <= 1
+                or args.warmup_steps != (0 if args.warmup_ratio == 0 else None) or args.weight_decay != 0):
             parser.error("SmartAD requires its registered Kang LoRA/segment-loss recipe")
     if args.adaptation in {"kang_lora", "wkm_lora"}:
         if args.objective not in {"sft", "smartad"} or not args.verified or args.sft_data:

@@ -1,4 +1,4 @@
-"""CPU FTP collection followed by the unchanged Kang AD training command."""
+"""CPU FTP collection followed by Kang AD training with empty replies masked."""
 import argparse
 import json
 import os
@@ -10,10 +10,14 @@ from types import SimpleNamespace
 from baselines.adftp.collect import collect
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
 from baselines.eto.pipeline import stage_run, run_command
-from baselines.kang.pipeline import RECIPE as AD_RECIPE, training_command
+from baselines.kang.pipeline import RECIPE as AD_RECIPE, optimizer_recipe, training_command as kang_training_command
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.storage import digest, locked, write_json
+
+
+def training_command(args, output):
+    return [*kang_training_command(args, output), "--allow-empty-visible-replies"]
 
 
 def main(argv=None):
@@ -31,12 +35,18 @@ def main(argv=None):
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=AD_RECIPE["epochs"])
+    parser.add_argument("--learning-rate", type=float, default=AD_RECIPE["learning_rate"])
+    parser.add_argument("--warmup-ratio", type=float, default=AD_RECIPE["warmup_ratio"])
     parser.add_argument("--ready-timeout", type=int, default=900)
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=1)
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    try:
+        optimizer = optimizer_recipe(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.epochs < 1:
         parser.error("--epochs must be positive")
     if (args.through != "collect" or args.mode == "evaluate") and not args.snapshot:
@@ -70,7 +80,8 @@ def main(argv=None):
     training = SimpleNamespace(**{**vars(args), "training_seed": 0,
                        "output": str(Path(args.output) / "training"), "verified": str(collection)})
     with locked(Path(training.output) / ".pipeline.lock"):
-        identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, "first_thought_prefix": True,
+        identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, **optimizer, "first_thought_prefix": True,
+                                                                   "allow_empty_visible_replies": True,
                                                                    "epochs": args.epochs,
                                                                    "scoring": args.scoring})
         try:

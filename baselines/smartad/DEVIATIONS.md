@@ -1,5 +1,7 @@
 # SmartAD: registered ALFWorld H0 adaptation
 
+The [shared LoRA stability deviation (2026-10-21)](../kang/DEVIATIONS.md#shared-lora-stability-deviation--2026-10-21) governs the identity-bound learning-rate/warmup overrides for SmartAD, trajectory SFT and AD-FTP.
+
 Source: *Capacity-Aligned Agent Distillation for Small Language Models*,
 Findings of ACL 2026, §§3.2–3.3 and Appendix A,
 <https://aclanthology.org/2026.findings-acl.1349/>.

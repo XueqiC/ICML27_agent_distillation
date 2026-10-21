@@ -18,7 +18,7 @@ from sed.provenance import write_provenance
 from sed.storage import digest, write_json, JsonlLedger, fsync_dir
 from sed.seed_evidence import artifact_hashes, verified_collection_inputs
 from train.dataset import load_tokenizer, build_verified_dataset, mask_report
-from train.convergence import DEFAULT_DELTA, compare_losses, doubling_passes, rule
+from train.convergence import DEFAULT_DELTA, compare_losses, doubling_passes, rule, rung_status
 from train.modeling import attach_lora, load_student, snapshot_metadata
 from train.optimizer_state import (adamw, learning_rate_at, save_update_state,
                                    trainable_state, assert_trainable_equal, warmth_statistics)
@@ -211,7 +211,7 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         if moment_warmup_steps or lr_warmup_steps or any("epoch" not in b or b["packing"] != "episode" for b in plan):
             raise ValueError("Pass ladder requires episode packing, pass boundaries and constant LR without warmup")
         doubling_passes(plan[-1]["epoch"] + 1)
-        compare_losses(0., 0., converge_delta)
+        compare_losses(0., 0., converge_delta, previous_min=0., current_min=0.)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
@@ -225,7 +225,7 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
     start, compute_seconds, checkpoints = time.monotonic(), 0.0, []
     ledger = JsonlLedger(output / "updates.jsonl")
     pass_loss = pass_tokens = 0
-    rung_losses, decisions = {}, []
+    rung_losses, decisions, epoch_losses = {}, [], []
     convergence = None
     warm = {}
     if moment_warmup_steps:
@@ -264,17 +264,20 @@ def train_loop(model, examples, plan, output, *, learning_rate=1e-5, tokenizer=N
         stop = False
         if passes_ladder and batch["end_of_pass"]:
             completed = batch["epoch"] + 1
+            epoch_losses.append(pass_loss / pass_tokens)
             if completed & (completed - 1) == 0:
-                rung_losses[completed] = pass_loss / pass_tokens
+                rung_losses[completed] = rung_status(epoch_losses[-1], min(epoch_losses))
                 if completed > 1:
+                    prev, curr = rung_losses[completed // 2], rung_losses[completed]
                     decision = {"previous_passes": completed // 2, "passes": completed,
-                                **compare_losses(rung_losses[completed // 2], rung_losses[completed], converge_delta)}
+                                **compare_losses(prev["L_last"], curr["L_last"], converge_delta,
+                                                 previous_min=prev["L_min"], current_min=curr["L_min"])}
                     decisions.append(decision)
                     stop = decision["converged"]
                 convergence = {"rule": rule(converge_delta), "converge_delta": converge_delta,
                     "max_passes": plan[-1]["epoch"] + 1, "base_passes": 1,
                     "status": "converged" if stop else "cap_reached" if batch["final"] else "running",
-                    "decisions": list(decisions), "L_last": rung_losses[completed],
+                    "decisions": list(decisions), **rung_losses[completed], "epoch_losses": list(epoch_losses),
                     "reported_checkpoint": f"checkpoint-tokens-{batch['cumulative_supervised_tokens']}" if stop else None,
                     "reported_passes": completed if stop else None}
             pass_loss = pass_tokens = 0
@@ -352,7 +355,7 @@ def main(argv=None):
     if args.passes_ladder:
         try:
             doubling_passes(args.max_passes)
-            compare_losses(0., 0., args.converge_delta)
+            compare_losses(0., 0., args.converge_delta, previous_min=0., current_min=0.)
         except ValueError as error:
             parser.error(str(error))
         if args.passes is not None or args.supervised_tokens is not None or args.checkpoint_tokens:

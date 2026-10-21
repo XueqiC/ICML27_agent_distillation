@@ -9,7 +9,7 @@ import math
 from pathlib import Path
 
 from sed.storage import file_hash, write_json
-from train.convergence import compare_losses
+from train.convergence import compare_losses, rung_status
 
 
 def complete_epochs(rows, epochs, example_count):
@@ -130,13 +130,22 @@ def last_epoch(directory):
         raise ValueError("Incomplete nonfinal epoch in training ledger")
     # SAD stops on a token budget. Its ascending-complexity curriculum makes
     # the partial final epoch unrepresentative; use the preceding full epoch.
-    selected_epoch = max(complete)
-    selected = [i for i, epoch in enumerate(epochs) if epoch == selected_epoch]
-    mean = math.fsum(losses[i] for i in selected) / sum(tokens[i] for i in selected)
-    return {"L_last": mean, "objective": objective, "format": "fsdp_train" if baseline else "trajectory_sft",
+    by_epoch = {}
+    for i, epoch in enumerate(epochs):
+        if epoch in complete:
+            by_epoch.setdefault(epoch, []).append(i)
+    epoch_losses = []
+    for epoch, indices in sorted(by_epoch.items()):
+        token_count = sum(tokens[i] for i in indices)
+        epoch_losses.append({"epoch": epoch, "loss": math.fsum(losses[i] for i in indices) / token_count,
+                             "supervised_tokens": token_count, "updates": len(indices)})
+    selected = epoch_losses[-1]
+    status = rung_status(selected["loss"], min(row["loss"] for row in epoch_losses))
+    return {**status, "epoch_losses": epoch_losses,
+            "objective": objective, "format": "fsdp_train" if baseline else "trajectory_sft",
             "amount": amount, "final_epoch": final_epoch, "final_epoch_complete": final_epoch in complete,
-            "selected_epoch": selected_epoch, "training_examples": example_count, "updates": len(selected),
-            "supervised_tokens": sum(tokens[i] for i in selected), "input_hashes": hashes,
+            "selected_epoch": selected["epoch"], "training_examples": example_count, "updates": selected["updates"],
+            "supervised_tokens": selected["supervised_tokens"], "input_hashes": hashes,
             "settings": settings}
 
 
@@ -146,10 +155,10 @@ def check(previous, current):
         raise ValueError("Rungs must use the same training format and objective")
     if curr["amount"] != 2 * prev["amount"]:
         raise ValueError("Current training amount must be double the previous rung")
-    for key in ("examples_sha256", "seed", "snapshot", "learning_rate", "scheduler", "packing", "scoring"):
+    for key in ("examples_sha256", "seed", "snapshot", "learning_rate", "warmup_ratio", "scheduler", "packing", "scoring"):
         if key in prev["settings"] and key in curr["settings"] and prev["settings"][key] != curr["settings"][key]:
             raise ValueError(f"Rung training settings differ: {key}")
-    return {**compare_losses(prev["L_last"], curr["L_last"]),
+    return {**compare_losses(prev["L_last"], curr["L_last"], previous_min=prev["L_min"], current_min=curr["L_min"]),
             "input_hashes": {"previous": prev["input_hashes"], "current": curr["input_hashes"]},
             "previous": {k: v for k, v in prev.items() if k not in {"settings", "input_hashes"}},
             "current": {k: v for k, v in curr.items() if k not in {"settings", "input_hashes"}}}

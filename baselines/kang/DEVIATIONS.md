@@ -6,6 +6,12 @@ Paths below are relative to `third_party/agent-distillation/`.
 This port runs the released non-FTP SFT baseline and test-time SAG under the
 fixed harness. It does not claim an FTP reproduction or learning results.
 
+## Shared LoRA stability deviation — 2026-10-21
+
+User decision: AD's lr 2e-4, linear schedule, zero warmup, LoRA r64/alpha128/dropout .05 and clip 1.0 recipe intermittently diverges on Gemma-4-12B. One stabilised learning-rate/warmup-ratio pair chosen solely by a training-loss probe will be applied uniformly to **all** LoRA SFT-type methods in this comparison: trajectory SFT (`baselines/kang`, without FTP/SAG), AD-FTP (`baselines/adftp`) and SmartAD (`baselines/smartad`); no dev/test outcomes may select it. Each pipeline accepts `--learning-rate` and `--warmup-ratio`, recorded in its frozen identity/recipe and trainer provenance; Slurm forwards `KANG_LR`/`KANG_WARMUP`, `ADFTP_LR`/`ADFTP_WARMUP` and `SMARTAD_LR`/`SMARTAD_WARMUP`. Defaults retain the paper lr 2e-4 and zero warmup; the scheduler remains linear and all other method settings stay unchanged. Nonzero warmup uses the ratio (ceil of ratio × total updates), with no explicit step override. Probe evidence placeholder: [`reports/engineering/lora_stability_probe_1021.md`](../../reports/engineering/lora_stability_probe_1021.md); this registration does not claim that the probe has run or a stabilised pair has been selected. Training-only convergence additionally requires each rung's last complete-epoch token-mean loss to satisfy `L_last <= max(1.1 * L_min, L_min + 0.02)` using that same rung's minimum complete-epoch mean, and the current rung must also satisfy `L_last(current) <= max(1.1 * L_last(prev), L_last(prev) + 0.02)` relative to the half-length rung. Convergence requires both within-rung guards, this cross-rung guard and `L_last(prev) - L_last(current) < 0.01`. Recovered spikes are allowed; doubling the training and ending above the cross-rung limit is unrecovered divergence, even when the current rung's last epoch is its own minimum. Decisions record the cross-rung limit and failed checks.
+
+## Original port registration
+
 | Official file:line | Replacement/change | Reason class |
 | --- | --- | --- |
 | `scripts/training/train_agent.sh:4-7`; `exps_research/finetune_sft.py:119-121` | Configured pinned Gemma 4, K environment-verified teacher seeds. No upstream model/data/adapter or model-name fallback. No retriever, judge, new teacher call or outside task pool. | model-origin contract X9 / fixed few-shot scope |

@@ -36,4 +36,5 @@ exec "$ENV_PYTHON" -m baselines.adftp.pipeline --config "${CONFIG:-configs/base.
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$ADFTP_OUT" --through train \
     --mode "${ADFTP_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
     --epochs "${ADFTP_EPOCHS:-2}" \
+    --learning-rate "${ADFTP_LR:-2e-4}" --warmup-ratio "${ADFTP_WARMUP:-0}" \
     --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT"

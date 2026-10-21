@@ -61,4 +61,5 @@ exec "$python_bin" -m baselines.smartad.pipeline --config "${CONFIG:-configs/bas
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$SMARTAD_OUT" --through "$SMARTAD_THROUGH" \
     --mode "${SMARTAD_MODE:-train}" --env-python "$ENV_PYTHON" --train-python "$TRAIN_PYTHON" \
     --epochs "${SMARTAD_EPOCHS:-2}" \
+    --learning-rate "${SMARTAD_LR:-2e-4}" --warmup-ratio "${SMARTAD_WARMUP:-0}" \
     --vllm-python "$VLLM_PYTHON" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" "${path_args[@]}" "${selection_args[@]}"

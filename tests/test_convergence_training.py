@@ -19,14 +19,19 @@ from train.convergence import doubling_passes
 from train.sft import exposure_plan
 
 
-@pytest.mark.parametrize("method", ["kang", "adftp", "smartad", "sad"])
-def test_amount_binds_pipeline_identity_and_command(tmp_path, monkeypatch, method):
+@pytest.mark.parametrize("method,option,value,key,expected", [
+    *[(method, "--epochs", "4", "epochs", 4) for method in ("kang", "adftp", "smartad")],
+    ("sad", "--budget-multiplier", ".5", "processed_token_budget", TOKEN_BUDGET // 2),
+    *[(method, "--learning-rate", "5e-5", "learning_rate", 5e-5) for method in ("kang", "adftp", "smartad")],
+    *[(method, "--warmup-ratio", ".1", "warmup_ratio", .1) for method in ("kang", "adftp", "smartad")],
+])
+def test_overrides_bind_pipeline_identity_and_command(tmp_path, monkeypatch, method, option, value, key, expected):
     pipeline = importlib.import_module(f"baselines.{method}.pipeline")
     config = load_config()
-    for key in ("manifest", "split_freeze", "raw", "verified"):
-        config["paths"][key] = str(tmp_path / key)
-    for key in ("manifest", "split_freeze"):
-        write_json(config["paths"][key], {})
+    for path_key in ("manifest", "split_freeze", "raw", "verified"):
+        config["paths"][path_key] = str(tmp_path / path_key)
+    for path_key in ("manifest", "split_freeze"):
+        write_json(config["paths"][path_key], {})
     config_path, snapshot, verified = tmp_path / "config.json", tmp_path / "base", tmp_path / "verified"
     write_json(config_path, config)
     write_json(snapshot / "config.json", {})
@@ -43,24 +48,90 @@ def test_amount_binds_pipeline_identity_and_command(tmp_path, monkeypatch, metho
     args = ["--config", str(config_path), "--snapshot", str(snapshot), "--verified", str(verified), "--mode", "prepare"]
     if method in {"adftp", "smartad"}:
         args += ["--through", "train"]
-    option, value = ("--budget-multiplier", ".5") if method == "sad" else ("--epochs", "4")
     first, second = tmp_path / "first", tmp_path / "second"
     pipeline.main([*args, "--output", str(first)])
     pipeline.main([*args, "--output", str(first)])
+    if method != "sad":
+        pipeline.main([*args, "--output", str(first), "--learning-rate", "2e-4", "--warmup-ratio", "0"])
     with pytest.raises(ValueError, match="different frozen artifact"):
         pipeline.main([*args, "--output", str(first), option, value])
     pipeline.main([*args, "--output", str(second), option, value])
     suffix = Path("training/identity.json") if method in {"adftp", "smartad"} else Path("identity.json")
     old, new = (json.loads((root / suffix).read_text()) for root in (first, second))
-    key, expected = ("processed_token_budget", TOKEN_BUDGET // 2) if method == "sad" else ("epochs", 4)
-    assert new["recipe"] == {**old["recipe"], key: expected}
+    if method == "adftp":
+        assert old["recipe"]["allow_empty_visible_replies"] is True
+    else:
+        assert not old["recipe"].get("allow_empty_visible_replies", False)
+    assert new["recipe"] == {**old["recipe"], key: expected,
+                            **({"warmup_steps": None} if key == "warmup_ratio" else {})}
     assert digest(new) != digest(old)
     command_args = SimpleNamespace(train_python="python", config="config", snapshot="base", verified="verified",
-                                  gpus=1, scoring="shared_history", epochs=4, budget_multiplier=.5)
+                                  gpus=1, scoring="shared_history", epochs=2, budget_multiplier=1)
+    setattr(command_args, option[2:].replace("-", "_"), float(value) if "." in value or "e" in value else int(value))
     command = pipeline.training_command(command_args, "out")
-    flag = "--processed-token-budget" if method == "sad" else "--epochs"
-    assert command[command.index(flag) + 1] == str(expected)
-    assert old["recipe"][key] == (TOKEN_BUDGET if method == "sad" else 2)
+    assert ("--allow-empty-visible-replies" in command) is (method == "adftp")
+    flag = "--processed-token-budget" if method == "sad" else option
+    assert float(command[command.index(flag) + 1]) == expected
+    assert old["recipe"][key] == {"processed_token_budget": TOKEN_BUDGET, "epochs": 2,
+                                  "learning_rate": 2e-4, "warmup_ratio": 0}[key]
+    if method != "sad":
+        assert command[command.index("--scheduler") + 1] == "linear"
+        assert ("--warmup-steps" in command) is (key != "warmup_ratio")
+
+
+@pytest.mark.parametrize("method", ["kang", "adftp", "smartad"])
+@pytest.mark.parametrize("overrides", [{}, {"learning_rate": 5e-5}, {"warmup_ratio": .1},
+                                      {"learning_rate": 5e-5, "warmup_ratio": .1}])
+def test_lora_optimizer_overrides_reach_trainer_and_effective_schedule(monkeypatch, method, overrides):
+    from baselines.common import fsdp_train
+    pipeline = importlib.import_module(f"baselines.{method}.pipeline")
+    args = SimpleNamespace(train_python="python", config="config", snapshot="base", verified="verified")
+    default = pipeline.training_command(args, "out")
+    explicit = pipeline.training_command(SimpleNamespace(**vars(args), learning_rate=2e-4, warmup_ratio=0.), "out")
+    assert default == explicit
+    command = pipeline.training_command(SimpleNamespace(**vars(args), **overrides), "out")
+    received = []
+    monkeypatch.setattr(fsdp_train, "train_lora", lambda args: received.append(args))
+    fsdp_train.main(default[default.index("--config"):])
+    fsdp_train.main(command[command.index("--config"):])
+    before, after = received
+    assert before.allow_empty_visible_replies is (method == "adftp")
+    assert after.allow_empty_visible_replies is (method == "adftp")
+    assert after.learning_rate == overrides.get("learning_rate", 2e-4)
+    assert after.warmup_ratio == overrides.get("warmup_ratio", 0.)
+    assert after.warmup_steps == (None if after.warmup_ratio else 0)
+    changed = {"learning_rate", "warmup_ratio", "warmup_steps"}
+    assert {k: v for k, v in vars(before).items() if k not in changed} == \
+           {k: v for k, v in vars(after).items() if k not in changed}
+    assert warmup_count(101, after.warmup_ratio, after.warmup_steps) == (11 if after.warmup_ratio else 0)
+    assert lr_multiplier(1, scheduler=after.scheduler, total_steps=101, warmup_ratio=after.warmup_ratio,
+                         warmup_steps=after.warmup_steps) == pytest.approx(1 / 11 if after.warmup_ratio else 100 / 101)
+
+
+@pytest.mark.parametrize("method", ["kang", "adftp", "smartad"])
+@pytest.mark.parametrize("flag,value", [("--learning-rate", "0"), ("--learning-rate", "-1"),
+    ("--learning-rate", "nan"), ("--learning-rate", "inf"), ("--warmup-ratio", "nan"),
+    ("--warmup-ratio", "inf"), ("--warmup-ratio", "-.1"), ("--warmup-ratio", "1.1")])
+def test_invalid_lora_optimizer_overrides_fail_before_preparation(tmp_path, method, flag, value):
+    pipeline = importlib.import_module(f"baselines.{method}.pipeline")
+    output = tmp_path / "run"
+    with pytest.raises(SystemExit):
+        pipeline.main(["--snapshot", "unused", "--verified", "unused", "--output", str(output), flag, value])
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("objective,adaptation", [("sft", "full"), ("sft", "wkm_lora"),
+                                                ("smartad", "kang_lora"), ("sad", "full"), ("dpo", "full")])
+def test_empty_visible_reply_opt_in_requires_sft_kang_lora(tmp_path, capsys, objective, adaptation):
+    from baselines.common import fsdp_train
+    output = tmp_path / "run"
+    with pytest.raises(SystemExit):
+        fsdp_train.main(["--objective", objective, "--adaptation", adaptation, "--snapshot", "unused",
+            "--base-snapshot", "unused", "--verified", "unused", "--output", str(output),
+            "--learning-rate", "2e-4", "--scheduler", "linear", "--warmup-ratio", "0",
+            "--original-batch", "8", "--allow-empty-visible-replies"])
+    assert "requires --objective sft and --adaptation kang_lora" in capsys.readouterr().err
+    assert not output.exists()
 
 
 def test_amount_stretches_schedules_and_sad_checkpoint_fractions():
@@ -140,8 +211,16 @@ def test_trajectory_cli_connects_frozen_plan_identity_and_outcome(tmp_path, monk
     assert result["supervised_tokens"] == 4
 
 
-@pytest.mark.parametrize("stop_at", [2, 4, None])
-def test_trajectory_ladder_stops_at_first_endpoint_and_records_last_pass(tmp_path, monkeypatch, stop_at):
+@pytest.mark.parametrize("stop_at,means", [
+    (2, [2.5, 2.499, 100, 2.498]),
+    (4, [2.5, 2.48, 100, 2.475]),
+    (None, [2.5, 2.48, 100, 2.0]),
+    (None, [.25, 1.145, 1.15, 1.143]),  # Small delta, both rungs diverged.
+    (None, [1., .5, .25, .501]),  # Best epoch is not a doubling endpoint.
+    (None, [.25, 1.145, 1., .249]),  # Recovered current rung cannot validate the previous rung.
+    (4, [1., .25, 2., .249]),  # Recovered spike is valid.
+])
+def test_trajectory_ladder_stops_at_first_endpoint_and_records_last_pass(tmp_path, monkeypatch, stop_at, means):
     torch = pytest.importorskip("torch")
     import train.sft as sft
 
@@ -159,14 +238,13 @@ def test_trajectory_ladder_stops_at_first_endpoint_and_records_last_pass(tmp_pat
     plan = exposure_plan([1, 3], token_budget=1, passes=cap, packing="episode", flush_passes=True,
                          checkpoint_tokens=[4 * p for p in doubling_passes(cap)])
     # Pass 3 is deliberately unlike pass 4: averaging the whole interval is wrong.
-    means = [2.5, 2.499, 100, 2.498] if stop_at == 2 else [2.5, 2.48, 100, 2.475 if stop_at == 4 else 2.0]
     calls = []
 
     def loss(model, row, device):
         epoch = len(calls) // 2
         calls.append(row)
         # Distinct token losses within a pass expose unweighted update averaging.
-        value = means[epoch] + (-1.5 if row["supervised_tokens"] == 1 else .5)
+        value = means[epoch] * (.5 if row["supervised_tokens"] == 1 else 7 / 6)
         return model.weight * 0 + value * row["supervised_tokens"]
 
     monkeypatch.setattr(sft, "turn_loss_sum", loss)
@@ -185,12 +263,21 @@ def test_trajectory_ladder_stops_at_first_endpoint_and_records_last_pass(tmp_pat
     assert decision["L_last_prev"] == pytest.approx(means[endpoint // 2 - 1])
     assert decision["L_last"] == pytest.approx(means[endpoint - 1])
     assert decision["converged"] is bool(stop_at)
+    limit = max(1.1 * means[endpoint // 2 - 1], means[endpoint // 2 - 1] + .02)
+    assert decision["cross_rung_limit"] == pytest.approx(limit)
+    assert decision["cross_rung_valid"] is (means[endpoint - 1] <= limit)
+    assert ("cross_rung" in decision["failed_checks"]) is (not decision["cross_rung_valid"])
     assert result["identity_sha256"] == "frozen"
     assert convergence["reported_checkpoint"] == (saved[-1]["path"] if stop_at else None)
     from tools.convergence_check import last_epoch
     # train_loop is called directly; the CLI normally writes this dataset metadata.
     write_json(tmp_path / "example_sources.json", [{"source": "fake_train_only"}] * len(rows))
-    assert last_epoch(tmp_path)["L_last"] == pytest.approx(means[endpoint - 1])
+    offline = last_epoch(tmp_path)
+    assert offline["L_last"] == pytest.approx(means[endpoint - 1])
+    assert offline["L_min"] == pytest.approx(min(means[:endpoint]))
+    assert decision["current"]["L_min"] == pytest.approx(offline["L_min"])
+    assert decision["current"]["valid"] == offline["valid"]
+    assert decision["previous"]["L_min"] == pytest.approx(min(means[:endpoint // 2]))
 
 
 @pytest.mark.parametrize("objective", ["sft", "smartad", "sad"])
@@ -228,6 +315,8 @@ def test_baseline_records_true_token_numerator_without_changing_objective(tmp_pa
 @pytest.mark.parametrize("method,flag,env_name,value", [
     ("kang", "--epochs", "KANG_EPOCHS", "4"), ("adftp", "--epochs", "ADFTP_EPOCHS", "8"),
     ("smartad", "--epochs", "SMARTAD_EPOCHS", "16"), ("sad", "--budget-multiplier", "SAD_BUDGET_MULT", "0.5"),
+    *[(method, "--learning-rate", method.upper() + "_LR", "5e-5") for method in ("kang", "adftp", "smartad")],
+    *[(method, "--warmup-ratio", method.upper() + "_WARMUP", "0.1") for method in ("kang", "adftp", "smartad")],
     ("train_sft", "--max-passes", "TRAIN_MAX_PASSES", "32")])
 def test_slurm_amount_wiring(tmp_path, method, flag, env_name, value):
     fake = tmp_path / "python"

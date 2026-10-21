@@ -1,5 +1,7 @@
 # AD-FTP port registration — 2026-10-19
 
+The [shared LoRA stability deviation (2026-10-21)](../kang/DEVIATIONS.md#shared-lora-stability-deviation--2026-10-21) governs the identity-bound learning-rate/warmup overrides for AD-FTP, trajectory SFT and SmartAD.
+
 Official helper pin: `8884b80ea3d22e53a2e1e4b9fd324600d13e0430`
 ([source](https://github.com/Nardien/agent-distillation/tree/8884b80ea3d22e53a2e1e4b9fd324600d13e0430)).
 File references below are relative to `third_party/agent-distillation/`.
@@ -75,3 +77,5 @@ environment attempts and training are unchanged. Trusted seed acquisition
 remains at 60 seconds with its existing configuration and verified identities.
 
 2026-10-20: a response truncated at the step/output cap is a model output (upstream: parse error), not a transport failure.
+
+2026-10-21 engineering/format fix: AD-FTP training explicitly enables `--allow-empty-visible-replies` (SFT with `kang_lora` only; default off). A teacher call truncated at the 1024-token output cap while still reasoning can have no visible reply, which is not a supervisable target. Preserve the empty agent output and following observation in native history with zero labels through the existing `allow_empty_visible` path. The reported collection counts are 1 step at K500 and 0 at K30/K100/K300; trainer provenance and results record the actual masked count and `(task_id, step_index)` locations (zero-based). Non-empty parser-rejected replies retain Kang supervision, and trajectory SFT keeps its strict default.
