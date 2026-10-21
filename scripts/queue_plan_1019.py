@@ -464,7 +464,7 @@ def smartadselc_merge():
 
 
 SMARTAD_CHAIN_COLL = f"{SMARTAD_CHAIN_SEL}/collection"
-SMC_LADDER_TREE = None   # set to the merge commit of wt/smartadepochs (trainer guard pinned SmartAD to 2 epochs)
+SMC_LADDER_TREE = "102a35d"   # merge of wt/smartadepochs (trainer guard had pinned SmartAD to 2 epochs)
 
 
 def smc_rung(k, epochs, lr):
@@ -483,7 +483,7 @@ def smc_rung(k, epochs, lr):
          f"SMARTAD_WARMUP=0,SMARTAD_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
     res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
     train = stage(f"{cell}-train", "scripts/hpg_smartad.slurm", res, hh, n, e, {"file": f"{GATES}/smartad_selected"})
-    train["tree"] = "3318b54" if (epochs == 2 and lr == "2e-4") else SMC_LADDER_TREE
+    train["tree"] = SMC_LADDER_TREE   # paper column and ladder on one tree (none started before 102a35d)
     adapter = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint"
     ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
                f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
