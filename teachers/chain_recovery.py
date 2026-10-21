@@ -460,6 +460,9 @@ def check_imports(output, identity=None):
     from teachers.smartad_resume import archived_path, check_archives, read_plan
     plan = read_plan(output, identity)
     check_archives(output, plan)
+    from teachers import smartad_operator_interrupt as operator
+    operator_plan = operator.read_plan(output, identity)
+    check_archives(output, operator_plan, complete_path=operator.COMPLETE)
     marker = read_json(output / "recovery/complete.json")
     files = read_json(output / "recovery/source_files.json")
     immutable = read_json(output / "recovery/immutable_files.json")
@@ -636,11 +639,14 @@ def collection_accounting(output, identity):
         return {}
     from teachers.smartad_resume import original_relative, read_plan
     plan = read_plan(output, identity)
+    from teachers.smartad_operator_interrupt import read_plan as read_operator_plan
+    operator_plan = read_operator_plan(output, identity)
+    archives = {"records": [r for p in (plan, operator_plan) if p for r in p["records"]]}
     rows = []
     records = {p: read_json(credit_file(output, p)) for p in recovery["credits"]}
     skipped = {r["source_counter"] for p, r in records.items() if p != r["source_counter"]}
     for ledger in (output / "work").rglob("usage.jsonl"):
-        relative = original_relative(ledger.with_name("counter.json").relative_to(output), plan)
+        relative = original_relative(ledger.with_name("counter.json").relative_to(output), archives)
         if relative in skipped:
             continue
         data = ledger_rows(ledger)
@@ -651,10 +657,11 @@ def collection_accounting(output, identity):
     source_files = read_json(output / "recovery/source_files.json")
     current["environment_steps"] = sum((read_json(p).get("metrics") or {}).get("environment_steps", 0)
         for p in (output / "work").rglob("episode/episode.json")
-        if original_relative(p.relative_to(output), plan) not in source_files)
-    extra = (plan or {}).get("extra_call_upper_bound", 0)
+        if original_relative(p.relative_to(output), archives) not in source_files)
+    extra = sum(p.get("extra_call_upper_bound", 0) for p in (plan, operator_plan) if p)
     return {"inherited_usage": recovery["inherited_usage"], "new_usage": current,
             "smartad_resume_amendment": plan, "amendment_extra_call_upper_bound": extra,
+            "smartad_operator_interrupt_amendment": operator_plan,
             "cap_extensions": list(recovery.get("cap_extensions", {}).values()),
             "total_extension_calls": sum(e["extension"] for e in recovery.get("cap_extensions", {}).values()),
             "effective_per_cell_call_cap": identity["per_cell_call_cap"] + extra +

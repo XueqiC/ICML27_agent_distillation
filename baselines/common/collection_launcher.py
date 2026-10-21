@@ -68,11 +68,15 @@ def main(argv=None):
                     raise ValueError("Existing cell identity/source/config/limiter/views mismatch")
             recovery = None
             amendment = None
+            operator_amendment = None
             if output.exists() and args.resume and args.method == "smartad" and not args.recover_from:
                 from teachers.smartad_resume import COMPLETE, amend, display, registered
                 if registered(output, old):
                     amendment = display(amend(output, resume=True,
-                        dry_run=args.dry_run or not (output / COMPLETE).exists()))
+                        dry_run=not (output / COMPLETE).exists()))
+                    from teachers.smartad_operator_interrupt import resume_if_present
+                    result = resume_if_present(output, dry_run=True)
+                    operator_amendment = display(result) if result else None
                     if not amendment["ready"] and not args.dry_run:
                         raise ValueError("SmartAD resume amendment refused; inspect --resume --dry-run classification")
             if args.recover_from:
@@ -104,6 +108,8 @@ def main(argv=None):
                 plans[-1]["recovery"] = recovery
             if amendment:
                 plans[-1]["amendment"] = amendment
+            if operator_amendment:
+                plans[-1]["operator_interrupt_amendment"] = operator_amendment
     except (ValueError, OSError, KeyError) as error:
         # Never dump provider exceptions or process environment.
         parser.error(str(error))
@@ -132,6 +138,7 @@ def main(argv=None):
             if "amendment" in plan:
                 with locked(Path(plan["output"]) / ".pipeline.lock"):
                     amend(plan["output"], resume=True)
+                    resume_if_present(plan["output"])
         def launch(plan):
             for index, command in enumerate(plan["commands"]):
                 with tempfile.NamedTemporaryFile(prefix=f"collect_{args.method}_{plan['cell']}_shard{index}.",

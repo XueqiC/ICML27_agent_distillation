@@ -321,6 +321,8 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
                 # After COMPLETE this verifies only the frozen amendment; other
                 # shards may already have ordinary candidates in progress.
                 amend(output, resume=resume)
+                from teachers.smartad_operator_interrupt import resume_if_present
+                resume_if_present(output)
         identity = collection_identity(output, identity)
         if not (output / "provenance.json").exists():
             write_provenance(output, command="smartad_collect", config=config,

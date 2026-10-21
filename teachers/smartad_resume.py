@@ -9,7 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from sed.provenance import code_hashes, utc_now, versions
-from sed.storage import digest, file_hash, fsync_dir, locked, write_json
+from sed.storage import digest, durable_mkdir, file_hash, fsync_dir, locked, write_json
 from teachers.chain_recovery import (RULE, TOKENS, check_imports, credit_file, last_calls,
                                      ledger_rows, quota_void, read_json, terminal_failure, usage)
 from teachers.full_train_recovery import tree_hashes
@@ -70,7 +70,10 @@ def read_plan(output, identity=None):
 def archived_path(output, relative, plan=None):
     """Resolve original evidence during/after atomic per-entry archive moves."""
     output, relative = Path(output), Path(relative)
-    plan = read_plan(output) if plan is None else plan
+    if plan is None:
+        from teachers.smartad_operator_interrupt import read_plan as operator_plan
+        plans = [read_plan(output), operator_plan(output)]
+        plan = {"records": [r for p in plans if p for r in p["records"]]}
     for record in (plan or {}).get("records", []):
         if relative.is_relative_to(record["slot"]):
             suffix = str(relative.relative_to(record["slot"]))
@@ -89,9 +92,9 @@ def original_relative(relative, plan):
     return str(relative)
 
 
-def check_archives(output, plan):
+def check_archives(output, plan, *, complete_path=COMPLETE):
     output = Path(output)
-    complete = (output / COMPLETE).exists()
+    complete = (output / complete_path).exists()
     for record in (plan or {}).get("records", []):
         for name, sha in record["files"].items():
             path = archived_path(output, Path(record["slot"]) / name, plan)
@@ -102,6 +105,23 @@ def check_archives(output, plan):
             raise ValueError("SmartAD candidate amendment record changed")
         if complete and tree_hashes(output / record["archive"]) != record["files"]:
             raise ValueError("SmartAD archived attempt inventory changed")
+        if not complete:
+            # During a journaled move, every original byte is either live or
+            # archived. Reject additions/duplicates before any further writes.
+            slot, archive = output / record["slot"], output / record["archive"]
+            inventory = {}
+            prefix = str(archive.relative_to(slot)) + "/"
+            for name, sha in tree_hashes(slot).items():
+                if name == "amendment.json":
+                    if read_json(slot / name) != record:
+                        raise ValueError("Changed candidate amendment")
+                    continue
+                original = name.removeprefix(prefix)
+                if original in inventory:
+                    raise ValueError("Duplicate live/archive attempt entry")
+                inventory[original] = sha
+            if inventory != record["files"]:
+                raise ValueError("SmartAD attempt inventory changed during amendment")
 
 
 def check_fresh_directories(output, plan):
@@ -340,13 +360,20 @@ def amend(output, *, resume, dry_run=False):
                 "timestamp": utc_now(), "code_sha256": code_hashes(Path(__file__).resolve().parents[1]),
                 "dependencies": versions()}
         write_json(output / PLAN, plan, exclusive=True)
+    archive_attempts(output, plan)
+    return summary
+
+
+def archive_attempts(output, plan, *, complete_path=COMPLETE):
+    """Publish the journaled per-slot archives; caller holds the pipeline lock."""
+    output = Path(output)
     for record in plan["records"]:
         slot, archive = output / record["slot"], output / record["archive"]
         with locked(slot / ".slot.lock"):
             if (slot / "candidate.json").exists():
                 raise ValueError("Candidate completed during amendment; stop workers before resuming")
-            check_archives(output, {"records": [record]})
-            archive.mkdir(parents=True, exist_ok=True)
+            check_archives(output, {"records": [record]}, complete_path=complete_path)
+            durable_mkdir(archive)
             # Rename whole entries (including their lock files). Never copy or
             # truncate an existing ledger; a crash resumes these exact moves.
             entries = {Path(name).parts[0] for name in record["files"]}
@@ -365,9 +392,11 @@ def amend(output, *, resume, dry_run=False):
                     raise ValueError("Changed candidate amendment")
             else:
                 write_json(path, record, exclusive=True)
-    check_archives(output, plan)
-    write_json(output / COMPLETE, {"plan_sha256": digest(plan)}, exclusive=True)
-    return summary
+    check_archives(output, plan, complete_path=complete_path)
+    for record in plan["records"]:
+        if tree_hashes(output / record["archive"]) != record["files"]:
+            raise ValueError("SmartAD archived attempt inventory changed")
+    write_json(output / complete_path, {"plan_sha256": digest(plan)}, exclusive=True)
 
 
 def check_resume_identity(stored, proposed):
@@ -378,12 +407,13 @@ def check_resume_identity(stored, proposed):
 
 
 def fresh_directory(output, slot):
-    plan = read_plan(output)
-    for record in (plan or {}).get("records", []):
-        if record["slot"] == str(slot):
-            if not (Path(output) / COMPLETE).exists():
-                raise ValueError("SmartAD amendment archive is not complete")
-            return record["fresh"]
+    from teachers import smartad_operator_interrupt as operator
+    for plan, complete in ((read_plan(output), COMPLETE), (operator.read_plan(output), operator.COMPLETE)):
+        for record in (plan or {}).get("records", []):
+            if record["slot"] == str(slot):
+                if not (Path(output) / complete).exists():
+                    raise ValueError("SmartAD amendment archive is not complete")
+                return record["fresh"]
     return None
 
 

@@ -471,7 +471,8 @@ def test_launcher_amendment_preflight_and_completed_resume(cell, monkeypatch, ca
     assert len(cell["calls"]) == calls
     if dry_run:
         assert not commands and tree_hashes(root) == before
-        assert summary.get("in_progress", 0) == int(complete)
+        # Launcher verification after COMPLETE must not scan running slots.
+        assert summary.get("in_progress", 0) == 0
     else:
         assert len(commands) == 2
         assert all("--resume" in command for command in commands)
