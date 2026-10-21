@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 20:5x CDT 10-20
+- Parser-rejected reply masking merged (main fb22f09; wt/parsemask): K500 5 replies / 115 target tokens masked, other 9,176
+  unchanged; Kang/AD unchanged; 149 tests pass. Deployed hpg ICML27_runs/fb22f09; SAD K100-K500 cells reset on fb22f09
+  (20cb697 outputs -> $BL/_superseded/sadc-20cb697). SAD K30 stays on 20cb697.
+- LONI tsft done: k30-e2/e4/e8, k100-e2 (COMPLETED). Convergence (last complete epoch, token-mean): K30 e2 0.3948 ->
+  e4 0.2106 (d 0.184) -> e8 0.0798 (d 0.131): not converged; reports /work/xueqic/hq/ICML27_data/reports/runs/convergence/.
+  Submitted ahead: tsft-k30-e32 1118787, tsft-k30-e64 1118788, tsft-k100-e32 1118789 (LONI).
+- Running: LONI tsft k30-e16, k100-e4/e8/e16, k300-e4/e8/e16, k500-e4/e8; hpg tsft-k500-e16 46922829 (group), sadc-k30-b05.
+- Collections: 64 shard workers each re-hash the 12G source before calling (rai load 164 of 255 cores; others ~13);
+  watcher b7brl9vv0 fires at the first post-resume success.
+
 ### 20:3x CDT 10-20
 - User priority (20:23): 轨迹 SFT > AD > SmartAD > SAD; parallelize more; LONI CPU need not be saved.
   Keeper plan d30c1ea orders tsft, adc before SAD; pending SAD jobs nice=500; rebalancer restarted (pid 1419682,
