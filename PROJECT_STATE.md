@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:3x CDT 10-20 — AD recipe instability (asked user, Discord 1562306651661541409)
+- Trajectory SFT (AD recipe: LoRA r64/a128, lr 2e-4 linear, no warmup, clip 1.0) diverges intermittently on Gemma-4-12B:
+  K100 e2 (loss 0.26 -> 2.17 at upd 14-17, ends 0.5), K100 e4 (-> 2.1 at upd 29-40, last epoch 1.14), K500 e8 LONI
+  (0.26 -> 4.4, diverged); spikes recovered in K100 e8 (gnorm 2046), K300 e16 (2228), K500 e4 (1857), hpg K500 e16
+  (6026; final ~0.000). Stable: K30 all rungs (e16 0.009), K100 e16 (0.035), K300 e4/e8. Same instability as old
+  per-turn single-GPU AD-FTP runs (not the new code). Convergence rule falsely 'converges' K100 e2->e4 (1.145 -> 1.143).
+  Convergence so far: K30 e8->e16 0.0798 -> 0.0126 (not converged; e32/e64 running).
+- Proposed: stability probe (K100 e4, LONI): lr 1e-4 (1118988), lr 2e-4 + 10% warmup (1118989), lr 5e-5 (1118990) —
+  submitted already (training loss only); pick one config for ALL LoRA methods (trajectory SFT, AD, SmartAD) as a
+  registered deviation; add a divergence guard to the convergence rule. Awaiting user decision.
+- AD-FTP/SmartAD recovery: Codex wt/chainrecover done (460 imports, 40 to run, 32 quota voids; 3 tasks need a fresh-
+  attempt cap extension) -> follow-up for a bounded cap_extension (pid 2621568) running.
+
 ### 21:4x CDT 10-20
 - Collections calling again since 21:08 (AD) / 21:10 (SmartAD). AD-FTP chain collection exited 21:43 CDT: BudgetExceeded on 3 tasks
   (work 42167910…, b979abd1…, a524fd09…; chain positions 19/125/130) — each had 1 quota-rejected call (unbilled) counted in
