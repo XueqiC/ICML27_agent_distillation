@@ -1,5 +1,7 @@
 """Offline in-cell amendment: fake teacher/environment, real durable evidence."""
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -170,7 +172,9 @@ def test_inherited_shortened_cap_retry_is_spent_void_and_restarted(cell, monkeyp
     assert accounting["new_usage"] == prior["new_usage"]
     assert accounting["smartad_resume_amendment"]["spent_and_void_usage"] == spent
     assert accounting["new_teacher_calls"] == 11
-    assert amendment.amend(cell["new"], resume=True)["spent_and_void_usage"] == spent
+    assert amendment.amend(cell["new"], resume=True)["plan_sha256"] == digest(
+        accounting["smartad_resume_amendment"])
+    assert amendment.read_plan(cell["new"])["spent_and_void_usage"] == spent
     run(cell, shard_count=20, shard_index=1)
     counter = read_json(cell["new"] / record["fresh"] / "teacher/counter.json")
     assert counter["attempts"] == 1 and counter["identity"]["cap"] == 41
@@ -316,3 +320,170 @@ def test_code_upgrade_keeps_identity_and_freezes_protocol(cell, monkeypatch):
     with pytest.raises(ValueError, match="identity/code/config"):
         recovery_identity(cell["new"], {**proposed, "per_cell_call_cap": 1000000})
     assert read_json(cell["new"] / "identity.json") == cell["identity"]
+
+
+def forbid_classification(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Completed amendment must not classify candidates again")
+    monkeypatch.setattr(amendment, "classify", forbidden)
+
+
+def test_late_shard_verifies_completed_amendment_while_other_slot_runs(cell, monkeypatch):
+    root = cell["new"]
+    amendment.amend(root, resume=True)
+    frozen = tree_hashes(root / "recovery")
+    plan = amendment.read_plan(root)
+    # An offline amendment has not materialized unused fresh destinations yet.
+    assert not (root / plan["records"][0]["fresh"]).exists()
+    forbid_classification(monkeypatch)
+    execute, interleaved = sm.run_episode, []
+    slot_a = Path(cell["slot"]).with_name("candidate-04")
+    slot_b = slot_a.with_name("candidate-05")
+
+    def start_b(*args, **kwargs):
+        if not interleaved:
+            interleaved.append(True)
+            assert (root / slot_a / "started.json").exists()
+            assert not (root / slot_a / "candidate.json").exists()
+            assert str(slot_a) not in cell["identity"]["chain_recovery"]["retry_directories"]
+            run(cell, shard_count=20, shard_index=3)
+            assert (root / slot_b / "candidate.json").exists()
+        return execute(*args, **kwargs)
+
+    monkeypatch.setattr(sm, "run_episode", start_b)
+    calls = len(cell["calls"])
+    run(cell, shard_count=20, shard_index=2)
+    assert interleaved and len(cell["calls"]) == calls + 2
+    assert (root / slot_a / "candidate.json").exists()
+    assert tree_hashes(root / "recovery") == frozen
+    before = tree_hashes(root)
+    assert amendment.amend(root, resume=True) == {
+        "applied": True, "ready": True, "cell": root.name, "rule": amendment.RULE,
+        "amendment": amendment.AMENDMENT, "extra_call_upper_bound": 41, "plan_sha256": digest(plan)}
+    assert tree_hashes(root) == before
+
+
+def test_resume_after_unamended_execution_interruption_never_recredits(cell, monkeypatch):
+    root = cell["new"]
+    amendment.amend(root, resume=True)
+    plan = amendment.read_plan(root)
+    frozen = tree_hashes(root / "recovery")
+    execute = sm.run_episode
+
+    def interrupt(*args, **kwargs):
+        execute(*args, **kwargs)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(sm, "run_episode", interrupt)
+    calls = len(cell["calls"])
+    with pytest.raises(KeyboardInterrupt):
+        run(cell, shard_count=20, shard_index=2)
+    slot = Path(cell["slot"]).with_name("candidate-04")
+    assert (root / slot / "started.json").exists()
+    assert not (root / slot / "candidate.json").exists()
+    assert len(cell["calls"]) == calls + 1
+    accounting = collection_accounting(root, cell["identity"])
+    before = tree_hashes(root)
+    summary = amendment.amend(root, resume=True, dry_run=True)
+    assert summary["ready"] and summary["refused"] == 0 and summary["records"] == []
+    assert summary["in_progress"] == summary["interrupted_to_restart"] == 1
+    assert summary["extra_call_upper_bound"] == 41 and summary["never_started"] == 17
+    assert summary["remaining_call_upper_bound"] == 19 * 41
+    assert summary["diagnostics"] == [{"slot": str(slot), "task_id": plan["records"][0]["task_id"],
+                                        "candidate": slot.name, "status": "in_progress"}]
+    assert tree_hashes(root) == before
+    monkeypatch.setattr(sm, "run_episode", execute)
+    forbid_classification(monkeypatch)
+    for _ in range(2):
+        run(cell, shard_count=20, shard_index=2)
+    assert (root / slot / "candidate.json").exists()
+    assert len(cell["calls"]) == calls + 1
+    assert tree_hashes(root / "recovery") == frozen
+    assert amendment.read_plan(root) == plan
+    assert collection_accounting(root, cell["identity"]) == accounting
+    assert not (root / slot / "amendment.json").exists()
+    assert not (root / slot / "teacher/cap_credit.json").exists()
+
+
+@pytest.mark.parametrize("tamper", ["archive", "completion", "missing_plan", "fresh_file", "fresh_symlink",
+                                  "fresh_task", "fresh_receipt"])
+def test_complete_verification_refuses_changed_evidence(cell, monkeypatch, tamper):
+    root = cell["new"]
+    amendment.amend(root, resume=True)
+    record = amendment.read_plan(root)["records"][0]
+    fresh = root / record["fresh"]
+    if tamper == "archive":
+        write_json(root / record["archive"] / "started.json", {})
+    elif tamper == "completion":
+        write_json(root / amendment.COMPLETE, {"plan_sha256": "changed"})
+    elif tamper == "missing_plan":
+        (root / amendment.PLAN).unlink()
+    elif tamper in {"fresh_file", "fresh_symlink"}:
+        fresh.parent.mkdir(parents=True)
+        if tamper == "fresh_file":
+            fresh.write_text("not a directory")
+        else:
+            fresh.symlink_to(root / record["archive"], target_is_directory=True)
+    elif tamper == "fresh_task":
+        write_json(fresh / "started.json", {"task_id": "other"})
+    else:
+        write_json(root / record["slot"] / "candidate.json", {
+            "task_id": record["task_id"], "candidate_id": record["candidate"], "reused": False,
+            "episode_dir": str(fresh / "episode")})
+    forbid_classification(monkeypatch)
+    calls = len(cell["calls"])
+    with pytest.raises(ValueError, match="SmartAD"):
+        amendment.amend(root, resume=True)
+    with pytest.raises(ValueError, match="SmartAD"):
+        run(cell, shard_count=20, shard_index=2)
+    assert len(cell["calls"]) == calls
+
+
+@pytest.mark.parametrize("complete,dry_run", [(False, False), (False, True), (True, False), (True, True)])
+def test_launcher_amendment_preflight_and_completed_resume(cell, monkeypatch, capsys, complete, dry_run):
+    from baselines.common import collection_launcher as launcher
+    root = cell["new"]
+    if complete:
+        amendment.amend(root, resume=True)
+        slot = Path(cell["slot"]).with_name("candidate-04")
+        write_json(root / slot / "started.json", {"task_id": "in-progress-fixture"})
+        if not dry_run:
+            forbid_classification(monkeypatch)
+    monkeypatch.setattr(launcher, "load_config", lambda _: cell["config"])
+    monkeypatch.setattr(launcher, "load_frozen", lambda *_: (cell["manifest"], cell["freeze"]))
+    monkeypatch.setattr(launcher.signal, "signal", lambda *_: None)
+    commands = []
+
+    def fake_process(command, **kwargs):
+        assert (root / amendment.COMPLETE).exists()
+        commands.append(command)
+        write_json(root / "candidates.json", {"status": "complete"})
+        return SimpleNamespace(wait=lambda: 0)
+
+    monkeypatch.setattr(launcher.subprocess, "Popen", fake_process)
+    before, calls = tree_hashes(root), len(cell["calls"])
+    launcher.main(["--method", "smartad", "--cell", root.name, "--source-view", str(cell["support"]),
+        "--output-root", str(root.parent), "--rate-limit-dir", str(cell["kw"]["rate_limit_dir"]),
+        "--log-root", str(root.parent / "logs"), "--shards", "2", "--resume",
+        *(["--dry-run"] if dry_run else [])])
+    summary = json.loads(capsys.readouterr().out)["cells"][0]["amendment"]
+    assert summary["ready"] and summary["extra_call_upper_bound"] == 41
+    assert len(cell["calls"]) == calls
+    if dry_run:
+        assert not commands and tree_hashes(root) == before
+        assert summary.get("in_progress", 0) == int(complete)
+    else:
+        assert len(commands) == 2
+        assert all("--resume" in command for command in commands)
+        assert summary.get("applied", False) is complete
+
+
+def test_nonplanned_in_progress_slot_still_refused_before_complete(cell):
+    root = cell["new"]
+    slot = Path(cell["slot"]).with_name("candidate-04")
+    write_json(root / slot / "started.json", {})
+    before = tree_hashes(root)
+    for dry_run in (True, False):
+        with pytest.raises(ValueError, match="Not an unfinished candidate"):
+            amendment.amend(root, resume=True, dry_run=dry_run)
+    assert tree_hashes(root) == before

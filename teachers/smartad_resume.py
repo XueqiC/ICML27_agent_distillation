@@ -34,6 +34,8 @@ def read_plan(output, identity=None):
     output = Path(output)
     path = output / PLAN
     if not path.exists():
+        if (output / COMPLETE).exists():
+            raise ValueError("SmartAD amendment completion has no bound plan")
         return None
     identity = identity or read_json(output / "identity.json")
     plan = read_json(path)
@@ -100,6 +102,26 @@ def check_archives(output, plan):
             raise ValueError("SmartAD candidate amendment record changed")
         if complete and tree_hashes(output / record["archive"]) != record["files"]:
             raise ValueError("SmartAD archived attempt inventory changed")
+
+
+def check_fresh_directories(output, plan):
+    """Check only planned destinations; collectors create unused ones lazily."""
+    output = Path(output)
+    for record in plan["records"]:
+        slot, fresh = output / record["slot"], output / record["fresh"]
+        for path in (slot, fresh.parent, fresh):
+            if path.is_symlink() or (path.exists() and not path.is_dir()):
+                raise ValueError("SmartAD fresh attempt directory changed")
+        started = fresh / "started.json"
+        if started.exists() and read_json(started).get("task_id") != record["task_id"]:
+            raise ValueError("SmartAD fresh attempt task changed")
+        receipt = slot / "candidate.json"
+        if receipt.exists():
+            row = read_json(receipt)
+            if (not fresh.is_dir() or row.get("task_id") != record["task_id"]
+                    or row.get("candidate_id") != record["candidate"] or row.get("reused") is not False
+                    or row.get("episode_dir") != str(fresh / "episode")):
+                raise ValueError("SmartAD fresh candidate binding changed")
 
 
 def void_attempt(directory, rows, episode, event, error, *, phase):
@@ -226,10 +248,15 @@ def classify(output):
     plan = read_plan(output, identity)
     check_imports(output, identity)
     check_archives(output, plan)
+    complete = (output / COMPLETE).exists()
+    if complete:
+        check_fresh_directories(output, plan)
     source = read_json(Path(identity["source_verified"]) / "manifest.json")
     if digest(source) != identity["source_collection_sha256"]:
         raise ValueError("Frozen support manifest changed")
     counts = dict(completed=0, imported=0, interrupted_to_restart=0, never_started=0)
+    if complete:
+        counts["in_progress"] = 0
     records, refused, diagnostics = [], [], []
     amended = {r["slot"]: r for r in (plan or {}).get("records", [])}
     imports = set(identity["chain_recovery"]["final_candidates"])
@@ -247,6 +274,12 @@ def classify(output):
                 counts["imported" if slot in imports else "completed"] += 1
             elif slot in amended:
                 counts["interrupted_to_restart"] += 1
+            elif complete and directory.exists():
+                # Membership was frozen before workers started. Their ordinary
+                # unfinished slots are neither restart candidates nor refusals.
+                counts["in_progress"] += 1
+                diagnostics.append({"slot": slot, "task_id": task_id, "candidate": directory.name,
+                                    "status": "in_progress"})
             elif directory.exists() and tree_hashes(directory):
                 record, reason = _interruption(output, identity, slot, task_id)
                 diagnostics.append({k: v for k, v in record.items() if k not in {"files"}})
@@ -268,7 +301,8 @@ def classify(output):
     return {"cell": output.name, "rule": RULE, "amendment": AMENDMENT,
             **counts, "refused": len(refused), "extra_call_upper_bound": bound,
             "max_extra_call_bound": MAX_RESTARTS * NEW_CAP,
-            "remaining_call_upper_bound": (counts["never_started"] + counts["interrupted_to_restart"]) * NEW_CAP,
+            "remaining_call_upper_bound": (counts["never_started"] + counts["interrupted_to_restart"]
+                                           + counts.get("in_progress", 0)) * NEW_CAP,
             "call_bound_unit": "logical teacher calls; HTTP retries retain the existing transport policy",
             "spent_and_void_usage": spent_and_void_usage([*records, *amended.values()]),
             "ready": not refused, "records": records, "refusals": refused,
@@ -282,6 +316,15 @@ def amend(output, *, resume, dry_run=False):
     output = Path(output).resolve()
     if dry_run:
         return classify(output)
+    if (output / COMPLETE).exists():
+        # Shards may already be writing unrelated slots. Verify the immutable
+        # amendment only; never discover new members or reapply quota credit.
+        plan = read_plan(output)
+        check_archives(output, plan)
+        check_fresh_directories(output, plan)
+        return {"applied": True, "ready": True, "cell": output.name, "rule": RULE,
+                "amendment": AMENDMENT, "extra_call_upper_bound": plan["extra_call_upper_bound"],
+                "plan_sha256": digest(plan)}
     # Caller holds .pipeline.lock (the launcher applies before starting shards).
     summary = classify(output)
     if not summary["ready"]:
@@ -297,8 +340,6 @@ def amend(output, *, resume, dry_run=False):
                 "timestamp": utc_now(), "code_sha256": code_hashes(Path(__file__).resolve().parents[1]),
                 "dependencies": versions()}
         write_json(output / PLAN, plan, exclusive=True)
-    if (output / COMPLETE).exists():
-        return summary
     for record in plan["records"]:
         slot, archive = output / record["slot"], output / record["archive"]
         with locked(slot / ".slot.lock"):

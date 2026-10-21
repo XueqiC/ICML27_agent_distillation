@@ -318,6 +318,8 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
             stored = read(output / "identity.json")
             if registered(output, stored):
                 check_resume_identity(stored, identity)
+                # After COMPLETE this verifies only the frozen amendment; other
+                # shards may already have ordinary candidates in progress.
                 amend(output, resume=resume)
         identity = collection_identity(output, identity)
         if not (output / "provenance.json").exists():

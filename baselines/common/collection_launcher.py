@@ -69,9 +69,10 @@ def main(argv=None):
             recovery = None
             amendment = None
             if output.exists() and args.resume and args.method == "smartad" and not args.recover_from:
-                from teachers.smartad_resume import amend, display, registered
+                from teachers.smartad_resume import COMPLETE, amend, display, registered
                 if registered(output, old):
-                    amendment = display(amend(output, resume=True, dry_run=True))
+                    amendment = display(amend(output, resume=True,
+                        dry_run=args.dry_run or not (output / COMPLETE).exists()))
                     if not amendment["ready"] and not args.dry_run:
                         raise ValueError("SmartAD resume amendment refused; inspect --resume --dry-run classification")
             if args.recover_from:
