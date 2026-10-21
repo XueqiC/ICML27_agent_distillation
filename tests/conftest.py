@@ -24,6 +24,7 @@ def offline(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("TEACHER_RATE_LIMIT_DIR", raising=False)
     monkeypatch.setenv("SED_SECRETS_FILE", str(tmp_path / "nonexistent.env"))
+    monkeypatch.setenv("SED_HASH_CACHE_DIR", str(tmp_path / "hash-receipts"))
     try:
         from openai.resources.responses.responses import Responses
     except ImportError:

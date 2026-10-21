@@ -9,6 +9,7 @@ import sys
 import uuid
 
 from sed.storage import file_hash, write_json
+from sed.hash_receipts import cache_provenance
 
 
 def utc_now():
@@ -63,6 +64,7 @@ def write_provenance(directory, *, command, config, inputs=None, details=None, r
            "command": command, "python_executable": sys.executable,
            "python_version": platform.python_version(), "dependencies": versions(),
            "git_head": git_head, "code_sha256": code_hashes(root),
+           "hash_cache": cache_provenance(),
            "config": safe_config(config),
            "inputs": {str(p): file_hash(p) for p in (inputs or [])},
            "details": details or {}}

@@ -1,0 +1,313 @@
+{
+  "recorded_at_utc": "2026-10-20T22:33:42.370809+00:00",
+  "metadata": {
+    "source": "/home/xueqi/hq/projects/ICML27_agent_distillation/data/verified/seeds_full_train_r2",
+    "python": "3.11.7",
+    "platform": "Linux-5.15.0-122-generic-x86_64-with-glibc2.35",
+    "hash_workers": 16,
+    "source_input_sha256": {
+      "manifest.json": "1b25924a9ff43803113bde0cc0af695d4d8943544ef59316b666a8a2ca063f35",
+      "selection.json": "bbea0f85582d964d1295543045a509536c4c89ecb96caa12e74beb484fd3c8c0",
+      "identity.json": "4d6d5ece6bbe84379b3ca46365bb3637cb461b369a6fa0ba0661d9e2db48c264",
+      "subsets/k30/manifest.json": "5eb81f46d86dd1fe09a7f6a0e67ea5f7a771715951bd681fe8d5f2e711d22465",
+      "subsets/k30/selection.json": "ba85148cfa28740905e1eb2e87e1ed8c736eff06c54070d439ab74f1e72cb5e9",
+      "subsets/k30/identity.json": "eed609c4aa3c03ca5abb346dc6ce77dfb6bcc1e69a88513f9cccaffa1a323536",
+      "subsets/k500/manifest.json": "1f63ea73df4765bf65a89cbbd22a7da71fba143151517856f75008c404875fb3",
+      "subsets/k500/selection.json": "e2f07690150cc1477ddd026330150e07cb04e5539ed8f8a3ca6aacebc6dc64c6",
+      "subsets/k500/identity.json": "88f5eb1990f1805461ce8ec184f053e504dd7a60e1f6e0fb3e0ec8aaedeaaaa4"
+    },
+    "collection_counts": {
+      "source": {
+        "K": 3098,
+        "trusted_trajectories": 3098,
+        "unique_instances": 3098,
+        "task_groups": 1383,
+        "attempted_unique_instances": 3553,
+        "attempted_task_groups": 1465
+      },
+      "k30": {
+        "K": 30,
+        "trusted_trajectories": 30,
+        "unique_instances": 30,
+        "task_groups": 30,
+        "attempted_unique_instances": 30,
+        "attempted_task_groups": 30
+      },
+      "k500": {
+        "K": 500,
+        "trusted_trajectories": 500,
+        "unique_instances": 500,
+        "task_groups": 500,
+        "attempted_unique_instances": 500,
+        "attempted_task_groups": 500
+      }
+    },
+    "git_head": "d7ad7fe9c0bef0e771cbd8e033f59d84f42c16ca",
+    "before_seed_evidence_sha256": "7f2cb62669420dd3095126e7bcfb52e89c77fdd69fffb0cc52aacfe4a8043e59",
+    "after_code_sha256": {
+      "src/sed/seed_evidence.py": "5acacff17322073723e3e99b73b9b3d78b9b2ab34f4456b6e049d49d90352772",
+      "src/sed/hash_receipts.py": "3e82e1a41fb01e057519fb24b75320a6407c221c669c8b97c30072ff1bacaff1",
+      "src/sed/provenance.py": "42356e66bca8b92e1e4319d7d35cd5860eae3623cac761ef850bdd7f0a079278",
+      "tools/profile_verified_views.py": "1c51e7705ea05e3e0fc60458d446d40bca5bd825a6824ed9cf6a70eb0ed0f9a7"
+    },
+    "initial_cache_code_sha256": {
+      "src/sed/seed_evidence.py": "5acacff17322073723e3e99b73b9b3d78b9b2ab34f4456b6e049d49d90352772",
+      "src/sed/hash_receipts.py": "a4a1c6810d11e6b38d54d91b03d7d76f8f519fcb9cf5465dfdb4bb75ae9a9965",
+      "src/sed/provenance.py": "42356e66bca8b92e1e4319d7d35cd5860eae3623cac761ef850bdd7f0a079278",
+      "tools/profile_verified_views.py": "1c51e7705ea05e3e0fc60458d446d40bca5bd825a6824ed9cf6a70eb0ed0f9a7"
+    },
+    "cached_tree_worker_cap": 2,
+    "warm_sample_calibration": {
+      "files": 2323,
+      "pathlib_workers_1": [
+        0.242297898,
+        0.277656748
+      ],
+      "pathlib_workers_16": [
+        0.471031222,
+        0.470426454
+      ],
+      "scandir_workers_1": [
+        0.097082413,
+        0.093877465
+      ],
+      "scandir_workers_2": [
+        0.074382264
+      ],
+      "scandir_workers_4": [
+        0.085491013
+      ],
+      "scandir_workers_16": [
+        0.17486834,
+        0.195118213
+      ]
+    },
+    "cold_scandir_sample_calibration": {
+      "files": 2323,
+      "workers_1": 0.376773747,
+      "workers_2": 0.279510286,
+      "workers_4": 0.345731741,
+      "workers_8": 0.544339374,
+      "workers_16": 0.541884236
+    },
+    "frozen_input_sha256": {
+      "data/manifest/alfworld_manifest.json": "26bed4acea9fbea32e188aee2b6072eae82032546613de68975ee78a8603ff03",
+      "data/manifest/alfworld_split_freeze.json": "7dca30657d0b594fce409a238cdac1b90756e292a0875575d7fec1fa02536ed6"
+    },
+    "dependencies": {
+      "sufficient-experience-distillation": null,
+      "alfworld": "0.4.2",
+      "textworld": "1.7.0",
+      "openai": "2.8.1",
+      "httpx": "0.28.1",
+      "vllm": null,
+      "transformers": null,
+      "torch": null,
+      "peft": null,
+      "accelerate": null,
+      "tokenizers": null,
+      "PyYAML": "6.0.3",
+      "pytest": "7.4.0",
+      "numpy": "2.4.6",
+      "fast-downward": null
+    },
+    "cache_configuration": {
+      "before": "SED_HASH_CACHE=0",
+      "after": "SED_HASH_CACHE=1",
+      "directory_parent": "/tmp/sed-viewcache-profile",
+      "cold_definition": "empty external receipt cache and empty process memo; OS page cache not flushed"
+    },
+    "final_source_and_code_hash_check": "passed"
+  },
+  "before": [
+    {
+      "label": "before",
+      "index": 0,
+      "K": 30,
+      "wall_seconds": 411.5310085611418,
+      "profiled": true,
+      "json_loads_calls": 19001,
+      "json_loads_seconds": 6.695774798281491,
+      "file_hash_calls": 1146951,
+      "file_hash_thread_seconds": 934.8717758122366
+    },
+    {
+      "label": "before",
+      "index": 1,
+      "K": 30,
+      "wall_seconds": 302.6418465990573,
+      "profiled": false,
+      "json_loads_calls": 19001,
+      "json_loads_seconds": 6.583420796552673,
+      "file_hash_calls": 1146951,
+      "file_hash_thread_seconds": 734.2451678426005
+    },
+    {
+      "label": "before",
+      "index": 2,
+      "K": 500,
+      "wall_seconds": 360.16656563803554,
+      "profiled": false,
+      "json_loads_calls": 21459,
+      "json_loads_seconds": 7.651119985617697,
+      "file_hash_calls": 1264590,
+      "file_hash_thread_seconds": 868.9204482310452
+    },
+    {
+      "label": "before",
+      "index": 3,
+      "K": 500,
+      "wall_seconds": 474.17290269606747,
+      "profiled": false,
+      "json_loads_calls": 21459,
+      "json_loads_seconds": 8.389250874286518,
+      "file_hash_calls": 1264590,
+      "file_hash_thread_seconds": 1148.7949551171623
+    }
+  ],
+  "final": {
+    "k30_cold_and_process_warm": [
+      {
+        "label": "final-k30",
+        "index": 0,
+        "K": 30,
+        "wall_seconds": 131.2768361151684,
+        "profiled": false,
+        "json_loads_calls": 19067,
+        "json_loads_seconds": 8.037450857460499,
+        "file_hash_calls": 894535,
+        "file_hash_thread_seconds": 85.29580283421092
+      },
+      {
+        "label": "final-k30",
+        "index": 1,
+        "K": 30,
+        "wall_seconds": 59.03867226000875,
+        "profiled": false,
+        "json_loads_calls": 19001,
+        "json_loads_seconds": 7.95261339051649,
+        "file_hash_calls": 33,
+        "file_hash_thread_seconds": 0.002317847916856408
+      }
+    ],
+    "k30_persistent_warm": [
+      {
+        "label": "final-k30-persistent",
+        "index": 0,
+        "K": 30,
+        "wall_seconds": 76.88481852388941,
+        "profiled": false,
+        "json_loads_calls": 28611,
+        "json_loads_seconds": 8.892903764732182,
+        "file_hash_calls": 33,
+        "file_hash_thread_seconds": 0.0022718338295817375
+      }
+    ],
+    "k500_cold_and_process_warm": [
+      {
+        "label": "after-k500",
+        "index": 0,
+        "K": 500,
+        "wall_seconds": 159.30045586894266,
+        "profiled": false,
+        "json_loads_calls": 22573,
+        "json_loads_seconds": 9.049624944338575,
+        "file_hash_calls": 895059,
+        "file_hash_thread_seconds": 100.14344640239142
+      },
+      {
+        "label": "after-k500",
+        "index": 1,
+        "K": 500,
+        "wall_seconds": 70.1560816441197,
+        "profiled": false,
+        "json_loads_calls": 21459,
+        "json_loads_seconds": 9.056147007504478,
+        "file_hash_calls": 557,
+        "file_hash_thread_seconds": 0.04656702885404229
+      }
+    ],
+    "k500_persistent_warm": [
+      {
+        "label": "after-k500-persistent",
+        "index": 0,
+        "K": 500,
+        "wall_seconds": 86.41508623794653,
+        "profiled": false,
+        "json_loads_calls": 32117,
+        "json_loads_seconds": 9.580438616452739,
+        "file_hash_calls": 557,
+        "file_hash_thread_seconds": 0.04311199765652418
+      }
+    ]
+  },
+  "intermediate": {
+    "initial_pathlib_cache_k30": [
+      {
+        "label": "after-k30",
+        "index": 0,
+        "K": 30,
+        "wall_seconds": 345.892314636847,
+        "profiled": false,
+        "json_loads_calls": 19067,
+        "json_loads_seconds": 8.512262519216165,
+        "file_hash_calls": 894535,
+        "file_hash_thread_seconds": 1070.4150675216224
+      },
+      {
+        "label": "after-k30",
+        "index": 1,
+        "K": 30,
+        "wall_seconds": 251.00076069217175,
+        "profiled": false,
+        "json_loads_calls": 19001,
+        "json_loads_seconds": 8.93607619497925,
+        "file_hash_calls": 33,
+        "file_hash_thread_seconds": 0.0027185005601495504
+      }
+    ],
+    "first_final_code_k30_persistent_warm": [
+      {
+        "label": "after-k30-persistent",
+        "index": 0,
+        "K": 30,
+        "wall_seconds": 83.01002345816232,
+        "profiled": false,
+        "json_loads_calls": 28611,
+        "json_loads_seconds": 9.05557684903033,
+        "file_hash_calls": 33,
+        "file_hash_thread_seconds": 0.0027367672882974148
+      }
+    ]
+  },
+  "profile_summary": {
+    "K": 30,
+    "wall_seconds": 411.5310085611418,
+    "artifact_reader_seconds": 381.822,
+    "executor_submissions": 2902756,
+    "main_thread_lock_wait_seconds": 231.996,
+    "json_seconds": 6.695774798281491,
+    "json_calls": 19001,
+    "source_manifest_bytes": 206900215,
+    "manifest_read_seconds": 0.33117259899154305,
+    "manifest_parse_seconds": 0.8737357859499753
+  },
+  "tests": {
+    "final_combined": {
+      "passed": 195,
+      "seconds": 448.97
+    },
+    "cache_disabled_views_and_chains": {
+      "passed": 39,
+      "seconds": 159.54
+    }
+  },
+  "notes": [
+    "Cold means an empty receipt cache and empty memo; OS caches were not flushed.",
+    "Hash-call counters include receipt-reference hashes but exclude collection-anchor hashes.",
+    "Hash/JSON thread seconds are sums across threads and are not additive wall-clock components.",
+    "Final cached validation uses at most two tree workers; the full-hash path retains 16.",
+    "Large collection loads were sequential. Small calibration and offline tests overlapped some loads.",
+    "No real collection content was written; no teacher/environment calls or training occurred."
+  ]
+}
