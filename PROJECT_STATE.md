@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 20:3x CDT 10-20
+- User priority (20:23): 轨迹 SFT > AD > SmartAD > SAD; parallelize more; LONI CPU need not be saved.
+  Keeper plan d30c1ea orders tsft, adc before SAD; pending SAD jobs nice=500; rebalancer restarted (pid 1419682,
+  CORE '^(tsft|adc|smc|sadc)-', log logs/rebalance_accounts.log).
+- LONI: tsft K30/K100 (8 rungs) — k30-e2 COMPLETED (loss 0.349, bit-matches the smoke run), 6 running. tsft K300/K500
+  e4/e8/e16 ALSO submitted on LONI (1118751-57, gpu2 whole node 64 cores): dedupe loop (scratchpad/dedupe_loop.sh pid
+  1433024, log logs/dedupe_tsft.log) cancels the other cluster's copy once one starts running.
+- Plan: AD + SmartAD training and SmartAD selection on LONI (rai->LONI direct copy); all evals on hpg B200.
+- Chain collections relaunched 20:22 CDT, both launchers in preflight (pids 1415430 adftp, 1415431 smartad).
+
 ### 20:2x CDT 10-20
 - User topped up $20 (01:12Z). resume_chain_after_topup.sh: probe 200, recovered 32+32 quota-halted counters (transport_fixed),
   relaunched adftp + smartad chain collections with --resume (logs/chain_collect_*.log). SmartAD reuse NOT applied for K<=500
