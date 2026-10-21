@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 17:2x CDT 10-21 — long rungs prefer hpg
+- dedupe_ladder.py: for K>=300 and E>=32 keep the hpg twin queued even when LONI starts first; cancel LONI once hpg logs
+  updates (hpg ~6x faster). Restored hpg twins: tsft-k300-e64, tsft-k500-e32 (LONI ~50% done), adc-k300-e32. Kept LONI-only:
+  tsft-k300-e32, adc-k300-e16 (~2 h left). Cancelled superseded adc-k500-e32-lr1e-4 (LONI 1119727; 1e-4 ladder invalid).
+  Plan 9f048e9: hpg train for adc-k500-e16/e32-lr5e-5 (dedupe covers them).
+- smartadselc-merge retry 47061793 running (8 h limit).
 ### 16:2x CDT 10-21 — SAD K300 converged at x1; SmartAD merge retry
 - SAD convergence complete except K500: K30 x1 (49), K100 x0.5 (109), K300 x1 (127); K500 x2 queued (x0.5->x1 delta 0.162).
 - smartadselc-merge hit its 2 h limit in the final verification (full-TRAIN support re-hash). Retry: 8 h, 8 CPUs, persistent
