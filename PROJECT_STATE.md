@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:1x CDT 10-21 — SmartAD collection COMPLETE; selection set up
+- chain_k500_s0_r2 COMPLETE (launcher exit 0 14:02Z = 09:02 CDT): 500 tasks x 10 candidates = 5,000; 3,147 correct; tasks by
+  #correct: 0:40, 1:34, 2:30, 3:29, 4:27, 5:31, 6:28, 7:40, 8:49, 9:57, 10:135. api_attempts 102,387 (new teacher calls 97,859),
+  amendment bounds 943 + 82, effective cap 206,025. 13G.
+- Copy to hpg: scratchpad/sync_smartad_chain_hpg.sh pid 875919 (first 2 attempts failed: parent dir missing on hpg; created),
+  gate smartad_chain_on_hpg on verified match.
+- hpg tree 3318b54 deployed (with .venv + third_party). Plan 1215afc: smartadselc-s{0..3}of4 (1 GPU, 48G, 3 h; gate
+  smartad_chain_on_hpg) + smartadselc-merge (CPU; gate smartad_chain_scored, opened by scratchpad/gate_smartad_scored.sh pid
+  884142 after 4 CELL_DONE). Output reports/smartad-selection/chain_k500_s0_r2. Then: SmartAD 1e-4 ladder + evals.
 ### 08:2x CDT 10-21 — SmartAD collection finishing
 - Old launcher 652148 finished; third launcher 1429312 (tree 3318b54) running 32 shards, 0 failures; 4,998/5,000 done; the 2
   operator-interrupt slots are resampling in resampled/attempt-1. Then the deferred candidate-01 pass + candidates.json.
