@@ -19,7 +19,7 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 ## RUNNING JOBS
 ### 12:1x CDT 10-21 — first converged-column results
 - Converged column (dev140, base 62): AD K30 (1e-4, e64, SAG) 109; SAD K30 (x1) 49; SAD K100 (x0.5) 109.
-- SmartAD pool verified on hpg 12:12 CDT (889,928 files); gate smartad_chain_on_hpg open; keeper submits smartadselc shards.
+- SmartAD pool verified on hpg 12:12 CDT (889,928 files); selection shards submitted 12:13 CDT: smartadselc-s0..s3of4 47038188/90/93/94 (merge gate via gate_smartad_scored.sh pid 884142).
 - sadc-k500-b2 prep done, train 47035772 pending.
 ### 11:2x CDT 10-21 — tunnel back (11:16); results snapshot
 - SAD K100 x1 (paper) 0/140 (collapsed). SAD K100 converged at x0.5 (x0.25 -> x0.5 delta 0.0008): eval gate eval_sadc-k100-b05.
