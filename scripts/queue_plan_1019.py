@@ -431,7 +431,8 @@ def chain_cells():
     for c in sad1 + sad05:
         if not c["cell"].startswith("sadc-k30-"):
             c["hold"] = True
-    return sad1 + tsft + sad05 + adc
+    # User 20:23 CDT: trajectory SFT, AD and SmartAD are the top priority; SAD after them.
+    return tsft + adc + sad1 + sad05
 
 def main():
     out = Path(sys.argv[1])
