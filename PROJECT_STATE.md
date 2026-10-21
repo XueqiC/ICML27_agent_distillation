@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 21:0x CDT 10-20 decision (user OK 21:04)
+- Main table: each method's training to convergence (doubling ladder, train-loss rule) = main number; ALSO report the paper's
+  own epoch count (2 epochs for AD/SmartAD/trajectory SFT; SAD's x1 budget) as a 'paper recipe' column. So every e2 rung is
+  evaluated too. Rationale explained to user: epochs are a data-size-dependent hyperparameter (AD: 2 epochs on ~2k
+  trajectories = ~500 updates; our K30 = 20 updates); the method components are unchanged.
+- Submitted tsft-k300-e2 / tsft-k500-e2 on LONI (paper-epoch column).
+
 ### 20:5x CDT 10-20
 - Parser-rejected reply masking merged (main fb22f09; wt/parsemask): K500 5 replies / 115 target tokens masked, other 9,176
   unchanged; Kang/AD unchanged; 149 tests pass. Deployed hpg ICML27_runs/fb22f09; SAD K100-K500 cells reset on fb22f09
