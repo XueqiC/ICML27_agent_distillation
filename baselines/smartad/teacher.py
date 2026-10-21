@@ -23,7 +23,9 @@ def effective_sampling(sampling_root):
     if not path.exists():
         return dict(REQUESTED_SAMPLING)
     decision = read(path)
-    rows = [json.loads(line) for line in Path(decision["ledger"]).read_text().splitlines()]
+    from teachers.chain_recovery import evidence_path
+    ledger = evidence_path(sampling_root, decision["ledger"]) if (Path(sampling_root) / "identity.json").exists() else Path(decision["ledger"])
+    rows = [json.loads(line) for line in ledger.read_text().splitlines()]
     evidence = next((r for r in rows if r.get("call_id") == decision["call_id"]
                      and r.get("status") == "failed"), None)
     if (decision.get("mode") != "provider_default" or decision.get("parameter") != "temperature"

@@ -216,6 +216,9 @@ def select(pool_root, snapshot, config, manifest, freeze, output, *, scorer=None
         if is_full_train(selection):
             collection.update(selection_rule=selection["selection_rule"], candidates=selection["candidates"],
                               failed_candidates=source["failed_candidates"])
+        if "inherited_usage" in pool:
+            collection.update({key: pool[key] for key in
+                               ("inherited_usage", "new_usage", "new_teacher_calls", "new_environment_steps", "accounting")})
         frozen_write(root / "manifest.json", collection)
         load_verified_collection(root, manifest, freeze)
         if pool_identity["subset_ks"]:

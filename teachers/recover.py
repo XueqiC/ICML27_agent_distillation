@@ -19,13 +19,17 @@ def recover(counter_path, *, reason):
     counter_path = Path(counter_path)
     with locked(str(counter_path) + ".lock"):
         counter = json.loads(counter_path.read_text())
+        if counter.get("migration_pending"):
+            raise ValueError("Offline chain migration already acknowledged the inherited incident; resume its collector")
         identity = counter["identity"]
         ledger = Path(identity["usage_ledger"])
         rows = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
+        from teachers.chain_recovery import inherited_counter
+        counter, rows, inherited, cap = inherited_counter(counter_path, counter, identity, rows)
         rows = [r for r in rows if r.get("run_id") == identity["run_id"]]
         slots = {r.get("logical_call_id", r["call_id"]) for r in rows if r["status"] == "started"}
-        counter["attempts"] = max(counter["attempts"], len(slots))
-        if counter["attempts"] >= identity["cap"]:
+        counter["attempts"] = max(counter["attempts"], inherited + len(slots))
+        if counter["attempts"] >= cap:
             raise BudgetExceeded("No teacher budget remains; retain evidence and use a separately disclosed new run")
         recovery = {"timestamp": utc_now(), "reason": reason, "through_rows": len(rows),
             "ledger_prefix_sha256": digest(rows), "previous_counter": counter,

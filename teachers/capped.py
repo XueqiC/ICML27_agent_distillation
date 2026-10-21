@@ -188,13 +188,15 @@ class CappedTeacher:
     def _read_counter(self):
         value = (json.loads(self.counter_path.read_text()) if self.counter_path.exists() else
                  {"identity": self.identity, "attempts": 0, "pending": False, "halted": False})
-        if value["identity"] != self.identity:
-            raise ValueError("Collector identity/cap changed")
         ledger = self.teacher.ledger.path
         try:
             rows = [json.loads(line) for line in ledger.read_text().splitlines()] if ledger.exists() else []
         except ValueError:
             raise TeacherCallError("Teacher usage ledger is incomplete/unknown; inspect retained evidence") from None
+        from teachers.chain_recovery import inherited_counter
+        value, rows, inherited, self.cap = inherited_counter(self.counter_path, value, self.identity, rows)
+        if value["identity"] != self.identity:
+            raise ValueError("Collector identity/cap changed")
         rows = [r for r in rows if r.get("run_id") == self.run_id]
         all_rows = rows
         recovery = value.get("recovery")
@@ -213,7 +215,7 @@ class CappedTeacher:
             and r.get("retryable") and r.get("will_retry")
             and r.get("logical_call_id") in completed) for r in rows)
         # Never lower a reservation count. Ledger recovers a missing/stale counter.
-        value["attempts"] = max(value["attempts"], len(logical_starts))
+        value["attempts"] = max(value["attempts"], inherited + len(logical_starts))
         if value["pending"] or starts - ends or failed:
             value["halted"] = True
         return value

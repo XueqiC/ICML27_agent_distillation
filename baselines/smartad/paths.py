@@ -8,6 +8,7 @@ from sed.seed_evidence import artifact_hashes
 class PathResolver:
     def __init__(self, entries=()):
         self.pairs = []
+        self.evidence_pairs = []
         for entry in entries:
             old, separator, new = entry.partition("=")
             if not separator or not old or not new or not all(Path(p).is_absolute() for p in (old, new)):
@@ -24,7 +25,7 @@ class PathResolver:
 
     @property
     def disclosure(self):
-        return [{"old": str(old), "new": str(new)} for old, new in self.pairs]
+        return [{"old": str(old), "new": str(new)} for old, new in self.pairs + self.evidence_pairs]
 
     def published(self, path):
         """Recover a relocated root's published spelling for score identity."""
@@ -36,7 +37,7 @@ class PathResolver:
 
     def resolve(self, path, hashes=None):
         path = Path(path)
-        for old, new in self.pairs:
+        for old, new in self.evidence_pairs + self.pairs:
             if path.is_relative_to(old):
                 path = new / path.relative_to(old)
                 break

@@ -11,6 +11,11 @@ from teachers.stage import count
 COT_PROMPT = ("Think step by step about how to solve the task in the initial observation. "
               "Write a visible solution plan without taking actions or using tools.")
 FTP_PROMPT_VERSION = "adftp-h0-first-paragraph-v1"
+MAX_EPISODE_STEPS = 40
+COT_CALLS = 1
+ATTEMPTS_PER_CANDIDATE = 3
+CALLS_PER_ATTEMPT = COT_CALLS + MAX_EPISODE_STEPS
+CALLS_PER_TASK = ATTEMPTS_PER_CANDIDATE * CALLS_PER_ATTEMPT
 
 
 class FTPRejected(ValueError):

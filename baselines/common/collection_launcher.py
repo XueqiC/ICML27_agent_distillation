@@ -30,6 +30,7 @@ def main(argv=None):
     parser.add_argument("--log-root", default=os.environ.get("LOG_ROOT", "logs"))
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--recover-from", help="One stopped source cell; import into a NEW --cell before launching")
     args = parser.parse_args(argv)
     method = args.method.upper()
     args.output_root = args.output_root or os.environ.get(method + "_ROOT", f"reports/runs/{args.method}-collections")
@@ -43,6 +44,8 @@ def main(argv=None):
         if (len(args.cell) != len(args.source_view) or len(set(args.cell)) != len(args.cell)
                 or any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", c) for c in args.cell)):
             raise ValueError("Supply distinct safe --cell names and one --source-view per cell, in order")
+        if args.recover_from and len(args.cell) != 1:
+            raise ValueError("--recover-from requires exactly one cell")
         config = load_config(args.config)
         manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
         plans = []
@@ -63,6 +66,16 @@ def main(argv=None):
                             "rate_limit_dir": str(Path(limiter).resolve())}
                 if any(old.get(k) != v for k, v in expected.items()) or old.get("subset_views", []) != bindings:
                     raise ValueError("Existing cell identity/source/config/limiter/views mismatch")
+            recovery = None
+            if args.recover_from:
+                from teachers.chain_recovery import recover_chain_collection
+                old = read(Path(args.recover_from) / "identity.json")
+                if (old["source_verified"] != str(Path(path).resolve()) or
+                        old["rate_limit_dir"] != str(Path(limiter).resolve()) or
+                        old.get("subset_views", []) != bindings):
+                    raise ValueError("Recovery source/config/limiter/views must match the frozen cell")
+                recovery = recover_chain_collection(args.recover_from, output, args.method,
+                    manifest, freeze, config, dry_run=True)
             commands = []
             for index in range(args.shards):
                 command = [sys.executable, "-m", f"baselines.{args.method}.pipeline", "--config", args.config,
@@ -79,6 +92,8 @@ def main(argv=None):
                           "task_groups": source["task_groups"], "seed": selection["seed"],
                           "selection_rule": selection["selection_rule"], "shards": args.shards,
                           "subsets": bindings, "commands": commands})
+            if recovery:
+                plans[-1]["recovery"] = recovery
     except (ValueError, OSError, KeyError) as error:
         # Never dump provider exceptions or process environment.
         parser.error(str(error))
@@ -100,6 +115,9 @@ def main(argv=None):
     log_root.mkdir(parents=True, exist_ok=True)
     # Different output roots may collect concurrently with one shared limiter.
     with locked(Path(args.output_root) / f".{args.method}.launcher.lock"):
+        if args.recover_from:
+            recover_chain_collection(args.recover_from, plans[0]["output"], args.method,
+                                     manifest, freeze, config)
         def launch(plan):
             for index, command in enumerate(plan["commands"]):
                 with tempfile.NamedTemporaryFile(prefix=f"collect_{args.method}_{plan['cell']}_shard{index}.",
