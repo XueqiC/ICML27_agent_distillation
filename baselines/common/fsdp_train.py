@@ -847,7 +847,7 @@ def main(argv=None):
         delattr(args, name)  # Preserve existing baselines' effective argument/config shape.
     if args.objective == "smartad":
         if (args.adaptation != "kang_lora" or args.packing != "turn" or args.method_data
-                or args.epochs != 2 or args.original_batch != 4 or args.seed != 0
+                or args.epochs < 1 or args.original_batch != 4 or args.seed != 0
                 or not math.isfinite(args.learning_rate) or args.learning_rate <= 0
                 or args.scheduler != "linear" or not 0 <= args.warmup_ratio <= 1
                 or args.warmup_steps != (0 if args.warmup_ratio == 0 else None) or args.weight_decay != 0):
