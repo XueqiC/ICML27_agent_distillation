@@ -27,4 +27,5 @@ exec "$ENV_PYTHON" -m baselines.sad.pipeline --config "${CONFIG:-configs/base.ya
     --gpus "$NGPUS" --workers "$WORKERS" --ready-timeout "$READY_TIMEOUT" \
     --scoring "${SAD_SCORING:-shared_history}" \
     --budget-multiplier "${SAD_BUDGET_MULT:-1}" \
+    --eval-fractions "${SAD_EVAL_FRACTIONS:-}" \
     --mode "${SAD_MODE:-train}" --through "${SAD_THROUGH:-all}"

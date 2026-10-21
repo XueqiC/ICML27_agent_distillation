@@ -23,11 +23,18 @@ reproduction is claimed.
 | Support data | Only `--verified`, including nested views and the opt-in full TRAIN schema registered with AD-FTP. No teacher client, new labels, external pool, or training on dev/test. Curriculum complexity/counts are recorded in example provenance. | fixed experiment protocol |
 | Resume | Hash-bound shared stage transactions. Complete stages/checkpoints are reused. An interrupted optimization stage restarts from the pinned base in a new retained attempt, as in existing ports; it does not claim optimizer-state resume. Every failed attempt's durable update exposures remain disclosed. | existing stage-resume convention |
 | Evaluation gate | Opt-in full-checkpoint check reuses existing eight fixed verified TRAIN turns, teacher-forced HF/vLLM logprobs, and exact OFF prefixes. Standalone checkpoints have no adapter-disable noise reference: require pooled mean absolute error ≤.05 and no more than ceil(.05*N) absolute errors >.5. Bind checkpoint/config/template/collection/code/server identity; fail before dev evaluation. Existing baseline launchers stay unchanged. | full-checkpoint equivalence threshold registration |
-| Evaluation | Every published checkpoint uses dev140, greedy, batch-invariant vLLM and existing seed0/H0 runner. `--mode evaluate` runs the equivalence gate before each evaluation. Standalone exports also fit `MERGED_MODEL_PATH` in `scripts/hpg_eval_adapters.slurm` after a passing gate. | shared protocol |
+| Evaluation | By default every published checkpoint uses dev140, greedy, batch-invariant vLLM and existing seed0/H0 runner. `--mode evaluate` runs the equivalence gate before each evaluation. `--eval-fractions` / `SAD_EVAL_FRACTIONS` optionally limits evaluation to explicitly requested fractions, with the selection recorded in evaluation provenance. Standalone exports also fit `MERGED_MODEL_PATH` in `scripts/hpg_eval_adapters.slurm` after a passing gate. | shared protocol; explicit evaluation subset |
 
 Run `python -m baselines.sad.pipeline --config ... --snapshot ... --verified ...
 --output ... --gpus 4`. The wrapper is `scripts/hpg_sad.slurm`, with `SAD_THROUGH`
 set to `prepare`, `train`, or `all`, and `SAD_MODE=evaluate` for evaluation.
+In evaluate mode, `--eval-fractions 1` (or `SAD_EVAL_FRACTIONS=1`, also honoured
+by the wrapper) selects only the final fraction, stored as `1/1` in `models.json`.
+Comma lists such as `1/2,1` select multiple fractions; omitted/empty means all.
+Unknown fractions fail before serving. All matching entries, including retained
+training attempts, are selected in manifest order. Each evaluation invocation
+records the request, selected model entries and input hashes under
+`evaluations/<run_id>/provenance.json`; completed per-checkpoint stages remain reusable.
 Preparation can run in a CPU allocation. SAD makes zero teacher calls. GPU count
 changes require matching the SLURM allocation and `NGPUS`; one GPU is supported
 for a separately authorized K20 s0 smoke, which has not been run here.
