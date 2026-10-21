@@ -394,7 +394,7 @@ def lora_rung(method, k, epochs):
         adapter, decoding, gate = (f"{out}/stages/train-sft/attempt-000/output/checkpoint", "greedy",
                                    {"file": f"{GATES}/tsft_ready"})
     else:
-        verified = (f"{B}/reports/runs/adftp-chain/chain_k500_s0/collection" +
+        verified = (f"{B}/reports/runs/adftp-chain/chain_k500_s0_r2/collection" +   # 10-21: recovered r2 collection
                     ("" if k == 500 else f"/subsets/k{k}"))
         script = "scripts/hpg_adftp.slurm"
         e = (f"ADFTP_OUT={out},VERIFIED={verified},ADFTP_THROUGH=train,ADFTP_EPOCHS={epochs},"
@@ -415,16 +415,16 @@ def chain_cells():
     tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
     # 19:3x CDT: on hpg the 2-epoch rung of K300/K500 is held (it is needed only if 4 epochs were already converged
     # vs 2, implausible at 2-epoch losses of 0.2-0.35); it frees a job slot for SAD under the 10-job rule.
-    for c in tsft:
-        if c["cell"] in ("tsft-k500-e2", "tsft-k300-e2"):
-            c["hold"] = True
+    # 10-21 01:5x CDT: all trajectory-SFT and AD training runs on LONI (paper recipe 2e-4 rungs and the stabilised
+    # 1e-4 ladder); hpg runs only their evaluation stages, gated per cell once the adapter copy is verified on hpg.
     # 19:2x CDT: trajectory-SFT training for K30/K100 runs on LONI (A100, smoke tsft-k30-e2-loni passed; hpg's B200
     # partition is congested); only their evaluation stages run here, after the adapters are copied back.
     for c in tsft:
-        if c["cell"].startswith(("tsft-k30-", "tsft-k100-")):
-            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+        c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     sad05 = [sadc(k, 0.5) for k in (500, 300, 100, 30)]
     adc = [lora_rung("adc", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    for c in adc:
+        c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
     # the masking fix lands (K30 contains none of them and runs).

@@ -17,6 +17,25 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:4x CDT 10-21 — probe done, lr 1e-4 chosen; AD K500 empty reply; SmartAD r2 stalled
+- Probe (K100, 4 epochs = 52 updates, epoch means): 2e-4 paper 0.33/0.26/1.10/1.14 (diverged); 2e-4+10% warmup 0.44/0.39/0.22/0.186
+  (1 spike); **1e-4 0.35/0.23/0.19/0.171 (no spike, chosen)**; 5e-5 0.37/0.23/0.20/0.188 (no spike, smallest grad norms = fallback).
+  Report wt/stab reports/engineering/lora_stability_probe_1021.md. Old 2e-4 ladder: 6/19 tsft rungs fail the guard; K500 e8
+  diverged in epoch 1 (1.84, 4.47 … 0.99) -> cross-rung check added: L_last(2E) <= max(1.1 L_last(E), L_last(E)+0.02).
+- Codex wt/stab follow-up (pid 3876882, prompt scratchpad/codex_stab2.md): cross-rung check + `--allow-empty-visible-replies` for
+  AD-FTP training only. Cause: adc-k500-e2 (LONI 1119272) FAILED at startup "Template transformed or removed the visible teacher
+  reply" — 1/500 trajectories (look_at_obj_in_light-Pillow-None-DeskLamp-320, step 15) has action_raw "" (teacher used the
+  1024-token cap on reasoning; parser_error; episode succeeded). K30/K100/K300 views do not contain it (scan: CPU, 500 episodes, 1 bad).
+- SmartAD chain r2 exited 1 at 05:59Z: 23/32 shards died at 03:57Z on BudgetExceeded (no request made) — each shard's first
+  item was a candidate interrupted by the 22:44Z quota 429 (counter 12–40/41, partial episode); 9 shards finished. 1,437 new +
+  265 imported candidates of 5,000; ~3,300 never started. Recovery tool refuses r2 as a source (no repeated credits). Codex
+  wt/smartadresume (pid 3948286, worktree ../ICML27_wt_smartadresume, prompt scratchpad/codex_smartadresume.md): restart the 23
+  fresh with cap 41 (<= 943 extra calls) as an amendment inside r2, dry run only.
+- hpg: AD-FTP collection copy verified (269,669 files, gate adftp_chain_on_hpg). sadc-k500-b1-train 46930054 started 01:59 EDT
+  (preflight hashing ~20 min, GPUs idle by design); sadc-k30-b1 / sadc-k100-b1 running; k300-b1, k500/k300/k100-b05 pending.
+- LONI: adc-k30-e2 COMPLETED; adc-k100-e2 / adc-k300-e2 running; tsft-k500-e8, tsft-k300-e16, tsft-k100-e32 running (2e-4, superseded
+  as main numbers by the 1e-4 ladder, kept for the record).
+
 ### 00:2x CDT 10-21 — user OK (05:08Z): stabilise all LoRA methods uniformly
 - Plan approved: probe (LONI 1119261-63 RUNNING) -> one optimiser setting for trajectory SFT / AD / SmartAD (registered
   deviation; paper recipe kept as the 'paper recipe' column); divergence guard: rung valid iff L_last <=
