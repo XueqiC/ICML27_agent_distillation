@@ -463,6 +463,43 @@ def smartadselc_merge():
             cpu, "02:00:00", 0, e, {"file": f"{GATES}/smartad_chain_scored"})]}
 
 
+SMARTAD_CHAIN_COLL = f"{SMARTAD_CHAIN_SEL}/collection"
+SMC_LADDER_TREE = None   # set to the merge commit of wt/smartadepochs (trainer guard pinned SmartAD to 2 epochs)
+
+
+def smc_rung(k, epochs, lr):
+    """SmartAD on the selected K500 chain pool (nested views K30/K100/K300). b' = 4 trajectories per update (paper):
+    8 / 25 / 75 / 125 updates per epoch. lr 2e-4 x 2 epochs = paper-recipe column; lr 1e-4 ladder = converged column.
+    Greedy evaluation; the serving-check prompts come from the trajectory-SFT support view of the same K (strict-clean;
+    teacher candidates at T=1.0 may hold empty replies)."""
+    cell = f"smc-k{k}-e{epochs}-lr{lr}"
+    n = 2 if k == 30 else 4
+    per_epoch = {30: 8, 100: 25, 300: 75, 500: 125}[k]
+    hours = 1.0 + epochs * per_epoch * 10 / 3600 * 1.6   # no SmartAD shared-history timing yet: 10 s/update + 1 h startup
+    hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
+    out = f"{BL}/{cell}"
+    verified = SMARTAD_CHAIN_COLL + ("" if k == 500 else f"/subsets/k{k}")
+    e = (f"SMARTAD_OUT={out},VERIFIED={verified},SMARTAD_THROUGH=train,SMARTAD_EPOCHS={epochs},SMARTAD_LR={lr},"
+         f"SMARTAD_WARMUP=0,SMARTAD_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1")
+    res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
+    train = stage(f"{cell}-train", "scripts/hpg_smartad.slurm", res, hh, n, e, {"file": f"{GATES}/smartad_selected"})
+    train["tree"] = "3318b54" if (epochs == 2 and lr == "2e-4") else SMC_LADDER_TREE
+    adapter = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint"
+    ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
+               f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
+               f"dev140.json,DECODING=greedy,INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={chain_view(k)},"
+               f"WORKERS=16,BATCH_INVARIANT=1", {"file": f"{GATES}/eval_{cell}"})
+    return {"cell": cell, "tree": CHAIN_TREE, "stages": [train, ev]}
+
+
+def smc_cells():
+    paper = [smc_rung(k, 2, "2e-4") for k in (500, 300, 100, 30)]
+    if SMC_LADDER_TREE is None:
+        return paper
+    ladder = {30: (2, 4, 8, 16, 32, 64, 128), 100: (2, 4, 8, 16, 32, 64), 300: (2, 4, 8, 16, 32), 500: (2, 4, 8, 16, 32)}
+    return paper + [smc_rung(k, e, "1e-4") for k in (500, 300, 100, 30) for e in sorted(ladder[k], reverse=True)]
+
+
 def chain_cells():
     sad1 = [sadc(k, 1) for k in (500, 300, 100, 30)]
     tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
@@ -507,7 +544,7 @@ def chain_cells():
     for c in sad025:
         c["tree"] = "fb22f09"
     sel = [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]
-    return tsft + adc + sel + sad1 + sad05 + sad025
+    return tsft + adc + sel + smc_cells() + sad1 + sad05 + sad025
 
 def main():
     out = Path(sys.argv[1])
