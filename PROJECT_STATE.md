@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:1x CDT 10-21 — first SAD result
+- SAD K500 x1 (paper budget; full-parameter; greedy) dev140 **123/140** (base 62; tsft K500 paper 108; AD K300 paper 84).
+- 3 more AD hpg trainings failed from the pre-fix node split (submitted 06:13-06:16 CDT); unblocked; post-fix submissions
+  verified NumNodes=1. dedupe_ladder.py: an hpg twin counts as started only after it logs a training update.
 ### 06:1x CDT 10-21 — hpg multi-node split fixed; AD K500 eval check prompts
 - 3 AD 1e-4 hpg trainings FAILED (invalid device ordinal): --gpus=4 without --nodes=1 let SLURM split jobs over 2 nodes
   (torchrun --standalone). Plan a47c93d: --nodes=1 on every hpg GPU stage (all 617 stages checked). Split running
