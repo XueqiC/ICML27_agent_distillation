@@ -425,6 +425,12 @@ def chain_cells():
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     sad05 = [sadc(k, 0.5) for k in (500, 300, 100, 30)]
     adc = [lora_rung("adc", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
+    # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
+    # the masking fix lands (K30 contains none of them and runs).
+    for c in sad1 + sad05:
+        if not c["cell"].startswith("sadc-k30-"):
+            c["hold"] = True
     return sad1 + tsft + sad05 + adc
 
 def main():
