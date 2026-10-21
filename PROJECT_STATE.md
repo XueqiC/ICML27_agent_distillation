@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 11:2x CDT 10-21 — tunnel back (11:16); results snapshot
+- SAD K100 x1 (paper) 0/140 (collapsed). SAD K100 converged at x0.5 (x0.25 -> x0.5 delta 0.0008): eval gate eval_sadc-k100-b05.
+  SAD K500 x0.5 -> x1 delta 0.162: not converged; sadc-k500-b2 added (plan 28c45d7). SAD K300: x1 / x0.5 pending.
+- LoRA ladder: adc K30 converged at e64 (32->64 delta 0.0004) -> gate eval_adc-k30-e64-lr1e-4. Others still training
+  (ladder script scratchpad/probe/ladder.py; ledgers rsynced into scratchpad/probe/lad).
+- SmartAD copy re-verification running (watcher bsyvtc6qs reran sync_smartad_chain_hpg.sh). Keeper was in post-SSH-fail
+  backoff (heartbeat 65 min), resumes by itself.
 ### 10:1x CDT 10-21 — hpg tunnel down (ControlMaster gone; Duo needed)
 - Notified the user once (scratchpad/hpg_tunnel_notified): run `ssh -fN -M hpg` on rai. Submitted hpg jobs unaffected.
 - SmartAD pool rsync attempt 3 finished, but verification ran with hpg unreachable -> MISMATCH with empty remote
