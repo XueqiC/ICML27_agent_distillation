@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 10:1x CDT 10-21 — hpg tunnel down (ControlMaster gone; Duo needed)
+- Notified the user once (scratchpad/hpg_tunnel_notified): run `ssh -fN -M hpg` on rai. Submitted hpg jobs unaffected.
+- SmartAD pool rsync attempt 3 finished, but verification ran with hpg unreachable -> MISMATCH with empty remote
+  (local 889,928 files / 9,514,767,857 bytes / 83f5dce1f79961c4). After the tunnel is back: rerun
+  scratchpad/sync_smartad_chain_hpg.sh (rsync is incremental) -> gate smartad_chain_on_hpg.
 ### 09:2x CDT 10-21 — hourly
 - hpg: adc-k500-e8-lr1e-4 and adc-k300-e8-lr1e-4 train COMPLETED (--nodes=1 fix confirmed). sadc-k500-b05-train running
   (4 GPUs 97-100%; a 0% sample was a sync point; 30 updates). SmartAD pool rsync attempt 3 in progress (pid 875919).
