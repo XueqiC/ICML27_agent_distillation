@@ -537,7 +537,9 @@ def chain_cells():
     fb = [lora_rung("tsft", 30, e, lr="5e-5") for e in (128, 64, 32, 16, 8, 4, 2)]
     fb += [lora_rung("adc", 500, e, lr="5e-5") for e in (32, 16, 8, 4, 2)]
     for c in fb:
-        c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+        # 10-21 17:2x CDT: the long AD K500 5e-5 rungs also get an hpg train stage (~6x faster than LONI A100s).
+        if c["cell"] not in ("adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5"):
+            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     adc += fb
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
     # without a line break; harness parser_error step, episode still won). The span grammar raises on them; held until
