@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:4x CDT 10-21 — SmartAD shards 10/13 stopped on the 2 interrupted candidates
+- Relaunch f796565 at +30 min: 30 shards fine (2,099/5,000 candidates done, 119 active ledgers); shards 10 and 13 failed with
+  TeacherCallError at 501b2815/candidate-10 and 581264b0/candidate-09 (no calls): by design _candidate never re-enters a
+  started attempt and require_execution refuses the unresolved episode — recover() alone cannot resume them.
+- Codex wt/smartadresume3 (pid 1246148, prompt scratchpad/codex_smartadresume4.md): second amendment
+  smartad_operator_interrupt_20261021_v1 for exactly these 2 slots (archive, fresh 41-cap resample, <= 82 calls, 2 in-flight
+  requests usage unknown). After it lands: when launcher 652148 finishes (it holds .smartad.launcher.lock), apply + relaunch
+  --resume for shards 10/13's remainder, the deferred candidate-01 pass and finalization. Do NOT signal launcher 652151.
 ### 04:2x CDT 10-21 — SAD eval fix deployed
 - main b9f9a80 = merge wt/sadeval: full-checkpoint serving check under TRAIN_PYTHON (CUDA hidden) + SAD_EVAL_FRACTIONS.
   hpg tree ICML27_runs/b9f9a80 deployed WITH .venv symlink + third_party (layout identical to fb22f09). Plan 3de1b54: all SAD
