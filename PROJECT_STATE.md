@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:1x CDT 10-21 — results
+- tsft K100 converged (e64) 112/140. SAD K300 x1 (paper) 127/140 (x0.5 training; if x0.5->x1 converges, 127 is also the
+  converged entry). SmartAD merge 47046998 at 1:17 of 2:00, publishing the collection (selection json written 14:44 CDT).
 ### 14:4x CDT 10-21 — SmartAD ladder enabled
 - main 102a35d = merge wt/smartadepochs (SmartAD trainer accepts positive epochs; DEVIATIONS registered; 235 tests pass).
   hpg tree 102a35d deployed (.venv + third_party). Plan 1f360cd: 27 smc cells (4 paper 2e-4/e2 + 23 lr 1e-4 rungs, K30 e2..e128,
