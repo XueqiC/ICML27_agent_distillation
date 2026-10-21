@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 05:2x CDT 10-21 — second SmartAD amendment applied; third launcher queued
+- main 3318b54 = merge wt/smartadresume3: amendment smartad_operator_interrupt_20261021_v1 (teachers/smartad_operator_interrupt.py)
+  for exactly 501b2815/candidate-10 + 581264b0/candidate-09: archived (8 calls void, 2 in-flight with unknown usage, never
+  refunded), fresh 41-cap resample (<= 82 calls). 87 tests pass. Applied offline (recovery/smartad_operator_interrupt_20261021_v1/).
+- Third launcher queued: runtime ../ICML27_run_3318b54, scratchpad/run_smartad_resume3.sh pid 1429312, log
+  logs/chain_r2_smartad_resume3.log. It waits on .smartad.launcher.lock until launcher 652148 (30 shards) ends by itself, then
+  runs shards 10/13's remainder + the deferred candidate-01 pass + finalization. Do not signal 652148/652151.
 ### 04:4x CDT 10-21 — SmartAD shards 10/13 stopped on the 2 interrupted candidates
 - Relaunch f796565 at +30 min: 30 shards fine (2,099/5,000 candidates done, 119 active ledgers); shards 10 and 13 failed with
   TeacherCallError at 501b2815/candidate-10 and 581264b0/candidate-09 (no calls): by design _candidate never re-enters a
