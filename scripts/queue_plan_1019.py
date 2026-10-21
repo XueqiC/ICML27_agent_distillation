@@ -367,8 +367,14 @@ def sadc(k, mult):
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [
         stage(f"{cell}-prep", "scripts/hpg_multi_stage.slurm", C4, "02:00:00", 0, f"{base},STAGES=prepare", CHAIN_GATE),
         stage(f"{cell}-train", "scripts/hpg_multi_stage.slurm", GT, hh, n, f"{base},STAGES=train"),
-        stage(f"{cell}-eval", "scripts/hpg_multi_stage.slurm", G1, "10:00:00", 1,
-              f"{base},STAGES=all,MODE_VAR=SAD_MODE,MODE=evaluate", {"file": f"{GATES}/eval_{cell}"})]}
+        # 10-21: eval on b9f9a80 (serving check under TRAIN_PYTHON; ENV_PYTHON lacks torch) and only the final
+        # checkpoint (SAD_EVAL_FRACTIONS=1; the 1/16..1/2 exports are not part of the main table).
+        dict(stage(f"{cell}-eval", "scripts/hpg_multi_stage.slurm", G1, "10:00:00", 1,
+                   f"{base},STAGES=all,MODE_VAR=SAD_MODE,MODE=evaluate,SAD_EVAL_FRACTIONS=1",
+                   {"file": f"{GATES}/eval_{cell}"}), tree=SAD_EVAL_TREE)]}
+
+
+SAD_EVAL_TREE = "b9f9a80"
 
 
 
