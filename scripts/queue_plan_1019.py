@@ -436,6 +436,33 @@ def lora_rung(method, k, epochs, lr=None):
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [train, ev]}
 
 
+SMARTAD_CHAIN = f"{B}/reports/runs/smartad-chain/chain_k500_s0_r2"
+SMARTAD_CHAIN_SEL = f"{B}/reports/smartad-selection/chain_k500_s0_r2"
+SMARTAD_SEL_SHARDS = 4
+
+
+def smartadselc(i):
+    """10-21: SmartAD selection of the K500 chain pool (5,000 candidates, 3,147 correct) on tree 3318b54 (amendment-aware
+    evidence paths). sacct 46855474 (1,000 candidates): 59 min, MaxRSS 2.3G on 1 B200 -> 4 shards x ~1.25 h.
+    Shard i scores its slice; the CPU merge (smartadselc-merge) runs once gates/smartad_chain_scored exists."""
+    cell = f"smartadselc-s{i}of{SMARTAD_SEL_SHARDS}"
+    e = (f"SMARTAD_OUT={SMARTAD_CHAIN_SEL},VERIFIED={SMARTAD_CHAIN},SMARTAD_THROUGH=select,"
+         f"SMARTAD_PATH_MAP=/home/xueqi/hq/projects/ICML27_agent_distillation={B},"
+         f"SMARTAD_SELECTION_SHARDS={SMARTAD_SEL_SHARDS},SMARTAD_SELECTION_SHARD_INDEX={i},WORKERS=16,BATCH_INVARIANT=1")
+    one = "--partition=hpg-b200 --nodes=1 --gpus=1 --cpus-per-task=8 --mem=48G"
+    return {"cell": cell, "tree": "3318b54", "stages": [stage(f"{cell}-select", "scripts/hpg_smartad.slurm", one,
+            "03:00:00", 1, e, {"file": f"{GATES}/smartad_chain_on_hpg"})]}
+
+
+def smartadselc_merge():
+    e = (f"SMARTAD_OUT={SMARTAD_CHAIN_SEL},VERIFIED={SMARTAD_CHAIN},SMARTAD_THROUGH=select,SMARTAD_MERGE_SCORES=1,"
+         f"SMARTAD_PATH_MAP=/home/xueqi/hq/projects/ICML27_agent_distillation={B},"
+         f"SMARTAD_SELECTION_SHARDS={SMARTAD_SEL_SHARDS},WORKERS=16,BATCH_INVARIANT=1")
+    cpu = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=32G"
+    return {"cell": "smartadselc-merge", "tree": "3318b54", "stages": [stage("smartadselc-merge", "scripts/hpg_smartad.slurm",
+            cpu, "02:00:00", 0, e, {"file": f"{GATES}/smartad_chain_scored"})]}
+
+
 def chain_cells():
     sad1 = [sadc(k, 1) for k in (500, 300, 100, 30)]
     tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
@@ -477,7 +504,8 @@ def chain_cells():
     sad025 = [sadc(100, 0.25)]
     for c in sad025:
         c["tree"] = "fb22f09"
-    return tsft + adc + sad1 + sad05 + sad025
+    sel = [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]
+    return tsft + adc + sel + sad1 + sad05 + sad025
 
 def main():
     out = Path(sys.argv[1])
