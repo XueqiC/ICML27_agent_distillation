@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 import shutil
 
-from baselines.adftp.teacher import FTPPolicy, FTPTeacher, FTP_PROMPT_VERSION
+from baselines.adftp.teacher import (FTPPolicy, FTPTeacher, FTP_PROMPT_VERSION,
+    ATTEMPTS_PER_CANDIDATE, CALLS_PER_TASK, MAX_EPISODE_STEPS)
 from baselines.common.explore import training_tasks
 from baselines.common.collection_views import (bind_support, bind_views, collection_identity,
     materialize_views, support_reference)
@@ -42,7 +43,7 @@ def usage_summary(path):
 
 def default_teacher(config, directory, task, identity, rate_limit_dir):
     spec = config["models"]["teacher"]
-    return CappedTeacher(counter_path=directory / "counter.json", cap=123,
+    return CappedTeacher(counter_path=directory / "counter.json", cap=CALLS_PER_TASK,
         cache_dir=directory / "cache", usage_ledger=directory / "usage.jsonl",
         run_id=digest([identity, task["task_id"]]), teacher_class=FTPTeacher,
         provider_model_id=spec["provider_model_id"],
@@ -60,8 +61,13 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
         raise CollectorHalted("FTP task has unknown/failed transport usage; inspect its durable ledger")
     accepted = None
     attempts = []
-    for number in range(1, 4):
+    recovery = read(work.parent.parent / "identity.json").get("chain_recovery", {})
+    extension = recovery.get("cap_extensions", {}).get(str((work / "teacher/counter.json").relative_to(work.parent.parent)))
+    attempt_limit = extension["method_attempt"] if extension else ATTEMPTS_PER_CANDIDATE
+    for number in range(1, attempt_limit + 1):
         directory = execution_attempt(work / f"attempt-{number}", start="started.json")
+        if extension and number == attempt_limit and directory != work.parent.parent / extension["fresh_attempt_directory"]:
+            raise ValueError("Cap extension permits only its registered fresh execution")
         if not (directory / "started.json").exists():
             frozen_write(directory / "started.json", {"attempt": number, "parent_seed_ids": task["parent_seed_ids"]})
             # Fresh cache namespace per attempt; resume never resamples a started episode.
@@ -100,7 +106,7 @@ def collect_task(config, task, work, source_root, source_receipt, identity, rate
     outcome = {"attempts": attempts, "fallback": fallback, "selected_episode": str(accepted.resolve()),
         "parent_seed_ids": task["parent_seed_ids"], "source_receipt": source_receipt,
         "usage": usage_summary(work / "teacher/usage.jsonl"),
-        "api_attempts": teacher._read_counter()["attempts"], "cap": 123}
+        "api_attempts": teacher._read_counter()["attempts"], "cap": teacher.cap}
     write_json(work / "outcome.json", outcome)
     return outcome
 
@@ -121,7 +127,7 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         if (directory.is_relative_to(source_root)
                 or directory.is_relative_to(Path(config["paths"]["verified"]).resolve())):
             raise ValueError("FTP output/limiter must not modify source verified storage")
-    if (config["environment"]["max_episode_steps"] != 40 or config["training"]["thinking_mode"] != "off"
+    if (config["environment"]["max_episode_steps"] != MAX_EPISODE_STEPS or config["training"]["thinking_mode"] != "off"
             or config["training"]["student_step_token_cap"] != 1024):
         raise ValueError("AD-FTP requires H0: 40 turns, thinking off, 1024 output tokens")
     config = deepcopy(config)
@@ -136,7 +142,8 @@ def collect(verified, manifest, freeze, config, output, *, rate_limit_dir,
         "source_verified": str(Path(verified).resolve()), "source_collection_sha256": digest(source),
         "config": safe_config(config), "code_sha256": code_hashes(Path(__file__).resolve().parents[2]),
         "dependencies": versions(), "rate_limit_dir": str(Path(rate_limit_dir).resolve()),
-        "attempts_per_candidate": 3, "calls_per_task_cap": 123, "per_cell_call_cap": 123 * len(ids)}
+        "attempts_per_candidate": ATTEMPTS_PER_CANDIDATE, "calls_per_task_cap": CALLS_PER_TASK,
+        "per_cell_call_cap": CALLS_PER_TASK * len(ids)}
     if bindings:
         identity["subset_views"] = bindings
     if selection.get("selection_rule") == "stratified_nested_v2":
@@ -166,6 +173,10 @@ def _collect_shard(source, selection, source_root, manifest, freeze, config, out
         key = digest(task["task_id"])[:20]
         work = output / "work" / key
         with locked(output / "task_locks" / (key + ".lock")):
+            if key in identity.get("chain_recovery", {}).get("final_tasks", []):
+                # Recovery validated the complete copied receipt bundle before
+                # entering this shard. Never construct a teacher for an import.
+                continue
             def action(attempt):
                 outcome = collect_task(config, task, work, source_root, original, digest(identity),
                     rate_limit_dir, env_factory=env_factory, teacher_factory=teacher_factory)
@@ -258,7 +269,7 @@ def _collect_shard(source, selection, source_root, manifest, freeze, config, out
             "baseline_transport": identity["baseline_transport"],
             "fallback_count": sum(r["fallback"] for r in receipts),
             "ftp_attempt_count": sum(len(r["ftp_attempts"]) for r in receipts),
-            "api_attempts": sum(r["api_attempts"] for r in receipts), "per_cell_call_cap": 123 * len(ids),
+            "api_attempts": sum(r["api_attempts"] for r in receipts), "per_cell_call_cap": CALLS_PER_TASK * len(ids),
             "new_environment_steps": sum((a.get("metrics") or {}).get("environment_steps", 0)
                                          for r in receipts for a in r["ftp_attempts"]),
             "unknown_usage_calls": sum(r["usage"]["unknown_usage_calls"] for r in receipts),
@@ -273,6 +284,9 @@ def _collect_shard(source, selection, source_root, manifest, freeze, config, out
             "accounting": "Canonical attempt=1 is a publication slot, not a new execution. All FTP attempts, "
                 "including failures, are in each receipt's hashed teacher bundle. Fallback copies trusted execution; "
                 "source costs are reused, never new calls or independent tasks."}
+        if "chain_recovery" in identity:
+            from teachers.chain_recovery import collection_accounting
+            collection.update(collection_accounting(output, identity))
         if is_full_train(selection):
             collection.update(selection_rule=selection["selection_rule"], candidates=selection["candidates"],
                 failed_candidates=source["failed_candidates"],

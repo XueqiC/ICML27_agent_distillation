@@ -307,7 +307,7 @@ def test_adftp_transport_resume_and_format(seed_bank, tmp_path):
     with pytest.raises(TeacherCallError):
         collect(source, manifest, freeze, config, output, **kwargs)
     assert not list((output / "stages").rglob("complete.json"))
-    assert read(output / "teacher_report.json")["transport_failures"] == 1
+    assert read(output / "shards/1-0/teacher_report.json")["transport_failures"] == 1
     assert not (output / "collection/manifest.json").exists()
     counter = next((output / "work").rglob("counter.json"))
     recover(counter, reason="transport_fixed")
@@ -317,7 +317,7 @@ def test_adftp_transport_resume_and_format(seed_bank, tmp_path):
     assert list(output.rglob("transport_failure.json"))
     kwargs["teacher_factory"] = stub_factory(calls, mismatch={task_id})
     collect(source, manifest, freeze, config, tmp_path / "format", **kwargs)
-    report = read(tmp_path / "format/teacher_report.json")
+    report = read(tmp_path / "format/shards/1-0/teacher_report.json")
     assert report["transport_failures"] == 0 and report["rejections"] == 3
 
 

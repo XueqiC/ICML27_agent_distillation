@@ -79,9 +79,18 @@ def _candidate(config, task, directory, identity, rate_limit_dir, sampling_root,
     record_path = directory / "candidate.json"
     if record_path.exists():
         record = read(record_path)
-        if artifact_hashes(directory / "episode") != record["episode_hashes"] or artifact_hashes(directory / "teacher") != record["teacher_hashes"]:
-            raise ValueError("SmartAD candidate evidence changed")
+        from teachers.chain_recovery import evidence_path
+        if not record["reused"] and not evidence_path(sampling_root, record["episode_dir"]).is_relative_to(directory):
+            raise ValueError("SmartAD candidate episode escapes its slot")
+        checked_candidate(record, output=sampling_root)
         return record
+    canonical = directory
+    collection_identity = read(Path(sampling_root) / "identity.json")
+    retry = collection_identity.get("chain_recovery", {}).get("retry_directories", {}).get(
+        str(directory.relative_to(sampling_root)))
+    if retry:
+        directory = Path(sampling_root) / retry
+        directory.mkdir(parents=True, exist_ok=True)
     teacher = teacher_factory(config, directory / "teacher", task, identity, rate_limit_dir, sampling_root)
     teacher.check_health()
     started = directory / "started.json"
@@ -106,7 +115,7 @@ def _candidate(config, task, directory, identity, rate_limit_dir, sampling_root,
     if episode.get("error_type") in {"policy_error", "reset_error"}:
         raise RuntimeError("SmartAD policy/reset failed; inspect retained sanitized execution evidence")
     accepted = correct(directory / "episode", episode)
-    record = {"candidate_id": directory.name, "task_id": task["task_id"],
+    record = {"candidate_id": canonical.name, "task_id": task["task_id"],
         "episode_dir": str((directory / "episode").resolve()), "reused": False,
         "parent_seed_ids": task["parent_seed_ids"],
         "correct": accepted, "environment_win": environment_won(directory / "episode", episode),
@@ -127,8 +136,11 @@ def validate_h0(config):
 
 
 
-def checked_candidate(record):
+def checked_candidate(record, *, output=None):
     directory = Path(record["episode_dir"])
+    if output is not None:
+        from teachers.chain_recovery import evidence_path
+        directory = evidence_path(output, directory)
     if (artifact_hashes(directory) != record["episode_hashes"]
             or artifact_hashes(directory.parent / "teacher") != record["teacher_hashes"]):
         raise ValueError("SmartAD candidate evidence changed")
@@ -153,7 +165,7 @@ def finish_task(config, task, original, source_root, work, identity, output,
         paths = [work / f"candidate-{i:02d}/candidate.json" for i in range(2, CANDIDATES + 1)]
         if not all(path.exists() for path in paths):
             return None
-        candidates = [checked_candidate(read(path)) for path in paths]
+        candidates = [checked_candidate(read(path), output=output) for path in paths]
         decision_path = work / "reuse.json"
         if decision_path.exists():
             decision = read(decision_path)
@@ -178,7 +190,7 @@ def finish_task(config, task, original, source_root, work, identity, output,
             if not owns_first:
                 if not (first_dir / "candidate.json").exists():
                     return None
-                first = checked_candidate(read(first_dir / "candidate.json"))
+                first = checked_candidate(read(first_dir / "candidate.json"), output=output)
             else:
                 first = candidate(config, task, first_dir, identity, rate_limit_dir, output,
                                   teacher_factory=teacher_factory, env_factory=env_factory)
@@ -209,7 +221,7 @@ def publish(output, identity, source):
                             or len(outcome["candidates"]) != CANDIDATES):
                         raise ValueError("SmartAD task is not final")
                     for row in outcome["candidates"]:
-                        checked_candidate(row)
+                        checked_candidate(row, output=output)
                 fallback = output / "sampling_fallback.json"
                 pool = {"schema_version": 1, "status": "complete", "identity_sha256": digest(identity),
                     "K": source["K"], "K_counts": "trusted_executed_trajectories",
@@ -218,6 +230,9 @@ def publish(output, identity, source):
                     "sampling_fallback": read(fallback) if fallback.exists() else None,
                     "api_attempts": sum(c["api_attempts"] for o in outcomes for c in o["candidates"]),
                     "new_task_instances": 0, "training_exposure": 0}
+                if "chain_recovery" in identity:
+                    from teachers.chain_recovery import collection_accounting
+                    pool.update(collection_accounting(output, identity))
                 frozen_write(output / "candidates.json", pool)
             result = {"status": "complete", "pool": str(output), "api_attempts": pool["api_attempts"],
                       "reused_trusted": sum(o["reuse"] for o in pool["tasks"])}
@@ -347,6 +362,13 @@ def load_pool(root, manifest, freeze, *, resolver=None):
             raise ValueError("Candidate view task_id/evidence mismatch")
         return pool, identity, source, selection, source_root
     identity = read(root / "identity.json")
+    if "chain_recovery" in identity:
+        # Preserve imported absolute receipts byte-for-byte while consuming the
+        # hash-verified local copies, including after an explicit HPG relocation.
+        old_root = Path(identity["chain_recovery"]["source"])
+        pair = (old_root, root)
+        if pair not in resolver.evidence_pairs:
+            resolver.evidence_pairs.append(pair)
     source, selection, source_root = load_verified_collection(
         resolver.resolve(identity["source_verified"]), manifest, freeze)
     if (pool["status"] != "complete" or pool["identity_sha256"] != digest(identity)

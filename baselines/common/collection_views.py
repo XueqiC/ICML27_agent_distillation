@@ -75,6 +75,9 @@ def collection_identity(output, proposed):
     path = output / "identity.json"
     if path.exists():
         old = read(path)
+        if "chain_recovery" in old:
+            from teachers.chain_recovery import recovery_identity
+            return recovery_identity(output, proposed)
         protocol = lambda value: {k: v for k, v in value.items() if k not in {"code_sha256", "dependencies"}}
         if protocol(old) != protocol(proposed):
             raise ValueError("Refusing different frozen artifact: collection identity changed; source/config/limiter/views must match")
