@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:0x CDT 10-21
+- AD-FTP chain_k500_s0_r2 COMPLETE (exit 0, 00:00 CDT): 500 trusted (482 new FTP-verified + 18 fallback), K30/K100/K300 views
+  published, 1,372 new calls in r2, api_attempts 13,953 total, 3 cap extensions (120 calls). Collection 4.6G; sync to LONI
+  (layout symlink /work/xueqic/hq/ICML27_data/data/verified -> ../verified) and hpg running (scratchpad/sync_adftp_chain.sh
+  pid 3648301, gates adftp_chain_on_{loni,hpg}). SmartAD r2 still collecting (pid 2822224).
+- Stability probe first submission FAILED in 1 s (my script sourced the LONI env before PROJECT_ROOT); fixed and resubmitted
+  1119261-63 (lr 1e-4 / 2e-4+10% warmup / 5e-5; K100 e4); watcher b430kr3qn checks they log updates.
+- hpg: tsft-k500-e16-train COMPLETED (1:55); sadc-k30-b05-train COMPLETED (2:11); sadc-k30-b1, sadc-k100-b1 running.
+
 ### 22:5x CDT 10-20 — collections recovered
 - main b086c72 = + wt/chainrecover (rule chain_quota_void_20261020_v1: hash-verified import, exact credits for the 32
   quota-rejected calls per method, bounded cap_extension (AD-FTP: 3 tasks x 40 = 120 calls) for attempts cut by a cap that
