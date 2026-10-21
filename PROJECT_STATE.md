@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:3x CDT 10-21 — ladder decisions
+- tsft K100 converged at e64 (copy + gate). AD K500 1e-4 e4 rung failed (1.856) -> 5e-5 fallback ladder (LONI 1122212-16;
+  eval-only gated cells in plan 9afb4fc). tsft K300/K500 need e64: LONI 1122217/18 + hpg train stages (dedupe HPG dict updated).
+- Codex wt/smartadepochs (pid 1901568): SmartAD trainer guard epochs==2 -> positive epochs.
 ### 14:3x CDT 10-21 — SmartAD selection merged next; training cells staged
 - Selection shards s0..s3 done (13:43-13:53 CDT); merge 47046998 running (CPU). Gate watcher scratchpad/gate_smartad_selected.sh
   pid 1904567 opens gates/smartad_selected when the merge is CELL_DONE and collection + K30/K100/K300 manifests exist.
