@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:1x CDT 10-21 — paper-recipe column nearly complete
+- AD K500 paper recipe 0/140 (training diverged at update ~36, 2e-4). SAD K30 x1 (= converged) 49/140.
+- Paper-recipe column (dev140, base 62): tsft K30 10 / K100 0* / K300 109 / K500 108; AD K30 73 / K100 95 / K300 84 /
+  K500 0*; SAD K30 49 / K100 (x1 diverged*, eval pending) / K300 (pending) / K500 123. (* = training diverged)
+- adc-k500-e16-lr1e-4 COMPLETED on hpg; sadc-k100-b025-prep done.
 ### 07:2x CDT 10-21 — SmartAD progress
 - 4,721/5,000 candidates done; launcher 652148 has 11 live shards; third launcher 1429312 (tree 3318b54) still waiting on
   .smartad.launcher.lock (expected). Watcher b7cecxbq9 hit its 2 h cap; check SmartAD at each hourly check instead.
