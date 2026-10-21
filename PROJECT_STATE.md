@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:2x CDT 10-21 — SmartAD progress
+- 4,721/5,000 candidates done; launcher 652148 has 11 live shards; third launcher 1429312 (tree 3318b54) still waiting on
+  .smartad.launcher.lock (expected). Watcher b7cecxbq9 hit its 2 h cap; check SmartAD at each hourly check instead.
 ### 07:1x CDT 10-21 — first SAD result
 - SAD K500 x1 (paper budget; full-parameter; greedy) dev140 **123/140** (base 62; tsft K500 paper 108; AD K300 paper 84).
 - 3 more AD hpg trainings failed from the pre-fix node split (submitted 06:13-06:16 CDT); unblocked; post-fix submissions
