@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:5x CDT 10-20 — collections recovered
+- main b086c72 = + wt/chainrecover (rule chain_quota_void_20261020_v1: hash-verified import, exact credits for the 32
+  quota-rejected calls per method, bounded cap_extension (AD-FTP: 3 tasks x 40 = 120 calls) for attempts cut by a cap that
+  counted a void call). Dry runs: AD-FTP 460 imported / 40 to run; SmartAD 18 tasks (265 candidates) imported / 482
+  tasks (4,735 candidates) to run. 290 tests pass.
+- Launched 22:49 CDT (scratchpad/run_chain_recover.sh, run tree ../ICML27_run_b086c72, outputs
+  reports/runs/{adftp,smartad}-chain/chain_k500_s0_r2, logs logs/chain_r2_*.log, SED_HASH_CACHE_DIR ~/hq/projects/
+  .sed-hash-receipts): adftp pid 2822223, smartad pid 2822224. Watcher bzneg9z3o.
+
 ### 22:3x CDT 10-20 — AD recipe instability (asked user, Discord 1562306651661541409)
 - Trajectory SFT (AD recipe: LoRA r64/a128, lr 2e-4 linear, no warmup, clip 1.0) diverges intermittently on Gemma-4-12B:
   K100 e2 (loss 0.26 -> 2.17 at upd 14-17, ends 0.5), K100 e4 (-> 2.1 at upd 29-40, last epoch 1.14), K500 e8 LONI
