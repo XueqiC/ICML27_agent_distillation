@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 05:2x CDT 10-21 — 1e-4 not stable at K30 (trajectory SFT): 5e-5 fallback triggered
+- tsft-k30-e4-lr1e-4 (completed) FAILED the within-rung guard (epoch means 0.399 0.248 0.377 0.445; max gnorm 1968); e32 and
+  e128 also spiked. Per the pre-registered rule, the tsft K30 ladder is rerun at 5e-5: LONI 1119668-74 (tsft-k30-e{2..128}-lr5e-5,
+  tree c6b15b2). Cancelled superseded tsft-k30-e32/e128-lr1e-4 (LONI 1119423/1119425). b' = 3 at K30 (noisier updates).
+- adc K30 1e-4: e64/e128 on hpg recovered big spikes (guard ok so far); e2..e32 pending on LONI. Other K: no failed rung yet.
+- AD paper recipe K500 (adc-k500-e2) COMPLETED on LONI; copy + gate watcher pid 1433503.
 ### 05:2x CDT 10-21 — second SmartAD amendment applied; third launcher queued
 - main 3318b54 = merge wt/smartadresume3: amendment smartad_operator_interrupt_20261021_v1 (teachers/smartad_operator_interrupt.py)
   for exactly 501b2815/candidate-10 + 581264b0/candidate-09: archived (8 calls void, 2 in-flight with unknown usage, never
