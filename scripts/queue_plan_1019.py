@@ -502,6 +502,8 @@ def chain_cells():
     # while x0.5 ended at 3e-5 (valid). The doubling rule one rung lower: x0.25 vs x0.5 decides whether x0.5 is the
     # converged rung; x1 stays the paper-recipe column (reported as diverged).
     sad025 = [sadc(100, 0.25)]
+    # 10-21 11:2x CDT: SAD K500 x0.5 -> x1 delta 0.162 (0.167 -> 0.0043): not converged -> x2 rung.
+    sad025 += [sadc(500, 2)]
     for c in sad025:
         c["tree"] = "fb22f09"
     sel = [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]
