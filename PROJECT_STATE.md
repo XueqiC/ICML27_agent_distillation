@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:1x CDT 10-21 — hpg multi-node split fixed; AD K500 eval check prompts
+- 3 AD 1e-4 hpg trainings FAILED (invalid device ordinal): --gpus=4 without --nodes=1 let SLURM split jobs over 2 nodes
+  (torchrun --standalone). Plan a47c93d: --nodes=1 on every hpg GPU stage (all 617 stages checked). Split running
+  adc-k300-e16-lr1e-4 cancelled. Cells cleared; LONI twins resubmitted (adc-k500-e8/e32, adc-k300-e16/e32: 1119726-29) because the
+  dedupe loop had cancelled them when the split hpg jobs started.
+- adc-k500-e2-eval FAILED in the HF/vLLM check (strict encoding of 8 VERIFIED prompts hit the empty reply); AD K500 evals use
+  the K300 view for check prompts; rerun queued.
+- Completed on hpg (1e-4): adc-k30-e32/e64/e128, tsft-k300-e8. SAD K500 x1 eval running (passed check). SAD K100 x1 eval submitted.
 ### 05:2x CDT 10-21 — 1e-4 not stable at K30 (trajectory SFT): 5e-5 fallback triggered
 - tsft-k30-e4-lr1e-4 (completed) FAILED the within-rung guard (epoch means 0.399 0.248 0.377 0.445; max gnorm 1968); e32 and
   e128 also spiked. Per the pre-registered rule, the tsft K30 ladder is rerun at 5e-5: LONI 1119668-74 (tsft-k30-e{2..128}-lr5e-5,
