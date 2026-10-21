@@ -9,6 +9,7 @@ from errno import EBADF, ELOOP, ENOENT, ENOTDIR
 from itertools import islice
 from pathlib import Path
 
+from sed.hash_receipts import active_cache, collection_cache
 from sed.manifest import authorize_task, resolve_task, frozen_write
 from sed.seed_selection import (is_full_train, is_stratified_nested, select_nested_verified,
                                 stratified_nested_order, select_seeds, validate_selection,
@@ -144,6 +145,12 @@ def artifact_hashes_batch(directories):
     workers = int(os.environ.get("SED_HASH_WORKERS", "16"))
     if workers < 1:
         raise ValueError("SED_HASH_WORKERS must be positive")
+
+    cache = active_cache()
+    if cache is not None:
+        with cache.batch(directories, workers, file_hash) as readers:
+            yield readers
+        return
 
     ready, scanning = deque(), {}
 
@@ -305,6 +312,11 @@ def _subset_values(root, source, large, small):
 
 def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     """Validate evidence first; callers separately whitelist model-visible fields."""
+    with collection_cache(root):
+        return _load_verified_collection(root, manifest, freeze, allow_subset=allow_subset)
+
+
+def _load_verified_collection(root, manifest, freeze, *, allow_subset):
     root = Path(root).resolve()
     collection = json.loads((root / "manifest.json").read_text())
     selection = json.loads((root / "selection.json").read_text())
