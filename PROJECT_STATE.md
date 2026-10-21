@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 20:1x CDT 10-20
+- User: last top-up was $20. That bought ~615M input (92% cached) + 9.4M output (rai ledgers since 04:44Z). K<=500 remainder
+  ~$12 (AD ~$1, SmartAD ~$11); suggested topping up $20. Offered SmartAD reuse: full-TRAIN trajectory as candidate-01 (provider
+  default T=1.0; ~10%) + old K100 pools' 61/500 overlapping tasks (12%) — awaiting user OK (Discord 1562271632678977547).
+- sadc-k100-b1-train 46923526 FAILED (data encode): 'SAD reply requires an Action line' — 5/9,181 K500 teacher replies with
+  'Action:' not at line start (H0 parser_error step, episode still won; chain positions 73/173/317/380/477; K30 clean).
+  SAD K100-K500 cells held; pending/running doomed trains cancelled (46923522, 46923524, 46925184). Codex wt/parsemask
+  (pid 1336457): SAD+SmartAD mask parser-rejected replies (kept as history, no labels), Kang/AD unchanged.
+  After merge: new tree for SAD K>=100 (move sadc-k{100,300,500}-* outputs aside: identity bound to 20cb697).
+
 ### 19:4x CDT 10-20 queue state
 - hpg (keeper, tree 20cb697, 10-job cap): pending sadc-k500/k300/k100-b1-train, tsft-k500-e{4,8,16}, tsft-k300-e16;
   sadc-*-b05 preps done/running; all GPU jobs Priority (B200 partition full). tsft-k500-e2/k300-e2 held (only needed
