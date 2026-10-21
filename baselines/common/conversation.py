@@ -57,16 +57,19 @@ def set_source(example, source):
         item.update(source=source, trusted_seed=source == "trusted_teacher_seed")
 
 
-def conversation(episode, tokenizer, *, source, max_length=32768, packing="episode"):
+def conversation(episode, tokenizer, *, source, max_length=32768, packing="episode",
+                 allow_empty_visible=False):
     """One logical trajectory, regardless of the number of forward sequences.
 
     Turn rows are exactly train.dataset's turn mode. Keeping them grouped makes
     X5 sampling count trajectories, including repeated instances, never turns.
+    Parser-masking methods may opt into empty history; ordinary teacher SFT
+    keeps its strict nonempty-target default.
     """
     if source not in {"trusted_teacher_seed", "student_exploration"}:
         raise ValueError("Explicit trajectory source required")
     rows = deepcopy(episode_examples(episode, tokenizer, max_length=max_length, packing=packing,
-                                    allow_empty_visible=source == "student_exploration"))
+                                    allow_empty_visible=allow_empty_visible or source == "student_exploration"))
     row = group_turns(rows) if packing == "turn" else rows[0]
     set_source(row, source)
     row["messages"] = episode_messages(episode)
