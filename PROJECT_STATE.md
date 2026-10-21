@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 12:1x CDT 10-21 — first converged-column results
+- Converged column (dev140, base 62): AD K30 (1e-4, e64, SAG) 109; SAD K30 (x1) 49; SAD K100 (x0.5) 109.
+- SmartAD pool verified on hpg 12:12 CDT (889,928 files); gate smartad_chain_on_hpg open; keeper submits smartadselc shards.
+- sadc-k500-b2 prep done, train 47035772 pending.
 ### 11:2x CDT 10-21 — tunnel back (11:16); results snapshot
 - SAD K100 x1 (paper) 0/140 (collapsed). SAD K100 converged at x0.5 (x0.25 -> x0.5 delta 0.0008): eval gate eval_sadc-k100-b05.
   SAD K500 x0.5 -> x1 delta 0.162: not converged; sadc-k500-b2 added (plan 28c45d7). SAD K300: x1 / x0.5 pending.
