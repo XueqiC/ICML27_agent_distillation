@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:2x CDT 10-21 — SmartAD r2 relaunched on the race fix
+- main f796565 = merge wt/smartadresume2: after COMPLETE, amend() verifies the frozen plan only (no classify while shards run);
+  45 resume tests pass. Status before relaunch: completed 1,238 + imported 265, restart 21 (2 of 23 already done),
+  in_progress 2, never started 3,474, refused 0.
+- Relaunched: runtime tree ../ICML27_run_f796565, scratchpad/run_smartad_resume2.sh pid 652148, log
+  logs/chain_r2_smartad_resume2.log. The 2 still-alive shards of the first launcher (218145) keep their shard locks; the
+  new shards with those indices wait for them. Watcher checks shard failures 15 min after start.
 ### 02:5x CDT 10-21 — first paper-recipe results
 - Trajectory SFT, paper recipe (lr 2e-4, 2 epochs, greedy), dev140 (base 62/140): K30 10, K100 0 (diverged training,
   78% inadmissible), K300 109, K500 108. AD paper-recipe evals K30/K100/K300 running (46958579/52/51); SAD K100 x1 eval 46962140.
