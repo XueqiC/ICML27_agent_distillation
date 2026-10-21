@@ -21,6 +21,7 @@ from train.sft import exposure_plan
 
 @pytest.mark.parametrize("method,option,value,key,expected", [
     *[(method, "--epochs", "4", "epochs", 4) for method in ("kang", "adftp", "smartad")],
+    ("smartad", "--epochs", "16", "epochs", 16),
     ("sad", "--budget-multiplier", ".5", "processed_token_budget", TOKEN_BUDGET // 2),
     *[(method, "--learning-rate", "5e-5", "learning_rate", 5e-5) for method in ("kang", "adftp", "smartad")],
     *[(method, "--warmup-ratio", ".1", "warmup_ratio", .1) for method in ("kang", "adftp", "smartad")],

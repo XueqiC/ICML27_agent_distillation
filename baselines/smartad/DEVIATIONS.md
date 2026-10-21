@@ -2,6 +2,15 @@
 
 The [shared LoRA stability deviation (2026-10-21)](../kang/DEVIATIONS.md#shared-lora-stability-deviation--2026-10-21) governs the identity-bound learning-rate/warmup overrides for SmartAD, trajectory SFT and AD-FTP.
 
+User decision (2026-10-20): train every method to convergence using a doubling
+epoch ladder. SmartAD uses 1/2/4/8/16/32/64/128 epochs, with stopping governed by
+the shared training-loss convergence criteria above. The paper's two epochs
+remain the default and a separate "paper recipe" column. As with Kang and
+AD-FTP, `--epochs` accepts any positive integer, is bound into the frozen
+identity/recipe, and determines the training dose and schedule; the launcher
+forwards `SMARTAD_EPOCHS` (default 2). All other SmartAD recipe checks remain
+unchanged.
+
 Source: *Capacity-Aligned Agent Distillation for Small Language Models*,
 Findings of ACL 2026, §§3.2–3.3 and Appendix A,
 <https://aclanthology.org/2026.findings-acl.1349/>.
@@ -22,7 +31,7 @@ collection or GPU experiment. Offline tests do not establish scientific results.
 | §3.3 reason/action/final | H0's executed `Action:` line, including its header and command, is action; the last assistant turn's action span is final. If multiple Action lines appear, H0 executes the last one. All other supervised text, whitespace/format tokens and native turn-end token are reason. Weights 1 / 1.5 / 2. Offsets must reproduce the exact target IDs; a token overlapping an action span takes its action/final weight. Observations, system/user text, previous turns and OFF prompt prefill stay masked at −100 with zero weight. Unlike SAD, SmartAD supervises all visible assistant text. |
 | Parser-rejected teacher replies (2026-10-20) | Before segmentation, mask the complete target when H0 `parse_action(action_raw)` raises `ActionParseError`. When recorded `action_outcome` is present, use `parser_error` and fail if it disagrees with parsing the original raw reply. Retain the reply verbatim in visible history; all labels −100, segment labels absent and weights zero, including native turn end. Parsed replies retain the existing reason/action/final rules. This explicit user-registered deviation is shared with SAD and also covers trusted fallback demonstrations. Candidate correctness filtering and Eq. 3 selection are unchanged. |
 | Eq. 5 | Sum per-token CE × label-position weight, divided by the sum of weights over the actual effective batch. Stream complete turns and accumulate gradients against that one denominator. This is neither a mean of turn losses nor a mean of trajectory means. No extra division by token count or number of turns. |
-| Appendix A training | LoRA SFT, two epochs, AdamW 2e-4, gradient checkpointing. Shared AD/Kang unspecified details: r64/α128/dropout .05 on all seven attention/MLP language-model linear projections; frozen multimodal towers, fp32 adapter masters, bf16 base/compute; linear schedule, no warmup, seed 0, turn packing, weight decay 0, clipping 1. |
+| Appendix A training | LoRA SFT, two epochs by default and in the separate "paper recipe" column; convergence ladder registered above. AdamW 2e-4, gradient checkpointing. Shared AD/Kang unspecified details: r64/α128/dropout .05 on all seven attention/MLP language-model linear projections; frozen multimodal towers, fp32 adapter masters, bf16 base/compute; linear schedule, no warmup, seed 0, turn packing, weight decay 0, clipping 1. Learning-rate/warmup overrides follow the shared stability deviation above. |
 | Effective batch 4 on two GPUs | One GPU with streamed accumulation. Shared rule `b' = min(4, max(1, floor(N/8)))`, N = selected trajectories, counting each trajectory once. Final partial batches use their actual weight denominator. |
 | Paper max length 10,240 | Retain 32,768 exact-context limit to avoid truncating ALFWorld trajectories. Overlength raises; no truncation in selection or training. |
 | Inference | Shared unchanged H0, thinking OFF, 1,024 output tokens, 40 turns, greedy temperature 0, dev140. Shared HF/vLLM adapter equivalence gate and batch-invariant evaluation. No SAG or extra inference search. |

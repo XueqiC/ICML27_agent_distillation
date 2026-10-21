@@ -226,6 +226,47 @@ def test_training_recipe_and_launchers():
     assert "SMARTAD_RATE_LIMIT_DIR" in launcher and "CUDA_VISIBLE_DEVICES=''" in launcher
 
 
+@pytest.mark.parametrize("epochs", [1, 2, 3, 4, 8, 16, 32, 64, 128])
+def test_trainer_accepts_positive_epochs(monkeypatch, epochs):
+    from baselines.common import fsdp_train
+
+    args = SimpleNamespace(config="base.yaml", snapshot="base", verified="selected",
+                           train_python="python", epochs=epochs)
+    command = training_command(args, "out")
+    received = []
+    monkeypatch.setattr(fsdp_train, "train_lora", lambda args: received.append(args.epochs))
+    fsdp_train.main(command[command.index("--config"):])
+    assert received == [epochs]
+
+
+@pytest.mark.parametrize("flag,value", [
+    ("--epochs", "0"), ("--epochs", "-1"), ("--epochs", "1.5"),
+    ("--adaptation", "full"), ("--adaptation", "wkm_lora"),
+    ("--packing", "episode"), ("--method-data", "unused"),
+    ("--original-batch", "8"), ("--seed", "1"),
+    ("--learning-rate", "0"), ("--learning-rate", "-1"),
+    ("--learning-rate", "nan"), ("--learning-rate", "inf"),
+    ("--scheduler", "cosine"), ("--scheduler", "constant_with_warmup"),
+    ("--warmup-ratio", "-.1"), ("--warmup-ratio", "1.1"), ("--warmup-ratio", "nan"),
+    ("--warmup-ratio", ".1"),  # Nonzero ratio cannot retain explicit warmup steps.
+    ("--warmup-steps", "1"), ("--weight-decay", ".01"),
+])
+def test_trainer_rejects_invalid_epochs_and_recipe(monkeypatch, capsys, flag, value):
+    from baselines.common import fsdp_train
+
+    args = SimpleNamespace(config="base.yaml", snapshot="base", verified="selected",
+                           train_python="python", epochs=16)
+    command = training_command(args, "out")
+    monkeypatch.setattr(fsdp_train, "train_lora", lambda args: pytest.fail("Invalid recipe reached training"))
+    with pytest.raises(SystemExit) as error:
+        fsdp_train.main([*command[command.index("--config"):], flag, value])
+    assert error.value.code == 2
+    expected = ("invalid int value" if flag == "--epochs" and value == "1.5" else
+                "Method data requires" if flag == "--method-data" else
+                "SmartAD requires its registered Kang LoRA/segment-loss recipe")
+    assert expected in capsys.readouterr().err
+
+
 def test_unknown_attempt_never_reexecutes(seed_bank, tmp_path, monkeypatch):
     source, manifest, freeze, config, env = setup_source(seed_bank, tmp_path)
     calls = []
