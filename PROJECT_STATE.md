@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-21 — user OK (05:08Z): stabilise all LoRA methods uniformly
+- Plan approved: probe (LONI 1119261-63 RUNNING) -> one optimiser setting for trajectory SFT / AD / SmartAD (registered
+  deviation; paper recipe kept as the 'paper recipe' column); divergence guard: rung valid iff L_last <=
+  max(1.1*L_min, L_min+0.02) over complete-epoch means. Codex wt/stab (pid 3678875): lr/warmup overrides + guard.
+- AD paper-recipe e2 rungs on LONI (tree b086c72, reads chain_k500_s0_r2): adc-k30/k100/k300/k500-e2 1119268-72.
+- AD-FTP collection verified on LONI (269,669 files, sha ba4d8087…); hpg tar copy failed 05:10Z (tunnel), rsync retry
+  pid 3686874 (logs/sync_adftp_chain_hpg.log, gate adftp_chain_on_hpg).
+
 ### 00:0x CDT 10-21
 - AD-FTP chain_k500_s0_r2 COMPLETE (exit 0, 00:00 CDT): 500 trusted (482 new FTP-verified + 18 fallback), K30/K100/K300 views
   published, 1,372 new calls in r2, api_attempts 13,953 total, 3 cap extensions (120 calls). Collection 4.6G; sync to LONI
