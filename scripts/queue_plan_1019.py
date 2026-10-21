@@ -413,6 +413,11 @@ def lora_rung(method, k, epochs):
 def chain_cells():
     sad1 = [sadc(k, 1) for k in (500, 300, 100, 30)]
     tsft = [lora_rung("tsft", k, e) for k in (500, 300, 100, 30) for e in (16, 8, 4, 2)]
+    # 19:3x CDT: on hpg the 2-epoch rung of K300/K500 is held (it is needed only if 4 epochs were already converged
+    # vs 2, implausible at 2-epoch losses of 0.2-0.35); it frees a job slot for SAD under the 10-job rule.
+    for c in tsft:
+        if c["cell"] in ("tsft-k500-e2", "tsft-k300-e2"):
+            c["hold"] = True
     # 19:2x CDT: trajectory-SFT training for K30/K100 runs on LONI (A100, smoke tsft-k30-e2-loni passed; hpg's B200
     # partition is congested); only their evaluation stages run here, after the adapters are copied back.
     for c in tsft:
@@ -477,7 +482,8 @@ def main():
     cells = chain_cells() + cells
     # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
     # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
-    plan = {"limits": {"max_jobs": 10, "max_gpus": 20, "max_group_gpus": 6, "max_lowprio_jobs": 0,
+    # 19:3x CDT: pending GPUs do not consume the QOS; 36 lets SAD trains queue behind the trajectory-SFT rungs.
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 36, "max_group_gpus": 6, "max_lowprio_jobs": 0,
                        "max_lowprio_gpus": 0}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
