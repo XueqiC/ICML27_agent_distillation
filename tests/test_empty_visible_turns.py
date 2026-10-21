@@ -1,5 +1,6 @@
 """Offline pinned-tokenizer regression for empty visible student completions."""
 from copy import deepcopy
+from contextlib import nullcontext
 import json
 from types import SimpleNamespace
 
@@ -264,3 +265,86 @@ def test_agentgym_dose_checkpoint_counts_and_mask_report(tokenizer, tmp_path):
     state = json.loads((tmp_path / checkpoints[-1]["path"] / "training_state.json").read_text())
     assert state["empty_visible_turns_masked"] == 2 and state["empty_visible_turn_examples"] == 1
     assert state["examples_seen"] == 2
+
+
+@pytest.mark.parametrize("packing", ["turn", "episode"])
+@pytest.mark.parametrize("empty", [False, True])
+def test_adftp_empty_teacher_reply_history_labels_and_trainer_provenance(tokenizer, tmp_path, monkeypatch, packing, empty):
+    from baselines.adftp.pipeline import training_command
+    from baselines.common import fsdp_train
+    from sed.config import load_config
+    from sed.storage import write_json
+
+    torch.set_num_threads(1)
+    value = episode("Thought: prefix\nAction: look", "" if empty else "Action: look",
+                    "Malformed non-empty reply", "Action: look")
+    value["steps"][1]["action_outcome"] = "parser_error" if empty else "legal"
+    value["steps"][1]["visible"] = {"observation": "Observation after the empty reply", "admissible_commands": ["look"]}
+    value["steps"][2]["action_outcome"] = "parser_error"
+    config = load_config()
+    collection = {"K": 1, "unique_instances": 1, "task_groups": 1, "verified": [{}]}
+    monkeypatch.setenv("WORLD_SIZE", "1")
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setenv("LOCAL_RANK", "0")
+    monkeypatch.setattr(fsdp_train, "load_config", lambda *a: config)
+    monkeypatch.setattr(fsdp_train, "load_frozen", lambda *a: ({}, {}))
+    monkeypatch.setattr(fsdp_train, "load_verified_collection", lambda *a: (collection, {}, tmp_path))
+    monkeypatch.setattr(fsdp_train, "checked_episodes", lambda *a: [value])
+    monkeypatch.setattr(fsdp_train, "load_tokenizer", lambda *a: tokenizer)
+    monkeypatch.setattr(fsdp_train, "snapshot_metadata", lambda *a: {"source": "fake"})
+    monkeypatch.setattr(fsdp_train, "artifact_hashes", lambda *a: {})
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "set_device", lambda *a: None)
+    monkeypatch.setattr(torch, "autocast", lambda *a, **kw: nullcontext())
+    monkeypatch.setattr("transformers.set_seed", lambda *a: None)
+
+    def model(*args, **kwargs):
+        # Only the production GPU gate is stubbed; all updates run on a toy CPU model.
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        result = SmallModel()
+        result.peft_config = {"default": SimpleNamespace(r=64, lora_alpha=128, lora_dropout=.05,
+                                                         target_modules=["fake"])}
+        return result
+
+    monkeypatch.setattr(fsdp_train, "prepare_lora_model", model)
+    def provenance(output, **kwargs):
+        record = {"config": kwargs["config"]}
+        write_json(output / "provenance.json", record)
+        return record
+    monkeypatch.setattr(fsdp_train, "write_provenance", provenance)
+
+    def cpu_train(model, examples, output, **kwargs):
+        example, = examples
+        assert example["messages"] == episode_messages(value)
+        mask_report(example["turns"] if packing == "turn" else [example], tokenizer)
+        if packing == "turn":
+            assert len(sequence_rows(example)) == 4 - int(empty)
+            if empty:
+                row = example["turns"][1]
+                assert row["labels"] == [-100] * len(row["input_ids"])
+            rows = [example["turns"][2]]
+        else:
+            assert [s["turn_index"] for s in example["assistant_spans"]] == ([0, 2, 3] if empty else [0, 1, 2, 3])
+            rows = [example]
+        assert "Malformed non-empty reply" in tokenizer.decode([v for row in rows for v in row["labels"] if v != -100])
+        final = sequence_rows(example)[-1]
+        prompt = tokenizer.decode(final["input_ids"], skip_special_tokens=False)
+        assert "Observation after the empty reply" in prompt
+        if empty:
+            assert "<|turn>model\n<turn|>\n" in prompt
+        assert "SECRET" not in prompt and "PRIVATE_PDDL" not in prompt
+        return train_loop(model, [small_ids(example)], output, **{**kwargs, "device": "cpu"})
+
+    monkeypatch.setattr(fsdp_train, "train_loop", cpu_train)
+    output = tmp_path / "run"
+    command = training_command(SimpleNamespace(train_python="python", config="fake", snapshot="fake",
+                                               verified="fake"), output)
+    command[command.index("--packing") + 1] = packing
+    fsdp_train.main(command[command.index("--config"):])
+    training = json.loads((output / "provenance.json").read_text())["config"]["baseline_training"]
+    result = json.loads((output / "result.json").read_text())
+    for record in (training, result):
+        assert record["empty_visible_turns_masked"] == int(empty)
+        assert record["masked_empty_replies"] == ([{"task_id": value["task_id"], "step_index": 1}] if empty else [])
+    assert training["allow_empty_visible_replies"] is True
+    assert result["examples_seen"] == 2  # Mask count is per dataset, not multiplied by epochs.

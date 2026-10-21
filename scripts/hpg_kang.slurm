@@ -39,6 +39,7 @@ trap 'exit 130' INT
     --snapshot "$MODEL_PATH" --verified "$VERIFIED" --output "$KANG_OUT" \
     --training-seed "${KANG_TRAINING_SEED:-0}" \
     --epochs "${KANG_EPOCHS:-2}" \
+    --learning-rate "${KANG_LR:-2e-4}" --warmup-ratio "${KANG_WARMUP:-0}" \
     --train-python "$TRAIN_PYTHON" --mode "${KANG_MODE:-train}" &
 child=$!
 wait "$child"

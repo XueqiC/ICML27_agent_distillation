@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
 from baselines.eto.pipeline import stage_run, run_command
-from baselines.kang.pipeline import RECIPE as AD_RECIPE, training_command as ad_command
+from baselines.kang.pipeline import RECIPE as AD_RECIPE, optimizer_recipe, training_command as ad_command
 from baselines.smartad.collect import collect, validate_h0, validate_shard
 from baselines.smartad.paths import PathResolver
 from baselines.smartad.select import select, validate_selection
@@ -49,12 +49,18 @@ def main(argv=None):
     parser.add_argument("--merge-scores", action="store_true", help="CPU-only checked merge of all selection shards")
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=RECIPE["epochs"])
+    parser.add_argument("--learning-rate", type=float, default=RECIPE["learning_rate"])
+    parser.add_argument("--warmup-ratio", type=float, default=RECIPE["warmup_ratio"])
     parser.add_argument("--ready-timeout", type=int, default=900)
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=1)
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    try:
+        optimizer = optimizer_recipe(args)
+    except ValueError as error:
+        parser.error(str(error))
     if args.epochs < 1:
         parser.error("--epochs must be positive")
     if args.mode == "evaluate":
@@ -106,7 +112,8 @@ def main(argv=None):
         if args.stage == "evaluate":
             from baselines.common.evaluation import evaluate_models
             return evaluate_models(training, decodings=("greedy",))
-        identity = prepare(training, config, method="smartad", recipe={**RECIPE, "epochs": args.epochs, "scoring": args.scoring})
+        identity = prepare(training, config, method="smartad", recipe={**RECIPE, **optimizer,
+                           "epochs": args.epochs, "scoring": args.scoring})
         try:
             if args.mode == "train":
                 result = stage_run(training.output, "train-sft", digest([identity, "sft"]),

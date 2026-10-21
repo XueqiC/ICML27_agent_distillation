@@ -149,6 +149,8 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
                 "event_id": step["event_id"], "source": "teacher_visible_reply_real_environment",
                 "training_eligible": not diagnostic, "action_outcome": step.get("action_outcome"),
                 "message_sha256": digest(messages)}
+        if encoded["empty_visible_turns_masked"]:
+            encoded["label_provenance"]["empty_visible_reply_masked"] = True
         examples.append(encoded)
         history.append({"visible": visible, "reply": reply})
         visible = visible_observation(step["visible"])
