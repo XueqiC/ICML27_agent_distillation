@@ -15,14 +15,15 @@ from sed.seed_evidence import artifact_hashes
 
 
 @pytest.mark.parametrize('method,through,mode', [('adftp','collect','train'), ('adftp','train','train'),
-                                               ('adftp','train','evaluate'), ('sad','train','train')])
+                                               ('adftp','train','evaluate'), ('sad','train','train'),
+                                               ('sad','all','evaluate')])
 def test_wrappers_select_stages(tmp_path, method, through, mode):
     fake = tmp_path / 'python'
     fake.write_text('#!' + sys.executable + '\nimport json,os,sys\n'
                     'open(os.environ["ARGS"],"w").write(json.dumps(sys.argv[1:]))\n')
     fake.chmod(0o755)
     env = os.environ.copy()
-    for key in ('SLURM_JOB_GPUS', 'SLURM_GPUS_ON_NODE'):
+    for key in ('SLURM_JOB_GPUS', 'SLURM_GPUS_ON_NODE', 'SAD_SCORING', 'SAD_EVAL_FRACTIONS'):
         env.pop(key, None)
     env.update(PROJECT_ROOT=str(Path.cwd()), HPG_CONFIG=str(Path('configs/hpg.env').resolve()),
         ENV_PYTHON=str(fake), TRAIN_PYTHON=str(fake), VLLM_PYTHON=str(fake), MODEL_PATH='BASE', VERIFIED='VERIFIED',
@@ -34,12 +35,16 @@ def test_wrappers_select_stages(tmp_path, method, through, mode):
     assert args[:2] == ['-m', f'baselines.{method}.pipeline']
     assert args[args.index('--through') + 1] == through
     if method == 'sad':
+        assert args[args.index('--mode') + 1] == mode
         assert args[args.index('--scoring') + 1] == 'shared_history'
+        assert args[args.index('--eval-fractions') + 1] == ''
         env['SAD_SCORING'] = 'per_turn'
+        env['SAD_EVAL_FRACTIONS'] = '1/2,1'
         result = subprocess.run(['bash', 'scripts/hpg_sad.slurm'], env=env, capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         args = json.loads((tmp_path / 'args.json').read_text())
         assert args[args.index('--scoring') + 1] == 'per_turn'
+        assert args[args.index('--eval-fractions') + 1] == '1/2,1'
     if through == 'collect':
         assert '--snapshot' not in args
         env['SLURM_JOB_GPUS'] = '0'
@@ -63,6 +68,15 @@ def test_full_evaluation_requires_gate_before_dev140(tmp_path, monkeypatch, pass
     monkeypatch.setattr(evaluation, 'served', served)
     def command(argv, log, **kwargs):
         calls.append(argv)
+        if '--hf-only' in argv:
+            assert argv[0] == args.train_python
+            assert kwargs.get('env') is None
+        if '--hf-reference' in argv:
+            assert argv[:3] == [args.train_python, '-m', 'tools.check_full_serving']
+            assert kwargs['env']['CUDA_VISIBLE_DEVICES'] == ''
+        if 'eval/run_suite.py' in argv:
+            assert argv[0] == args.env_python
+            assert kwargs['env']['CUDA_VISIBLE_DEVICES'] == ''
         if '--hf-reference' in argv and not passing:
             raise RuntimeError('stub gate rejection')
     monkeypatch.setattr(evaluation, 'run_command', command)

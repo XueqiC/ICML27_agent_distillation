@@ -1,4 +1,4 @@
-"""Hash-bound SAD full tuning and all-checkpoint dev140 evaluation."""
+"""Hash-bound SAD full tuning and optional checkpoint-fraction dev140 evaluation."""
 import argparse
 from decimal import Decimal
 import json
@@ -55,6 +55,8 @@ def main(argv=None):
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=4)
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default=RECIPE["scoring"])
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--eval-fractions", default=os.environ.get("SAD_EVAL_FRACTIONS", ""),
+                        help="Comma-separated models.json fractions for evaluate mode (empty = all; 1 = 1/1)")
     parser.add_argument("--budget-multiplier", type=float, default=1.0)
     parser.add_argument("--ready-timeout", type=int, default=900)
     for name in ("train", "env", "vllm"):
@@ -73,7 +75,7 @@ def main(argv=None):
     with locked(Path(args.output) / ".pipeline.lock"):
         if args.mode == "evaluate":
             from baselines.common.evaluation import evaluate_models
-            evaluate_models(args)
+            evaluate_models(args, fractions=args.eval_fractions)
             return
         identity = prepare(args, config, method="sad", recipe={**RECIPE, "scoring": args.scoring,
                                                                "processed_token_budget": budget})
