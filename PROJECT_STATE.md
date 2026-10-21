@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:3x CDT 10-21 — SmartAD selection merged next; training cells staged
+- Selection shards s0..s3 done (13:43-13:53 CDT); merge 47046998 running (CPU). Gate watcher scratchpad/gate_smartad_selected.sh
+  pid 1904567 opens gates/smartad_selected when the merge is CELL_DONE and collection + K30/K100/K300 manifests exist.
+- Plan 7e4358e: smc-k{500,300,100,30}-e2-lr2e-4 (paper recipe; tree 3318b54; train 4 GPUs (K30: 2), greedy eval with
+  check prompts from the tsft support view). The 1e-4 ladder is staged behind SMC_LADDER_TREE: fsdp_train still pins
+  SmartAD to epochs == 2 -> Codex wt/smartadepochs (pid 1901568) relaxes it; then set SMC_LADDER_TREE to the merge commit.
+- hourly: SAD K300 x0.5 train + x1 eval in preflight (disk reads 39G/56G), not idle-GPU problems.
 ### 13:1x CDT 10-21 — hourly
 - sadc-k300-b1-train COMPLETED (2:16, 4 GPUs) -> gate eval_sadc-k300-b1 opened (paper column); x0.5 46930070 pending.
 - SmartAD selection 4 shards running (~1 h). adc-k300-e32 / adc-k100-e32 lr1e-4 run on LONI (hpg twins cancelled by dedupe).
