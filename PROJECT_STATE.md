@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:2x CDT 10-21 — SAD eval fix deployed
+- main b9f9a80 = merge wt/sadeval: full-checkpoint serving check under TRAIN_PYTHON (CUDA hidden) + SAD_EVAL_FRACTIONS.
+  hpg tree ICML27_runs/b9f9a80 deployed WITH .venv symlink + third_party (layout identical to fb22f09). Plan 3de1b54: all SAD
+  eval stages on b9f9a80 with SAD_EVAL_FRACTIONS=1 (final checkpoint only). sadc-k100-b1 unblocked; gates open:
+  eval_sadc-k30-b1 / k100-b1 / k500-b1 (paper-recipe column; K100 x1 is the diverged model, reported as such).
 ### 04:1x CDT 10-21 — SAD K100 x1 diverged; SmartAD launcher handoff
 - SAD convergence: K100 x0.5 (48 epochs, L_last 3e-5, valid) vs x1 (96 epochs): x1 DIVERGED at update 45 (loss 451,
   grad norm 8.3e4, lr ~2e-5 at peak), stuck at 4.22 for 89 epochs -> invalid (within-rung + cross-rung). K500 x1 valid
