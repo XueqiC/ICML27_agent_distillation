@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:3x CDT 10-22 — sealed prep works; AD K300 converged rung collapsed (4/140); collapse criterion = user decision
+- SmartAD GPU start 3 min with the seal -> all smc cells unheld. SAD K500 converged at x2 -> eval gate.
+- adc K300 e32 (1e-4) = registered converged rung scored 4/140: mid-run collapse (epoch 5: 0.214 -> 5.02) then re-memorised to
+  0.0048; the registered within-rung/cross-rung guard does not catch it. Scan: reported converged rungs adc K100 e64 and
+  tsft K100 e64 also collapsed at epoch 13 (scored 107 / 112). ASKED USER whether to add a collapse criterion (any epoch mean >
+  2x the lowest earlier mean and > +0.1 -> rung invalid -> 5e-5 fallback). 5e-5 hedge ladders running: adc K100/K300, tsft K100.
 ### 09:2x CDT 10-22 — sealed prep deployed; one SmartAD cell released for measurement
 - main e599953 = merge wt/sealedprep (memoized collection validation; CPU prep publishes a sealed prepared dataset under
   training/prepared/<identity digest>/; GPU train verifies seal + top-level collection files, trains without scans; refuses
