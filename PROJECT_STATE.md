@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:5x CDT 10-22 — LONI cold-move list
+- Move list reports/engineering/loni_cold_move_list_1022.txt: 73 hq/ dirs (2,257 GB, 775k files) + hq/tc-alignment/results
+  (610 GB) = ~2.9 TB (corrected from 2.2 TB in the channel). Keep: ICML27_data, ICML27_runs, tc-alignment (.venv, .venv-fla,
+  envs), hf-cache, scripts. Waiting for the user: Globus (user explained; LONI collections are LSU HPC, authorize with the
+  LONI login) vs rai tunnel (~5 days at 6.6 MB/s).
 ### 13:4x CDT 10-22 — trajectory SFT row complete
 - Converged trajectory SFT: K30 88 (5e-5 e64), K100 112 (1e-4 e64, collapse annotated), K300 124 (1e-4 e64, collapse annotated),
   K500 122 (5e-5 e64). SmartAD paper K30 77. hpg back 13:44 CDT; /orange 25 TB free.
