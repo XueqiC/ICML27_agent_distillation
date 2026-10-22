@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:2x CDT 10-21 — eval attempt-path fix; SmartAD training gate open
+- adc-k100-e64-lr1e-4-eval failed (attempt-000 path; checkpoint is in attempt-001). TRAIN_ATTEMPT override map in
+  queue_plan_1019.py; RULE: before opening an eval gate for an hpg-trained cell, verify the adapter path exists.
+- gates/smartad_selected opened 22:13 CDT -> smc cells (4 paper e2 + 23 lr 1e-4 rungs) submit as slots allow.
+- tsft-k30-e64-lr5e-5 copied to hpg, eval gate open.
 ### 22:1x CDT 10-21 — tunnel back; SmartAD selected; more 1e-4 divergence
 - Tunnel back ~22:0x CDT (user). SmartAD merge COMPLETED 21:19 CDT -> gate smartad_selected after keeper CELL_DONE.
 - Converged: adc K100 e64 (eval gate), tsft K30 5e-5 e64 (copy + gate). tsft K500 1e-4 e32 INVALID (4.30) -> 5e-5 fallback;
