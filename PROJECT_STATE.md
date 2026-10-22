@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:3x CDT 10-22 — ROOT IDLE-GPU CANCEL (account risk): SmartAD held
+- smc-k30-e128-lr1e-4 47095421 CANCELLED by root at 72 min (GPUs idle in startup hashing). 25 smc cells held
+  (blocked "held 10-22 01:2x CDT ..."); 2 running (smc-k30-e2 47100227, smc-k30-e64 47101414) watched by guard pid 259291
+  (cancel at 50 min without updates). smc-k30-e2 read only 4.6 GB at 25 min (persistent cache warm) vs 61 GB before.
+- Codex wt/faststart (pid 261081, prompt scratchpad/codex_faststart.md): artifact_hashes via receipts, CPU prepare stages
+  for smartad/kang/adftp, startup timing log. Then: add CPU prepare stages to the plan, unhold smc.
 ### 00:2x CDT 10-22 — SmartAD startup ~1 h
 - smc-k30-e2 timed out before its first update (startup: pipeline prepare ~52 min, 61 GB read, then rank-0 prepare_data).
   Plan 1e67101: smc train limits = 3 h + 10 s/update x 1.6. smc-k30-e128-lr1e-4 47095421 running (watch when updates start).
