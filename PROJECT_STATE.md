@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:1x CDT 10-22 — AD K300 converged (e32)
+- adc K300 converged at e32 (LONI) -> copy + eval gate (sync_and_gate). tsft K300 1e-4 e64 recovering; if it completes valid the
+  1e-4 K300 ladder decides (32->64) and the 5e-5 hedge is unused. Timing job 47115431 warm pass still running (2h58m).
 ### 06:2x CDT 10-22 — SmartAD startup measured: collection scans dominate
 - Cold CPU prepare 1h40m; snapshot hashing fixed (0.04 s warm); collection_load repeated ~12x per process (190-910 s each),
   warm barely faster -> a GPU stage would still idle ~1.5 h. Codex wt/sealedprep (pid 853599, prompt
