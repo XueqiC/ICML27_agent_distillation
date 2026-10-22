@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:4x CDT 10-22 — user OK on the SmartAD hold
+- smc-k30-e2 / smc-k30-e64 at ~50 min with no updates even with the warm receipt cache -> guard cancels them; SmartAD fully
+  paused until wt/faststart is merged, deployed and verified on hpg (CPU prepare stage + fast GPU start). Told the user.
 ### 01:1x CDT 10-22 — ROOT IDLE-GPU CANCEL (account risk): SmartAD held
 - smc-k30-e128-lr1e-4 47095421 CANCELLED by root at 72 min (GPUs idle in startup hashing). 25 smc cells held
   (blocked "held 10-22 01:2x CDT ..."); 2 running (smc-k30-e2 47100227, smc-k30-e64 47101414) watched by guard pid 259291
