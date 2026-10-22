@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:2x CDT 10-22 — sealed prep deployed; one SmartAD cell released for measurement
+- main e599953 = merge wt/sealedprep (memoized collection validation; CPU prep publishes a sealed prepared dataset under
+  training/prepared/<identity digest>/; GPU train verifies seal + top-level collection files, trains without scans; refuses
+  without a valid seal). hpg tree e599953 deployed. Plan 1c8aea2: smc = prep (hpg-milan 8 CPU/32G/4 h) -> train (GPU,
+  1 h startup allowance) -> eval. Only smc-k30-e2-lr2e-4 released; 26 smc cells still held. Guard pid 1051472.
+- tsft-k300-e64-lr1e-4 now trains on hpg (47066822, 89 updates at 08:15 CDT); dedupe cancelled its LONI twin 1122217.
+- adc-k300-e32-lr1e-4 converged (e32): copy re-verifying after my stray-attempt error (see exp_log); gate opens on OK.
 ### 07:1x CDT 10-22 — AD K300 converged (e32)
 - adc K300 converged at e32 (LONI) -> copy + eval gate (sync_and_gate). tsft K300 1e-4 e64 recovering; if it completes valid the
   1e-4 K300 ladder decides (32->64) and the 5e-5 hedge is unused. Timing job 47115431 warm pass still running (2h58m).
