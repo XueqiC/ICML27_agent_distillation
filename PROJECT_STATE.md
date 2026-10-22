@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:1x CDT 10-21 — K30/K100 rows complete (tsft, AD, SAD)
+- Converged column (dev140, base 62): tsft K30 88 (5e-5 e64) / K100 112 (1e-4 e64); AD K30 109 / K100 107 (1e-4 e64);
+  SAD K30 49 (x1) / K100 109 (x0.5) / K300 127 (x1). Pending: tsft K300/K500 (5e-5), AD K300 (1e-4) / K500 (5e-5),
+  SAD K500 x2, SmartAD (all K).
 ### 22:2x CDT 10-21 — eval attempt-path fix; SmartAD training gate open
 - adc-k100-e64-lr1e-4-eval failed (attempt-000 path; checkpoint is in attempt-001). TRAIN_ATTEMPT override map in
   queue_plan_1019.py; RULE: before opening an eval gate for an hpg-trained cell, verify the adapter path exists.
