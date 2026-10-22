@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:4x CDT 10-22 — trajectory SFT row complete
+- Converged trajectory SFT: K30 88 (5e-5 e64), K100 112 (1e-4 e64, collapse annotated), K300 124 (1e-4 e64, collapse annotated),
+  K500 122 (5e-5 e64). SmartAD paper K30 77. hpg back 13:44 CDT; /orange 25 TB free.
 ### 13:4x CDT 10-22 — user chose A (old-phase LONI data -> hpg /orange); hpg ControlMaster dropped
 - User: "A" = move the old-phase LONI data (~2.2 TB) to hpg /orange (copy -> verify -> delete). Measured: LONI->rai 39 MB/s,
   rai->hpg (tunnel via the user's Mac) 6.6 MB/s -> ~4 days; rai cannot stage 2.2 TB (1.2 TB free, keep >= 1 TB). ASKED: Globus
