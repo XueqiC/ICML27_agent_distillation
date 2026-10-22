@@ -482,7 +482,9 @@ def smc_rung(k, epochs, lr):
     cell = f"smc-k{k}-e{epochs}-lr{lr}"
     n = 2 if k == 30 else 4
     per_epoch = {30: 8, 100: 25, 300: 75, 500: 125}[k]
-    hours = 1.0 + epochs * per_epoch * 10 / 3600 * 1.6   # no SmartAD shared-history timing yet: 10 s/update + 1 h startup
+    # 10-22 00:2x CDT: smc-k30-e2 (47091127) timed out at 1:04 before its first update: the pipeline prepare phase alone
+    # took ~52 min (61 GB read: collection + snapshot hashing), then rank-0 prepare_data. 3 h startup allowance.
+    hours = 3.0 + epochs * per_epoch * 10 / 3600 * 1.6
     hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     out = f"{BL}/{cell}"
     verified = SMARTAD_CHAIN_COLL + ("" if k == 500 else f"/subsets/k{k}")
