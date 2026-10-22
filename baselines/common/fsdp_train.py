@@ -656,7 +656,7 @@ def export_adapter(model, destination, provenance, state):
 
 @timed("data_prepare")
 def prepare_lora_data(args):
-    """Shared CPU checks/encoding for preparation and every training startup."""
+    """Full CPU checks/encoding; sealed Kang-family training never calls this."""
     if Path(args.snapshot).resolve() != Path(args.base_snapshot).resolve():
         raise ValueError("Kang SFT must start from the configured base snapshot")
     config = load_config(args.config)
@@ -703,14 +703,22 @@ def lora_startup(mode):
 @lora_startup("prepare")
 def prepare_lora_only(args):
     from baselines.common.pipeline import require_cpu_preparation
+    from baselines.common.prepared import complete_bindings, refuse, write_prepared
+    from sed.validation_cache import capture_collections
     require_cpu_preparation()
-    config, collection, examples, chat_template = prepare_lora_data(args)
+    if not getattr(args, "pipeline_output", None):
+        refuse("CPU preparation requires --pipeline-output")
+    with capture_collections() as bindings:
+        data = prepare_lora_data(args)
+        config, collection, examples, chat_template = data
+        complete_bindings(bindings, config)
+    seal = write_prepared(args, data, bindings)
     base = snapshot_metadata(args.base_snapshot)
     hashes = artifact_hashes(args.base_snapshot)
     plan = dose(len(examples), args.original_batch, epochs=args.epochs)
     config["baseline_preparation"] = {**vars(args), **plan, "base_snapshot": base,
         "base_artifact_sha256": hashes, "examples_sha256": digest(examples),
-        "template_sha256": digest(chat_template), "K": collection["K"],
+        "template_sha256": digest(chat_template), "K": collection["K"], "prepared_seal": seal,
         "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps)}
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
@@ -718,7 +726,7 @@ def prepare_lora_only(args):
         inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
                 Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"])
     write_json(output / "result.json", {"status": "prepared", "examples": len(examples),
-                                       "training_updates": 0})
+                                       "training_updates": 0, "prepared_seal": seal})
 
 
 @lora_startup("train")
@@ -742,8 +750,13 @@ def train_lora(args):
         started = time.monotonic()
         set_seed(args.seed + rank)
 
-        config, collection, examples, chat_template = rank_zero_data(
-            rank, world, lambda: prepare_lora_data(args), group)
+        def load_data():
+            if args.adaptation == "kang_lora":
+                from baselines.common.prepared import load_prepared
+                return load_prepared(args)
+            return prepare_lora_data(args), None
+        (config, collection, examples, chat_template), seal = rank_zero_data(
+            rank, world, load_data, group)
         empty_replies = {}
         if getattr(args, "allow_empty_visible_replies", False):
             locations = [{"task_id": turn["task_id"], "step_index": turn["turn_index"]}
@@ -769,6 +782,7 @@ def train_lora(args):
                 "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout,
                 "targets": sorted(peft_config.target_modules)}
             config["baseline_training"] = {**vars(args), **plan, **empty_replies, "world_size": world,
+                **({"prepared_seal": seal} if seal is not None else {}),
                 "dropout_equivalence": dropout_equivalence(model),
                 "rng_seed_policy": "seed + rank", "rank_seeds": [args.seed + r for r in range(world)],
                 "base_snapshot": base, "base_artifact_sha256": artifact_hashes(args.base_snapshot),
@@ -821,7 +835,8 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had", "smartad"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
-    parser.add_argument("--prepare-only", action="store_true", help="CPU checks/encoding/cache warmup only; no model")
+    parser.add_argument("--prepare-only", action="store_true", help="CPU validation/encoding/seal publication; no model")
+    parser.add_argument("--pipeline-output", help="Pipeline output containing the required CPU-prepared seal")
     parser.add_argument("--allow-empty-visible-replies", action="store_true",
                         help="AD-FTP SFT: retain empty teacher replies as history with zero labels")
     parser.add_argument("--had-data")
@@ -855,6 +870,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     prepare_only = args.prepare_only
     del args.prepare_only  # Operational mode is not part of the training recipe.
+    if args.adaptation != "kang_lora":
+        if args.pipeline_output:
+            parser.error("--pipeline-output requires Kang/AD-FTP/SmartAD LoRA")
+        del args.pipeline_output
     if prepare_only:
         from baselines.common.pipeline import require_cpu_preparation
         require_cpu_preparation()

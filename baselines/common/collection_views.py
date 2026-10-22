@@ -57,12 +57,16 @@ def bind_views(verified, source, selection, manifest, freeze, entries=(), *, sub
 
 
 def check_support(binding, manifest, freeze, *, resolver=None):
-    path = resolver.resolve(binding["path"]) if resolver else Path(binding["path"])
-    support, selection, _ = load_verified_collection(path, manifest, freeze)
-    actual = bind_support(path, support, selection)
-    if {k: v for k, v in actual.items() if k != "path"} != {k: v for k, v in binding.items() if k != "path"}:
-        raise ValueError("Support view manifest/selection/task_id binding changed")
-    return support, selection, path
+    from sed.validation_cache import memoized
+    path = (resolver.resolve(binding["path"]) if resolver else Path(binding["path"])).resolve()
+    def validate():
+        support, selection, _ = load_verified_collection(path, manifest, freeze)
+        actual = bind_support(path, support, selection)
+        if {k: v for k, v in actual.items() if k != "path"} != {k: v for k, v in binding.items() if k != "path"}:
+            raise ValueError("Support view manifest/selection/task_id binding changed")
+        return support, selection, path
+    return memoized("support", path, manifest, freeze, validate,
+                    binding={k: v for k, v in binding.items() if k != "path"})
 
 
 def collection_identity(output, proposed):

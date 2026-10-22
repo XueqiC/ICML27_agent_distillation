@@ -115,6 +115,8 @@ def test_collect_once_subsets_reuse_receipts_replacements_and_loader(seed_bank, 
     write_json(subpath, subsets[0])
     episode = output / source["verified"][0]["episode_dir"] / "episode.json"
     episode.write_text(episode.read_text() + " ")
+    from sed.validation_cache import clear_validation_cache
+    clear_validation_cache()  # New audit session after deliberately breaking immutability.
     with pytest.raises(ValueError, match="evidence changed"):
         load_verified_collection(subpath.parent, manifest, freeze)
 

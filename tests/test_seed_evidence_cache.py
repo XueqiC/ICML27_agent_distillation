@@ -242,6 +242,8 @@ def test_two_views_reuse_source_hashes_and_reject_unselected_tampering(source_ba
     receipt = next(r for r in collection["verified"] if r["task_id"] not in selected)
     target = root / receipt["episode_dir"] / "episode.json"
     target.write_text(target.read_text() + " ")
+    from sed.validation_cache import clear_validation_cache
+    clear_validation_cache()  # A new process/audit revalidates immutable evidence.
     with pytest.raises(ValueError, match="Attempt evidence changed"):
         seed_evidence.load_verified_collection(root / "subsets/k1", manifest, freeze)
 

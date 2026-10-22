@@ -36,8 +36,8 @@ def require_cpu_preparation():
 def prepare_training(args, command):
     """Run the actual trainer's CPU input path, without torchrun or a model.
 
-    Always revalidate, including repeat preparation; no completion marker skips
-    checks. The caller supplies its normal command so recipe/masking stay equal.
+    A new CPU process fully validates inputs and publishes sealed examples.
+    The caller supplies its normal command so recipe/masking stay equal.
     """
     require_cpu_preparation()
     attempt = Path(args.output) / "preparations" / str(uuid.uuid4())
@@ -53,6 +53,13 @@ def prepare(args, config, *, method, recipe, unrestricted_verified_size=False, r
     for name in ("raw", "verified"):
         if output.is_relative_to(Path(config["paths"][name]).resolve()):
             raise ValueError("Baseline output must be outside seed storage")
+    if method in {"kang", "adftp", "smartad"} and getattr(args, "mode", None) == "train":
+        from baselines.common.prepared import pipeline_identity, verify_prepared
+        identity = pipeline_identity(output, config, method=method, recipe=recipe,
+            verified=args.verified, snapshot=args.snapshot, gpus=args.gpus,
+            current_code=code_hashes(Path(__file__).resolve().parents[2]))
+        verify_prepared(output, identity, config)
+        return identity
     manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     collection, selection, root = load_verified_collection(args.verified, manifest, freeze)
     if (not unrestricted_verified_size and registered_k is not None

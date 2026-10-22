@@ -14,6 +14,8 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def offline(monkeypatch, tmp_path):
+    from sed.validation_cache import clear_validation_cache
+    clear_validation_cache()
     def forbidden(*args, **kwargs):
         raise AssertionError("Network/API access is forbidden in tests")
     for name in ("connect", "connect_ex", "sendto"):
