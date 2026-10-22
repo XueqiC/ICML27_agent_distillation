@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:2x CDT 10-22 — SmartAD startup measured: collection scans dominate
+- Cold CPU prepare 1h40m; snapshot hashing fixed (0.04 s warm); collection_load repeated ~12x per process (190-910 s each),
+  warm barely faster -> a GPU stage would still idle ~1.5 h. Codex wt/sealedprep (pid 853599, prompt
+  scratchpad/codex_sealedprep.md): memoize collection validation per process + CPU prepare writes a sealed prepared dataset;
+  GPU train verifies the seal (top-level manifests/identities, code, snapshot receipts, examples sha256) and trains from it.
+- SmartAD stays held. Warm-prepare pass of 47115431 still running (for the record).
 ### 04:2x CDT 10-22 — faststart deployed; SmartAD prepare timing
 - main fbd65bc = + wt/faststart2 (test-only fixes; full suite 2,529 passed, 55 env failures = missing vendored files /
   sandbox Gloo / theory venv). hpg tree fbd65bc deployed (.venv + third_party). Old smc-* trees -> baselines/_superseded/smc-102a35d.
