@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-22 — SmartAD startup ~1 h
+- smc-k30-e2 timed out before its first update (startup: pipeline prepare ~52 min, 61 GB read, then rank-0 prepare_data).
+  Plan 1e67101: smc train limits = 3 h + 10 s/update x 1.6. smc-k30-e128-lr1e-4 47095421 running (watch when updates start).
+- Follow-up (engineering, Codex once timings are known): reuse snapshot artifact hashes and the persistent receipt cache
+  across the pipeline process and torchrun rank 0 so each SmartAD job does not re-read tens of GB.
 ### 23:1x CDT 10-21 — K30/K100 rows complete (tsft, AD, SAD)
 - Converged column (dev140, base 62): tsft K30 88 (5e-5 e64) / K100 112 (1e-4 e64); AD K30 109 / K100 107 (1e-4 e64);
   SAD K30 49 (x1) / K100 109 (x0.5) / K300 127 (x1). Pending: tsft K300/K500 (5e-5), AD K300 (1e-4) / K500 (5e-5),
