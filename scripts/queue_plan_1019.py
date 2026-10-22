@@ -381,6 +381,10 @@ SAD_EVAL_TREE = "b9f9a80"
 
 
 LADDER_TREE = "c6b15b2"
+# 10-21 22:2x CDT: training stages retried after the multi-node split finished in attempt-001 (stage_run attempt dirs);
+# evals must read that attempt's checkpoint (adc-k100-e64-lr1e-4-eval 47090929 failed on attempt-000). Verify the adapter
+# path before opening any eval gate; extend this map for further retries.
+TRAIN_ATTEMPT = {"adc-k100-e64-lr1e-4": 1, "adc-k300-e8-lr1e-4": 1, "adc-k500-e8-lr1e-4": 1}
 # Long ladder rungs also get an hpg training stage (LONI gpu2 is saturated; first start estimate 10-21 15:41 CDT):
 # whichever cluster starts a rung first keeps it (scratchpad dedupe_ladder.py cancels the pending twin).
 HPG_LADDER = {500: (64, 32, 16, 8), 300: (64, 32, 16, 8), 100: (64, 32, 16), 30: (128, 64, 32)}
@@ -404,7 +408,7 @@ def lora_rung(method, k, epochs, lr=None):
              f"NGPUS={n},WORKERS=16,BATCH_INVARIANT=1" + (f",KANG_LR={lr},KANG_WARMUP=0" if lr else ""))
         # one gate file per method, opened by hand once the chain views are verified on hpg AND the B200
         # shared-history acceptance passed (the keeper takes a single gate per stage)
-        adapter, decoding, gate = (f"{out}/stages/train-sft/attempt-000/output/checkpoint", "greedy",
+        adapter, decoding, gate = (f"{out}/stages/train-sft/attempt-{TRAIN_ATTEMPT.get(cell, 0):03d}/output/checkpoint", "greedy",
                                    {"file": f"{GATES}/tsft_ready"})
     else:
         verified = (f"{B}/reports/runs/adftp-chain/chain_k500_s0_r2/collection" +   # 10-21: recovered r2 collection
@@ -413,7 +417,7 @@ def lora_rung(method, k, epochs, lr=None):
         e = (f"ADFTP_OUT={out},VERIFIED={verified},ADFTP_THROUGH=train,ADFTP_EPOCHS={epochs},"
              f"ADFTP_SCORING=shared_history,NGPUS={n},WORKERS=16,BATCH_INVARIANT=1" +
              (f",ADFTP_LR={lr},ADFTP_WARMUP=0" if lr else ""))
-        adapter, decoding = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint", "sag"
+        adapter, decoding = f"{out}/training/stages/train-sft/attempt-{TRAIN_ATTEMPT.get(cell, 0):03d}/output/checkpoint", "sag"
         gate = {"file": f"{GATES}/adc_ready"}   # + the AD-FTP chain collection verified on hpg
     res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={160 if n == 4 else 96}G"
     if lr:
@@ -488,7 +492,7 @@ def smc_rung(k, epochs, lr):
     res = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={96 if n == 4 else 64}G"
     train = stage(f"{cell}-train", "scripts/hpg_smartad.slurm", res, hh, n, e, {"file": f"{GATES}/smartad_selected"})
     train["tree"] = SMC_LADDER_TREE   # paper column and ladder on one tree (none started before 102a35d)
-    adapter = f"{out}/training/stages/train-sft/attempt-000/output/checkpoint"
+    adapter = f"{out}/training/stages/train-sft/attempt-{TRAIN_ATTEMPT.get(cell, 0):03d}/output/checkpoint"
     ev = stage(f"{cell}-eval", "scripts/hpg_eval_adapters.slurm", G1, "03:00:00", 1,
                f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
                f"dev140.json,DECODING=greedy,INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={chain_view(k)},"
