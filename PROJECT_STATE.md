@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:1x CDT 10-21 — hpg tunnel down (reverse tunnel port 2222 times out)
+- Notified once (scratchpad/hpg_tunnel_notified): restart autossh on the Mac, then `ssh -fN -M hpg` on rai. hpg jobs keep
+  running (smartadselc-merge retry 47061793, ladder rungs); LONI unaffected. Gate watcher 1904567 (smartad_selected) and the
+  dedupe loop resume when hpg is reachable.
 ### 17:2x CDT 10-21 — long rungs prefer hpg
 - dedupe_ladder.py: for K>=300 and E>=32 keep the hpg twin queued even when LONI starts first; cancel LONI once hpg logs
   updates (hpg ~6x faster). Restored hpg twins: tsft-k300-e64, tsft-k500-e32 (LONI ~50% done), adc-k300-e32. Kept LONI-only:
