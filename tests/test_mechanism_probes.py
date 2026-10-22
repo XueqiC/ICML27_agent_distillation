@@ -129,7 +129,8 @@ def test_seed_prefixes_match_training_and_never_include_oracles(monkeypatch):
     def encode(tokenizer, messages, reply, **kwargs):
         captured.append(messages)
         return {"input_ids": [1, 2], "labels": [-100, 2], "attention_mask": [1, 1],
-                "supervised_tokens": 1, "prompt_tokens": 1, "turn_forward_tokens": 2}
+                "supervised_tokens": 1, "prompt_tokens": 1, "turn_forward_tokens": 2,
+                "empty_visible_turns_masked": 0}
     monkeypatch.setattr(dataset, "encode_turn", encode)
     examples = dataset.episode_examples(ep, None, packing="turn")
     states = coverage.seed_states(ep)

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from baselines.common import pipeline as common
 from sed.storage import digest, write_json
 
 
@@ -26,6 +27,10 @@ def test_pipeline_binds_launch_options(tmp_path, monkeypatch, method, gpus, scor
     monkeypatch.setattr(pipeline, 'prepare', prepare)
     monkeypatch.setattr(pipeline, 'load_config', lambda _: {})
     monkeypatch.setattr(pipeline, 'update_disclosure', lambda *a: None)
+    # Exercise command binding with fake inputs; full CPU preparation is tested
+    # in test_training_prepare with real validation and a fake tokenizer.
+    preparations = []
+    monkeypatch.setattr(common, 'run_command', lambda command, log: preparations.append(command))
     if method == 'smartad':
         monkeypatch.setattr(pipeline, 'validate_h0', lambda *a: None)
         monkeypatch.setattr(pipeline, 'load_frozen', lambda *a: ({}, {}))
@@ -49,6 +54,12 @@ def test_pipeline_binds_launch_options(tmp_path, monkeypatch, method, gpus, scor
     assert command[command.index('--nproc_per_node') + 1] == str(gpus)
     assert command[command.index('--scoring') + 1] == scoring
     assert command[command.index('--objective') + 1] == ('smartad' if method == 'smartad' else 'sft')
+    prepared, = preparations
+    assert prepared[:3] == [received_args.train_python, '-m', 'baselines.common.fsdp_train']
+    assert prepared[-1] == '--prepare-only'
+    assert 'torch.distributed.run' not in prepared and '--nproc_per_node' not in prepared
+    for flag in ('--scoring', '--objective'):
+        assert prepared[prepared.index(flag) + 1] == command[command.index(flag) + 1]
 
 
 @pytest.mark.parametrize('method', ['kang', 'adftp', 'smartad'])
