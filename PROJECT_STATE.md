@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 01:3x CDT 10-22 — ROOT IDLE-GPU CANCEL (account risk): SmartAD held
+### 01:1x CDT 10-22 — ROOT IDLE-GPU CANCEL (account risk): SmartAD held
 - smc-k30-e128-lr1e-4 47095421 CANCELLED by root at 72 min (GPUs idle in startup hashing). 25 smc cells held
   (blocked "held 10-22 01:2x CDT ..."); 2 running (smc-k30-e2 47100227, smc-k30-e64 47101414) watched by guard pid 259291
   (cancel at 50 min without updates). smc-k30-e2 read only 4.6 GB at 25 min (persistent cache warm) vs 61 GB before.
