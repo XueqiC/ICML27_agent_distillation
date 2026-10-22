@@ -6,7 +6,7 @@ import signal
 import sys
 from types import SimpleNamespace
 
-from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
+from baselines.common.pipeline import batch_invariant, prepare, prepare_training, require_cpu_preparation, update_disclosure
 from baselines.eto.pipeline import stage_run, run_command
 from baselines.kang.pipeline import RECIPE as AD_RECIPE, optimizer_recipe, training_command as ad_command
 from baselines.smartad.collect import collect, validate_h0, validate_shard
@@ -15,6 +15,7 @@ from baselines.smartad.select import select, validate_selection
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.storage import digest, locked, write_json
+from sed.startup_timing import phase, startup_timing
 
 RECIPE = {k: v for k, v in AD_RECIPE.items() if k not in {"sag", "first_thought_prefix"}}
 RECIPE.update(original_batch=4, loss="segment_weighted_token_mean_over_global_batch",
@@ -57,6 +58,8 @@ def main(argv=None):
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.mode == "prepare":
+        require_cpu_preparation()
     try:
         optimizer = optimizer_recipe(args)
     except ValueError as error:
@@ -105,10 +108,13 @@ def main(argv=None):
     if args.stage == "select":
         return select(args.verified, args.snapshot, config, manifest, freeze, args.output, path_map=args.path_map,
                       shard_index=args.shard_index, shard_count=args.shard_count, merge=args.merge_scores)
-    validate_selection(args.verified, manifest, freeze, args.snapshot)
     training = SimpleNamespace(**{**vars(args), "training_seed": 0,
                                   "output": str(Path(args.output) / "training")})
-    with locked(Path(training.output) / ".pipeline.lock"):
+    with locked(Path(training.output) / ".pipeline.lock"), startup_timing(
+            Path(training.output) / "startup_timing.jsonl", process="pipeline",
+            mode="evaluate" if args.stage == "evaluate" else args.mode, snapshot=args.snapshot):
+        with phase("selection_validation"):
+            validate_selection(args.verified, manifest, freeze, args.snapshot)
         if args.stage == "evaluate":
             from baselines.common.evaluation import evaluate_models
             return evaluate_models(training, decodings=("greedy",))
@@ -123,6 +129,8 @@ def main(argv=None):
                 write_json(Path(training.output) / "models.json", models)
                 write_json(Path(args.output) / "models.json", models)
                 write_json(Path(training.output) / "result.json", {"status": "complete", "models": models})
+            else:
+                prepare_training(training, training_command)
         finally:
             update_disclosure(training.output, identity)
 

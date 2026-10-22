@@ -9,7 +9,9 @@ from errno import EBADF, ELOOP, ENOENT, ENOTDIR
 from itertools import islice
 from pathlib import Path
 
-from sed.hash_receipts import active_cache, collection_cache
+from sed.hash_receipts import (active_cache, cache_enabled, collection_cache, hash_batch,
+                               HashReceipts, record_full_rehash)
+from sed.startup_timing import snapshot_hashing, timed
 from sed.manifest import authorize_task, resolve_task, frozen_write
 from sed.seed_selection import (is_full_train, is_stratified_nested, select_nested_verified,
                                 stratified_nested_order, select_seeds, validate_selection,
@@ -30,7 +32,8 @@ def environment_won(directory, episode):
 
 
 def artifact_hashes(directory):
-    return artifact_hashes_many([Path(directory)])[0]
+    with snapshot_hashing(directory):
+        return artifact_hashes_many([Path(directory)])[0]
 
 
 def _hash_entry(path):
@@ -151,7 +154,18 @@ def artifact_hashes_batch(directories):
         with cache.batch(directories, workers, file_hash) as readers:
             yield readers
         return
+    if cache_enabled():
+        # Standalone artifacts have no collection anchors. Use the identical
+        # receipts/stat checks, protecting each tree separately. This includes
+        # checked_episodes during encoding after collection_cache has exited.
+        def hash_directory(directory):
+            root = Path(directory).resolve()
+            return HashReceipts(root, ()).hashes(root, file_hash)
+        with hash_batch(directories, workers, hash_directory) as readers:
+            yield readers
+        return
 
+    record_full_rehash()
     ready, scanning = deque(), {}
 
     def failed_reader(error):
@@ -310,6 +324,7 @@ def _subset_values(root, source, large, small):
     return identity, value
 
 
+@timed("collection_load")
 def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     """Validate evidence first; callers separately whitelist model-visible fields."""
     with collection_cache(root):

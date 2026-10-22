@@ -10,6 +10,7 @@ import uuid
 
 from sed.storage import file_hash, write_json
 from sed.hash_receipts import cache_provenance
+from sed.startup_timing import timing_provenance
 
 
 def utc_now():
@@ -68,5 +69,7 @@ def write_provenance(directory, *, command, config, inputs=None, details=None, r
            "config": safe_config(config),
            "inputs": {str(p): file_hash(p) for p in (inputs or [])},
            "details": details or {}}
+    if timing_provenance() is not None:
+        row["startup_timing"] = timing_provenance()
     write_json(Path(directory) / "provenance.json", row, exclusive=True)
     return row

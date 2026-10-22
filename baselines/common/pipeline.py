@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import uuid
 
 from baselines.common import REGISTERED_K, registered_support
 from baselines.common.explore import training_tasks
@@ -10,6 +11,7 @@ from sed.manifest import frozen_write, load_frozen
 from sed.provenance import code_hashes, write_provenance
 from sed.seed_evidence import artifact_hashes, checked_episode, load_verified_collection
 from sed.storage import digest, write_json
+from sed.startup_timing import timed
 from baselines.eto.pipeline import stage_run, run_command, served, publish_models
 
 
@@ -20,6 +22,32 @@ def batch_invariant():
     os.environ["VLLM_BATCH_INVARIANT"] = "1"
 
 
+def require_cpu_preparation():
+    """Check allocation metadata even when CUDA has already been hidden."""
+    gpu_ids = ("SLURM_JOB_GPUS", "SLURM_STEP_GPUS")
+    gpu_counts = ("SLURM_GPUS", "SLURM_GPUS_ON_NODE", "SLURM_GPUS_PER_NODE", "SLURM_GPUS_PER_TASK")
+    if (any(os.environ.get(key, "") for key in gpu_ids)
+            or any(os.environ.get(key, "0") not in {"", "0"} for key in gpu_counts)
+            or os.environ.get("CUDA_VISIBLE_DEVICES", "") not in {"", "-1", "NoDevFiles"}):
+        raise ValueError("CPU preparation must not hold a GPU allocation")
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+
+def prepare_training(args, command):
+    """Run the actual trainer's CPU input path, without torchrun or a model.
+
+    Always revalidate, including repeat preparation; no completion marker skips
+    checks. The caller supplies its normal command so recipe/masking stay equal.
+    """
+    require_cpu_preparation()
+    attempt = Path(args.output) / "preparations" / str(uuid.uuid4())
+    attempt.mkdir(parents=True)
+    argv = command(args, attempt / "output")
+    index = argv.index("baselines.common.fsdp_train")
+    run_command([args.train_python, "-m", *argv[index:], "--prepare-only"], attempt / "prepare.log")
+
+
+@timed("identity_prepare")
 def prepare(args, config, *, method, recipe, unrestricted_verified_size=False, registered_k=REGISTERED_K):
     output = Path(args.output).resolve()
     for name in ("raw", "verified"):

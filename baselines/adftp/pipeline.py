@@ -8,12 +8,13 @@ import sys
 from types import SimpleNamespace
 
 from baselines.adftp.collect import collect
-from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
+from baselines.common.pipeline import batch_invariant, prepare, prepare_training, require_cpu_preparation, update_disclosure
 from baselines.eto.pipeline import stage_run, run_command
 from baselines.kang.pipeline import RECIPE as AD_RECIPE, optimizer_recipe, training_command as kang_training_command
 from sed.config import load_config
 from sed.manifest import load_frozen
 from sed.storage import digest, locked, write_json
+from sed.startup_timing import startup_timing
 
 
 def training_command(args, output):
@@ -43,6 +44,10 @@ def main(argv=None):
     for name in ("train", "env", "vllm"):
         parser.add_argument("--" + name + "-python", default=os.environ.get(name.upper() + "_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.mode == "prepare":
+        require_cpu_preparation()
+        if args.through != "train":
+            parser.error("Use --through train --mode prepare to prepare training; collection is explicit")
     try:
         optimizer = optimizer_recipe(args)
     except ValueError as error:
@@ -79,7 +84,8 @@ def main(argv=None):
     collection = Path(args.output) / "collection" if args.through == "all" else Path(args.verified)
     training = SimpleNamespace(**{**vars(args), "training_seed": 0,
                        "output": str(Path(args.output) / "training"), "verified": str(collection)})
-    with locked(Path(training.output) / ".pipeline.lock"):
+    with locked(Path(training.output) / ".pipeline.lock"), startup_timing(
+            Path(training.output) / "startup_timing.jsonl", process="pipeline", mode=args.mode, snapshot=args.snapshot):
         identity = prepare(training, config, method="adftp", recipe={**AD_RECIPE, **optimizer, "first_thought_prefix": True,
                                                                    "allow_empty_visible_replies": True,
                                                                    "epochs": args.epochs,
@@ -93,6 +99,8 @@ def main(argv=None):
                 write_json(Path(training.output) / "models.json", models)
                 write_json(Path(args.output) / "models.json", models)
                 write_json(Path(training.output) / "result.json", {"status": "complete", "models": models})
+            else:
+                prepare_training(training, training_command)
         finally:
             update_disclosure(training.output, identity)
 
