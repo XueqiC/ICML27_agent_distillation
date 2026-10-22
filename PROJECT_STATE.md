@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:2x CDT 10-22 — faststart deployed; SmartAD prepare timing
+- main fbd65bc = + wt/faststart2 (test-only fixes; full suite 2,529 passed, 55 env failures = missing vendored files /
+  sandbox Gloo / theory venv). hpg tree fbd65bc deployed (.venv + third_party). Old smc-* trees -> baselines/_superseded/smc-102a35d.
+- Timing job 47115431 (hpg-milan, logs/smc_prepare_timing.slurm in the fbd65bc tree): SmartAD K30 paper-cell prepare twice
+  (cold, warm) into baselines/smc-k30-e2-lr2e-4. Warm duration ~= GPU-stage startup. If short: smc cells = CPU prep -> GPU train
+  (startup allowance from the warm time) -> eval on tree fbd65bc; then unhold.
 ### 02:2x CDT 10-22 — faststart merged (main 6186263), tests follow-up
 - Guard cancelled smc-k30-e2 / smc-k30-e64 at 52 min without updates (01:42/01:46 CDT); no smc running; all smc held.
 - main 6186263 = merge wt/faststart (persistent receipts for snapshot/checkpoint hashes; CPU --mode prepare for smartad/kang/adftp;
