@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:0x CDT 10-22 — USER DECISION: rule A; full table requested
+- User (13:03 CDT): rule A = keep the registered convergence rule (last complete epoch + cross-rung + delta < 0.01); mark
+  cells whose training collapsed mid-run; priority = finish training, then the full 4-method x 4-K table + analysis.
+  "我要在所有k上几个方法（轨迹SFT，AD，SAD，SmartAD）的完整表现表格，你得到以后给我".
+- Cancelled hedge 5e-5 ladders (LONI adc K100/K300, tsft K100/K300; hpg pending twins 47091122/23, 47133998, 47134000) and
+  held 23 hedge cells in the keeper. Still needed: adc K500 5e-5 e64 (hpg twin + LONI 1124132), SmartAD paper + ladder,
+  evals tsft K300 e64 (1e-4), tsft K500 e64 (5e-5), SAD K500 x2, SmartAD K30 e2 (gate opened).
+- smc-k500-e32-lr1e-4 collapsing at epochs 6-8 (0.088 -> 0.467 -> 3.98 -> 4.23); rule A decides at its last epoch.
+- ETA told to user: full table ~tomorrow (10-23) around noon CDT.
 ### 12:1x CDT 10-22 — K300/K500 trajectory SFT converge under the registered rule; collapses at 5e-5 too
 - tsft K300 converged at e64 (1e-4) and tsft K500 at e64 (5e-5) by the registered rule; collapse test flags tsft K300 e32+e64
   (1e-4) and tsft K500 e32 (5e-5, ep4 0.189 -> 0.854). Eval gates opened for both e64 rungs (reported number follows the user's
