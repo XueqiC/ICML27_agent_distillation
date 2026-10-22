@@ -11,9 +11,13 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=slurm-%j.out
 #SBATCH --signal=B:TERM@60
+# CPU preparation: override --partition=hpg-milan --gpus=0 and set KANG_MODE=prepare.
+# Keep NGPUS equal to the intended training world size in both allocations.
 set -euo pipefail
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
+source scripts/hpg_training_startup.sh
+if [[ "${KANG_MODE:-train}" == prepare ]]; then require_cpu_preparation; fi
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export CUDA_DEVICE_ORDER=PCI_BUS_ID OMP_NUM_THREADS=8

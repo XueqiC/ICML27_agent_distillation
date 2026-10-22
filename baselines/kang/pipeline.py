@@ -6,10 +6,11 @@ from pathlib import Path
 import signal
 import sys
 
-from baselines.common.pipeline import batch_invariant, prepare, update_disclosure
+from baselines.common.pipeline import batch_invariant, prepare, prepare_training, require_cpu_preparation, update_disclosure
 from baselines.eto.pipeline import run_command, stage_run
 from sed.config import load_config
 from sed.storage import digest, locked, write_json
+from sed.startup_timing import startup_timing
 
 RECIPE = {"training_seed": 0, "epochs": 2, "max_length": 32768, "adaptation": "kang_lora",
     "rank": 64, "alpha": 128, "dropout": 0.05, "targets": "q/k/v/o/gate/up/down under .language_model.",
@@ -71,6 +72,8 @@ def main(argv=None):
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     parser.add_argument("--train-python", default=os.environ.get("TRAIN_PYTHON", sys.executable))
     args = parser.parse_args(argv)
+    if args.mode == "prepare":
+        require_cpu_preparation()
     try:
         optimizer = optimizer_recipe(args)
     except ValueError as error:
@@ -83,13 +86,16 @@ def main(argv=None):
     config = load_config(args.config)
     for signum in (signal.SIGTERM, signal.SIGINT):
         signal.signal(signum, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
-    with locked(Path(args.output) / ".pipeline.lock"):
+    with locked(Path(args.output) / ".pipeline.lock"), startup_timing(
+            Path(args.output) / "startup_timing.jsonl", process="pipeline", mode=args.mode, snapshot=args.snapshot):
         identity = prepare(args, config, method="kang", recipe={**RECIPE, **optimizer, "training_seed": args.training_seed,
                                                               "epochs": args.epochs,
                                                               "scoring": args.scoring})
         try:
             if args.mode == "train":
                 train_pipeline(args, identity)
+            else:
+                prepare_training(args, training_command)
         finally:
             update_disclosure(args.output, identity)
 

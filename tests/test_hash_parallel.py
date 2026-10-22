@@ -24,6 +24,13 @@ from test_stage3a import listing_for
 from test_stage3c import fake_env, FakeStudent, fake_worker
 
 
+@pytest.fixture(autouse=True)
+def byte_hash_path(monkeypatch):
+    # These tests exercise the original full-hash scheduler and I/O ordering.
+    # Receipt behavior is covered separately, including byte-hash equivalence.
+    monkeypatch.setenv("SED_HASH_CACHE", "0")
+
+
 def old_hashes(directory):
     directory = Path(directory)
     return {str(p.relative_to(directory)): file_hash(p) for p in sorted(directory.rglob("*"))

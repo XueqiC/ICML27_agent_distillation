@@ -4,8 +4,9 @@ Production is GPU-only. train_loop/objective functions also support tiny CPU
 models for offline verification; no alternate foundation model is selected.
 """
 import argparse
+from contextlib import nullcontext
 from datetime import timedelta
-from functools import partial
+from functools import partial, wraps
 import json
 import math
 import os
@@ -23,6 +24,7 @@ from sed.manifest import load_frozen
 from sed.provenance import write_provenance
 from sed.seed_evidence import checked_episodes, load_verified_collection, artifact_hashes
 from sed.storage import digest, file_hash, write_json, JsonlLedger, fsync_dir
+from sed.startup_timing import first_update, phase, startup_timing, timed
 from train.dataset import load_tokenizer
 from train.modeling import copy_base_assets, load_student, snapshot_metadata
 
@@ -447,6 +449,10 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         lr_used = optimizer.param_groups[0]["lr"]
         optimizer.step()
         lr_schedule.step()
+        if update == 1 and rank == 0:
+            if cuda:
+                torch.cuda.synchronize(device)
+            first_update(started)
         # Same global accounting on every rank; padding is extra compute only.
         exposure += len(indices)
         def costs(microstep, n_rounds=None):
@@ -616,6 +622,7 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
             "artifact_sha256": artifact_hashes(destination), "text_export_dtype": text_dtype}
 
 
+@timed("model_load")
 def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora",
                        scoring="per_turn", flex_kernel_options=None):
     """Registered text-only LoRA recipes; Kang remains the default."""
@@ -647,6 +654,74 @@ def export_adapter(model, destination, provenance, state):
     return state
 
 
+@timed("data_prepare")
+def prepare_lora_data(args):
+    """Shared CPU checks/encoding for preparation and every training startup."""
+    if Path(args.snapshot).resolve() != Path(args.base_snapshot).resolve():
+        raise ValueError("Kang SFT must start from the configured base snapshot")
+    config = load_config(args.config)
+    if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
+            or config["environment"]["max_episode_steps"] != 40):
+        raise ValueError("Baseline harness protocol differs")
+    config["training"]["adaptation"] = args.adaptation
+    manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
+    collection, _, root = load_verified_collection(args.verified, manifest, freeze)
+    tokenizer = load_tokenizer(args.snapshot)
+    if args.objective == "smartad":
+        from baselines.smartad.select import validate_selection
+        from baselines.smartad.data import encode_episode
+        with phase("selection_validation"):
+            validate_selection(args.verified, manifest, freeze, args.snapshot)
+        with phase("encode"):
+            examples = [encode_episode(episode, tokenizer, max_length=args.max_length)
+                        for episode in checked_episodes(root, collection["verified"])]
+    else:
+        with phase("encode"):
+            examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
+                                     packing=args.packing, max_length=args.max_length,
+                                     allow_empty_visible=getattr(args, "allow_empty_visible_replies", False))
+                        for episode in checked_episodes(root, collection["verified"])]
+    if args.method_data:
+        from baselines.wkm.data import training_examples
+        examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
+    return config, collection, examples, tokenizer.chat_template
+
+
+def lora_startup(mode):
+    def decorate(function):
+        @wraps(function)
+        def run(args):
+            timing = (startup_timing(Path(args.output).parent / "startup_timing.jsonl", process="trainer",
+                                     mode=mode, snapshot=args.snapshot)
+                      if int(os.environ.get("RANK", "0")) == 0 else nullcontext())
+            with timing:
+                return function(args)
+        return run
+    return decorate
+
+
+@lora_startup("prepare")
+def prepare_lora_only(args):
+    from baselines.common.pipeline import require_cpu_preparation
+    require_cpu_preparation()
+    config, collection, examples, chat_template = prepare_lora_data(args)
+    base = snapshot_metadata(args.base_snapshot)
+    hashes = artifact_hashes(args.base_snapshot)
+    plan = dose(len(examples), args.original_batch, epochs=args.epochs)
+    config["baseline_preparation"] = {**vars(args), **plan, "base_snapshot": base,
+        "base_artifact_sha256": hashes, "examples_sha256": digest(examples),
+        "template_sha256": digest(chat_template), "K": collection["K"],
+        "warmup_steps": warmup_count(plan["total_steps"], args.warmup_ratio, args.warmup_steps)}
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=False)
+    write_provenance(output, command="baseline_lora_prepare", config=config,
+        inputs=[args.config, config["paths"]["manifest"], config["paths"]["split_freeze"],
+                Path(args.verified) / "manifest.json", Path(args.verified) / "identity.json"])
+    write_json(output / "result.json", {"status": "prepared", "examples": len(examples),
+                                       "training_updates": 0})
+
+
+@lora_startup("train")
 def train_lora(args):
     """Replicated bf16 base / fp32 LoRA data parallel, with rank-zero publication."""
     import torch
@@ -667,32 +742,8 @@ def train_lora(args):
         started = time.monotonic()
         set_seed(args.seed + rank)
 
-        def prepare_data():
-            config = load_config(args.config)
-            if (config["training"]["thinking_mode"] != "off" or config["training"]["student_step_token_cap"] != 1024
-                    or config["environment"]["max_episode_steps"] != 40):
-                raise ValueError("Baseline harness protocol differs")
-            config["training"]["adaptation"] = args.adaptation
-            manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-            collection, _, root = load_verified_collection(args.verified, manifest, freeze)
-            tokenizer = load_tokenizer(args.snapshot)
-            if args.objective == "smartad":
-                from baselines.smartad.select import validate_selection
-                from baselines.smartad.data import encode_episode
-                validate_selection(args.verified, manifest, freeze, args.snapshot)
-                examples = [encode_episode(episode, tokenizer, max_length=args.max_length)
-                            for episode in checked_episodes(root, collection["verified"])]
-            else:
-                examples = [conversation(episode, tokenizer, source="trusted_teacher_seed",
-                                         packing=args.packing, max_length=args.max_length,
-                                         allow_empty_visible=getattr(args, "allow_empty_visible_replies", False))
-                            for episode in checked_episodes(root, collection["verified"])]
-            if args.method_data:
-                from baselines.wkm.data import training_examples
-                examples = training_examples(args.method_data, config, tokenizer, verified=args.verified)
-            return config, collection, examples, tokenizer.chat_template
-
-        config, collection, examples, chat_template = rank_zero_data(rank, world, prepare_data, group)
+        config, collection, examples, chat_template = rank_zero_data(
+            rank, world, lambda: prepare_lora_data(args), group)
         empty_replies = {}
         if getattr(args, "allow_empty_visible_replies", False):
             locations = [{"task_id": turn["task_id"], "step_index": turn["turn_index"]}
@@ -770,6 +821,7 @@ def main(argv=None):
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--objective", choices=["sft", "sad", "dpo", "ipr", "steca", "had", "smartad"], required=True)
     parser.add_argument("--adaptation", choices=["full", "kang_lora", "wkm_lora"], default="full")
+    parser.add_argument("--prepare-only", action="store_true", help="CPU checks/encoding/cache warmup only; no model")
     parser.add_argument("--allow-empty-visible-replies", action="store_true",
                         help="AD-FTP SFT: retain empty teacher replies as history with zero labels")
     parser.add_argument("--had-data")
@@ -801,6 +853,13 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-length", type=int, default=32768)
     args = parser.parse_args(argv)
+    prepare_only = args.prepare_only
+    del args.prepare_only  # Operational mode is not part of the training recipe.
+    if prepare_only:
+        from baselines.common.pipeline import require_cpu_preparation
+        require_cpu_preparation()
+        if args.adaptation != "kang_lora" or args.objective not in {"sft", "smartad"}:
+            parser.error("CPU preparation requires Kang/AD-FTP/SmartAD LoRA")
     if args.allow_empty_visible_replies and (args.objective != "sft" or args.adaptation != "kang_lora"):
         parser.error("--allow-empty-visible-replies requires --objective sft and --adaptation kang_lora")
     args.scoring = args.scoring or ("shared_history" if args.objective in {"dpo", "ipr", "sad"} else "per_turn")
@@ -855,7 +914,7 @@ def main(argv=None):
     if args.adaptation in {"kang_lora", "wkm_lora"}:
         if args.objective not in {"sft", "smartad"} or not args.verified or args.sft_data:
             parser.error("Kang LoRA requires seed SFT")
-        return train_lora(args)
+        return prepare_lora_only(args) if prepare_only else train_lora(args)
     if args.objective == "dpo" and (not args.reference or Path(args.reference).resolve() != Path(args.snapshot).resolve()):
         parser.error("Reference must be the iteration-start policy snapshot")
     if args.objective == "ipr" and (not args.reference or not args.pairs):

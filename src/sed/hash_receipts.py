@@ -1,4 +1,4 @@
-"""Disposable, external receipts for collection validation (never evidence).
+"""Disposable, external receipts for collections and artifacts (never evidence).
 
 Metadata reuse assumes trusted local storage: an in-place, same-size edit with
 restored mtime and unchanged inode is not detectable. SED_HASH_CACHE=0 restores
@@ -47,7 +47,7 @@ def cache_directory():
 def cache_provenance():
     return {"mode": "metadata_receipts_and_process_memo" if cache_enabled() else "full_rehash",
             "observed_modes": sorted(_MODES),
-            "scope": "verified_collection_validation",
+            "scope": "verified_collection_validation_and_artifact_hashes",
             "stat_fields": ["size", "mtime_ns", "inode"],
             "tree_worker_cap": 2,
             "receipt_version": _VERSION,
@@ -58,11 +58,15 @@ def active_cache():
     return _ACTIVE.get() if cache_enabled() else None
 
 
+def record_full_rehash():
+    _MODES.add("full_rehash")
+
+
 @contextmanager
 def collection_cache(root):
     """Bind memo entries to fresh byte hashes of all three collection anchors."""
     if not cache_enabled():
-        _MODES.add("full_rehash")
+        record_full_rehash()
         token = _ACTIVE.set(None)
     else:
         root = Path(root).resolve()
@@ -250,25 +254,31 @@ class HashReceipts:
 
     @contextmanager
     def batch(self, directories, workers, hash_file):
-        # Profiling on the real bank: many tiny metadata syscalls contend with
-        # Python work at 16 threads. Two concurrent trees are faster cold/warm.
-        workers = min(workers, 2)
-        def read(value):
-            return self.hashes(value() if callable(value) else value, hash_file)
-        if workers == 1:
-            yield (lambda value=value: read(value) for value in directories)
-            return
-        # One task per tree avoids millions of tiny file/scan futures on warm
-        # loads. Bounded prefetch and ordered result() preserve error ordering.
-        from collections import deque
-        from itertools import islice
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            def readers():
-                values = iter(directories)
-                pending = deque(pool.submit(read, value) for value in islice(values, workers))
-                while pending:
-                    yield pending.popleft().result
-                    for value in values:
-                        pending.append(pool.submit(read, value))
-                        break
-            yield readers()
+        with hash_batch(directories, workers, lambda path: self.hashes(path, hash_file)) as readers:
+            yield readers
+
+
+@contextmanager
+def hash_batch(directories, workers, hash_directory):
+    # Profiling on the real bank: many tiny metadata syscalls contend with
+    # Python work at 16 threads. Two concurrent trees are faster cold/warm.
+    workers = min(workers, 2)
+    def read(value):
+        return hash_directory(value() if callable(value) else value)
+    if workers == 1:
+        yield (lambda value=value: read(value) for value in directories)
+        return
+    # One task per tree avoids millions of tiny file/scan futures on warm
+    # loads. Bounded prefetch and ordered result() preserve error ordering.
+    from collections import deque
+    from itertools import islice
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        def readers():
+            values = iter(directories)
+            pending = deque(pool.submit(read, value) for value in islice(values, workers))
+            while pending:
+                yield pending.popleft().result
+                for value in values:
+                    pending.append(pool.submit(read, value))
+                    break
+        yield readers()

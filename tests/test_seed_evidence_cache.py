@@ -54,7 +54,9 @@ def count_hashes(monkeypatch):
 @pytest.mark.parametrize("workers", [1, 4])
 def test_cache_and_disk_hits_equal_full_hash(tree, monkeypatch, workers):
     monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+    monkeypatch.setenv("SED_HASH_CACHE", "0")
     expected = seed_evidence.artifact_hashes(tree[1])
+    monkeypatch.setenv("SED_HASH_CACHE", "1")
     calls = count_hashes(monkeypatch)
     assert cached(tree) == expected and len(calls) == 2
     calls.clear()
@@ -77,7 +79,7 @@ def test_concurrent_loads_hash_once(tree, monkeypatch):
     assert len(calls) == 2
 
 
-def test_cached_walk_matches_full_hash_for_links_and_names(tree):
+def test_cached_walk_matches_full_hash_for_links_and_names(tree, monkeypatch):
     root, episode = tree
     (episode / "link-file").symlink_to("nested/data")
     (episode / "link-dir").symlink_to("nested", target_is_directory=True)
@@ -87,7 +89,9 @@ def test_cached_walk_matches_full_hash_for_links_and_names(tree):
     (episode / "directory.lock").mkdir()
     (episode / "directory.lock/keep").write_bytes(b"keep")
     (episode / "line\nbreak").write_bytes(b"newline")
+    monkeypatch.setenv("SED_HASH_CACHE", "0")
     expected = seed_evidence.artifact_hashes(episode)
+    monkeypatch.setenv("SED_HASH_CACHE", "1")
     assert list(cached(tree).items()) == list(expected.items())
     assert list(cached(tree).items()) == list(expected.items())
 

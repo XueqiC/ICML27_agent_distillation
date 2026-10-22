@@ -9,15 +9,22 @@
 #SBATCH --time=12:00:00
 #SBATCH --output=slurm-%j.out
 #SBATCH --signal=B:TERM@60
-# Separate allocations: collect CPU; select/train/evaluate --partition=hpg-b200 --gpus=1.
+# Separate allocations: collect/prepare CPU; select/train/evaluate GPU.
+# Preparation: SMARTAD_THROUGH=train SMARTAD_MODE=prepare; keep NGPUS as planned for training.
 set -euo pipefail
 source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
 cd "$PROJECT_ROOT"
+source scripts/hpg_training_startup.sh
 export PYTHONPATH="$PROJECT_ROOT/src:$PROJECT_ROOT"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export BATCH_INVARIANT=1 VLLM_BATCH_INVARIANT=1
 : "${SMARTAD_OUT:?Set persistent stage output}" "${VERIFIED:?Set stage input}"
 SMARTAD_THROUGH=${SMARTAD_THROUGH:-collect}
+SMARTAD_MODE=${SMARTAD_MODE:-train}
+if [[ "$SMARTAD_MODE" == prepare ]]; then
+    require_cpu_preparation
+    [[ "$SMARTAD_THROUGH" == train ]] || { echo 'Preparation requires SMARTAD_THROUGH=train' >&2; exit 2; }
+fi
 case "$SMARTAD_THROUGH" in collect|select|train|evaluate) ;; *) echo 'Invalid SmartAD stage' >&2; exit 2 ;; esac
 path_args=()
 if [[ -n "${SMARTAD_PATH_MAP:-}" ]]; then
@@ -49,7 +56,9 @@ if [[ "$SMARTAD_THROUGH" == select ]]; then
 fi
 NGPUS=${NGPUS:-1}
 case "$NGPUS" in 1|2|4|8) ;; *) echo 'NGPUS must be 1/2/4/8' >&2; exit 2 ;; esac
-if [[ "$SMARTAD_THROUGH" == train ]]; then
+if [[ "$SMARTAD_MODE" == prepare ]]; then
+    : # CPU allocation was checked above; NGPUS binds the future training recipe.
+elif [[ "$SMARTAD_THROUGH" == train ]]; then
     [[ "${SLURM_GPUS_ON_NODE:-0}" == "$NGPUS" ]] || { echo 'Training allocation must match NGPUS' >&2; exit 2; }
 else
     [[ "${SLURM_GPUS_ON_NODE:-0}" == 1 ]] || { echo 'SmartAD select/evaluate require exactly one GPU' >&2; exit 2; }
