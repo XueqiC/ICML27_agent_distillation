@@ -536,9 +536,13 @@ def chain_cells():
     adc += [lora_rung("tsft", k, 64, lr="1e-4") for k in (500, 300)]
     fb = [lora_rung("tsft", 30, e, lr="5e-5") for e in (128, 64, 32, 16, 8, 4, 2)]
     fb += [lora_rung("adc", 500, e, lr="5e-5") for e in (32, 16, 8, 4, 2)]
+    # 10-21 22:1x CDT: tsft K500 e32 (1e-4, hpg) ended at 4.30 (invalid) -> tsft K500 5e-5 ladder; tsft K300 e64 (1e-4) diverging
+    # mid-run (1.89 at epoch 10) -> tsft K300 5e-5 ladder as a hedge (the rule decides once the 1e-4 rung completes).
+    fb += [lora_rung("tsft", k, e, lr="5e-5") for k in (500, 300) for e in (64, 32, 16, 8, 4, 2)]
     for c in fb:
         # 10-21 17:2x CDT: the long AD K500 5e-5 rungs also get an hpg train stage (~6x faster than LONI A100s).
-        if c["cell"] not in ("adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5"):
+        if c["cell"] not in ("adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5", "tsft-k500-e64-lr5e-5", "tsft-k500-e32-lr5e-5",
+                             "tsft-k300-e64-lr5e-5", "tsft-k300-e32-lr5e-5"):
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     adc += fb
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
