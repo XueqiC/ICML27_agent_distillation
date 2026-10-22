@@ -548,7 +548,7 @@ def chain_cells():
     # eval-only gated cells here so the reported rung can be evaluated.
     adc += [lora_rung("tsft", k, 64, lr="1e-4") for k in (500, 300)]
     fb = [lora_rung("tsft", 30, e, lr="5e-5") for e in (128, 64, 32, 16, 8, 4, 2)]
-    fb += [lora_rung("adc", 500, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]   # e64 added 10-22 11:2x CDT (16->32 delta 0.059)
+    fb += [lora_rung("adc", 500, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]   # e64 added 10-22 12:1x CDT (16->32 delta 0.059)
     # 10-21 22:1x CDT: tsft K500 e32 (1e-4, hpg) ended at 4.30 (invalid) -> tsft K500 5e-5 ladder; tsft K300 e64 (1e-4) diverging
     # mid-run (1.89 at epoch 10) -> tsft K300 5e-5 ladder as a hedge (the rule decides once the 1e-4 rung completes).
     fb += [lora_rung("tsft", k, e, lr="5e-5") for k in (500, 300) for e in (64, 32, 16, 8, 4, 2)]

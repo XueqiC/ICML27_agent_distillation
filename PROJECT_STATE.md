@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 11:1x CDT 10-22 — K300/K500 trajectory SFT converge under the registered rule; collapses at 5e-5 too
+### 12:1x CDT 10-22 — K300/K500 trajectory SFT converge under the registered rule; collapses at 5e-5 too
 - tsft K300 converged at e64 (1e-4) and tsft K500 at e64 (5e-5) by the registered rule; collapse test flags tsft K300 e32+e64
   (1e-4) and tsft K500 e32 (5e-5, ep4 0.189 -> 0.854). Eval gates opened for both e64 rungs (reported number follows the user's
   rule decision, not the dev result). adc K500 5e-5 needs an e64 rung (16->32 delta 0.059). Still awaiting the user on the
