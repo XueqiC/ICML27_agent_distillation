@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:1x CDT 10-21 — tunnel back; SmartAD selected; more 1e-4 divergence
+- Tunnel back ~22:0x CDT (user). SmartAD merge COMPLETED 21:19 CDT -> gate smartad_selected after keeper CELL_DONE.
+- Converged: adc K100 e64 (eval gate), tsft K30 5e-5 e64 (copy + gate). tsft K500 1e-4 e32 INVALID (4.30) -> 5e-5 fallback;
+  tsft K300 1e-4 e64 diverging -> 5e-5 hedge. Plan fea2ac6. 1e-4 has now failed in tsft K30, tsft K500, adc K500 (and
+  tsft K300 e64 in progress): long rungs at near-zero loss blow up; 5e-5 has been stable so far.
 ### 19:1x CDT 10-21 — hpg tunnel down (reverse tunnel port 2222 times out)
 - Notified once (scratchpad/hpg_tunnel_notified): restart autossh on the Mac, then `ssh -fN -M hpg` on rai. hpg jobs keep
   running (smartadselc-merge retry 47061793, ladder rungs); LONI unaffected. Gate watcher 1904567 (smartad_selected) and the
