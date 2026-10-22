@@ -42,11 +42,16 @@ def test_overrides_bind_pipeline_identity_and_command(tmp_path, monkeypatch, met
     monkeypatch.setattr(common, "load_verified_collection", lambda *a: (collection, {"K": 1, "seed": 0}, verified))
     monkeypatch.setattr(common, "checked_episode", lambda *a: {"episode_id": "seed"})
     monkeypatch.setattr(common, "training_tasks", lambda listing, *a: listing["task_ids"])
+    # These identity fixtures are not real training inputs. Capture only the
+    # subprocess boundary; test_training_prepare covers validation/encode/warmup.
+    preparations = []
+    monkeypatch.setattr(common, "run_command", lambda command, log: preparations.append(command))
     if method == "smartad":
         for name in ("validate_selection", "validate_h0"):
             monkeypatch.setattr(pipeline, name, lambda *a: None)
         monkeypatch.setattr(pipeline, "load_frozen", lambda *a: ({}, {}))
-    args = ["--config", str(config_path), "--snapshot", str(snapshot), "--verified", str(verified), "--mode", "prepare"]
+    args = ["--config", str(config_path), "--snapshot", str(snapshot), "--verified", str(verified),
+            "--mode", "prepare", "--train-python", sys.executable]
     if method in {"adftp", "smartad"}:
         args += ["--through", "train"]
     first, second = tmp_path / "first", tmp_path / "second"
@@ -54,9 +59,19 @@ def test_overrides_bind_pipeline_identity_and_command(tmp_path, monkeypatch, met
     pipeline.main([*args, "--output", str(first)])
     if method != "sad":
         pipeline.main([*args, "--output", str(first), "--learning-rate", "2e-4", "--warmup-ratio", "0"])
+    before_conflict = len(preparations)
     with pytest.raises(ValueError, match="different frozen artifact"):
         pipeline.main([*args, "--output", str(first), option, value])
+    assert len(preparations) == before_conflict
     pipeline.main([*args, "--output", str(second), option, value])
+    assert len(preparations) == (0 if method == "sad" else 4)
+    for prepared_command in preparations:
+        assert prepared_command[:3] == [sys.executable, "-m", "baselines.common.fsdp_train"]
+        assert prepared_command[-1] == "--prepare-only"
+        assert "torch.distributed.run" not in prepared_command
+        assert ("--allow-empty-visible-replies" in prepared_command) is (method == "adftp")
+    if preparations:
+        assert float(preparations[-1][preparations[-1].index(option) + 1]) == expected
     suffix = Path("training/identity.json") if method in {"adftp", "smartad"} else Path("identity.json")
     old, new = (json.loads((root / suffix).read_text()) for root in (first, second))
     if method == "adftp":
@@ -328,6 +343,7 @@ def test_slurm_amount_wiring(tmp_path, method, flag, env_name, value):
     base.mkdir()
     env = {"PATH": os.defpath, "PROJECT_ROOT": str(Path.cwd()), "HPG_CONFIG": str(Path("configs/hpg.env").resolve()),
            "MODEL_PATH": str(base), "VERIFIED": str(verified), "ENV_PYTHON": str(fake), "TRAIN_PYTHON": str(fake),
+           "CUDA_VISIBLE_DEVICES": "", "SED_HASH_CACHE_DIR": str(tmp_path / "hash-receipts"),
            "SLURM_GPUS_ON_NODE": "1", "TRAIN_PASSES_LADDER": "1", "TRAIN_OUT": str(tmp_path / "run"),
            method.upper() + "_OUT": str(tmp_path / "run"), method.upper() + "_THROUGH": "train", env_name: value}
     script = f"scripts/hpg_{method}.slurm"

@@ -155,7 +155,7 @@ def test_kang_launchers_forward_seed_unchanged(tmp_path, seed):
     project = tmp_path / "project"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
-    for name in ("hpg_baseline_cells.slurm", "hpg_kang.slurm"):
+    for name in ("hpg_baseline_cells.slurm", "hpg_kang.slurm", "hpg_training_startup.sh"):
         (scripts / name).write_bytes((Path("scripts") / name).read_bytes())
     (scripts / "hpg_eval_adapters.slurm").write_text('#!/bin/bash\n"$ENV_PYTHON" --fake-eval\n')
     fake = tmp_path / "fake-python"

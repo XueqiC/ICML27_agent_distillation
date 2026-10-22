@@ -21,6 +21,7 @@ from analysis.mechanism.readout import validate_intervention_artifacts
 from analysis.mechanism.taxonomy import classify_run, comparison
 from harness.alfworld_env import Environment
 from sed.config import load_config
+from sed.hash_receipts import cache_provenance
 from sed.manifest import build_manifest, freeze_splits
 from sed.runner import ScriptedPolicy, run_episode
 from sed.storage import JsonlLedger, digest, write_json
@@ -78,8 +79,12 @@ def deterministic_branch(env, policy, task, config, parent, t, output, **kwargs)
     counter = iter(range(10000))
     def uuid():
         return digest([key, next(counter)])[:32]
+    # Process-local cache history legitimately differs between warmed serial
+    # execution and fresh workers; freeze it alongside clocks and UUIDs.
+    cache_metadata = {**cache_provenance(), "observed_modes": []}
     try:
         with patch("uuid.uuid4", uuid), patch("time.monotonic", lambda: 1234.), \
+             patch("sed.provenance.cache_provenance", return_value=cache_metadata), \
              patch("sed.provenance.utc_now", lambda: "2000-01-01T00:00:00+00:00"), \
              patch("teachers.openai_teacher.utc_now", lambda: "2000-01-01T00:00:00+00:00"):
             return run_branch(env, policy, task, config, parent, t, output, **kwargs)
