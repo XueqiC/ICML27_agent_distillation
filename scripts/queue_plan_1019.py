@@ -552,10 +552,17 @@ def chain_cells():
     # 10-21 22:1x CDT: tsft K500 e32 (1e-4, hpg) ended at 4.30 (invalid) -> tsft K500 5e-5 ladder; tsft K300 e64 (1e-4) diverging
     # mid-run (1.89 at epoch 10) -> tsft K300 5e-5 ladder as a hedge (the rule decides once the 1e-4 rung completes).
     fb += [lora_rung("tsft", k, e, lr="5e-5") for k in (500, 300) for e in (64, 32, 16, 8, 4, 2)]
+    # 10-22 09:3x CDT: mid-run collapse then re-memorisation found in 1e-4 rungs the registered guard passes (adc K300 e32:
+    # epoch 5 0.214 -> 5.02, dev140 4/140; adc K100 e64 and tsft K100 e64 collapsed at epoch 13). 5e-5 hedge ladders for
+    # adc K100/K300 and tsft K100 while the user decides on a collapse criterion.
+    fb += [lora_rung("adc", 100, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]
+    fb += [lora_rung("adc", 300, e, lr="5e-5") for e in (32, 16, 8, 4, 2)]
+    fb += [lora_rung("tsft", 100, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]
     for c in fb:
         # 10-21 17:2x CDT: the long AD K500 5e-5 rungs also get an hpg train stage (~6x faster than LONI A100s).
         if c["cell"] not in ("adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5", "tsft-k500-e64-lr5e-5", "tsft-k500-e32-lr5e-5",
-                             "tsft-k300-e64-lr5e-5", "tsft-k300-e32-lr5e-5"):
+                             "tsft-k300-e64-lr5e-5", "tsft-k300-e32-lr5e-5", "adc-k100-e64-lr5e-5", "tsft-k100-e64-lr5e-5",
+                             "adc-k300-e32-lr5e-5"):
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     adc += fb
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
