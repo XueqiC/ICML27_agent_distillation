@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:3x CDT 10-22 — LONI /work purge scan (user request)
+- /work/xueqic: 4.54 TB, 2.73M files (scan /work/xueqic/hq/scan_usage_1022.tsv). Purge-eligible tonight (atime > 60 d):
+  1.13 TB / 323k files, all 2025-era non-project data: hf_cache 704 GB (Llama-2-7b, Llama-3.1-70B, Qwen3), .cache 389 GB
+  (huggingface 347 GB, pip 14 GB, vllm 20 GB), miniconda3 33 GB, att 7 GB, ability 0.1 GB. Nothing under hq/ is eligible.
+- Project data (hq/, Sep-Oct 2026, ~3.4 TB) safe until ~mid-Nov. Keep on LONI: hf-cache 341 GB, tc-alignment/.venv,
+  ICML27_runs, ICML27_data (100 GB, 1.25M files; tar after the grid). Old phase (Sep RTD/TVD/HotpotQA/ALF) ~2.2 TB:
+  tc-alf-vllm 849, tc-alignment/results 610, tc-hotpotqa-* ~830, archive 296, tc-rtd-* ~150 GB.
+- ASKED USER: (1) OK to let tonight's purge take the 2025 data (not this session's); (2) old phase: A move to hpg /orange
+  (copy -> verify -> delete), B delete, C keep part (e.g. archive). Nothing deleted or moved yet.
 ### 13:1x CDT 10-22 — tsft K300 converged 124
 - tsft K300 (1e-4 e64; collapse at epoch 35, annotated under rule A) dev140 124/140. LONI /work purge scan running
   (/work/xueqic/hq/scan_usage_1022.sh -> scan_usage_1022.tsv); user asked to clean up LONI (purge tonight 23:00).
