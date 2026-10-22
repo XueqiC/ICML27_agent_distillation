@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:4x CDT 10-22 — user chose A (old-phase LONI data -> hpg /orange); hpg ControlMaster dropped
+- User: "A" = move the old-phase LONI data (~2.2 TB) to hpg /orange (copy -> verify -> delete). Measured: LONI->rai 39 MB/s,
+  rai->hpg (tunnel via the user's Mac) 6.6 MB/s -> ~4 days; rai cannot stage 2.2 TB (1.2 TB free, keep >= 1 TB). ASKED: Globus
+  (user logs in once; LONI QB -> HiPerGator /orange/yd24f.fsu/xc25.fsu/tc-cold/loni_20261022/) vs the rai tunnel (~4 days).
+  Assumed: tonight's purge of the 2025 non-project data is left alone.
+- hpg ControlMaster dropped right after my 300 MB throughput test (13:4x CDT); notified once (hpg_tunnel_notified).
 ### 13:3x CDT 10-22 — LONI /work purge scan (user request)
 - /work/xueqic: 4.54 TB, 2.73M files (scan /work/xueqic/hq/scan_usage_1022.tsv). Purge-eligible tonight (atime > 60 d):
   1.13 TB / 323k files, all 2025-era non-project data: hf_cache 704 GB (Llama-2-7b, Llama-3.1-70B, Qwen3), .cache 389 GB
