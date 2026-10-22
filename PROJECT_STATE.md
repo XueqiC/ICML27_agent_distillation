@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:1x CDT 10-22 — tsft K300 converged 124
+- tsft K300 (1e-4 e64; collapse at epoch 35, annotated under rule A) dev140 124/140. LONI /work purge scan running
+  (/work/xueqic/hq/scan_usage_1022.sh -> scan_usage_1022.tsv); user asked to clean up LONI (purge tonight 23:00).
 ### 13:0x CDT 10-22 — USER DECISION: rule A; full table requested
 - User (13:03 CDT): rule A = keep the registered convergence rule (last complete epoch + cross-rung + delta < 0.01); mark
   cells whose training collapsed mid-run; priority = finish training, then the full 4-method x 4-K table + analysis.
