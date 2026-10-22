@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:2x CDT 10-22 — faststart merged (main 6186263), tests follow-up
+- Guard cancelled smc-k30-e2 / smc-k30-e64 at 52 min without updates (01:42/01:46 CDT); no smc running; all smc held.
+- main 6186263 = merge wt/faststart (persistent receipts for snapshot/checkpoint hashes; CPU --mode prepare for smartad/kang/adftp;
+  startup_timing.jsonl). 19 tests in tests/test_convergence_training.py fail (prepare now runs the real subprocess under
+  monkeypatched tests) -> Codex wt/faststart2 (pid 438383) fixes tests + full-suite run. Launchers default the receipt cache to
+  $HOME/.cache (small hpg quota): always set SED_HASH_CACHE_DIR=$B/../.sed-hash-receipts.
+- Next: deploy, measure cold vs warm prepare on hpg-milan for one smc cell (warm = GPU startup), then smc cells =
+  prep (CPU) -> train (GPU, short startup) -> eval, new output dirs (old smc-* trees have 102a35d identities -> _superseded).
 ### 01:4x CDT 10-22 — user OK on the SmartAD hold
 - smc-k30-e2 / smc-k30-e64 at ~50 min with no updates even with the warm receipt cache -> guard cancels them; SmartAD fully
   paused until wt/faststart is merged, deployed and verified on hpg (CPU prepare stage + fast GPU start). Told the user.
