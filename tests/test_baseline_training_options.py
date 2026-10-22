@@ -92,6 +92,7 @@ def test_leap_final_epoch_past_official_step_with_provenance(tmp_path, monkeypat
 
 def test_kang_cli_seed_identity_provenance_and_strict_resume(tmp_path, monkeypatch):
     from baselines.common import fsdp_train
+    from baselines.common import prepared
     config = load_config()
     for key in ("manifest", "split_freeze", "raw", "verified"):
         config["paths"][key] = str(tmp_path / key)
@@ -119,6 +120,10 @@ def test_kang_cli_seed_identity_provenance_and_strict_resume(tmp_path, monkeypat
         write_json(Path(args.output) / "result.json", {"seed": args.seed})
 
     monkeypatch.setattr(fsdp_train, "train_lora", fake_train)
+    # This test isolates frozen identity/resume semantics; seal integration is
+    # exercised against real synthetic collections in test_training_prepare.
+    monkeypatch.setattr(prepared, "verify_prepared", lambda *a, **kw: None)
+    monkeypatch.setattr(kang, "prepare_training", lambda *a: None)
     monkeypatch.setattr(kang, "run_command", lambda command, log: fsdp_train.main(command[command.index("--config"):]))
     cli = ["--config", str(config_path), "--snapshot", str(snapshot), "--verified", str(verified)]
     kang.main([*cli, "--output", str(output)])
@@ -130,6 +135,7 @@ def test_kang_cli_seed_identity_provenance_and_strict_resume(tmp_path, monkeypat
     with pytest.raises(ValueError, match="different frozen artifact"):
         kang.main([*cli, "--output", str(output), "--training-seed", "42"])
     second = tmp_path / "seed42"
+    kang.main([*cli, "--output", str(second), "--training-seed", "42", "--mode", "prepare"])
     kang.main([*cli, "--output", str(second), "--training-seed", "42"])
     kang.main([*cli, "--output", str(second), "--training-seed", "42"])
     assert len(calls) == 2 and calls[1].seed == 42

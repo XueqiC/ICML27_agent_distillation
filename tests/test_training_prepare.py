@@ -1,4 +1,5 @@
-"""Offline CPU preparation, identical train validation, and allocation guards."""
+"""Offline CPU sealing, scan-free training startup, and allocation guards."""
+from contextlib import nullcontext
 import importlib
 import json
 import os
@@ -12,6 +13,7 @@ import pytest
 from baselines.common import fsdp_train, pipeline as common
 from sed import hash_receipts, seed_evidence
 from sed.storage import write_json
+from sed.validation_cache import clear_validation_cache
 from test_full_train import full_bank
 from test_full_train_views import source_bank
 from test_sad import CharTokenizer
@@ -71,7 +73,7 @@ def test_slurm_prepare_cpu_and_gpu_guard(tmp_path, method, gpu_key):
 
 
 @pytest.mark.parametrize("method", METHODS)
-def test_prepare_warms_full_bindings_and_train_revalidates(source_bank, tmp_path, monkeypatch, method):
+def test_prepare_then_train_sealed_examples(source_bank, tmp_path, monkeypatch, method):
     from baselines.adftp import collect as ftp
     from baselines.smartad import collect as sm
     from baselines.smartad.select import select
@@ -116,7 +118,18 @@ def test_prepare_warms_full_bindings_and_train_revalidates(source_bank, tmp_path
     import shutil
     shutil.rmtree(hash_receipts.cache_directory(), ignore_errors=True)
     hash_receipts._MEMO.clear()
+    clear_validation_cache()
+    validations = []
+    original_load = seed_evidence._load_verified_collection
+    def counted_load(root, *a, **kw):
+        validations.append(Path(root).resolve())
+        return original_load(root, *a, **kw)
+    monkeypatch.setattr(seed_evidence, "_load_verified_collection", counted_load)
+    with pytest.raises(ValueError, match="Run the CPU --mode prepare"):
+        module.main([*argv, "--mode", "train"])
+    assert not validations
     module.main([*argv, "--mode", "prepare"])
+    assert len(validations) == len(set(validations))
     training = output if method == "kang" else output / "training"
     identity = (training / "identity.json").read_bytes()
     assert len(commands) == 1
@@ -128,54 +141,75 @@ def test_prepare_warms_full_bindings_and_train_revalidates(source_bank, tmp_path
     assert {"collection_load", "encode", "snapshot_hashing", "data_prepare"} <= {r["phase"] for r in events}
     assert all(r["seconds"] >= 0 for r in events)
 
-    # Simulate a new allocation. Preparation is not a validation bypass token.
+    seal_ref = json.loads(prepared.read_text())["prepared_seal"]
+    seal = json.loads(Path(seal_ref["path"]).read_text())["seal"]
+    assert str(root.resolve()) in seal["input_collections"]
+    assert str(verified.resolve()) in seal["input_collections"]
+    if method != "kang":
+        assert str(selected.resolve()) in seal["input_collections"]
+        assert str((root / "subsets/k2").resolve()) in seal["input_collections"]
+    encoded = json.loads(Path(seal_ref["path"]).with_name("examples.json").read_text())
+
+    # New allocation: train must reach publication without evidence scans,
+    # collection validation, tokenizer loading, or encoding. Model/updates only
+    # are faked; the pipeline, seal verification and provenance are real.
     hash_receipts._MEMO.clear()
-    calls = []
-    original = seed_evidence.file_hash
-    def counted(path):
-        calls.append(Path(path))
-        return original(path)
-    monkeypatch.setattr(seed_evidence, "file_hash", counted)
-    class ModelReached(Exception):
-        pass
+    clear_validation_cache()
+    def forbidden(*a, **kw):
+        pytest.fail("GPU startup entered CPU evidence validation/encoding")
+    monkeypatch.setattr(seed_evidence, "_load_verified_collection", forbidden)
+    monkeypatch.setattr(fsdp_train, "prepare_lora_data", forbidden)
+    monkeypatch.setattr(fsdp_train, "load_tokenizer", forbidden)
     def train_to_model(command, log):
         assert "--prepare-only" not in command and "torch.distributed.run" in command
         fsdp_train.main(command[command.index("baselines.common.fsdp_train") + 1:])
     # Fake device setup only; stop before any model or CUDA tensor allocation.
     torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True, set_device=lambda _: None),
-                            device=lambda *a: "cuda", distributed=SimpleNamespace())
+                            device=lambda *a: "cuda", distributed=SimpleNamespace(),
+                            autocast=lambda *a, **kw: nullcontext(), bfloat16="bf16")
     monkeypatch.setitem(sys.modules, "torch", torch)
     monkeypatch.setitem(sys.modules, "torch.distributed", torch.distributed)
     monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(set_seed=lambda _: None))
-    monkeypatch.setattr(fsdp_train, "prepare_lora_model", lambda *a, **kw: (_ for _ in ()).throw(ModelReached()))
+    model = SimpleNamespace(peft_config={"default": SimpleNamespace(r=64, lora_alpha=128,
+                                lora_dropout=.05, target_modules=["q_proj"])})
+    monkeypatch.setattr(fsdp_train, "prepare_lora_model", lambda *a, **kw: model)
+    monkeypatch.setattr(fsdp_train, "dropout_equivalence", lambda _: "expected_gradient")
+    def train(model, examples, output, **kw):
+        assert examples == encoded
+        return {"updates": 1}
+    def export(model, staging, provenance, state):
+        write_json(staging / "training_state.json", state)
+        return state
+    monkeypatch.setattr(fsdp_train, "train_loop", train)
+    monkeypatch.setattr(fsdp_train, "export_adapter", export)
     monkeypatch.setattr(module, "run_command", train_to_model)
-    with pytest.raises(ModelReached):
-        module.main([*argv, "--mode", "train"])
+    module.main([*argv, "--mode", "train"])
     assert (training / "identity.json").read_bytes() == identity
-    assert all(p.name == "receipt.json" for p in calls), calls
+    trained = next(training.glob("stages/train-sft/attempt-*/output/provenance.json"))
+    provenance = json.loads(trained.read_text())
+    assert provenance["config"]["baseline_training"]["prepared_seal"] == seal_ref
+    for log in (training / "startup_timing.jsonl", Path(provenance["startup_timing"]["path"])):
+        events = [json.loads(line) for line in log.read_text().splitlines()]
+        train_events = [r for r in events if r["mode"] == "train"]
+        assert "seal_verification" in {r["phase"] for r in train_events}
+        assert not {"collection_load", "encode", "selection_validation"} & {r["phase"] for r in train_events}
     trainer_argv = commands[0][commands[0].index("baselines.common.fsdp_train") + 1:]
     trainer_argv = [arg for arg in trainer_argv if arg != "--prepare-only"]
     if method == "smartad":
         weights = snapshot / "weights.safetensors"
         original_weights = weights.read_bytes()
         weights.write_bytes(original_weights + b"changed")
-        for extra in ([], ["--prepare-only"]):
-            with pytest.raises(ValueError, match="selection/student binding changed"):
-                fsdp_train.main([*trainer_argv, *extra])
+        with pytest.raises(ValueError, match="snapshot.*Run the CPU"):
+            fsdp_train.main(trainer_argv)
         weights.write_bytes(original_weights)
 
-    # Even an unselected trajectory in the full support bank remains checked.
-    collection = json.loads((root / "manifest.json").read_text())
-    selected_ids = {r["task_id"] for r in seed_evidence.load_verified_collection(verified, manifest, freeze)[0]["verified"]}
-    unselected = next(r for r in collection["verified"] if r["task_id"] not in selected_ids)
-    victim = root / unselected["episode_dir"] / "episode.json"
+    # Even the full bank's top-level file is checked, on pipeline resume too.
+    victim = root / "manifest.json"
     victim.write_text(victim.read_text() + " ")
-    for mode in ("prepare", "train"):
-        with pytest.raises(ValueError, match="evidence changed"):
-            module.main([*argv, "--mode", mode])
-    for extra in ([], ["--prepare-only"]):
-        with pytest.raises(ValueError, match="evidence changed"):
-            fsdp_train.main([*trainer_argv, *extra])
+    with pytest.raises(ValueError, match="manifest.*Run the CPU"):
+        module.main([*argv, "--mode", "train"])
+    with pytest.raises(ValueError, match="manifest.*Run the CPU"):
+        fsdp_train.main(trainer_argv)
 
 
 def test_timing_first_update_is_logged_after_cpu_optimizer_step(tmp_path):

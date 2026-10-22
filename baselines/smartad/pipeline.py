@@ -113,8 +113,9 @@ def main(argv=None):
     with locked(Path(training.output) / ".pipeline.lock"), startup_timing(
             Path(training.output) / "startup_timing.jsonl", process="pipeline",
             mode="evaluate" if args.stage == "evaluate" else args.mode, snapshot=args.snapshot):
-        with phase("selection_validation"):
-            validate_selection(args.verified, manifest, freeze, args.snapshot)
+        if args.mode != "train" or args.stage == "evaluate":
+            with phase("selection_validation"):
+                validate_selection(args.verified, manifest, freeze, args.snapshot)
         if args.stage == "evaluate":
             from baselines.common.evaluation import evaluate_models
             return evaluate_models(training, decodings=("greedy",))

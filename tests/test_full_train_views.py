@@ -216,6 +216,8 @@ def test_loader_rejects_tampering_even_with_rebound_local_hashes(source_bank, mu
         original["seed"] += 1
         write_json(root / "selection.json", original)
     rebind_local_files(view, selection, identity, collection)
+    from sed.validation_cache import clear_validation_cache
+    clear_validation_cache()  # Evidence mutation is checked in a fresh session.
     with pytest.raises(ValueError):
         load_verified_collection(view, manifest, freeze)
     with pytest.raises(ValueError):

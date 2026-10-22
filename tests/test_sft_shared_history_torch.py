@@ -294,6 +294,7 @@ def test_lora_training_provenance_records_equivalence(tmp_path, monkeypatch, dro
     from contextlib import nullcontext
     from types import SimpleNamespace
     import baselines.common.fsdp_train as trainer
+    from baselines.common import prepared
     from sed.storage import digest
     from test_shared_history_torch import random_conversation
     # Exercise production provenance/export with fake loading and CPU execution.
@@ -317,13 +318,11 @@ def test_lora_training_provenance_records_equivalence(tmp_path, monkeypatch, dro
     monkeypatch.setattr(torch.cuda, 'set_device', lambda _: None)
     monkeypatch.setattr(torch.cuda, 'manual_seed_all', lambda _: None)
     monkeypatch.setattr(torch, 'autocast', lambda *a, **kw: nullcontext())
-    monkeypatch.setattr(trainer, 'load_config', lambda _: config)
-    monkeypatch.setattr(trainer, 'load_frozen', lambda *a: ({}, {}))
-    monkeypatch.setattr(trainer, 'load_verified_collection', lambda *a: (
-        {'K': 1, 'unique_instances': 1, 'task_groups': 1, 'verified': []}, {}, tmp_path))
-    monkeypatch.setattr(trainer, 'load_tokenizer', lambda _: SimpleNamespace(chat_template='fake-template'))
-    monkeypatch.setattr(trainer, 'checked_episodes', lambda *a: iter([{}]))
-    monkeypatch.setattr(trainer, 'conversation', lambda *a, **kw: row)
+    # This numerical/provenance test supplies prepared data at the verification
+    # boundary. Real seal refusal and collection paths have separate coverage.
+    seal = {'path': 'synthetic-seal', 'sha256': 'fixture', 'encoded_examples_sha256': digest([row])}
+    monkeypatch.setattr(prepared, 'load_prepared', lambda _: ((config,
+        {'K': 1, 'unique_instances': 1, 'task_groups': 1}, [row], 'fake-template'), seal))
     monkeypatch.setattr(trainer, 'prepare_lora_model', lambda *a, **kw: model)
     monkeypatch.setattr(trainer, 'snapshot_metadata', lambda _: {'fixture': True})
     monkeypatch.setattr(trainer, 'artifact_hashes', lambda _: {})
@@ -339,6 +338,7 @@ def test_lora_training_provenance_records_equivalence(tmp_path, monkeypatch, dro
     monkeypatch.setattr(trainer, 'train_loop', cpu_loop)
     trainer.train_lora(args)
     training = captured['config']['baseline_training']
+    assert training['prepared_seal'] == seal
     assert captured['config']['sft']['dropout'] == dropout
     assert training['dropout_equivalence'] == expected
     assert training['rng_seed_policy'] == 'seed + rank' and training['rank_seeds'] == [42]

@@ -45,7 +45,8 @@ def training_command(args, output):
         "--scheduler", "linear", "--warmup-ratio", warmup_ratio,
         *(["--warmup-steps", "0"] if optimizer["warmup_steps"] == 0 else []),
         "--original-batch", "8", "--weight-decay", "0", "--packing", RECIPE["packing"],
-        "--scoring", getattr(args, "scoring", "per_turn")]
+        "--scoring", getattr(args, "scoring", "per_turn"),
+        *(["--pipeline-output", str(Path(args.output).resolve())] if hasattr(args, "output") else [])]
 
 
 def train_pipeline(args, identity):

@@ -94,6 +94,8 @@ def test_ftp_success_fallback_layout_nested_resume_and_tamper(seed_bank, tmp_pat
     assert episode["steps"][0]["policy_metadata"]["mechanism_teacher_billed_usage"]["input_tokens"] == 12
     cot = next((evidence / fallback["episode_dir"]).parent.glob("teacher/attempt-1/cot.json"))
     cot.write_text('{}')
+    from sed.validation_cache import clear_validation_cache
+    clear_validation_cache()  # Start a fresh evidence audit after deliberate mutation.
     with pytest.raises(ValueError, match="Attempt evidence changed"):
         load_verified_collection(result, manifest, freeze)
 

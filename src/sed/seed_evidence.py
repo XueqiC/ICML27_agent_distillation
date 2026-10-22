@@ -327,8 +327,14 @@ def _subset_values(root, source, large, small):
 @timed("collection_load")
 def load_verified_collection(root, manifest, freeze, *, allow_subset=True):
     """Validate evidence first; callers separately whitelist model-visible fields."""
-    with collection_cache(root):
-        return _load_verified_collection(root, manifest, freeze, allow_subset=allow_subset)
+    from sed.validation_cache import memoized
+    def validate():
+        with collection_cache(root):
+            return _load_verified_collection(root, manifest, freeze, allow_subset=allow_subset)
+    result = memoized("collection", root, manifest, freeze, validate)
+    if not allow_subset and "source_collection" in result[0]:
+        raise ValueError("Invalid nested collection location or chained source")
+    return result
 
 
 def _load_verified_collection(root, manifest, freeze, *, allow_subset):

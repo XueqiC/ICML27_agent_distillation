@@ -271,7 +271,7 @@ def test_agentgym_dose_checkpoint_counts_and_mask_report(tokenizer, tmp_path):
 @pytest.mark.parametrize("empty", [False, True])
 def test_adftp_empty_teacher_reply_history_labels_and_trainer_provenance(tokenizer, tmp_path, monkeypatch, packing, empty):
     from baselines.adftp.pipeline import training_command
-    from baselines.common import fsdp_train
+    from baselines.common import fsdp_train, prepared
     from sed.config import load_config
     from sed.storage import write_json
 
@@ -293,6 +293,10 @@ def test_adftp_empty_teacher_reply_history_labels_and_trainer_provenance(tokeniz
     monkeypatch.setattr(fsdp_train, "load_tokenizer", lambda *a: tokenizer)
     monkeypatch.setattr(fsdp_train, "snapshot_metadata", lambda *a: {"source": "fake"})
     monkeypatch.setattr(fsdp_train, "artifact_hashes", lambda *a: {})
+    # Keep the real CPU encoder and numerical loop in this mask/provenance test;
+    # the verified seal boundary itself is exercised in test_training_prepare.
+    seal = {"path": "synthetic-seal", "sha256": "fixture"}
+    monkeypatch.setattr(prepared, "load_prepared", lambda args: (fsdp_train.prepare_lora_data(args), seal))
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "set_device", lambda *a: None)
     monkeypatch.setattr(torch, "autocast", lambda *a, **kw: nullcontext())
@@ -347,4 +351,5 @@ def test_adftp_empty_teacher_reply_history_labels_and_trainer_provenance(tokeniz
         assert record["empty_visible_turns_masked"] == int(empty)
         assert record["masked_empty_replies"] == ([{"task_id": value["task_id"], "step_index": 1}] if empty else [])
     assert training["allow_empty_visible_replies"] is True
+    assert training["prepared_seal"] == seal
     assert result["examples_seen"] == 2  # Mask count is per dataset, not multiplied by epochs.
