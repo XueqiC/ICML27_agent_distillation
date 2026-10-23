@@ -30,7 +30,10 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
   * paper tsft K100 -> tsft-k100-e2-lr1e-4 (LONI-trained, valid: epochs 0.3375 / 0.2097) copy -> hpg, eval.
   * paper AD K500 -> adc-k500-e2-lr1e-4 (LONI-trained, valid: 0.3096 / 0.2243) copy -> hpg, eval (SAG). (adc-k500-e4-lr1e-4 on
     LONI diverged in epoch 0: 2.59.)
-  * paper SAD K100 x1 -> lr 1e-5: Codex adds --learning-rate / SAD_LR on branch sadlr (from fb22f09); new cell + tree.
+  * paper SAD K100 x1 -> lr 1e-5: sadc-k100-b1-lr1e-5 on tree 7cbc62b (= fb22f09 + --learning-rate / SAD_LR; default
+    argv/recipe byte-identical; 16 new + 68 SAD tests pass); eval on b9f9a80 (evaluate mode does not re-derive the recipe).
+  * 13:0x CDT: tsft-k100-e2-lr1e-4 and adc-k500-e2-lr1e-4 copied LONI -> hpg (verified: count, bytes, adapter sha) and
+    their eval gates opened.
   * converged AD K300 -> registered 5e-5 ladder e32/e16/e8/e4/e2 on hpg (plan 40455ad), 4 GPUs each.
 - SmartAD K30 e32 rerun with REFERENCE_DTYPE=float32 on tree fea3a8e (plan 40455ad; old OUT ->
   _trash/smc-k30-e32-lr1e-4-eval-bf16ref-1023). max_jobs back to 10.
