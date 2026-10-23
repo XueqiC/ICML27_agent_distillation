@@ -583,7 +583,9 @@ def chain_cells():
     for c in sad025:
         c["tree"] = "fb22f09"
     sel = [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]
-    return tsft + adc + sel + smc_cells() + sad1 + sad05 + sad025
+    # 10-22 19:0x CDT: SAD (its K500 x2 eval was starving) ahead of the SmartAD ladder, whose pending trains filled the
+    # 10-job cap; evals and short stages first.
+    return tsft + adc + sel + sad1 + sad05 + sad025 + smc_cells()
 
 def main():
     out = Path(sys.argv[1])
