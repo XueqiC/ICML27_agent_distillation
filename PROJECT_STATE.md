@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 17:2x CDT 10-23 — tunnel back 17:1x CDT; SmartAD K500 = 114/140; SAD K100 x1 lr 1e-5 trained (valid), eval gate open
+### 18:2x CDT 10-23 — tunnel back by 18:14 CDT (hourly check); SmartAD K500 = 114/140; SAD K100 x1 lr 1e-5 trained (valid), eval gate open
 - smc-k500-e32-lr5e-5-eval 47325633: 114/140 (serving check passed). SmartAD converged row: K30 N/A (pending user), 120c, 111c, 114.
 - sadc-k100-b1-lr1e-5-train 47303363 COMPLETED ~16:09 CDT; loss monotone to ~0 (lr-2e-5 run sat at ~2300) -> gate
   eval_sadc-k100-b1-lr1e-5 opened (eval tree b9f9a80).
