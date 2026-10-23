@@ -492,7 +492,9 @@ def smc_rung(k, epochs, lr):
         n = 2
     # 10-23 08:3x CDT: same reason for the K500 5e-5 fallback ladder: e16 (2,000 updates) runs on the 2-GPU lane beside the
     # 4-GPU e64 -> e32 -> e8 -> e4 -> e2 sequence (~2 h earlier ladder decision). Its 4-GPU prep goes to _trash.
-    if lr == "5e-5" and (k, epochs) == (500, 16):
+    # 10-23 10:2x CDT: e8/e4/e2 follow e16 on the 2-GPU lane (2-GPU K500 e16 runs 4.4 s/update), so the lane finishes them
+    # while e32 trains on 4 GPUs instead of queueing after it (4-GPU preps -> _trash).
+    if lr == "5e-5" and k == 500 and epochs in (16, 8, 4, 2):
         n = 2
     per_epoch = {30: 8, 100: 25, 300: 75, 500: 125}[k]
     # 10-22 00:2x CDT: smc-k30-e2 (47091127) timed out at 1:04 before its first update: the pipeline prepare phase alone
