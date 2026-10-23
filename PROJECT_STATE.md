@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 10:2x CDT 10-23 — SmartAD K300 = 111/140; K500 5e-5 e64 done (L_last 0.0000), e16 running, e32 next
+- smc-k300-e32-lr1e-4-eval 47281234: dev140 111/140 (79.3%), serving check passed (adapter error 0.031 <= 0.076).
+- smc-k500-e64-lr5e-5-train 47239796 COMPLETED 09:54 CDT: L_last 0.0000, valid, no collapse flag.
+- smc-k500-e16-lr5e-5-train 47273587 (2 GPU) at ep 8/16: transient spike in epoch 8 (25-update means 0.93/1.14 at updates
+  900-950, back to 0.074) -> provisional collapse flag ep8; final validity is judged at the end of the run.
+- smc-k500-e32-lr5e-5-train (4 GPU) waits for the keeper step after the K300 eval freed its GPU.
 ### 09:1x CDT 10-23 — SmartAD K100 = 120/140; K300 converged at e32, eval gate opened
 - smc-k100-e64-lr1e-4-eval 47268981: dev140 120/140 (85.7%), serving check passed (adapter error 0.028 <= 0.080).
 - SmartAD K300 1e-4 ladder L_last: e2 0.2546, e4 0.1277, e8 0.1016, e16 0.0019, e32 0.0001. First pair with delta < 0.01 =
