@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:1x CDT 10-22 — SAD row complete; SmartAD paper-recipe column complete
+- Reruns after the off-home fix all clean (0 error episodes, serving checks passed): SAD K500 x2 (converged rung, full-parameter,
+  greedy) 116/140; SmartAD paper recipe (2e-4, 2 epochs, greedy) K300 96/140, K100 87/140.
+- Table so far (dev140, base 62). Converged: tsft 88/112c/124c/122; AD 109/107/4c/(K500 5e-5 e64 training, hpg 47156075);
+  SAD 49/109/127/116; SmartAD ladder running (K300/K500 e8+e32 trained; K30 not started). Paper recipe: tsft 10/0*/109/108;
+  AD 73/95/84/0*; SAD 49/0*/127/123; SmartAD 77/87/96/112. (c = collapsed mid-run, annotated under rule A; * = diverged)
 ### 20:3x CDT 10-22 — hpg $HOME full -> three evals reset_error; fixed (plan 8a6f26f)
 - hpg /home/xc25.fsu 40G/40G (29G = ~/.cache/vllm/torch_compile_cache, written by every vLLM start; full at ~19:34 CDT).
   alfworld.info mkdirs ~/.cache/alfworld at import -> on compute nodes OSError [Errno 28] (reproduced via srun --overlap in
