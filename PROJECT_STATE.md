@@ -28,6 +28,9 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - hpg home itself still full (outside the authorized paths; shared by every session): ASKED the user to let ctl clear the
   vLLM compile cache.
 - SmartAD paper recipe K500 (smc-k500-e2-lr2e-4, 2e-4, 2 epochs, greedy) dev140 112/140 (80.0%), passed the serving check.
+- LONI cold move: 35 dirs verified + deleted by 20:35 CDT. tc-hotpotqa-scan5 VERIFY MISMATCH = equal-size tie in the
+  largest-file pick (count/bytes equal; nothing deleted). Tie-break by path fixed (atomic replace; running pid 2017009 keeps
+  the old copy) -> RERUN scripts/ops/loni_cold_move.sh after this pass to verify the skipped dirs.
 ### 19:0x CDT 10-22 — back after a ~5 h usage-limit pause (13:5x-19:02 CDT); LONI cold move started
 - Pause: no monitoring or replies 13:5x-19:02 CDT. In that window hpg finished smc-k500-e32 train and several smc preps;
   SAD K500 x2 eval never ran (SAD cells behind the SmartAD ladder at the 10-job cap) -> plan 2b75f6d: SAD before SmartAD,

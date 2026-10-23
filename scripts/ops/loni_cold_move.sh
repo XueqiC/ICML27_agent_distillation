@@ -17,7 +17,8 @@ print(len(rows), sum(int(s) for s, _ in rows))
 best = {}
 for s, p in rows:
     parts = p.split("/"); key = "/".join(parts[:2]) if len(parts) > 2 else parts[0]
-    if key not in best or int(s) > int(best[key][0]): best[key] = (s, p)
+    # ties in size are broken by path: find order differs between LONI and /orange (10-22: tc-hotpotqa-scan5)
+    if key not in best or (int(s), p) > (int(best[key][0]), best[key][1]): best[key] = (s, p)
 for k in sorted(best): print(best[k][1])'
 }
 sha_of() { ssh -o BatchMode=yes "$1" "cd '$2' && sha256sum $(printf "'%s' " "${@:3}")" 2>/dev/null | awk '{print $1}'; }
