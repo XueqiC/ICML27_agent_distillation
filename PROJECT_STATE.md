@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:2x CDT 10-23 — SmartAD K100 converged (e64), eval running; K300 rungs e16/e4 done; K500 5e-5 e16 -> 2-GPU lane
+- SmartAD K100 1e-4 ladder L_last: e2 0.1514, e4 0.1133, e8 0.0601, e16 0.0339, e32 0.0002, e64 0.0000. First pair with
+  delta < 0.01 = e32->e64 (0.0002) -> converged rung e64 (valid; collapse flags e8@ep4, e16@ep8, e32@ep12, e64@ep2,
+  annotated). Eval gate opened -> smc-k100-e64-lr1e-4-eval 47268981 (1 GPU, greedy).
+- SmartAD K300 1e-4: e16 0.0019 (done 08:50 EDT keeper = 07:50 CDT), e4 done 08:16 CDT; e2 train next (2-GPU lane). With
+  e8 0.1016 / e16 0.0019 / e32 0.0001, the decision waits only for e2/e4 (rule = first pair with delta < 0.01).
+- K500 5e-5 e16 (2,000 updates) moved to 2 GPUs (plan e4c0e8d; 4-GPU prep -> _trash/smc_prep_4gpu_1023b), so it runs beside
+  the 4-GPU e64 -> e32 -> e8 -> e4 -> e2 sequence. smc-k500-e64-lr5e-5-train 47239796 at ep 48/64 at 08:2x CDT (~10:00 CDT).
 ### 03:4x CDT 10-23 — AD row complete (K500 118/140); SmartAD K30 e32 blocked by the serving gate (asked the user)
 - adc-k500-e64-lr5e-5-eval 47241702: dev140 118/140, check passed. Converged AD row 109/107/4c/118.
 - smc-k30-e32-lr1e-4-eval 47241704 FAILED at the serving-equivalence gate (pooled 0.078 > 0.068, >0.5-count 14 > 11; each
