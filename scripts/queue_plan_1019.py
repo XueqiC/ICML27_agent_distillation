@@ -673,7 +673,8 @@ def main():
     # 10-23 00:3x CDT: the dept QOS's 128 CPUs are held by other users' CPU-only jobs with 1-9 days left, and our dept
     # trains pended in QOSGrpCpuLimit while holding 8 of the 10 job slots. max_gpus = max_group_gpus sends every GPU
     # stage to the group account (a stage that does not fit the group allowance now waits instead of going to dept).
-    plan = {"limits": {"max_jobs": 10, "max_gpus": 6, "max_group_gpus": 6, "max_lowprio_jobs": 0,
+    # 10-23 11:4x CDT: user approved the full group allowance (8 GPUs; yd24f QOS gpu=8) for the remaining SmartAD rungs.
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 8, "max_group_gpus": 8, "max_lowprio_jobs": 0,
                        "max_lowprio_gpus": 0}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
