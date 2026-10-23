@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 11:4x CDT 10-23 — user (Discord 11:42 CDT): "1选A,2可以" -> group cap 8 GPUs; SmartAD K30 fp32-reference diagnostic
+- Cap: plan limits max_gpus = max_group_gpus = 8 (generator e822529); installed plan has max_jobs 9 until the K30 rerun is
+  settled (restore 10 after).
+- SmartAD K30 e32 serving gate, option A. Pre-registered BEFORE running (11:4x CDT):
+  * Code: branch fp32ref from 20cb697 (worktree ../ICML27_fp32ref) adds --reference-dtype {bfloat16,float32} to
+    tools/check_lora_serving.py and REFERENCE_DTYPE to scripts/eval_adapters.sh; default path unchanged. New hpg tree.
+  * Run: the keeper's smc-k30-e32-lr1e-4-eval stage on the new tree with REFERENCE_DTYPE=float32 (old OUT -> _trash).
+    Gate rule and thresholds unchanged (pooled error <= max(0.05, 1.5 x base noise), >0.5-count rule, effect rules);
+    only the HF reference is computed in float32 (base weights upcast; LoRA weights float32).
+  * Decision: check passes -> the dev140 number is reported, annotated "serving check vs float32 HF reference; the bf16
+    reference failed (0.078 > 0.068)". Check fails -> SmartAD K30 converged = N/A (serving not verified), diagnostics
+    reported. Either way, report |HF bf16 - HF fp32| (reference error) and |vLLM - HF fp32| (serving error) per prompt
+    from the old and new report.json.
 ### 10:2x CDT 10-23 — SmartAD K300 = 111/140; K500 5e-5 e64 done (L_last 0.0000), e16 running, e32 next
 - smc-k300-e32-lr1e-4-eval 47281234: dev140 111/140 (79.3%), serving check passed (adapter error 0.031 <= 0.076).
 - smc-k500-e64-lr5e-5-train 47239796 COMPLETED 09:54 CDT: L_last 0.0000, valid, no collapse flag.
