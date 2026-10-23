@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-23 — GPU stages group-only (plan 463450e); 8 stuck dept trains withdrawn
+- dept QOS 127/128 CPUs held by other users' CPU-only jobs (rx21a 64, lz23b 50; 1-9 days left; first 8 CPUs free ~06:45 CDT).
+  Our 8 dept trains (smc-k300-e16/e4/e2, smc-k100-e32/e16, smc-k30-e64/e32, smc-k500-e64-lr5e-5) pended in QOSGrpCpuLimit
+  while holding 8 of the 10 job slots -> cancelled (all PENDING, never started; state.bak.grouponly.json), active=None so the
+  keeper resubmits. Limits now max_gpus = max_group_gpus = 6 -> every GPU stage goes to yd24f or waits. Burst QOS for preps
+  rejected (sbatch --test-only start estimate ~2 days). Keeper submitted 7 preps (K30 e16-e2, K100 e4/e2, K500 5e-5 e32).
+- Running: adc-k500-e64-lr5e-5 47156075 (yd24f, 4 GPU; epoch 34/64 at 00:15 CDT, ~6 s/update, ETA ~03:20 CDT; e32 L_last
+  0.0003 so e64 converges, no e128), smc-k30-e128 47217342 (yd24f, 2 GPU, ep 88/128).
+- Remaining SmartAD 4-GPU train work ~19 h (K500 5e-5 ladder ~14 h): at 6 group GPUs table ~00:30 CDT 10-24; asked the user
+  whether to raise the group cap to 8 (yd26's jobs all held) -> ~15:00 CDT 10-23. Awaiting answer.
 ### 22:3x CDT 10-22 — SmartAD K500 -> 5e-5 fallback; queue reorder (plan 4329053); LONI not used for SmartAD
 - SmartAD ladder (hpg, L_last = last complete epoch token-mean): K300 e8 0.1016, e32 0.0001 (valid; collapse at ep6, annotated);
   K500 e8 0.0686 valid, e32 4.7861 INVALID (L_min 0.1012, collapse at ep7) -> pre-registered 5e-5 fallback for SmartAD K500:
