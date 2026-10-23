@@ -353,7 +353,7 @@ def chain_view(k):
     return f"{B}/data/verified/seeds_full_train_r2/subsets/k{k}"
 
 
-def sadc(k, mult):
+def sadc(k, mult, lr=None):
     """SAD on the chain view K with budget x mult (rungs x0.5 and x1 = paper first; x2 only if not converged).
     b' = min(64, N // 8) = 3 / 12 / 37 / 62 for K30/100/300/500: K>=300 fill 4 GPUs without padding (half the wall
     time at equal GPU-hours); K30/K100 stay on 2. Host memory: each rank loads the fp32 model on CPU (~50G):
@@ -361,12 +361,12 @@ def sadc(k, mult):
     positions in ~6 min on 2 B200, i.e. ~4.5-5 h per 655M on 2 GPUs). Evaluation of a rung is gated: only the reported
     (first converged) rung is evaluated."""
     tag = {0.25: "025", 0.5: "05", 1: "1", 2: "2", 4: "4"}[mult]
-    cell = f"sadc-k{k}-b{tag}"
+    cell = f"sadc-k{k}-b{tag}" + (f"-lr{lr}" if lr else "")   # 10-23: lr suffix = halved-lr rerun (tree 7cbc62b, SAD_LR)
     n = 4 if k >= 300 else 2
     hours = 5.0 * mult * (2 / n) * 1.6 + 0.5
     hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     base = (f"WRAPPER=scripts/hpg_sad.slurm,STAGE_VAR=SAD_THROUGH,VERIFIED={chain_view(k)},SED_SECRETS_FILE={SECRETS},"
-            f"WORKERS=16,BATCH_INVARIANT=1,SAD_OUT={BL}/{cell},NGPUS={n},SAD_BUDGET_MULT={mult}")
+            f"WORKERS=16,BATCH_INVARIANT=1,SAD_OUT={BL}/{cell},NGPUS={n},SAD_BUDGET_MULT={mult}" + (f",SAD_LR={lr}" if lr else ""))
     C4 = "--partition=hpg-milan --gpus=0 --cpus-per-task=4 --mem=16G"
     GT = f"--partition=hpg-b200 --nodes=1 --gpus={n} --cpus-per-task=8 --mem={256 if n == 4 else 160}G"
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [
@@ -618,7 +618,13 @@ def chain_cells():
     sel = [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]
     # 10-22 19:0x CDT: SAD (its K500 x2 eval was starving) ahead of the SmartAD ladder, whose pending trains filled the
     # 10-job cap; evals and short stages first.
-    return tsft + adc + sel + sad1 + sad05 + sad025 + smc_cells()
+    # 10-23 12:5x CDT: user: cells that scored ~0 are rerun. SAD K100 x1 (paper budget) diverged -> registered halve-lr
+    # fallback: lr 2e-5 -> 1e-5 (SAD_LR, tree 7cbc62b = fb22f09 + --learning-rate); evaluation on b9f9a80 as for every SAD
+    # cell (evaluate mode does not re-derive the recipe).
+    sadlr = [sadc(100, 1, lr="1e-5")]
+    for c in sadlr:
+        c["tree"] = "7cbc62b"
+    return tsft + adc + sel + sad1 + sad05 + sad025 + sadlr + smc_cells()
 
 def main():
     out = Path(sys.argv[1])
