@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:1x CDT 10-23 — SmartAD K100 = 120/140; K300 converged at e32, eval gate opened
+- smc-k100-e64-lr1e-4-eval 47268981: dev140 120/140 (85.7%), serving check passed (adapter error 0.028 <= 0.080).
+- SmartAD K300 1e-4 ladder L_last: e2 0.2546, e4 0.1277, e8 0.1016, e16 0.0019, e32 0.0001. First pair with delta < 0.01 =
+  e16->e32 (0.0018) -> converged rung e32 (valid; collapse flags e4@ep2, e32@ep6 annotated). e2 had a transient spike inside
+  epoch 1 (updates 31-50, recovered; same data order as e4 -- first 12 update losses match) that the collapse flag cannot see
+  (no earlier epoch). Gate opened -> smc-k300-e32-lr1e-4-eval (1 GPU) starts when K500 e64 frees GPUs (~10:00 CDT).
+- smc-k500-e16-lr5e-5-train 47273587 (2 GPU) RUNNING since 08:58 CDT; smc-k500-e64-lr5e-5 at ep 58/64.
 ### 09:2x CDT 10-23 — SmartAD K100 converged (e64), eval running; K300 rungs e16/e4 done; K500 5e-5 e16 -> 2-GPU lane
 - SmartAD K100 1e-4 ladder L_last: e2 0.1514, e4 0.1133, e8 0.0601, e16 0.0339, e32 0.0002, e64 0.0000. First pair with
   delta < 0.01 = e32->e64 (0.0002) -> converged rung e64 (valid; collapse flags e8@ep4, e16@ep8, e32@ep12, e64@ep2,
