@@ -500,6 +500,9 @@ def smc_rung(k, epochs, lr):
     # encoded examples + seal; the GPU train stage verifies the seal and trains without collection scans (root cancelled
     # 47095421 for idle GPUs during ~1 h of startup hashing). Startup allowance back to 1 h.
     hours = 1.0 + epochs * per_epoch * 10 / 3600 * 1.6
+    # 10-22 22:3x CDT, sized from sacct: sealed-prep trains run 3.2-3.4 s/update incl. startup (smc-k500-e32 4,000 updates
+    # 3:31, smc-k100-e64 1,600 updates 1:29); 3.5 s x 1.6 + 45 min (2-GPU K30 rungs: 7 s, twice the per-GPU work).
+    hours = 0.75 + epochs * per_epoch * (7.0 if n == 2 else 3.5) * 1.6 / 3600
     hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     prep = stage(f"{cell}-prep", "scripts/hpg_smartad.slurm", "--partition=hpg-milan --gpus=0 --cpus-per-task=8 --mem=32G",
                  "04:00:00", 0, e + ",SMARTAD_MODE=prepare", {"file": f"{GATES}/smartad_selected"})
@@ -518,7 +521,13 @@ def smc_cells():
     if SMC_LADDER_TREE is None:
         return paper
     ladder = {30: (2, 4, 8, 16, 32, 64, 128), 100: (2, 4, 8, 16, 32, 64), 300: (2, 4, 8, 16, 32), 500: (2, 4, 8, 16, 32)}
-    return paper + [smc_rung(k, e, "1e-4") for k in (500, 300, 100, 30) for e in sorted(ladder[k], reverse=True)]
+    lad = {k: [smc_rung(k, e, "1e-4") for e in sorted(ladder[k], reverse=True)] for k in ladder}
+    # 10-22 22:3x CDT: smc-k500-e32 (1e-4) fails the registered divergence check (L_last 4.79 vs L_min 0.10, collapse at
+    # epoch 7) -> pre-registered 5e-5 fallback for SmartAD K500 (as trajectory SFT / AD K500); its pending 1e-4 rungs are
+    # superseded in the keeper state. Order: the long K500 5e-5 e64 rung first, then K30 (2-GPU rungs fit the group
+    # account's free GPUs while 4-GPU rungs wait on the dept CPU QOS), K100, K300, the rest of K500.
+    fb500 = [smc_rung(500, e, "5e-5") for e in (64, 32, 16, 8, 4, 2)]
+    return paper + fb500[:1] + lad[30] + lad[100] + lad[300] + lad[500] + fb500[1:]
 
 
 def chain_cells():
