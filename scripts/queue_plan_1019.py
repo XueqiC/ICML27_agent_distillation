@@ -490,6 +490,10 @@ def smc_rung(k, epochs, lr):
     # trajectories, recipe.original_batch; only the data-parallel split changes). identity.json binds gpus -> fresh prep.
     if lr == "1e-4" and (k, epochs) in {(100, 32), (100, 16), (100, 8), (100, 4), (100, 2), (300, 16), (300, 4), (300, 2)}:
         n = 2
+    # 10-23 08:3x CDT: same reason for the K500 5e-5 fallback ladder: e16 (2,000 updates) runs on the 2-GPU lane beside the
+    # 4-GPU e64 -> e32 -> e8 -> e4 -> e2 sequence (~2 h earlier ladder decision). Its 4-GPU prep goes to _trash.
+    if lr == "5e-5" and (k, epochs) == (500, 16):
+        n = 2
     per_epoch = {30: 8, 100: 25, 300: 75, 500: 125}[k]
     # 10-22 00:2x CDT: smc-k30-e2 (47091127) timed out at 1:04 before its first update: the pipeline prepare phase alone
     # took ~52 min (61 GB read: collection + snapshot hashing), then rank-0 prepare_data. 3 h startup allowance.
