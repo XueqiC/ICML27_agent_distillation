@@ -17,6 +17,23 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 12:5x CDT 10-23 — user: finish ALL cells before the analysis; rerun every ~0 cell; diagnose the instability
+- User (Discord 11:55-12:15 CDT): convergence is a fairness device, performance + its analysis is the point; run everything
+  first, then analyse; cells at ~0 must be rerun; find whether instability comes from hyperparameters, method or trainer.
+- Interim performance report (14/16 converged + 16/16 paper): reports/analysis/main_grid_perf_1023/perf_report.md (+ figure).
+- Diagnosis (reports/engineering/training_instability_diagnosis_1023.md; inventory spike_inventory.{py,json}): hyperparameters,
+  not data / method / trainer bug. Same batch -> gnorm 3,710 in one rung vs 0.5-6 in the others (smc K300, identical order);
+  spikes in all 4 methods; 3-5-update runaway (gnorm x10-1000, then loss explodes); clip 1.0 active on every update;
+  spikes per 1k updates: LoRA 2e-4 2.1 (2/10 runs unrecovered), 1e-4 0.9 (2/33), 5e-5 0.1 (0/10); SAD 2e-5 0.8 (1/10).
+  Recovered training loss != recovered policy (adc K300 e32: loss 0.004, dev140 4/140).
+- Reruns (registered halve-lr fallback; annotated "lr halved after divergence"):
+  * paper tsft K100 -> tsft-k100-e2-lr1e-4 (LONI-trained, valid: epochs 0.3375 / 0.2097) copy -> hpg, eval.
+  * paper AD K500 -> adc-k500-e2-lr1e-4 (LONI-trained, valid: 0.3096 / 0.2243) copy -> hpg, eval (SAG). (adc-k500-e4-lr1e-4 on
+    LONI diverged in epoch 0: 2.59.)
+  * paper SAD K100 x1 -> lr 1e-5: Codex adds --learning-rate / SAD_LR on branch sadlr (from fb22f09); new cell + tree.
+  * converged AD K300 -> registered 5e-5 ladder e32/e16/e8/e4/e2 on hpg (plan 40455ad), 4 GPUs each.
+- SmartAD K30 e32 rerun with REFERENCE_DTYPE=float32 on tree fea3a8e (plan 40455ad; old OUT ->
+  _trash/smc-k30-e32-lr1e-4-eval-bf16ref-1023). max_jobs back to 10.
 ### 11:4x CDT 10-23 — user (Discord 11:42 CDT): "1选A,2可以" -> group cap 8 GPUs; SmartAD K30 fp32-reference diagnostic
 - Cap: plan limits max_gpus = max_group_gpus = 8 (generator e822529); installed plan has max_jobs 9 until the K30 rerun is
   settled (restore 10 after).
