@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:4x CDT 10-23 — AD row complete (K500 118/140); SmartAD K30 e32 blocked by the serving gate (asked the user)
+- adc-k500-e64-lr5e-5-eval 47241702: dev140 118/140, check passed. Converged AD row 109/107/4c/118.
+- smc-k30-e32-lr1e-4-eval 47241704 FAILED at the serving-equivalence gate (pooled 0.078 > 0.068, >0.5-count 14 > 11; each
+  prompt passes alone). Not a k_eq_v-type bug (error ~5% of effect, spread over prompts); likely bf16 serving error
+  amplified by a sharp adapter on off-training check prompts (tsft K30 view). Keeper cell blocked; OUT must go to _trash
+  before any rerun. Options sent to the user: (a) eval anyway + annotate, (b) fp32 HF reference diagnostic first, (c) N/A.
 ### 03:1x CDT 10-23 — AD K500 + SmartAD K30 converged, evals running; K100/K300 rungs -> 2 GPUs (plan 9ba549f)
 - adc-k500-e64-lr5e-5 train 47156075 COMPLETED 6:12: 64 epochs x 63 updates, L_last 0.00004 = L_min, no collapse; e32 L_last
   0.0003 -> delta < 0.01 -> AD K500 converged rung = 5e-5 e64. Eval gate opened -> adc-k500-e64-lr5e-5-eval 47241702 (SAG).
