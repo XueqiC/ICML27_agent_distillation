@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:1x CDT 10-23 — paper-column reruns: tsft K100 = 102, AD K500 = 102 (lr halved after divergence)
+- tsft-k100-e2-lr1e-4-eval 47299031: 102/140 (was 0/140 at lr 2e-4). adc-k500-e2-lr1e-4-eval 47299041: 102/140 (was 0/140).
+- sadc-k100-b1-lr1e-5: prep done (identity records lr 1e-05), train 47303363 (2 GPU) since 13:06 CDT (startup, ~3 h).
+- smc-k30-e32-lr1e-4-eval 47302386 (float32 reference, tree fea3a8e) since 12:59 CDT.
 ### 12:5x CDT 10-23 — user: finish ALL cells before the analysis; rerun every ~0 cell; diagnose the instability
 - User (Discord 11:55-12:15 CDT): convergence is a fairness device, performance + its analysis is the point; run everything
   first, then analyse; cells at ~0 must be rerun; find whether instability comes from hyperparameters, method or trainer.
