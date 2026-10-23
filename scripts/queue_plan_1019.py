@@ -12,6 +12,10 @@ from pathlib import Path
 
 B = "/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation"
 BL = f"{B}/reports/runs/baselines"
+# 10-22 20:3x CDT the 40G hpg $HOME filled up (29G vLLM compile cache); alfworld.info then failed with ENOSPC creating
+# ~/.cache/alfworld at import, and every episode of three evals ended in reset_error. All stages keep caches on /blue.
+OFF_HOME = (f"ALFWORLD_DATA={B}/../tools/alfworld-data-empty,VLLM_CACHE_ROOT={B}/../tools/vllm-cache,"
+            f"TRITON_CACHE_DIR={B}/../tools/triton-cache,VLLM_NO_USAGE_STATS=1")
 SECRETS = "/blue/fsu-compsci-dept/xc25.fsu/hq/secrets/openai.env"
 COLLECTOR_PID = 228787  # rai full-TRAIN teacher collection; old trees have no 429 retry, so their teacher stages wait
 T1 = "625f6a9"   # batch 1
@@ -640,6 +644,9 @@ def main():
     for c in cells:
         c["hold"] = True
     cells = chain_cells() + cells
+    for c in cells:
+        for st in c["stages"]:
+            st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)
     # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
     # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
     # 19:3x CDT: pending GPUs do not consume the QOS; 36 lets SAD trains queue behind the trajectory-SFT rungs.
