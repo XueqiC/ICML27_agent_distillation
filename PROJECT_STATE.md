@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:2x CDT 10-23 — SmartAD K30 e32: float32-reference gate also failed (0.067 > 0.061) -> N/A per pre-registration
+- Mean only (count rule passes 8 <= 11). vLLM bit-identical across runs; HF bf16 is further from fp32 (0.078) than vLLM is
+  (0.067): bf16 sensitivity of a sharp adapter, not a serving bug. Asked the user: keep N/A (rule) or evaluate + annotate
+  (needs a registered gate override in the eval path). Keeper cell blocked by the FAILED eval.
 ### 13:1x CDT 10-23 — paper-column reruns: tsft K100 = 102, AD K500 = 102 (lr halved after divergence)
 - tsft-k100-e2-lr1e-4-eval 47299031: 102/140 (was 0/140 at lr 2e-4). adc-k500-e2-lr1e-4-eval 47299041: 102/140 (was 0/140).
 - sadc-k100-b1-lr1e-5: prep done (identity records lr 1e-05), train 47303363 (2 GPU) since 13:06 CDT (startup, ~3 h).
