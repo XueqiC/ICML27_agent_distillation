@@ -380,6 +380,7 @@ def sadc(k, mult):
 
 
 SAD_EVAL_TREE = "b9f9a80"
+FP32REF_TREE = "fea3a8e"
 
 
 
@@ -524,6 +525,11 @@ def smc_rung(k, epochs, lr):
                f"ADAPTERS={cell}={adapter},TASKS=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/{CHAIN_TREE}/data/manifest/"
                f"dev140.json,DECODING=greedy,INCLUDE_BASE=0,OUT={B}/reports/runs/eval/chain/{cell},VERIFIED={chain_view(k)},"
                f"WORKERS=16,BATCH_INVARIANT=1", {"file": f"{GATES}/eval_{cell}"})
+    # 10-23 12:5x CDT (user chose option A): the K30 e32 serving gate failed against the bf16 HF reference (0.078 > 0.068);
+    # rerun the same gate against a float32 HF reference (tree fea3a8e = 20cb697 + --reference-dtype; gate rule unchanged).
+    if cell == "smc-k30-e32-lr1e-4":
+        ev["tree"] = FP32REF_TREE
+        ev["exports"] += ",REFERENCE_DTYPE=float32"
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [prep, train, ev]}
 
 
@@ -586,7 +592,10 @@ def chain_cells():
         # 10-21 17:2x CDT: the long AD K500 5e-5 rungs also get an hpg train stage (~6x faster than LONI A100s).
         if c["cell"] not in ("adc-k500-e64-lr5e-5", "adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5", "tsft-k500-e64-lr5e-5", "tsft-k500-e32-lr5e-5",
                              "tsft-k300-e64-lr5e-5", "tsft-k300-e32-lr5e-5", "adc-k100-e64-lr5e-5", "tsft-k100-e64-lr5e-5",
-                             "adc-k300-e32-lr5e-5"):
+                             "adc-k300-e32-lr5e-5", "adc-k300-e16-lr5e-5", "adc-k300-e8-lr5e-5", "adc-k300-e4-lr5e-5",
+                             "adc-k300-e2-lr5e-5"):
+            # 10-23 12:5x CDT: user: cells that scored ~0 are rerun -> AD K300 (1e-4 e32 collapsed, 4/140) runs the
+            # registered 5e-5 ladder on hpg (LONI no longer trains): e16/e8/e4/e2 get hpg train stages too.
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
     adc += fb
     # 20:1x CDT: SAD K100-K500 hit 5 teacher replies (of 9,181 in K500) that the H0 parser rejected ("...Action:"
