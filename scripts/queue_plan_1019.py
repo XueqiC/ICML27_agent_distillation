@@ -659,7 +659,10 @@ def main():
     # max_gpus counts pending jobs too: 20 lets 1-GPU evals pass while SAD trains wait on the dept QOS.
     # User 10-20 14:29 CDT: SAD first, then AD-FTP/SmartAD to 15/15 -> low priority shrinks to 2 jobs / 4 GPUs.
     # 19:3x CDT: pending GPUs do not consume the QOS; 36 lets SAD trains queue behind the trajectory-SFT rungs.
-    plan = {"limits": {"max_jobs": 10, "max_gpus": 36, "max_group_gpus": 6, "max_lowprio_jobs": 0,
+    # 10-23 00:3x CDT: the dept QOS's 128 CPUs are held by other users' CPU-only jobs with 1-9 days left, and our dept
+    # trains pended in QOSGrpCpuLimit while holding 8 of the 10 job slots. max_gpus = max_group_gpus sends every GPU
+    # stage to the group account (a stage that does not fit the group allowance now waits instead of going to dept).
+    plan = {"limits": {"max_jobs": 10, "max_gpus": 6, "max_group_gpus": 6, "max_lowprio_jobs": 0,
                        "max_lowprio_gpus": 0}, "cells": cells}
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
