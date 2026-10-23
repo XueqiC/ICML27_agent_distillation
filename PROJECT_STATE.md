@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:3x CDT 10-22 — SmartAD K500 -> 5e-5 fallback; queue reorder (plan 4329053); LONI not used for SmartAD
+- SmartAD ladder (hpg, L_last = last complete epoch token-mean): K300 e8 0.1016, e32 0.0001 (valid; collapse at ep6, annotated);
+  K500 e8 0.0686 valid, e32 4.7861 INVALID (L_min 0.1012, collapse at ep7) -> pre-registered 5e-5 fallback for SmartAD K500:
+  cells smc-k500-e{64,32,16,8,4,2}-lr5e-5 added; pending 1e-4 K500 e2/e4/e16 (47199126, 47160590, 47158097) cancelled +
+  superseded in state. K100 e64 (1e-4) done (L_last 0.0000, collapse flag at ep2).
+- Bottleneck = queue, not compute: sealed-prep trains 3.2-3.4 s/update (K500 e32 3:31; K100 e64 1:29) while 4-GPU dept jobs sit
+  in QOSGrpCpuLimit; group account (yd24f) had only our adc-k500-e64 (4 GPUs) -> 2 free GPUs under our 6-GPU cap = K30's
+  2-GPU rungs. Order now: K500 5e-5 e64, K30 ladder, K100, K300, K500 rest. smc time limits resized (3.5 s/update x 1.6
+  + 45 min; 2-GPU 7 s).
+- LONI for SmartAD dropped (told the user it was the plan at 22:2x): LONI A100 runs 25-45 s/update vs 3.3 s on hpg, and the
+  SmartAD selected collection lives only on hpg (LONI file quota 3.53M/4M). SmartAD idle guard re-armed (pid 2470694).
 ### 22:1x CDT 10-22 — SAD row complete; SmartAD paper-recipe column complete
 - Reruns after the off-home fix all clean (0 error episodes, serving checks passed): SAD K500 x2 (converged rung, full-parameter,
   greedy) 116/140; SmartAD paper recipe (2e-4, 2 epochs, greedy) K300 96/140, K100 87/140.
