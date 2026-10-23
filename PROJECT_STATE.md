@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:3x CDT 10-23 — AD K500 + SmartAD K30 converged, evals running; K100/K300 rungs -> 2 GPUs (plan 9ba549f)
+- adc-k500-e64-lr5e-5 train 47156075 COMPLETED 6:12: 64 epochs x 63 updates, L_last 0.00004 = L_min, no collapse; e32 L_last
+  0.0003 -> delta < 0.01 -> AD K500 converged rung = 5e-5 e64. Eval gate opened -> adc-k500-e64-lr5e-5-eval 47241702 (SAG).
+- SmartAD K30 1e-4 ladder L_last: e2 0.1490, e4 0.1190, e8 0.0620, e16 0.0086, e32 0.0001, e64 0.0000 (collapse flag ep11),
+  e128 0.0000. First pair with delta < 0.01 = e16->e32 (0.0085) -> converged rung e32 (valid, no collapse); eval gate
+  opened -> smc-k30-e32-lr1e-4-eval 47241704 (greedy). 2-GPU K30 trains took 3-60 min each.
+- smc-k500-e64-lr5e-5-train 47239796 RUNNING since 02:51 CDT (yd24f, 4 GPU, 8,000 updates, ~7 h).
+- Untrained SmartAD K100 (e32/e16/e8/e4/e2) and K300 (e16/e4/e2) 1e-4 rungs moved to 2 GPUs (global batch b'=4 unchanged,
+  same as K30); their 4-GPU preps (identity gpus=4) -> _trash/smc_prep_4gpu_1023 on hpg, preps rerun (state.bak.k100k300_2gpu).
+  Done 4-GPU rungs (K100 e64, K300 e8/e32) keep their 4-GPU training.
 ### 00:2x CDT 10-23 — GPU stages group-only (plan 463450e); 8 stuck dept trains withdrawn
 - dept QOS 127/128 CPUs held by other users' CPU-only jobs (rx21a 64, lz23b 50; 1-9 days left; first 8 CPUs free ~06:45 CDT).
   Our 8 dept trains (smc-k300-e16/e4/e2, smc-k100-e32/e16, smc-k30-e64/e32, smc-k500-e64-lr5e-5) pended in QOSGrpCpuLimit
