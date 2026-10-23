@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:3x CDT 10-23 — hpg down again (SSH hangs from 15:19 CDT, ControlMaster lost ~15:3x); one notice sent 15:33
+- On hpg at the time: adc-k300-e32-lr5e-5-train 47325624 (4 GPU, since 15:16 CDT), smc-k500-e32-lr5e-5-eval 47325633
+  (since 15:16), sadc-k100-b1-lr1e-5-train 47303363. On recovery: read the smc K500 eval, check the SAD loss, open its gate.
+- Note: paper-column tsft K30 = 10/140 is NOT a divergence (loss 0.87 -> 0.35 smooth, 20 updates): undertrained, keep as is.
 ### 15:2x CDT 10-23 — tunnel down 13:41-15:14 CDT; SmartAD K500 5e-5 converged at e32, eval gate opened
 - hpg tunnel lost 13:41 CDT (banner-exchange timeout), back 15:14 CDT; one notice sent 14:16. Jobs unaffected.
 - smc K500 5e-5 ladder all trained: L_last e2 .1541, e4 .1237, e8 .0718, e16 .0030 (collapse flag ep8), e32 .0001, e64 .0000.
