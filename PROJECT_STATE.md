@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:2x CDT 10-23 — tunnel down 13:41-15:14 CDT; SmartAD K500 5e-5 converged at e32, eval gate opened
+- hpg tunnel lost 13:41 CDT (banner-exchange timeout), back 15:14 CDT; one notice sent 14:16. Jobs unaffected.
+- smc K500 5e-5 ladder all trained: L_last e2 .1541, e4 .1237, e8 .0718, e16 .0030 (collapse flag ep8), e32 .0001, e64 .0000.
+  e16->e32 delta .0029 < .01 -> converged, report e32 (no collapse flag). Adapter + complete.json present, OUT absent ->
+  gate eval_smc-k500-e32-lr5e-5 opened (greedy, tree 20cb697).
+- sadc-k100-b1-lr1e-5-train 47303363 still running (2 GPU). AD K300 5e-5 ladder (4 GPU each) waits for the keeper (backoff <= 15 min).
+- SmartAD K30 e32: still awaiting the user's A/B.
 ### 13:2x CDT 10-23 — SmartAD K30 e32: float32-reference gate also failed (0.067 > 0.061) -> N/A per pre-registration
 - Mean only (count rule passes 8 <= 11). vLLM bit-identical across runs; HF bf16 is further from fp32 (0.078) than vLLM is
   (0.067): bf16 sensitivity of a sharp adapter, not a serving bug. Asked the user: keep N/A (rule) or evaluate + annotate
