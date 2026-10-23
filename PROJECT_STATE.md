@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 20:3x CDT 10-22 — hpg $HOME full -> three evals reset_error; fixed (plan 8a6f26f)
+- hpg /home/xc25.fsu 40G/40G (29G = ~/.cache/vllm/torch_compile_cache, written by every vLLM start; full at ~19:34 CDT).
+  alfworld.info mkdirs ~/.cache/alfworld at import -> on compute nodes OSError [Errno 28] (reproduced via srun --overlap in
+  47201466; the login node does not hit it) -> every dev140 episode reset_error, 0 steps: sadc-k500-b2-eval 47197395,
+  smc-k300-e2-lr2e-4-eval 47199950, smc-k100-e2-lr2e-4-eval 47200835 (not model results).
+- Fix: every keeper stage exports ALFWORLD_DATA=hq/tools/alfworld-data-empty, VLLM_CACHE_ROOT=hq/tools/vllm-cache,
+  TRITON_CACHE_DIR=hq/tools/triton-cache, VLLM_NO_USAGE_STATS=1 (all on /blue); verified 6/6 resets in a job. Failed smc
+  eval outputs -> _trash/eval_reset_error_1022; the three cells unblocked (SAD eval resumes as attempt-001).
+- hpg home itself still full (outside the authorized paths; shared by every session): ASKED the user to let ctl clear the
+  vLLM compile cache.
+- SmartAD paper recipe K500 (smc-k500-e2-lr2e-4, 2e-4, 2 epochs, greedy) dev140 112/140 (80.0%), passed the serving check.
 ### 19:0x CDT 10-22 — back after a ~5 h usage-limit pause (13:5x-19:02 CDT); LONI cold move started
 - Pause: no monitoring or replies 13:5x-19:02 CDT. In that window hpg finished smc-k500-e32 train and several smc preps;
   SAD K500 x2 eval never ran (SAD cells behind the SmartAD ladder at the 10-job cap) -> plan 2b75f6d: SAD before SmartAD,
