@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 03:3x CDT 10-23 — AD K500 + SmartAD K30 converged, evals running; K100/K300 rungs -> 2 GPUs (plan 9ba549f)
+### 03:1x CDT 10-23 — AD K500 + SmartAD K30 converged, evals running; K100/K300 rungs -> 2 GPUs (plan 9ba549f)
 - adc-k500-e64-lr5e-5 train 47156075 COMPLETED 6:12: 64 epochs x 63 updates, L_last 0.00004 = L_min, no collapse; e32 L_last
   0.0003 -> delta < 0.01 -> AD K500 converged rung = 5e-5 e64. Eval gate opened -> adc-k500-e64-lr5e-5-eval 47241702 (SAG).
 - SmartAD K30 1e-4 ladder L_last: e2 0.1490, e4 0.1190, e8 0.0620, e16 0.0086, e32 0.0001, e64 0.0000 (collapse flag ep11),

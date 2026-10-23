@@ -485,7 +485,7 @@ def smc_rung(k, epochs, lr):
     teacher candidates at T=1.0 may hold empty replies)."""
     cell = f"smc-k{k}-e{epochs}-lr{lr}"
     n = 2 if k == 30 else 4
-    # 10-23 03:3x CDT: with GPU stages group-only (6 GPUs) the K500 5e-5 e64 train holds 4 and the 4-GPU K100/K300 rungs
+    # 10-23 03:1x CDT: with GPU stages group-only (6 GPUs) the K500 5e-5 e64 train holds 4 and the 4-GPU K100/K300 rungs
     # would wait ~7 h beside 2 idle GPUs. The untrained K100/K300 rungs run on 2 GPUs like K30 (global batch stays b' = 4
     # trajectories, recipe.original_batch; only the data-parallel split changes). identity.json binds gpus -> fresh prep.
     if lr == "1e-4" and (k, epochs) in {(100, 32), (100, 16), (100, 8), (100, 4), (100, 2), (300, 16), (300, 4), (300, 2)}:
