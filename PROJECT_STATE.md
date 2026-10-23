@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:0x CDT 10-22 — back after a ~5 h usage-limit pause (13:5x-19:02 CDT); LONI cold move started
+- Pause: no monitoring or replies 13:5x-19:02 CDT. In that window hpg finished smc-k500-e32 train and several smc preps;
+  SAD K500 x2 eval never ran (SAD cells behind the SmartAD ladder at the 10-job cap) -> plan 2b75f6d: SAD before SmartAD,
+  one pending smc train cancelled to free a slot.
+- LONI cold move (user: A + "直接走RAI吧"): scripts/ops/loni_cold_move.sh pid 2017009 (throttle 4 MB/s via
+  scripts/ops/throttle_pipe.py; per dir: tar LONI -> rai -> hpg /orange/yd24f.fsu/xc25.fsu/tc-cold/loni_20261022, verify
+  count + bytes + sha256 of the largest file per immediate subdir, then rm the LONI source; resumable via
+  logs/loni_cold_move.done; log logs/loni_cold_move.log). Tested on tc-rtd-alf-projection-jsonfix-20260920 (verified, deleted).
+  ~2.9 TB at 4 MB/s ~ 8-9 days (deadline: LONI purge eligibility ~Nov 11).
 ### 13:5x CDT 10-22 — LONI cold-move list
 - Move list reports/engineering/loni_cold_move_list_1022.txt: 73 hq/ dirs (2,257 GB, 775k files) + hq/tc-alignment/results
   (610 GB) = ~2.9 TB (corrected from 2.2 TB in the channel). Keep: ICML27_data, ICML27_runs, tc-alignment (.venv, .venv-fla,
