@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:2x CDT 10-24 — tunnel back; tsft K500 s1/s2 trained (both valid, s1 = c); their evals running
+- Tunnel down 10:01 to ~14:54 CDT (keeper SSH_FAIL; one notice 10:15). Submitted jobs unaffected; keeper resumed 14:54 CDT.
+- tsft-k500-e64-lr5e-5-s1-train 47473037 COMPLETED 15:11 CDT (6:21 h): L_last 3.7e-5 = L_min -> valid; collapse flags
+  ep 2 (0.687 vs 0.268) and ep 11-13 (0.22/0.51/0.61, gmax 458,617 at ep 12), recovered by ep 14 -> kept, marked c.
+  s2 47473038 COMPLETED 15:07 CDT (6:10 h): L_last 1.65e-5 valid, no flag (seed 0: 1.86e-5, no flag).
+- Running: evals 47516235 (s2), 47516706 (s1), 1 B200 each; tsft-k30-e64-lr5e-5-s1-train 47516238 (2 B200, started 15:11);
+  PENDING adc-k500-e64-lr5e-5-s1-train 47516734 (4 B200). SmartAD preps: 10 done; k100/k30 e2 s1/s2 running (CPU).
+- hpg $HOME is 100% full (40G/40G; ~/.cache/vllm 29G, last write 10-22). Our evals compile-cache under /blue
+  tools/vllm-cache (server.log checked) -> not affecting us; $HOME not authorized -> left to the control plane / user.
+
 ### 09:3x CDT 10-24 — seed 1/2 cells all queued (48 trainings + 48 evals); first runs verified
 - Trees: tsft c6b15b2; AD e6459b9 (seed-ad, 23 new tests); SmartAD 4f5a138 (seed-smc, 252 tests incl. seal binding). Both hpg
   trees verified by file count + bytes (1,259 / 93,636,659 B; 1,274 / 93,868,494 B). Gates seed_ad_ready, seed_smc_ready open.
