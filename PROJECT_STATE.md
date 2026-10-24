@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:4x CDT 10-24 — AD K300 converged rung = e64 (5e-5); eval gate opened
+- adc-k300-e64-lr5e-5-train 47396738 COMPLETED 02:39 CDT. L_last e32 .0009 -> e64 .0000 (delta < .01) -> converged, report e64; no collapse flag at e64.
+- Gate logs/queue/gates/eval_adc-k300-e64-lr5e-5 opened 02:40 CDT (SAG decoding, eval tree 20cb697, ~25 min). Last cell (32/32); then the full analysis
+  (AD_K300=adc-k300-e64-lr5e-5 analyze.py, AD_K300_COLLAPSE=0 fig.py, failure_modes.py incl. the new cell).
+
 ### 01:1x CDT 10-24 — SmartAD K30 converged = 93/140 (serving gate overridden, user option B); 31/32 cells in
 - smc-k30-e32-lr1e-4-eval 47412779: 93/140; check/OVERRIDDEN + override.json recorded; summary.json carries serving_gate_override.
   Measurement identical to the fp32 diagnostic (0.0672 vs tol 0.061). Table marks it ‡.
