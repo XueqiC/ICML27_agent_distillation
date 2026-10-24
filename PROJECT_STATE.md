@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 18:3x CDT 10-24 — final-figure script with teacher line (user 18:10 "在图上画出来teacher的表现，作为依据")
+- reports/analysis/main_grid_seeds/: seed_scores.py (hpg; per-seed solved sets, conv + paper, SAD one run) -> seed_scores.json;
+  fig_seeds.py -> baseline_perf_seeds.png: converged column, 4 lines = seed means, open circles = single seeds, teacher
+  gpt-6-luna 114 (one run, verified 114/140 from teacher140 per_task.tsv) + base 62 as reference lines. Rerun both as seeds land.
+- tsft-k30-e64-lr5e-5-s1 47516238 / -s2 47520028 COMPLETED 17:05 CDT: both valid (L_last ~0); collapse flags s1 ep28, s2 ep11,
+  recovered -> c. Their evals wait: group GPU cap 8 full (our adc-k500 s1 4 B200 + yd26 4 RTX6000), dept 127/128 CPU, 22/24 GPU.
+  adc-k500-e64-lr5e-5-s2 47540378 PENDING (QOSGrpGRES).
+- Tunnel: second outage ~16:16 to ~18:0x CDT (notice 16:21); back (user 18:10).
+
 ### 16:2x CDT 10-24 — first seed cell done: tsft K500 converged = 122 / 125 / 120 (s0/s1/s2), mean 122.3
 - Evals 47516706 (s1) 125/140, 47516235 (s2) 120/140; serving check passed; adapters = own seed's attempt-000 checkpoint;
   0 error/truncated/overflow. Paired vs s0: s1 +6/-3, s2 +4/-6. Per task: 115 solved 3/3, 7 2/3, 8 1/3, 10 0/3
