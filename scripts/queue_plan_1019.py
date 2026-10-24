@@ -7,6 +7,7 @@ cell at a time. Cells already started keep the tree they started on, because eve
 identity. Usage: queue_plan_1019.py OUT_DIR  (writes OUT_DIR/plan.json and, the first time, the seed state.json).
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -636,6 +637,64 @@ def chain_cells():
     # 10-23 20:2x CDT: the SAD K100 rerun eval (1 GPU) goes ahead of the 4-GPU AD K300 rungs.
     return tsft + sadlr + adc + sel + sad1 + sad05 + sad025 + smc_cells()
 
+# ---- 10-24: training seeds 1, 2 of the main grid (user 08:32 CDT "可以按照你建议的来") ----
+# Each reported seed-0 cell is retrained at its reported rung and lr (no ladder) with only the training seed changed
+# (LoRA init, dropout stream, epoch sampler order); same data views, GPUs, recipe and evaluation. Every seed run is
+# evaluated. SAD is not retrained: full-parameter (no random init), fixed ascending-complexity curriculum, no active
+# dropout (dropout_equivalence "exact") -> its training does not depend on the seed.
+SEED_AD_TREE = None    # c6b15b2 + AD --training-seed (branch seed-ad), set once verified on hpg
+SEED_SMC_TREE = None   # e599953 + SmartAD --training-seed (branch seed-smc), set once verified on hpg
+SEED_RUNGS = [  # (method, K, epochs, lr) of the reported seed-0 cell; lr None = paper recipe 2e-4
+    ("tsft", 500, 64, "5e-5"), ("adc", 500, 64, "5e-5"), ("tsft", 300, 64, "1e-4"), ("adc", 300, 64, "5e-5"),
+    ("smc", 500, 32, "5e-5"), ("smc", 300, 32, "1e-4"), ("tsft", 100, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
+    ("smc", 100, 64, "1e-4"), ("tsft", 30, 64, "5e-5"), ("adc", 30, 64, "1e-4"), ("smc", 30, 32, "1e-4"),
+    ("tsft", 500, 2, None), ("adc", 500, 2, "1e-4"), ("tsft", 300, 2, None), ("adc", 300, 2, None),
+    ("smc", 500, 2, "2e-4"), ("smc", 300, 2, "2e-4"), ("tsft", 100, 2, "1e-4"), ("adc", 100, 2, None),
+    ("smc", 100, 2, "2e-4"), ("tsft", 30, 2, None), ("adc", 30, 2, None), ("smc", 30, 2, "2e-4")]
+SEED_VAR = {"tsft": "KANG_TRAINING_SEED", "adc": "ADFTP_TRAINING_SEED", "smc": "SMARTAD_TRAINING_SEED"}
+
+
+def seed_cell(method, k, epochs, lr, seed):
+    """Training seed `seed` of a reported seed-0 cell. Paper-recipe trajectory SFT / AD cells (seed 0 on 20cb697, partly
+    LONI) are built with the explicit 2e-4 / warmup-0 overrides of c6b15b2, which give the same trainer argv and recipe as
+    the 20cb697 defaults, and the sacct-based LoRA sizes."""
+    if method == "smc":
+        c = smc_rung(k, epochs, lr)
+        name0 = c["cell"]
+    else:
+        c = lora_rung(method, k, epochs, lr=lr or "2e-4")
+        name0 = f"{method}-k{k}-e{epochs}" + (f"-lr{lr}" if lr else "")
+    old, new = c["cell"], f"{name0}-s{seed}"
+    pat = re.compile(rf"(?<=[/=]){re.escape(old)}(?=[/=,]|$)")
+    for st in c["stages"]:
+        st["name"] = new + st["name"][len(old):]
+        e = pat.sub(new, st["exports"])
+        e = re.sub(r"attempt-\d{3}/output/checkpoint", "attempt-000/output/checkpoint", e)   # fresh run: first attempt
+        e = ",".join(x for x in e.split(",") if not x.startswith(("REFERENCE_DTYPE=", "SERVING_GATE_OVERRIDE_")))
+        assert not pat.search(e), (new, e)
+        if st["name"].endswith("-eval"):
+            st.pop("gate", None)   # every seed run is evaluated (no rung decision)
+            st["tree"] = CHAIN_TREE
+        else:
+            e += f",{SEED_VAR[method]}={seed}"
+            if method == "tsft":
+                st["tree"] = LADDER_TREE
+            elif method == "adc":
+                st["tree"] = SEED_AD_TREE
+                st["gate"] = {"file": f"{GATES}/seed_ad_ready"}
+            else:
+                st["tree"] = SEED_SMC_TREE
+                st["gate"] = {"file": f"{GATES}/seed_smc_ready"}
+        st["exports"] = e
+    c["cell"] = new
+    return c
+
+
+def seed_cells():
+    ready = {"tsft": True, "adc": SEED_AD_TREE is not None, "smc": SEED_SMC_TREE is not None}
+    return [seed_cell(m, k, e, lr, s) for m, k, e, lr in SEED_RUNGS if ready[m] for s in (1, 2)]
+
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -688,7 +747,7 @@ def main():
     # the papers' fixed epochs and are not converged); running jobs were cancelled.
     for c in cells:
         c["hold"] = True
-    cells = chain_cells() + cells
+    cells = seed_cells() + chain_cells() + cells
     for c in cells:
         for st in c["stages"]:
             st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)

@@ -17,6 +17,25 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:5x CDT 10-24 — PRE-REGISTERED: training seeds 1, 2 of the main grid (user 08:32 CDT "可以按照你建议的来")
+- Seed = training seed only: LoRA init, dropout stream, epoch sampler order. Same K views, data (AD-FTP / SmartAD pools),
+  reported rung (epochs) and lr of each seed-0 cell, GPU count, recipe, eval tree/decoding. No ladder; every seed run is evaluated.
+- Cells: 12 converged + 12 paper-recipe LoRA cells (tsft/AD/SmartAD) x seeds 1, 2 = 48 trainings + 48 evals. Paper tsft/AD
+  cells use c6b15b2 with explicit lr 2e-4 / warmup 0 (same trainer argv + recipe as the 20cb697 defaults of seed 0).
+- SAD is NOT retrained: full-parameter (no random init), fixed ascending-complexity curriculum, no active dropout
+  (seed-0 result dropout_equivalence "exact") -> training does not depend on the seed; table notes "SAD: eval noise only".
+- Trees: tsft c6b15b2 (KANG_TRAINING_SEED exists); AD c6b15b2 + --training-seed (branch seed-ad); SmartAD e599953 +
+  --training-seed + fsdp_train SmartAD seed check relaxed (branch seed-smc). Seed 0 default byte-identical (tests).
+- Fallback (as seed 0): training INVALID (L_last > max(1.1 L_min, L_min + 0.02)) or dev140 <= 5/140 -> that seed is rerun once
+  with lr halved. Collapse-and-recover runs are kept and marked c. SmartAD K30 serving gate fails on tolerance -> same as seed 0
+  (float32 reference, then recorded override per the user's option B), marked ‡.
+- Reporting (user 08:38): per cell mean over seeds 0-2 (+ min-max); final figure = converged column only, one line per method
+  (4 lines), each the seed mean. Paired comparisons on per-task success averaged over seeds.
+- Analysis goal (user 08:34): convergence is only the measurement condition; analyses must yield pain points a NEW
+  agent-distillation method should fix. Experiments as parallel as possible (08:36).
+- Capacity 08:5x CDT: group yd24f 8 B200 free (nobody running); dept QOS CPUs 123/128 held by others' multi-day CPU jobs ->
+  dept effectively closed; ~300 GPU-h on 8 GPUs -> ~1.5 days.
+
 ### 08:0x CDT 10-24 — user asked: cost of 2 more seeds, reuse converged rungs? (answered, awaiting seed-type choice)
 - Estimate from seed-0 sacct: per seed ~200 GPU-h (converged trains ~165, paper trains ~27, 30 evals ~12); 2 seeds ~400 GPU-h,
   ~2 days on group 8 GPUs, ~1-1.5 days with dept GPUs; longest job ~6.3 h (tsft/AD K500 e64, 4 B200); +10-20% for lr-halved reruns.
