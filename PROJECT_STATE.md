@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:0x CDT 10-23 — SAD K100 paper = 104/140 (lr halved); paper column complete (16/16)
+- sadc-k100-b1-lr1e-5-eval 47392746: 104/140 (was 0). Paper column: tsft 10/102†/109/108, AD 73/95/84/102†, SAD 49/104†/127/123,
+  SmartAD 77/87/96/112 († = lr halved after divergence).
+- AD K300 5e-5 ladder: e8 + e4 trained (22:24 / 22:50 CDT); e64 train 47396738 since 22:50 CDT (~4.4 h); e2 47398117 since 23:00.
+- Converged column missing: AD K300 (e64 + eval, ETA ~03:30 CDT 10-24), SmartAD K30 (user A/B).
 ### 21:3x CDT 10-23 — tunnel back by 21:14 CDT; AD K300 5e-5: e16->e32 not converged -> e64 rung; SAD K100 eval next
 - adc-k300 5e-5: e16 L_last .0456, e32 .0009 (delta .045) -> e64 added (plan 423139e; 4 GPU, ~4.4 h). e32 shows a one-epoch blip
   at ep6 (.161 -> .494 -> .156; collapse flag raised) unlike 1e-4 (.214 -> 5.02, 25 epochs to recover, 4/140).
