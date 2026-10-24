@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 18:3x CDT 10-24 — user asked why students beat the teacher / normal in papers / success-only? (answered)
+- reports/analysis/main_grid_seeds/student_vs_teacher.md. Teacher TRAIN pass@1 80.3% (= dev 81.4%), pass@3 87.2%; all 1,674 failed
+  teacher attempts hit the 40-step cap; 35% of first-attempt failures solved on retry. Significant vs teacher only tsft K500 s1
+  (p=.003) and SAD K300 (p=.004). All 4 baselines train on successes only (code checked). SmartAD paper Table 2 reports no teacher score.
+- Offered again: 2 more teacher runs on dev140 -> dev pass@3 reference line (awaiting user).
+
 ### 18:3x CDT 10-24 — final-figure script with teacher line (user 18:10 "在图上画出来teacher的表现，作为依据")
 - reports/analysis/main_grid_seeds/: seed_scores.py (hpg; per-seed solved sets, conv + paper, SAD one run) -> seed_scores.json;
   fig_seeds.py -> baseline_perf_seeds.png: converged column, 4 lines = seed means, open circles = single seeds, teacher
