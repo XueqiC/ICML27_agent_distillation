@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:3x CDT 10-24 — seed 1/2 cells all queued (48 trainings + 48 evals); first runs verified
+- Trees: tsft c6b15b2; AD e6459b9 (seed-ad, 23 new tests); SmartAD 4f5a138 (seed-smc, 252 tests incl. seal binding). Both hpg
+  trees verified by file count + bytes (1,259 / 93,636,659 B; 1,274 / 93,868,494 B). Gates seed_ad_ready, seed_smc_ready open.
+- Plan v13 (d5d0702): 48 seed cells, longest first; limits unchanged (10 jobs, 8 group GPUs; dept CPU QOS full).
+- RUNNING: tsft-k500-e64-lr5e-5-s1-train 47473037 + -s2 47473038 (4 B200 each, ~6.3 h, ETA ~15:15 CDT); s1 identity
+  recipe training_seed 1, lr 5e-5, warmup 0, epochs 64 (checked). SmartAD CPU preps fill the remaining job slots.
+- Sent: method pain-point analysis (reports/analysis/main_grid_perf_1024/method_painpoints.md, c389fe7).
+- User 08:48: finish 12B first (no E4B pilot meanwhile); E4B full grid estimated 150-200 GPU-h, 1-1.5 days, later.
+
 ### 08:5x CDT 10-24 — PRE-REGISTERED: training seeds 1, 2 of the main grid (user 08:32 CDT "可以按照你建议的来")
 - Seed = training seed only: LoRA init, dropout stream, epoch sampler order. Same K views, data (AD-FTP / SmartAD pools),
   reported rung (epochs) and lr of each seed-0 cell, GPU count, recipe, eval tree/decoding. No ladder; every seed run is evaluated.
