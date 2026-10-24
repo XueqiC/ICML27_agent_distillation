@@ -381,6 +381,7 @@ def sadc(k, mult, lr=None):
 
 SAD_EVAL_TREE = "b9f9a80"
 FP32REF_TREE = "fea3a8e"
+OVERRIDE_TREE = "8b47413"   # fea3a8e + recorded per-adapter serving-gate tolerance override (SERVING_GATE_OVERRIDE_*)
 
 
 
@@ -527,9 +528,16 @@ def smc_rung(k, epochs, lr):
                f"WORKERS=16,BATCH_INVARIANT=1", {"file": f"{GATES}/eval_{cell}"})
     # 10-23 12:5x CDT (user chose option A): the K30 e32 serving gate failed against the bf16 HF reference (0.078 > 0.068);
     # rerun the same gate against a float32 HF reference (tree fea3a8e = 20cb697 + --reference-dtype; gate rule unchanged).
+    # 10-24 00:2x CDT: the float32-reference gate failed too (0.067 > 0.061); user chose option B (Discord 00:24 CDT,
+    # "可以按照你倾向的来"): evaluate with a recorded override of the tolerance verdict only (identity checks kept),
+    # annotated in the table.
     if cell == "smc-k30-e32-lr1e-4":
-        ev["tree"] = FP32REF_TREE
-        ev["exports"] += ",REFERENCE_DTYPE=float32"
+        ev["tree"] = OVERRIDE_TREE
+        ev["exports"] += (",REFERENCE_DTYPE=float32,SERVING_GATE_OVERRIDE_ADAPTER=smc-k30-e32-lr1e-4"
+                          ",SERVING_GATE_OVERRIDE_REASON=user_option_B_discord_1563422934167461943_bf16_sensitivity_"
+                          "of_sharp_adapter_vLLM_closer_to_fp32_than_HF_bf16"
+                          ",SERVING_GATE_OVERRIDE_APPROVED_BY=xueqi118_discord"
+                          ",SERVING_GATE_OVERRIDE_APPROVED_AT=2026-10-24T00:24-05:00")
     return {"cell": cell, "tree": CHAIN_TREE, "stages": [prep, train, ev]}
 
 
