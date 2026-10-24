@@ -652,6 +652,11 @@ SEED_RUNGS = [  # (method, K, epochs, lr) of the reported seed-0 cell; lr None =
     ("smc", 500, 2, "2e-4"), ("smc", 300, 2, "2e-4"), ("tsft", 100, 2, "1e-4"), ("adc", 100, 2, None),
     ("smc", 100, 2, "2e-4"), ("tsft", 30, 2, None), ("adc", 30, 2, None), ("smc", 30, 2, "2e-4")]
 SEED_VAR = {"tsft": "KANG_TRAINING_SEED", "adc": "ADFTP_TRAINING_SEED", "smc": "SMARTAD_TRAINING_SEED"}
+# 10-24 18:4x CDT: rungs whose seed-0 training ran on LONI A100 (2 GPUs) train their seeds there too (same hardware as
+# seed 0, frees hpg for the K300/K500 rungs); hpg keeps only the eval, gated on the verified copy (gates/eval_<cell>).
+LONI_SEED = {("tsft", 100, 64, "1e-4"), ("tsft", 500, 2, None), ("adc", 500, 2, "1e-4"), ("tsft", 300, 2, None),
+             ("adc", 300, 2, None), ("tsft", 100, 2, "1e-4"), ("adc", 100, 2, None), ("tsft", 30, 2, None),
+             ("adc", 30, 2, None)}
 
 
 def seed_cell(method, k, epochs, lr, seed):
@@ -687,6 +692,9 @@ def seed_cell(method, k, epochs, lr, seed):
                 st["gate"] = {"file": f"{GATES}/seed_smc_ready"}
         st["exports"] = e
     c["cell"] = new
+    if (method, k, epochs, lr) in LONI_SEED:
+        c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+        c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{new}"}
     return c
 
 
