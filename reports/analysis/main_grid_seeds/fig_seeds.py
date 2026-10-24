@@ -8,7 +8,7 @@ import matplotlib.ticker
 D = os.path.dirname(os.path.abspath(__file__))
 S = json.load(open(f"{D}/seed_scores.json"))
 KS = [30, 100, 300, 500]; M = ["tsft", "AD", "SAD", "SmartAD"]
-LBL = {"tsft": "Trajectory SFT", "AD": "AD (Kang)", "SAD": "SAD", "SmartAD": "SmartAD"}
+LBL = {"tsft": "Trajectory SFT", "AD": "AD", "SAD": "SAD", "SmartAD": "SmartAD"}
 COL = {"tsft": "#0072B2", "AD": "#E69F00", "SAD": "#009E73", "SmartAD": "#CC79A7"}  # Okabe-Ito; validator: pass with markers + labels
 MK = {"tsft": "o", "AD": "s", "SAD": "^", "SmartAD": "D"}
 TEACHER, BASE = 114, 62  # gpt-6-luna single run (reports/runs/teacher-dev140); base gemma-4-12B-it (seedsft-sweep-bi/k5s0)
