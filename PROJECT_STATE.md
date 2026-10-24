@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:0x CDT 10-24 — user asked: cost of 2 more seeds, reuse converged rungs? (answered, awaiting seed-type choice)
+- Estimate from seed-0 sacct: per seed ~200 GPU-h (converged trains ~165, paper trains ~27, 30 evals ~12); 2 seeds ~400 GPU-h,
+  ~2 days on group 8 GPUs, ~1-1.5 days with dept GPUs; longest job ~6.3 h (tsft/AD K500 e64, 4 B200); +10-20% for lr-halved reruns.
+- Proposed: training seeds 1,2 on the same K views (all data reused, no teacher calls), reuse each cell's seed-0 rung + lr,
+  pre-registered: record L_last + collapse flag, apply the same lr-halving fallback if a cell scores ~0. Data seeds would need
+  new AD-FTP + SmartAD teacher collections. Waiting for the user's choice before submitting.
+
 ### 03:1x CDT 10-24 — MAIN GRID COMPLETE (32/32): AD K300 converged = 116/140; full performance analysis delivered
 - Converged: tsft 88/112c/124c/122; AD 109/107c/116†/118; SAD 49/109/127/116; SmartAD 93‡/120c/111c/114 (base 62).
   Paper: tsft 10/102†/109/108; AD 73/95/84/102†; SAD 49/104†/127/123; SmartAD 77/87/96/112.
