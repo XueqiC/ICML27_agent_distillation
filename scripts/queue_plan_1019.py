@@ -707,6 +707,90 @@ def seed_cells():
     return cells
 
 
+# 10-24 18:4x CDT, user: student-base variant google/gemma-4-E4B-it (only the student changes; same K views, teacher data,
+# per-cell rung and lr of the 12B converged column, eval protocol). Seed 0, converged column, K30 + K100 first.
+# configs/base_e4b.yaml = base.yaml with models.student -> E4B (sha256 faf549ff... on rai, hpg, LONI). SmartAD re-selects
+# its candidates with the E4B NLL (same 5,000 teacher candidates); no new teacher calls.
+VARIANTS = {   # tag -> (config, snapshot); model.safetensors sha256 verified on rai/hpg/LONI against the HF LFS hash
+    "e4b": (f"{B}/configs/base_e4b.yaml", "/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--google--gemma-4-E4B-it/"
+            "snapshots/ee0ef6023621cff504d758262d4e04895a5af4a2"),   # cfbd3d2f...; config faf549ff...
+    # 10-24 18:51 CDT, user: run the same 8 cells for gemma-4-E2B-it in parallel ("我们还有没有资源同时跑E2B的相同的8格结果")
+    "e2b": (f"{B}/configs/base_e2b.yaml", "/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache/hub/models--google--gemma-4-E2B-it/"
+            "snapshots/3e22461f65e89153144f8adb70e3b8c2cc9845a7"),   # 2db5482b...
+}
+E4B_GATE = {"file": f"{GATES}/e4b_ready"}
+
+
+def v_env(tag):
+    cfg, model = VARIANTS[tag]
+    return f"CONFIG={cfg},MODEL_PATH={model}"
+
+
+def v_sel(tag):
+    return f"{B}/reports/smartad-selection/chain_k500_s0_r2_{tag}"
+
+
+E4B_RUNGS = [("tsft", 30, 64, "5e-5"), ("tsft", 100, 64, "1e-4"), ("adc", 30, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
+             ("smc", 30, 32, "1e-4"), ("smc", 100, 64, "1e-4"), ("sad", 30, 1, None), ("sad", 100, 0.5, None)]
+E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100)}   # trained on LONI A100; hpg evaluates the verified copy
+
+
+def variant_cell(tag, method, k, epochs, lr):
+    """The 12B cell of the same rung with another student: cell/output names prefixed <tag>-, fresh attempt-000 adapters,
+    CONFIG/MODEL_PATH exported, SmartAD on the pool re-selected with that student, no per-rung eval gates."""
+    c = (sadc(k, epochs) if method == "sad" else smc_rung(k, epochs, lr) if method == "smc"
+         else lora_rung(method, k, epochs, lr=lr))
+    old, new = c["cell"], f"{tag}-" + c["cell"]
+    pat = re.compile(rf"(?<=[/=]){re.escape(old)}(?=[/=,]|$)")
+    for i, st in enumerate(c["stages"]):
+        st["name"] = new + st["name"][len(old):]
+        e = pat.sub(new, st["exports"]).replace(SMARTAD_CHAIN_COLL, f"{v_sel(tag)}/collection")
+        e = re.sub(r"attempt-\d{3}/output/checkpoint", "attempt-000/output/checkpoint", e)
+        e = ",".join(x for x in e.split(",") if not x.startswith(("REFERENCE_DTYPE=", "SERVING_GATE_OVERRIDE_")))
+        assert not pat.search(e), (new, e)
+        st["exports"] = f"{e},{v_env(tag)}"
+        if st["name"].endswith("-eval"):
+            st.pop("gate", None)
+            if method == "smc":
+                st["tree"] = CHAIN_TREE
+        elif i == 0:
+            st["gate"] = {"file": f"{GATES}/{tag}_smartad_selected"} if method == "smc" else {"file": f"{GATES}/{tag}_ready"}
+    if (method, k) == ("tsft", 30):   # base student on dev140 (reference line) in the same eval job
+        c["stages"][-1]["exports"] = c["stages"][-1]["exports"].replace("INCLUDE_BASE=0", "INCLUDE_BASE=1")
+    c["cell"] = new
+    return c
+
+
+def variant_selection(tag):
+    """SmartAD selection of the K500 chain pool with the variant's NLL: 4 shards + CPU merge (as smartadselc)."""
+    cells = []
+    for c in [smartadselc(i) for i in range(SMARTAD_SEL_SHARDS)] + [smartadselc_merge()]:
+        c["cell"] = f"{tag}-" + c["cell"]
+        for st in c["stages"]:
+            st["name"] = f"{tag}-" + st["name"]
+            st["exports"] = (st["exports"].replace(f"SMARTAD_OUT={SMARTAD_CHAIN_SEL},", f"SMARTAD_OUT={v_sel(tag)},")
+                             + f",{v_env(tag)}")
+            assert v_sel(tag) in st["exports"]
+            st["gate"] = ({"file": f"{GATES}/{tag}_ready"} if "merge" not in st["name"]
+                          else {"file": f"{GATES}/{tag}_smartad_scored"})
+        cells.append(c)
+    return cells
+
+
+def variant_cells(tag, loni_trains=None):
+    cells = variant_selection(tag)
+    for m, k, e, lr in E4B_RUNGS:
+        c = variant_cell(tag, m, k, e, lr)
+        if (m, k) in E4B_LONI:
+            train = [st for st in c["stages"] if not st["name"].endswith("-eval")]
+            if loni_trains is not None:
+                loni_trains.extend(train)
+            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+            c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{c['cell']}"}
+        cells.append(c)
+    return cells
+
+
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
@@ -759,7 +843,8 @@ def main():
     # the papers' fixed epochs and are not converged); running jobs were cancelled.
     for c in cells:
         c["hold"] = True
-    cells = seed_cells() + chain_cells() + cells
+    loni_trains = []
+    cells = variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + seed_cells() + chain_cells() + cells
     for c in cells:
         for st in c["stages"]:
             st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)
@@ -775,6 +860,7 @@ def main():
     names = [c["cell"] for c in cells]
     assert len(names) == len(set(names)), "duplicate cell"
     (out / "plan.json").write_text(json.dumps(plan, indent=1))
+    (out / "e4b_loni_trains.json").write_text(json.dumps(loni_trains, indent=1))
     print(f"{len(cells)} cells ({len(held)} low priority), {sum(len(c['stages']) for c in cells)} stages -> {out / 'plan.json'}")
 
 
