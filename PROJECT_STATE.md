@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:1x CDT 10-24 — MAIN GRID COMPLETE (32/32): AD K300 converged = 116/140; full performance analysis delivered
+- Converged: tsft 88/112c/124c/122; AD 109/107c/116†/118; SAD 49/109/127/116; SmartAD 93‡/120c/111c/114 (base 62).
+  Paper: tsft 10/102†/109/108; AD 73/95/84/102†; SAD 49/104†/127/123; SmartAD 77/87/96/112.
+- Headline: once converged, no baseline beats trajectory SFT at K>=100 (only AD K30, p=.001); paper recipes undertrain
+  tsft (2 epochs) so the paper-column ranking is a training-budget artifact; failures left are search (never found the object).
+- Report + figure + scripts: reports/analysis/main_grid_perf_1024/ (main_grid_perf_report.md, baseline_perf_k.png).
+- No hpg jobs of ours running. Next: user decision on what comes after the baseline grid.
+
 ### 02:4x CDT 10-24 — AD K300 converged rung = e64 (5e-5); eval gate opened
 - adc-k300-e64-lr5e-5-train 47396738 COMPLETED 02:39 CDT. L_last e32 .0009 -> e64 .0000 (delta < .01) -> converged, report e64; no collapse flag at e64.
 - Gate logs/queue/gates/eval_adc-k300-e64-lr5e-5 opened 02:40 CDT (SAG decoding, eval tree 20cb697, ~25 min). Last cell (32/32); then the full analysis
