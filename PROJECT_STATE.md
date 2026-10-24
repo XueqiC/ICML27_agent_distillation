@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 21:3x CDT 10-23 — tunnel back by 21:14 CDT; AD K300 5e-5: e16->e32 not converged -> e64 rung; SAD K100 eval next
+- adc-k300 5e-5: e16 L_last .0456, e32 .0009 (delta .045) -> e64 added (plan 423139e; 4 GPU, ~4.4 h). e32 shows a one-epoch blip
+  at ep6 (.161 -> .494 -> .156; collapse flag raised) unlike 1e-4 (.214 -> 5.02, 25 epochs to recover, 4/140).
+- Running: adc-k300-e8-lr5e-5-train 47383356, adc-k300-e4-lr5e-5-train 47383368 (both 4 GPU, submitted 21:22 CDT).
+  Next (plan order now sadlr first): sadc-k100-b1-lr1e-5-eval (~40 min) + adc-k300-e64-lr5e-5-train once e4 frees 4 GPUs.
+- ETA: SAD K100 paper ~22:30 CDT; AD K300 converged (e64 + eval) ~02:45 CDT 10-24. SmartAD K30 still awaits the user's A/B.
 ### 18:2x CDT 10-23 — tunnel back by 18:14 CDT (hourly check); SmartAD K500 = 114/140; SAD K100 x1 lr 1e-5 trained (valid), eval gate open
 - smc-k500-e32-lr5e-5-eval 47325633: 114/140 (serving check passed). SmartAD converged row: K30 N/A (pending user), 120c, 111c, 114.
 - sadc-k100-b1-lr1e-5-train 47303363 COMPLETED ~16:09 CDT; loss monotone to ~0 (lr-2e-5 run sat at ~2300) -> gate
