@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:1x CDT 10-24 — SmartAD K30 converged = 93/140 (serving gate overridden, user option B); 31/32 cells in
+- smc-k30-e32-lr1e-4-eval 47412779: 93/140; check/OVERRIDDEN + override.json recorded; summary.json carries serving_gate_override.
+  Measurement identical to the fp32 diagnostic (0.0672 vs tol 0.061). Table marks it ‡.
+- Only AD K300 converged left: adc-k300-e64-lr5e-5-train 47396738 (ETA ~03:00 CDT) -> ladder rule -> eval gate.
 ### 00:4x CDT 10-24 — SmartAD K30 e32 option B wired: tree 8b47413 (recorded serving-gate override), cell unblocked
 - 8b47413 = fea3a8e + SERVING_GATE_OVERRIDE_{ADAPTER,REASON,APPROVED_BY,APPROVED_AT} (Codex, reviewed; 249 tests pass incl. 49 new).
   Only the tolerance verdict is waivable; identity checks kept; HF-reference stage not overridable; override.json bound to the
