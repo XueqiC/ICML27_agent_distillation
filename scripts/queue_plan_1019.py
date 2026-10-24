@@ -700,7 +700,11 @@ def seed_cell(method, k, epochs, lr, seed):
 
 def seed_cells():
     ready = {"tsft": True, "adc": SEED_AD_TREE is not None, "smc": SEED_SMC_TREE is not None}
-    return [seed_cell(m, k, e, lr, s) for m, k, e, lr in SEED_RUNGS if ready[m] for s in (1, 2)]
+    cells = [seed_cell(m, k, e, lr, s) for m, k, e, lr in SEED_RUNGS if ready[m] for s in (1, 2)]
+    # User 10-24 18:38 CDT: "把多seed停下来" -> student-base variant (gemma-4-E2B-it) instead; seed cells held.
+    for c in cells:
+        c["hold"] = True
+    return cells
 
 
 def main():
