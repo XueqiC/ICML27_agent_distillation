@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-24 — user chose B for SmartAD K30 e32 ("可以按照你倾向的来", Discord 00:24 CDT): evaluate + annotate
+- Annotation: "serving check failed (bf16 numerical sensitivity of a sharp adapter; |vLLM - HF fp32| 0.067 > tol 0.061;
+  vLLM bit-identical across runs; HF bf16 is further from fp32 than vLLM)".
+- Implementation: Codex adds a recorded per-adapter override on ../ICML27_fp32ref (identity checks kept; only the tolerance
+  verdict waivable; override.json + report sha bound; summary.json carries serving_gate_override). Then new tree, old OUT ->
+  _trash, plan eval stage -> new tree + override env, unblock the keeper cell.
 ### 00:2x CDT 10-24 — third tunnel outage 23:2x-00:2x CDT (notice 00:15, user restored); 30/32 cells in
 - adc-k300-e64-lr5e-5-train 47396738: training since 23:11 CDT, epoch 20/64 at 00:23 (L .0424, no collapse); ETA train ~03:00,
   eval ~03:30 CDT. Ladder L_last e2 .2529 e4 .2005 e8 .1554 e16 .0456 e32 .0009.
