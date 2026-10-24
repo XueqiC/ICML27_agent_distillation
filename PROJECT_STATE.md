@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 16:2x CDT 10-24 — first seed cell done: tsft K500 converged = 122 / 125 / 120 (s0/s1/s2), mean 122.3
+- Evals 47516706 (s1) 125/140, 47516235 (s2) 120/140; serving check passed; adapters = own seed's attempt-000 checkpoint;
+  0 error/truncated/overflow. Paired vs s0: s1 +6/-3, s2 +4/-6. Per task: 115 solved 3/3, 7 2/3, 8 1/3, 10 0/3
+  -> seed noise on this cell ~±3 tasks; 15 tasks are seed-dependent.
+- Now: tsft-k30-e64-lr5e-5-s1 47516238 + -s2 47520028 (2 B200 each), adc-k500-e64-lr5e-5-s1 47516734 (4 B200) = 8/8 group
+  GPUs. All 16 SmartAD seed preps done (trainings wait for GPUs).
+
 ### 15:2x CDT 10-24 — tunnel back; tsft K500 s1/s2 trained (both valid, s1 = c); their evals running
 - Tunnel down 10:01 to ~14:54 CDT (keeper SSH_FAIL; one notice 10:15). Submitted jobs unaffected; keeper resumed 14:54 CDT.
 - tsft-k500-e64-lr5e-5-s1-train 47473037 COMPLETED 15:11 CDT (6:21 h): L_last 3.7e-5 = L_min -> valid; collapse flags
