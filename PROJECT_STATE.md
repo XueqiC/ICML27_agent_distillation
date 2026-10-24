@@ -23,6 +23,8 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - Plan v13 (d5d0702): 48 seed cells, longest first; limits unchanged (10 jobs, 8 group GPUs; dept CPU QOS full).
 - RUNNING: tsft-k500-e64-lr5e-5-s1-train 47473037 + -s2 47473038 (4 B200 each, ~6.3 h, ETA ~15:15 CDT); s1 identity
   recipe training_seed 1, lr 5e-5, warmup 0, epochs 64 (checked). SmartAD CPU preps fill the remaining job slots.
+- 09:2x CDT: both tsft K500 seed trains past startup (idle GPUs ~20 min = normal pipeline startup, logs checked); first
+  update indices differ from seed 0 (s0 [419,459,...], s1 [376,179,...], s2 [240,7,...]) -> seed reaches the sampler. ETA ~15:20 CDT.
 - Sent: method pain-point analysis (reports/analysis/main_grid_perf_1024/method_painpoints.md, c389fe7).
 - User 08:48: finish 12B first (no E4B pilot meanwhile); E4B full grid estimated 150-200 GPU-h, 1-1.5 days, later.
 
