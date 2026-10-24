@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 18:4x CDT 10-24 — literature re-check from the PDFs (user: "重新回顾这些论文 … 而不是说在你印象里")
+- reports/analysis/main_grid_seeds/literature_student_vs_teacher.md (10 papers read; PDFs in session scratchpad papers/).
+  Main-table papers (Kang, SAD, SmartAD): students 2-64x smaller, all below teacher; SmartAD reports no teacher score.
+  ALFWorld agent-tuning papers: fine-tuned 7-8B > prompted GPT-4-class is common (ETO/IPR/STeCa/WKM/AgentGym/LEAP BC);
+  closest to us = IPR (GPT-4 rollouts, correct only) and AgentGym (reward-filtered). LEAP/HAD beat the teacher via extra
+  signal (privileged corrections on failures / harness contrast).
+
 ### 18:3x CDT 10-24 — user asked why students beat the teacher / normal in papers / success-only? (answered)
 - reports/analysis/main_grid_seeds/student_vs_teacher.md. Teacher TRAIN pass@1 80.3% (= dev 81.4%), pass@3 87.2%; all 1,674 failed
   teacher attempts hit the 40-step cap; 35% of first-attempt failures solved on retry. Significant vs teacher only tsft K500 s1
