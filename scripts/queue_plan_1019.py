@@ -586,13 +586,14 @@ def chain_cells():
     # epoch 5 0.214 -> 5.02, dev140 4/140; adc K100 e64 and tsft K100 e64 collapsed at epoch 13). 5e-5 hedge ladders for
     # adc K100/K300 and tsft K100 while the user decides on a collapse criterion.
     fb += [lora_rung("adc", 100, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]
-    fb += [lora_rung("adc", 300, e, lr="5e-5") for e in (32, 16, 8, 4, 2)]
+    # 10-23 20:2x CDT: AD K300 5e-5 e16 -> e32 L_last 0.0456 -> 0.0009 (delta 0.045 >= 0.01): not converged -> e64 rung.
+    fb += [lora_rung("adc", 300, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]
     fb += [lora_rung("tsft", 100, e, lr="5e-5") for e in (64, 32, 16, 8, 4, 2)]
     for c in fb:
         # 10-21 17:2x CDT: the long AD K500 5e-5 rungs also get an hpg train stage (~6x faster than LONI A100s).
         if c["cell"] not in ("adc-k500-e64-lr5e-5", "adc-k500-e32-lr5e-5", "adc-k500-e16-lr5e-5", "tsft-k500-e64-lr5e-5", "tsft-k500-e32-lr5e-5",
                              "tsft-k300-e64-lr5e-5", "tsft-k300-e32-lr5e-5", "adc-k100-e64-lr5e-5", "tsft-k100-e64-lr5e-5",
-                             "adc-k300-e32-lr5e-5", "adc-k300-e16-lr5e-5", "adc-k300-e8-lr5e-5", "adc-k300-e4-lr5e-5",
+                             "adc-k300-e64-lr5e-5", "adc-k300-e32-lr5e-5", "adc-k300-e16-lr5e-5", "adc-k300-e8-lr5e-5", "adc-k300-e4-lr5e-5",
                              "adc-k300-e2-lr5e-5"):
             # 10-23 12:5x CDT: user: cells that scored ~0 are rerun -> AD K300 (1e-4 e32 collapsed, 4/140) runs the
             # registered 5e-5 ladder on hpg (LONI no longer trains): e16/e8/e4/e2 get hpg train stages too.
@@ -624,7 +625,8 @@ def chain_cells():
     sadlr = [sadc(100, 1, lr="1e-5")]
     for c in sadlr:
         c["tree"] = "7cbc62b"
-    return tsft + adc + sel + sad1 + sad05 + sad025 + sadlr + smc_cells()
+    # 10-23 20:2x CDT: the SAD K100 rerun eval (1 GPU) goes ahead of the 4-GPU AD K300 rungs.
+    return tsft + sadlr + adc + sel + sad1 + sad05 + sad025 + smc_cells()
 
 def main():
     out = Path(sys.argv[1])
