@@ -643,7 +643,7 @@ def chain_cells():
 # evaluated. SAD is not retrained: full-parameter (no random init), fixed ascending-complexity curriculum, no active
 # dropout (dropout_equivalence "exact") -> its training does not depend on the seed.
 SEED_AD_TREE = "e6459b9"   # c6b15b2 + AD --training-seed (branch seed-ad); hpg tree verified 10-24 08:5x CDT (1,259 files, 93,636,659 B)
-SEED_SMC_TREE = None   # e599953 + SmartAD --training-seed (branch seed-smc), set once verified on hpg
+SEED_SMC_TREE = "4f5a138"  # e599953 + SmartAD --training-seed (branch seed-smc); hpg tree verified 10-24 09:3x CDT (1,274 files, 93,868,494 B)
 SEED_RUNGS = [  # (method, K, epochs, lr) of the reported seed-0 cell; lr None = paper recipe 2e-4
     ("tsft", 500, 64, "5e-5"), ("adc", 500, 64, "5e-5"), ("tsft", 300, 64, "1e-4"), ("adc", 300, 64, "5e-5"),
     ("smc", 500, 32, "5e-5"), ("smc", 300, 32, "1e-4"), ("tsft", 100, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
