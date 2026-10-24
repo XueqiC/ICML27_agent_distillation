@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-24 — third tunnel outage 23:2x-00:2x CDT (notice 00:15, user restored); 30/32 cells in
+- adc-k300-e64-lr5e-5-train 47396738: training since 23:11 CDT, epoch 20/64 at 00:23 (L .0424, no collapse); ETA train ~03:00,
+  eval ~03:30 CDT. Ladder L_last e2 .2529 e4 .2005 e8 .1554 e16 .0456 e32 .0009.
+- Missing: AD K300 converged (above), SmartAD K30 converged (user A/B, re-asked 00:2x CDT). Then the full performance analysis.
 ### 23:0x CDT 10-23 — SAD K100 paper = 104/140 (lr halved); paper column complete (16/16)
 - sadc-k100-b1-lr1e-5-eval 47392746: 104/140 (was 0). Paper column: tsft 10/102†/109/108, AD 73/95/84/102†, SAD 49/104†/127/123,
   SmartAD 77/87/96/112 († = lr halved after divergence).
