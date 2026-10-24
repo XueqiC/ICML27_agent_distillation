@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:4x CDT 10-24 — SmartAD K30 e32 option B wired: tree 8b47413 (recorded serving-gate override), cell unblocked
+- 8b47413 = fea3a8e + SERVING_GATE_OVERRIDE_{ADAPTER,REASON,APPROVED_BY,APPROVED_AT} (Codex, reviewed; 249 tests pass incl. 49 new).
+  Only the tolerance verdict is waivable; identity checks kept; HF-reference stage not overridable; override.json bound to the
+  report sha256; summary.json carries serving_gate_override. Deployed on hpg (file list = fea3a8e + new test; third_party
+  1,857 files / 67,969,659 B identical).
+- Plan c315cdf: smc-k30-e32-lr1e-4-eval -> tree 8b47413, REFERENCE_DTYPE=float32 + override env. Old OUT ->
+  _trash/smc-k30-e32-lr1e-4-eval-fp32ref-1023. Keeper submits it next (1 GPU).
 ### 00:2x CDT 10-24 — user chose B for SmartAD K30 e32 ("可以按照你倾向的来", Discord 00:24 CDT): evaluate + annotate
 - Annotation: "serving check failed (bf16 numerical sensitivity of a sharp adapter; |vLLM - HF fp32| 0.067 > tol 0.061;
   vLLM bit-identical across runs; HF bf16 is further from fp32 than vLLM)".
