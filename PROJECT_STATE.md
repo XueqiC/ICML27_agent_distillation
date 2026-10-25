@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 12:3x CDT 10-25 — LONI back (3,049,702 / 4,000,000 files); 5 E4B seed trainings on LONI (plan v26, 9729668)
+- User 12:24 "可以": deleted exactly the 4 partials in /work/xueqic/hq/_trash (947k files).
+- f30e46b deployed on LONI (1,261 files sha-identical). LONI gpu2 jobs (scratchpad loni_seed_e4b.sh, from
+  loni_seed_submit.py; == seed-0 LONI argv except name/out/seed): adc-k100-s1 1130540, tsft-k30-s2 1130541,
+  tsft-k100-s2 1130542, adc-k30-s2 1130543, adc-k100-s2 1130544 (all RUNNING 12:3x). sync_and_gate_v3.sh for the 5 cells
+  running on rai (LONI leg direct) -> copy + verify to hpg -> gates/eval_<cell> -> keeper evals on hpg (46b8527).
+- hpg: e4b tsft-k30-s1 / tsft-k100-s1 / adc-k30-s1 trains + smc s1/s2 preps; smc seed-0 trains (e4b/e2b K30/K100) wait for GPUs.
+
 ### 12:3x CDT 10-25 — LONI file census; asked user to delete my failed-copy partials in LONI _trash
 - LONI /work 3,996,928 / 4,000,000 files: hq/ICML27_data 2.09M (verified 1.62M, adftp-chain 466k), hq/_trash 947k =
   ONLY today's failed selection copies (chain_k500_s0_r2_e4b.partial.1792939622 557k, e2b.partial.1792939932 382k,
