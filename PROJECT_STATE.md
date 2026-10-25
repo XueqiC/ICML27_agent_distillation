@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 10:3x CDT 10-25 — E2B SAD K100 = 103: SAD complete for all three students
+- E2B SAD K100 103 (vs 12B 109 p=.31, E4B 111 p=.19, own K30 58 50/5 p=2e-10, E2B AD100 100 p=.72, tsft100 96 p=.28).
+  K100 by size: SAD 109/111/103 vs tsft 112/107/96 (E2B tsft vs 12B p=.007): SAD's K100 result degrades less with size.
+- Figure regenerated (only SmartAD E4B/E2B missing). SmartAD copies to LONI: first tries of both failed ~66 min in
+  (cause unknown, stderr discarded), second tries running ~7 MB/s each; size probe running on hpg.
+
 ### 09:2x CDT 10-25 — E-series SAD evals: K30 fails at every size, K100 matches 12B
 - dev140 (seed 0, converged rungs of 12B; teacher 114): SAD K30 12B 49 / E4B 58 / E2B 58; SAD K100 12B 109 / E4B 111
   (E2B K100 training 47648041 running). McNemar: E4B/E2B SAD30 vs 12B p=.27/.25; E4B SAD100 vs 12B p=.85; E4B SAD100
