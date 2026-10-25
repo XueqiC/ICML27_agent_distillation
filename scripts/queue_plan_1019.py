@@ -659,7 +659,7 @@ LONI_SEED = {("tsft", 100, 64, "1e-4"), ("tsft", 500, 2, None), ("adc", 500, 2, 
              ("adc", 30, 2, None)}
 
 
-def seed_cell(method, k, epochs, lr, seed):
+def seed_cell(method, k, epochs, lr, seed, loni=True):
     """Training seed `seed` of a reported seed-0 cell. Paper-recipe trajectory SFT / AD cells (seed 0 on 20cb697, partly
     LONI) are built with the explicit 2e-4 / warmup-0 overrides of c6b15b2, which give the same trainer argv and recipe as
     the 20cb697 defaults, and the sacct-based LoRA sizes."""
@@ -692,7 +692,7 @@ def seed_cell(method, k, epochs, lr, seed):
                 st["gate"] = {"file": f"{GATES}/seed_smc_ready"}
         st["exports"] = e
     c["cell"] = new
-    if (method, k, epochs, lr) in LONI_SEED:
+    if loni and (method, k, epochs, lr) in LONI_SEED:
         c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
         c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{new}"}
     return c
@@ -721,7 +721,11 @@ VARIANTS = {   # tag -> (config, snapshot); model.safetensors sha256 verified on
 E4B_GATE = {"file": f"{GATES}/e4b_ready"}
 ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9f9a80": "0c2cd9e",
            "20cb697": "95a62b2",   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
-           "fb22f09": "96209eb"}   # fb22f09 + 2506fa9 + 4f47296 + 5df9eb4 (SAD K100: parser mask; serving + export fixes)
+           "fb22f09": "96209eb",   # fb22f09 + 2506fa9 + 4f47296 + 5df9eb4 (SAD K100: parser mask; serving + export fixes)
+           # 10-25 12:0x CDT: E-series twins of the training-seed trees (clean cherry-picks; 199 / 160 tests pass;
+           # deployed on hpg 1,261 / 1,276 tracked files sha-identical)
+           "e6459b9": "f30e46b",   # SEED_AD_TREE + 2506fa9
+           "4f5a138": "892e3ef"}   # SEED_SMC_TREE + f453db8
 ES_EVAL_TREE = "46b8527"   # 95a62b2 + 4f47296 (TRITON_ATTN for model_type gemma4); 12B serving command unchanged
 ES_SAD_TREE = "c265b5d"   # 46b8527 + 5df9eb4 (E-series full-parameter export: KV-shared layers' unused base tensors)
 ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
@@ -773,6 +777,40 @@ def variant_cell(tag, method, k, epochs, lr):
         c["stages"][-1]["exports"] = c["stages"][-1]["exports"].replace("INCLUDE_BASE=0", "INCLUDE_BASE=1")
     c["cell"] = new
     return c
+
+
+# 10-25 11:44 CDT (user approved the pre-registration; 11:46 "咱们其实可以并行"): training seeds 1, 2 of the E4B cells, run in
+# parallel with the remaining SmartAD cells. Same rung + lr as the E4B seed-0 cell, training seed only (pre-registration of
+# 10-24); SAD is not retrained. All on hpg (LONI /work is at its file-count quota), GPU counts as the 12B seed cells.
+E4B_SEED_RUNGS = [r[:4] for r in E4B_RUNGS if r[0] != "sad"]
+
+
+def variant_seed_cell(tag, method, k, epochs, lr, seed):
+    c = seed_cell(method, k, epochs, lr, seed, loni=False)
+    old, new = c["cell"], f"{tag}-" + c["cell"]
+    pat = re.compile(rf"(?<=[/=]){re.escape(old)}(?=[/=,]|$)")
+    for i, st in enumerate(c["stages"]):
+        st["name"] = new + st["name"][len(old):]
+        e = pat.sub(new, st["exports"]).replace(SMARTAD_CHAIN_COLL, f"{v_sel(tag)}/collection")
+        assert not pat.search(e) and "attempt-000/output/checkpoint" in e or not st["name"].endswith("-eval"), (new, e)
+        st["exports"] = f"{e},{v_env(tag)}"
+        if st["name"].endswith("-eval"):
+            st.pop("gate", None)
+            st["tree"] = ES_EVAL_TREE
+        else:
+            st["tree"] = ES_TREE[st["tree"]]
+            if i == 0:
+                st["gate"] = ({"file": f"{GATES}/{tag}_smartad_selected"} if method == "smc"
+                              else {"file": f"{GATES}/{tag}_ready"})
+            else:
+                st.pop("gate", None)
+    c["cell"] = new
+    c["tree"] = ES_TREE[c["tree"]]
+    return c
+
+
+def variant_seed_cells(tag):
+    return [variant_seed_cell(tag, m, k, e, lr, s) for s in (1, 2) for m, k, e, lr in E4B_SEED_RUNGS]
 
 
 def variant_selection(tag):
@@ -884,7 +922,8 @@ def main():
     for c in cells:
         c["hold"] = True
     loni_trains = []
-    cells = variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + seed_cells() + chain_cells() + cells
+    cells = (variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + variant_seed_cells("e4b") + seed_cells()
+             + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
             st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)
