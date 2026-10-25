@@ -37,6 +37,10 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - Plan v28 (e6ea174): 28 gated E4B K10/K20 ladder cells. SmartAD (e16-e128, 1e-4) + SAD (b05/b1) prep/train/eval on hpg (gates
   e4b_few_views / e4b_few_views_ft); tsft (5e-5) / AD (1e-4) e16-e128 train on LONI (scratchpad/loni_few_e4b.sh from
   loni_few_submit.py, same argv as the E4B K30 LONI cells except K/epochs/out), hpg evals gated eval_<cell> after rule A.
+- rai watcher scratchpad/few_views_orch.sh (setsid pid 312317, log logs/few_views_orch.log): full-TRAIN job 47703005 ->
+  verify report -> gate e4b_few_views_ft, submit adftp + smartad_selection view jobs, copy full-TRAIN k10/k20 to LONI ->
+  LONI tsft trains; adftp verified -> LONI copy -> LONI AD trains; smartad verified + existing views unchanged -> gate
+  e4b_few_views. Stops at the first failure. Asked user (15:0x) to pre-register the K30 serving rule for all SmartAD cells.
 
 ### 12:3x CDT 10-25 — LONI back (3,049,702 / 4,000,000 files); 5 E4B seed trainings on LONI (plan v26, 9729668)
 - User 12:24 "可以": deleted exactly the 4 partials in /work/xueqic/hq/_trash (947k files).
