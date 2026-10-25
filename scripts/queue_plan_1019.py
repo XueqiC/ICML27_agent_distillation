@@ -722,6 +722,8 @@ E4B_GATE = {"file": f"{GATES}/e4b_ready"}
 ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9f9a80": "0c2cd9e",
            "20cb697": "95a62b2"}   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
 ES_EVAL_TREE = "46b8527"   # 95a62b2 + 4f47296 (TRITON_ATTN for model_type gemma4); 12B serving command unchanged
+ES_SAD_TREE = "c265b5d"   # 46b8527 + 5df9eb4 (E-series full-parameter export: KV-shared layers' unused base tensors)
+ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
 
 
 def v_env(tag):
@@ -810,8 +812,14 @@ def variant_cells(tag, loni_trains=None):
         for st in c["stages"]:
             if st["name"].endswith("-eval") and st.get("tree", c["tree"]) == ES_TREE[CHAIN_TREE]:
                 st["tree"] = ES_EVAL_TREE
+        # 10-25 01:2x CDT: KV-shared export fix 5df9eb4 (unused k_proj/v_proj/k_norm of the shared layers copied from the base,
+        # sha256-verified; 12B byte-identical) -> SAD prep/train on ES_SAD_TREE, SAD eval on ES_SAD_EVAL_TREE. E4B SAD ran
+        # ~5-6.6 s/update (12B 4.3) -> 14 h train limit (12B K30 took 4.1 h of 8.5 h).
         if c["cell"].startswith(f"{tag}-sadc-"):
-            c["hold"] = True
+            for st in c["stages"]:
+                st["tree"] = {ES_TREE[CHAIN_TREE]: ES_SAD_TREE, ES_TREE["b9f9a80"]: ES_SAD_EVAL_TREE}[st.get("tree", c["tree"])]
+                if st["name"].endswith("-train"):
+                    st["time"] = "14:00:00"
     return cells
 
 
