@@ -38,9 +38,10 @@ for ax, (title, tag) in zip(axes, panels):
                 runs = S12.get(f"conv|{m}|{k}", {}); v = [pct(len(x)) for x in runs.values()]
             else:
                 v = [pct(len(SV[f"{tag}|{m}|{k}"]))] if f"{tag}|{m}|{k}" in SV else []
-            if not v:
-                continue
             x = POS[k] + 0.05 * (j - 1.5)
+            if not v:   # still running: break the line there instead of drawing a segment across the gap
+                xs.append(x); ys.append(float("nan"))
+                continue
             if len(v) > 1:
                 singles += [(x, y) for y in v]
             xs.append(x); ys.append(sum(v) / len(v))
