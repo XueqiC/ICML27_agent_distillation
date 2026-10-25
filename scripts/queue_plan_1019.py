@@ -729,6 +729,30 @@ ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9
 ES_EVAL_TREE = "46b8527"   # 95a62b2 + 4f47296 (TRITON_ATTN for model_type gemma4); 12B serving command unchanged
 ES_SAD_TREE = "c265b5d"   # 46b8527 + 5df9eb4 (E-series full-parameter export: KV-shared layers' unused base tensors)
 ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
+# 10-25 14:2x CDT: all four E-series SmartAD K30 e32 serving gates failed on tolerance only, as the 12B K30 cell (pooled
+# |vLLM - HF bf16|: e4b 0.053 > 0.050, e2b 0.079 > 0.068, e4b s1 0.064 > 0.050 (+ >0.5-count 12 > 11), e4b s2 0.064 >
+# 0.050; effect rules and all 8 prompts pass). Pre-registered rule (10-24 seeds, carried over by the user 10-25 11:44 CDT):
+# float32 HF reference, then the recorded override of the tolerance verdict only (user option B for the 12B cell, Discord
+# 1563422934167461943), marked in the table. ES_OVR_EVAL_TREE = ES_EVAL_TREE + fea3a8e + 8b47413 (clean cherry-picks,
+# patch-identical; serving tests pass, the 2 golden failures are those of 46b8527).
+ES_OVR_EVAL_TREE = "d822255"
+ES_K30_OVERRIDE = {"e4b-smc-k30-e32-lr1e-4", "e2b-smc-k30-e32-lr1e-4", "e4b-smc-k30-e32-lr1e-4-s1",
+                   "e4b-smc-k30-e32-lr1e-4-s2"}
+
+
+def es_k30_override(cells):
+    for c in cells:
+        if c["cell"] in ES_K30_OVERRIDE:
+            ev = c["stages"][-1]
+            assert ev["name"] == c["cell"] + "-eval" and ev["tree"] == ES_EVAL_TREE, ev
+            assert f"ADAPTERS={c['cell']}=" in ev["exports"] and "SERVING_GATE_OVERRIDE_" not in ev["exports"], ev
+            ev["tree"] = ES_OVR_EVAL_TREE
+            ev["exports"] += (f",REFERENCE_DTYPE=float32,SERVING_GATE_OVERRIDE_ADAPTER={c['cell']}"
+                              ",SERVING_GATE_OVERRIDE_REASON=preregistered_rule_1024_carried_over_1025_1144CDT_as_12B_smc-k30"
+                              "_option_B_discord_1563422934167461943_bf16_sensitivity_of_sharp_adapter"
+                              ",SERVING_GATE_OVERRIDE_APPROVED_BY=xueqi118_discord"
+                              ",SERVING_GATE_OVERRIDE_APPROVED_AT=2026-10-25T11:44-05:00")
+    return cells
 
 
 def v_env(tag):
@@ -936,8 +960,8 @@ def main():
     for c in cells:
         c["hold"] = True
     loni_trains = []
-    cells = (variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + variant_seed_cells("e4b", loni_trains) + seed_cells()
-             + chain_cells() + cells)
+    cells = (es_k30_override(variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains)
+                             + variant_seed_cells("e4b", loni_trains)) + seed_cells() + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
             st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)
