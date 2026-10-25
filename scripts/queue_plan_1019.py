@@ -735,7 +735,9 @@ def v_sel(tag):
 
 E4B_RUNGS = [("tsft", 30, 64, "5e-5"), ("tsft", 100, 64, "1e-4"), ("adc", 30, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
              ("smc", 30, 32, "1e-4"), ("smc", 100, 64, "1e-4"), ("sad", 30, 1, None), ("sad", 100, 0.5, None)]
-E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100)}   # trained on LONI A100; hpg evaluates the verified copy
+E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100),   # trained on LONI A100; hpg evaluates the verified copy
+            ("smc", 30), ("smc", 100)}   # 10-25 01:0x CDT (user "咱们尽量并行"): SmartAD prep+train on LONI too; the selected
+            # collection (6 GB, self-contained) is copied hpg -> LONI with a full sha256 manifest check before prep
 
 
 def variant_cell(tag, method, k, epochs, lr):
