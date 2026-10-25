@@ -47,13 +47,15 @@ for ax, (title, tag) in zip(axes, panels):
             h, = ax.plot(xs, ys, color=COL[m], lw=2, marker=MK[m], ms=8, label=LBL[m], zorder=3)
             handles[m] = h
     ax.set_xscale("log"); ax.set_xlim(26, 600); ax.set_xticks(KS); ax.set_xticklabels([f"K{k}" for k in KS]); ax.minorticks_off()
-    ax.set_ylim(28, 97); ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(decimals=0))
+    ax.set_ylim(0, 97)   # 0: the E2B base student (6.4%) must stay visible; ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(decimals=0))
     ax.grid(axis="y", color="#e8e8e8"); ax.set_axisbelow(True); ax.set_title(title, fontsize=14)
     ax.set_xlabel("seed trajectories K")
 axes[0].set_ylabel("dev140 success rate")
 fig.legend([handles[m] for m in M if m in handles], [LBL[m] for m in M if m in handles], loc="upper center", ncol=4,
            frameon=False, bbox_to_anchor=(0.5, 1.07), fontsize=12)
 fig.text(0.5, -0.03, "Converged column (each cell's 12B ladder rung and lr reused for E4B/E2B). 12B: mean over training seeds "
-         "(open circles: single seeds; SAD seed-independent); E4B/E2B: seed 0, K30 and K100. Teacher: gpt-6-luna, one run.",
+         "(open circles: single seeds; SAD seed-independent); E4B/E2B: seed 0, K30 and K100"
+         + ("" if all(f"{t}|{m}|{k}" in SV for t in ("e4b", "e2b") for m in M for k in (30, 100)) else
+            " (missing points still running)") + ". Teacher: gpt-6-luna, one run.",
          ha="center", va="top", fontsize=10.5, color="#444")
 fig.tight_layout(); fig.savefig(f"{D}/student_variants.png", dpi=150, bbox_inches="tight"); print("ok")

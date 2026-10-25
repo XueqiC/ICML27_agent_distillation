@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:4x CDT 10-25 — all 8 variant tsft/AD cells done (dev140 solved, converged column, seed 0)
+| student | base | tsft K30 | tsft K100 | AD K30 | AD K100 |
+|---|---|---|---|---|---|
+| 12B (seed 0) | 62 | 88 | 112 | 109 | 107 |
+| E4B | 43 | 86 | 107 | 112 | 102 |
+| E2B | 9 | 84 | 96 | 95 | 100 |
+Teacher 114. e4b-tsft-k100 47600525 107 (vs 12B 9/14 p=.41); e4b-adc-k100 47598299 102 (vs 12B 6/11 p=.33, vs E4B AD30
+8/18 p=.08); e2b-adc-k100 47597009 100 (vs 12B 9/16 p=.23). All serving checks passed, 0 error/parser/overflow.
+Figure reports/analysis/main_grid_seeds/student_variants.png (3 panels, legend top, y from 0 so the E2B base shows).
+SAD trains submitted 01:22-01:32 CDT on c265b5d: e4b k30 47601174, e4b k100 47601175, e2b k30 47601896.
+
 ### 01:3x CDT 10-25 — E2B tsft K100 96, E2B AD K30 95: E2B falls behind once there is more signal
 - e2b-tsft-k100-e64-lr1e-4-eval 47596876: 96/140 (68.6%); e2b-adc-k30-e64-lr1e-4-eval 47596920: 95/140 (67.9%); both
   serving checks passed, 0 error/parser/overflow. Paired: E2B AD30 vs 12B AD30 10/24 p=.024, vs E4B AD30 9/26 p=.006,
