@@ -17,6 +17,28 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:4x CDT 10-25 — two E-series engineering failures fixed/in progress; SmartAD moved to LONI (user: "咱们尽量并行")
+- Failure 1 (eval 47583436, 23:57 CDT): vLLM engine died at CUDA-graph capture, "FlashAttention forward only supports head
+  dimension at most 256". vLLM 0.27.1 picks FLASH_ATTN for model_type gemma4 (E-series); VLLM_BATCH_INVARIANT=1 makes
+  fa_utils downgrade FA4 -> FA2, which cannot do global_head_dim 512. 12B (gemma4_unified) ran TRITON_ATTN all along
+  (FLASH_ATTN not a candidate). NB the exported env VLLM_ATTENTION_BACKEND=FLASH_ATTN in serve provenance is ignored by
+  vLLM 0.27.1. Fix 4f47296 (eseries-template, Codex, reviewed): `--attention-backend TRITON_ATTN` iff config model_type
+  == gemma4; 12B command byte-identical (tests); 4 failures in the serve-related suite pre-exist on 2506fa9 (LEAP/probes).
+  Eval tree 46b8527 = 95a62b2 + 4f47296, deployed on hpg (1,246 files sha-identical). Plan v20 (ff20203): all 12 variant
+  adapter evals on 46b8527. Partial eval dirs -> hpg _trash/es_eval_fa2_1025. Cancelled our doomed evals 47586755/56,
+  47587029, 47592039. Relaunched 01:38 EDT: 47596869 (e4b tsft K30 + base), 47596874/75/76, 47596920, 47597009.
+- Failure 2 (e4b-sadc-k30-b1-train 47578027, 23:39 CDT, update 218/~3400): full-parameter export_checkpoint ->
+  checkpoint_key_map "Base checkpoint tensor missing from model: model.language_model.layers.24.self_attn.k_norm.weight".
+  E4B base stores k_proj/v_proj/k_norm for its 18 KV-shared layers (24-41; 54 tensors) that HF never instantiates.
+  Fix in progress (Codex, worktree ICML27_eseries2 branch eseries-kvexport): copy those tensors byte-for-byte from base,
+  12B strict. Variant SAD cells held (plan v20); e4b-sadc-k100 train 47590689 cancelled before start.
+- LONI: all 4 K30 + e2b K100 trainings valid (e2b tsft K100 L_last 1.1e-5, adc 1.4e-5); e4b K100 (1128645/48) running.
+- SmartAD -> LONI (plan v21 c7ed96f): hpg keeps only the 4 smc evals (gated eval_<cell>). smc_loni.sh e4b (pid 3116967) /
+  e2b (3116968): wait <tag>_smartad_selected, stream the selected collection (~6 GB) hpg -> LONI, full sha256 manifest
+  compare, submit prep (LONI single, CPU) + train (gpu2, afterok, NGPUS=2: global batch = plan indices, rank count only
+  splits microsteps), then sync_and_gate_v2 -> eval gates. Tree f453db8 on LONI (1,275 files sha-identical). Logs
+  logs/smc_loni_<tag>.log. Merges: e4b 47587371 (310/500 attempts at 00:39 CDT; 12B merge took 4 h), e2b 47595553.
+
 ### 23:2x CDT 10-24 — variant K30 trainings done (LONI), evals queued on hpg
 - LONI K30 done + synced (adapter sha verified) + eval gates opened: e2b-adc 22:43, e4b-adc 22:44, e2b-tsft 22:50,
   e4b-tsft 23:03 CDT. All 4 valid (L_last within rule, no collapse flag): e4b tsft 3.1e-5, e4b adc 1.8e-5, e2b tsft
