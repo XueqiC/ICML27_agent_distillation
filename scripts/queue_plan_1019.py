@@ -721,6 +721,7 @@ VARIANTS = {   # tag -> (config, snapshot); model.safetensors sha256 verified on
 E4B_GATE = {"file": f"{GATES}/e4b_ready"}
 ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9f9a80": "0c2cd9e",
            "20cb697": "95a62b2"}   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
+ES_EVAL_TREE = "46b8527"   # 95a62b2 + 4f47296 (TRITON_ATTN for model_type gemma4); 12B serving command unchanged
 
 
 def v_env(tag):
@@ -799,6 +800,16 @@ def variant_cells(tag, loni_trains=None):
             st["tree"] = ES_TREE[st["tree"]]
     for c in cells:
         c["tree"] = ES_TREE[c["tree"]]
+    # 10-25 00:0x CDT: the first E-series eval (47583436) failed at vLLM CUDA-graph capture: vLLM picks FLASH_ATTN for
+    # model_type gemma4 and batch invariance downgrades FA4 -> FA2, which cannot serve the 512-wide global heads (the 12B
+    # runs TRITON_ATTN). Fix 4f47296 pins TRITON_ATTN for gemma4 -> adapter evals run on 95a62b2 + 4f47296 = ES_EVAL_TREE.
+    # SAD stays on hold: its full-parameter export rejects the KV-shared layers' unused base tensors (fix pending).
+    for c in cells:
+        for st in c["stages"]:
+            if st["name"].endswith("-eval") and st.get("tree", c["tree"]) == ES_TREE[CHAIN_TREE]:
+                st["tree"] = ES_EVAL_TREE
+        if c["cell"].startswith(f"{tag}-sadc-"):
+            c["hold"] = True
     return cells
 
 
