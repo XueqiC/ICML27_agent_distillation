@@ -24,7 +24,8 @@ from sed.provenance import write_provenance
 from sed.seed_evidence import checked_episodes, load_verified_collection, artifact_hashes
 from sed.storage import digest, file_hash, write_json, JsonlLedger, fsync_dir
 from train.dataset import load_tokenizer
-from train.modeling import copy_base_assets, load_student, snapshot_metadata
+from train.modeling import (copy_base_assets, load_student, snapshot_metadata,
+                            text_decoder_name, text_decoder_layers)
 
 
 def text_parameter(name):
@@ -102,19 +103,21 @@ def prepare_model(snapshot, *, reference=False, scoring="per_turn", flex_kernel_
 def shard_model(model, *, mesh, reference=False):
     import torch
     from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
-    from transformers.models.gemma4_unified.modeling_gemma4_unified import Gemma4UnifiedTextDecoderLayer
-    layers = [m for m in model.modules() if isinstance(m, Gemma4UnifiedTextDecoderLayer)]
-    if len(layers) != model.config.text_config.num_hidden_layers:
-        raise ValueError("Gemma4UnifiedTextDecoderLayer wrap count differs from config")
+    layers = text_decoder_layers(model)
     storage_dtype = torch.bfloat16 if reference else torch.float32
     if any(p.dtype != storage_dtype for p in model.parameters()):
         raise ValueError(f"FSDP {'reference' if reference else 'policy'} requires {storage_dtype} storage")
     if reference and (model.training or any(p.requires_grad for p in model.parameters())):
         raise ValueError("FSDP reference must be frozen and in eval mode")
+    kwargs = {}
+    if model.config.model_type == "gemma4":
+        kwargs["ignored_params"] = {p for name, p in model.named_parameters() if not text_parameter(name)}
+        if any(p.requires_grad for p in kwargs["ignored_params"]):
+            raise ValueError("E-series multimodal towers must be frozen")
     policy = MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)
     for layer in layers:
         fully_shard(layer, mesh=mesh, mp_policy=policy, reshard_after_forward=True)
-    fully_shard(model, mesh=mesh, mp_policy=policy, reshard_after_forward=True)
+    fully_shard(model, mesh=mesh, mp_policy=policy, reshard_after_forward=True, **kwargs)
     return model
 
 
@@ -949,7 +952,8 @@ def main(argv=None):
                 "attention": "flex_attention" if args.scoring == "shared_history" else "sdpa",
                 "flex_attention": flex_settings,
                 "master_dtype": "float32", "compute_dtype": "bfloat16",
-                "wrap_class": "Gemma4UnifiedTextDecoderLayer", "gradient_checkpointing": True,
+                "wrap_class": text_decoder_name(json.loads((Path(args.snapshot) / "config.json").read_text())["model_type"]),
+                "gradient_checkpointing": True,
                 "optimizer": {"name": "AdamW", "betas": [0.9, 0.999], "eps": 1e-8},
                 "no_truncation": True, "packing": args.packing if args.objective in {"sft", "sad", "steca"} else "turn", "microbatch": 1,
                 "batch_unit": "trajectory" if args.objective in {"sft", "sad", "steca"} else "preference pair",

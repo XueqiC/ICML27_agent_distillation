@@ -602,6 +602,8 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
     monkeypatch.setattr(train, "prepare_model", prepare)
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
+    # Provenance resolves the decoder family without importing model classes.
+    write_json(snapshot / "config.json", {"model_type": "gemma4_unified"})
     write_json(snapshot / "training_state.json", {})
     write_json(tmp_path / "provenance.json", {})
     pair_root = tmp_path / "pairs"
@@ -637,6 +639,7 @@ def test_main_validates_only_rank_zero(tmp_path, monkeypatch, objective):
     assert calls.count((0, "episodes")) == int(objective == "sft")
     assert calls.count((0, "accumulated")) == int(objective == "accumulated_sft")
     assert provenance_configs[0]["baseline_training"]["examples_sha256"] == digest(expected)
+    assert provenance_configs[0]["baseline_training"]["wrap_class"] == "Gemma4UnifiedTextDecoderLayer"
     settings = provenance_configs[0]["baseline_training"]["flex_attention"]
     if objective in {"dpo", "ipr"}:
         assert settings == {"head_dim_gt": 256, "block_mask_block_size": 128,

@@ -127,6 +127,10 @@ def _gemma4_k_eq_v_layers(snapshot):
             or type(text.get("attention_k_eq_v")) is not bool
             or any(t not in {"full_attention", "sliding_attention"} for t in types)):
         raise ValueError("Invalid Gemma-4 k_eq_v layer configuration")
+    if config.get("model_type") == "gemma4" and not text["attention_k_eq_v"]:
+        # E-series shared-KV layers have neither K nor V projections. They do
+        # not use the unified model's K=V derivation, even on full attention.
+        return []
     index = snapshot / "model.safetensors.index.json"
     if index.is_file():
         names = json.loads(index.read_text())["weight_map"]
@@ -222,9 +226,11 @@ def derive_gemma4_value_lora(adapter, snapshot, destination):
     return {**adapter, "served_path": str(destination), "derivation": record}
 
 
-def _conversion_plan(source, mode):
+def _conversion_plan(source, mode, *, model_type="gemma4_unified"):
     if mode not in {"targets", "gemma4"}:
         raise ValueError("Unknown LoRA conversion")
+    if model_type not in {"gemma4_unified", "gemma4"}:
+        raise ValueError("Unsupported Gemma adapter family")
     config = json.loads((source / "adapter_config.json").read_text())
     targets = config["target_modules"]
     pattern = r"model\.language_model\.layers\.\d+\.(?:self_attn|mlp)\.(?:" + "|".join(LORA_TARGETS) + ")"
@@ -241,9 +247,18 @@ def _conversion_plan(source, mode):
         if not match or match[1] not in targets:
             raise ValueError("Unexpected adapter tensor; conversion would change target coverage")
         modules.add(match[1])
-        rename[key] = (key.replace("base_model.model.model.language_model.",
-                                  "base_model.model.language_model.model.", 1)
-                       if mode == "gemma4" else key)
+        if model_type == "gemma4":
+            # vLLM 0.27.1 gemma4_mm.Gemma4ForConditionalGeneration's
+            # hf_to_vllm_mapper uses this text prefix too. Keep q/k/v names:
+            # the LoRA loader packs them into qkv_proj, with no invented K/V
+            # adapters on the KV-shared layers.
+            rename[key] = ("base_model.model.language_model.model." +
+                           key.removeprefix("base_model.model.model.language_model.")
+                           if mode == "gemma4" else key)
+        else:
+            rename[key] = (key.replace("base_model.model.model.language_model.",
+                                      "base_model.model.language_model.model.", 1)
+                           if mode == "gemma4" else key)
     if modules != set(targets) or len(set(rename.values())) != len(rename):
         raise ValueError("Incomplete or colliding tensor rename")
     converted = {rename.get(k, k): v for k, v in header.items()}
@@ -252,10 +267,12 @@ def _conversion_plan(source, mode):
                   "before": targets, "after": config["target_modules"]}},
               "tensor_renames": {k: v for k, v in rename.items() if k != v},
               "tensor_payload_sha256": payload_hash(weights, offset), "tensor_bytes_identical": True}
+    if model_type == "gemma4":
+        record["model_type"] = model_type
     return config, converted, offset, record
 
 
-def convert_adapter(adapter, destination, mode):
+def convert_adapter(adapter, destination, mode, *, snapshot=None):
     """Explicit naming fallback, after any mandatory serving derivation.
 
     Native vLLM 0.27.1 already maps Gemma keys. Never rewrite weights in place,
@@ -265,7 +282,9 @@ def convert_adapter(adapter, destination, mode):
     destination = Path(destination).resolve()
     if any(destination.is_relative_to(p) for p in (source, Path(adapter["path"]).resolve())):
         raise ValueError("Conversion must be outside checkpoint directory")
-    config, converted, offset, record = _conversion_plan(source, mode)
+    family = (json.loads((Path(snapshot) / "config.json").read_text())["model_type"]
+              if snapshot is not None else "gemma4_unified")
+    config, converted, offset, record = _conversion_plan(source, mode, model_type=family)
     weights = source / "adapter_model.safetensors"
     destination.mkdir(parents=True, exist_ok=False)
     write_json(destination / "adapter_config.json", config, exclusive=True)
@@ -317,7 +336,9 @@ def validate_served_adapter(adapter, snapshot=None):
     served = Path(adapter["served_path"]).resolve()
     if conversion is not None:
         mode = conversion["mode"]
-        config, header, offset, expected = _conversion_plan(source, mode)
+        family = (json.loads((Path(snapshot) / "config.json").read_text())["model_type"]
+                  if snapshot is not None else "gemma4_unified")
+        config, header, offset, expected = _conversion_plan(source, mode, model_type=family)
         weights = source / "adapter_model.safetensors"
         with weights.open("rb") as handle:
             prefix = handle.read(offset) if mode == "targets" else _encoded_header(header)
