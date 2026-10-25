@@ -66,6 +66,13 @@ def server_command(args, student, runtime, adapters=()):
                "--revision", student["revision"], "--tokenizer-revision", student["revision"],
                "--max-model-len", "32768", "--gpu-memory-utilization", memory,
                "--generation-config", "vllm", "--seed", "0"]
+    try:
+        model_config = json.loads((model / "config.json").read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        model_config = {}
+    if isinstance(model_config, dict) and model_config.get("model_type") == "gemma4":
+        # Batch-invariant FA2 cannot handle Gemma-4's 512-wide global heads.
+        command += ["--attention-backend", "TRITON_ATTN"]
     state_path = model / "training_state.json"
     if state_path.exists():
         state = json.loads(state_path.read_text())

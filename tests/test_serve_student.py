@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -65,6 +66,62 @@ def test_launcher_command_and_job_port(tmp_path):
     assert job_port("12345678") == job_port("12345678") == 25678
     with pytest.raises(ValueError):
         job_port("")
+
+
+@pytest.mark.parametrize("serving", ["base", "lora", "merged"])
+@pytest.mark.parametrize("config_kind", ["gemma4", "gemma4_unified", "other", "Gemma4",
+                                        "missing", "unreadable", "malformed", "non-object", "bad-encoding"])
+def test_attention_backend_command(tmp_path, monkeypatch, serving, config_kind):
+    monkeypatch.setenv("VLLM_GPU_MEMORY_UTILIZATION", "0.85")
+    base = tmp_path / "base"
+    base.mkdir()
+    model = base
+    args = SimpleNamespace(model_path=str(base), merged_model_path=None,
+                           python="server-python", port=23456, lora_dtype="float16")
+    if serving == "merged":
+        model = tmp_path / "merged"
+        model.mkdir()
+        args.merged_model_path = str(model)
+        # Selection must use the served checkpoint, even if the base differs.
+        (base / "config.json").write_text(json.dumps({
+            "model_type": "gemma4_unified" if config_kind == "gemma4" else "gemma4"}))
+        (model / "training_state.json").write_text(json.dumps({
+            "control": "dose_matched_init", "text_export_dtype": "float32"}))
+    config_path = model / "config.json"
+    if config_kind != "missing":
+        payload = {"malformed": b"{", "non-object": b"[]", "bad-encoding": b"\xff"}.get(
+            config_kind, json.dumps({"model_type": config_kind}).encode())
+        config_path.write_bytes(payload)
+    if config_kind == "unreadable":
+        read_text = Path.read_text
+        def unreadable(path, *args, **kwargs):
+            if path == config_path:
+                raise PermissionError("unreadable config")
+            return read_text(path, *args, **kwargs)
+        monkeypatch.setattr(Path, "read_text", unreadable)
+    adapters = [{"name": "sft", "rank": 16, "served_path": str(tmp_path / "adapter")}] if serving == "lora" else []
+    student = {"requested_repo": "student", "revision": "pinned-revision"}
+    # Exact command produced before the Gemma-4 backend override.
+    expected = ["server-python", "-m", "vllm.entrypoints.cli.main", "serve", str(model),
+                "--host", "127.0.0.1", "--port", "23456", "--served-model-name", "student",
+                "--revision", "pinned-revision", "--tokenizer-revision", "pinned-revision",
+                "--max-model-len", "32768", "--gpu-memory-utilization", "0.85",
+                "--generation-config", "vllm", "--seed", "0"]
+    if serving == "merged":
+        expected += ["--dtype", "bfloat16"]
+    expected += ["--reasoning-parser", "gemma4"]
+    if serving == "lora":
+        expected += ["--lora-dtype", "float16", "--enable-lora", "--max-lora-rank", "16",
+                     "--max-loras", "1", "--lora-modules", "sft=" + str(tmp_path / "adapter")]
+    command = server_command(args, student, {"gemma4_parser": True}, adapters)
+    if config_kind == "gemma4":
+        position = command.index("--seed") + 2
+        assert command[position:position + 2] == ["--attention-backend", "TRITON_ATTN"]
+        assert command.count("--attention-backend") == command.count("TRITON_ATTN") == 1
+        command = command[:position] + command[position + 2:]
+    else:
+        assert "--attention-backend" not in command
+    assert command == expected
 
 
 def test_readiness_and_dead_server():
