@@ -809,8 +809,22 @@ def variant_seed_cell(tag, method, k, epochs, lr, seed):
     return c
 
 
-def variant_seed_cells(tag):
-    return [variant_seed_cell(tag, m, k, e, lr, s) for s in (1, 2) for m, k, e, lr in E4B_SEED_RUNGS]
+# 10-25 12:3x CDT: LONI /work back under its file quota (user approved deleting the failed-copy partials) -> the E4B
+# trajectory-SFT / AD seed cells not yet started on hpg train on LONI gpu2 (2 A100, as their seed-0 cells; hpg keeps the
+# GPUs for SmartAD); hpg evaluates the verified copy (gates/eval_<cell>, opened by sync_and_gate_v3.sh).
+E4B_SEED_LONI = {"e4b-tsft-k30-e64-lr5e-5-s2", "e4b-tsft-k100-e64-lr1e-4-s2", "e4b-adc-k100-e64-lr1e-4-s1",
+                 "e4b-adc-k30-e64-lr1e-4-s2", "e4b-adc-k100-e64-lr1e-4-s2"}
+
+
+def variant_seed_cells(tag, loni_trains=None):
+    cells = [variant_seed_cell(tag, m, k, e, lr, s) for s in (1, 2) for m, k, e, lr in E4B_SEED_RUNGS]
+    for c in cells:
+        if c["cell"] in E4B_SEED_LONI:
+            if loni_trains is not None:
+                loni_trains.extend(st for st in c["stages"] if not st["name"].endswith("-eval"))
+            c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
+            c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{c['cell']}"}
+    return cells
 
 
 def variant_selection(tag):
@@ -922,7 +936,7 @@ def main():
     for c in cells:
         c["hold"] = True
     loni_trains = []
-    cells = (variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + variant_seed_cells("e4b") + seed_cells()
+    cells = (variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains) + variant_seed_cells("e4b", loni_trains) + seed_cells()
              + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
