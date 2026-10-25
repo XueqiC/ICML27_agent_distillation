@@ -17,6 +17,28 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:1x CDT 10-24 — STUDENT VARIANTS E4B + E2B (user 18:38-18:55 CDT); multi-seed STOPPED
+- User: stop the multi-seed runs; only change the student base (everything else incl. the recipe unchanged), seed 0,
+  K30 + K100 first, compare with teacher and the base student; E4B (google/gemma-4-E4B-it @ee0ef602) and, in parallel,
+  E2B (google/gemma-4-E2B-it @3e22461f); final figure = 3 panels side by side (12B | E4B | E2B), legend on top.
+  "现阶段可以假设不同机器上跑的结果不变，但是要确保数据都是完全一致的".
+- Seeds: plan v15 holds all 48 seed cells; adc-k500-e64-lr5e-5-s1/s2 (47516734/47540378) scancelled 18:43 CDT; LONI seed
+  offload (v14, 18 cells) never submitted. Kept: tsft K500 s1/s2 (+evals 125/120), tsft K30 s1/s2 trains (no eval).
+- Cells per variant (12B converged rung + lr reused): tsft K30 e64 5e-5, tsft K100 e64 1e-4, AD K30/K100 e64 1e-4,
+  SmartAD K30 e32 / K100 e64 1e-4 (re-selected with the variant's NLL from the same 5,000 teacher candidates), SAD K30 b1 /
+  K100 b05; base student eval rides on the tsft K30 eval (INCLUDE_BASE=1). configs/base_{e4b,e2b}.yaml = base.yaml with
+  only models.student changed (sha faf549ff / 2c6a40b5 on rai, hpg, LONI). Plan v16/v17 (ebaf4ac): e4b-*/e2b-* cells.
+- Data identity checked: model.safetensors sha256 = HF LFS on hpg + LONI (+ rai for E4B): E4B cfbd3d2f, E2B 2db5482b;
+  tokenizer cc8d3a0c (same as 12B family); receipts (manifest/selection/identity) of seeds_full_train_r2 (+k30/k100) and
+  adftp-chain collection (+k30/k100) identical on rai/hpg/LONI; LONI c6b15b2 tracked files sha-identical to git (1,258).
+- Where: LONI gpu2 (2 A100, tree c6b15b2): tsft/AD K30/K100 for both variants = 8 jobs 1128289-92 (e4b), 1128302-06
+  (e2b), all RUNNING 19:54-20:0x EDT. hpg: SmartAD selection 4 shards + merge, SmartAD prep/train, SAD prep/train/eval,
+  all evals. rai: no torch env for this project -> not used.
+- Watchers (rai): sync_and_gate_v2.sh e4b pid 1964069, e2b pid 1970367 (stream LONI -> hpg, verify count/bytes/adapter
+  sha, open gates/eval_<cell>; log logs/sync_adapters_loni_hpg.log); gate_e{4,2}b_smartad.sh pids 1964070 / 1970368.
+- Gates opened: e4b_ready 18:54 CDT, e2b_ready 19:1x CDT. Unverified risk: Gemma-4 E-series (KV-shared layers, per-layer
+  embeddings) under fsdp_train / vLLM LoRA serving; first evidence = first updates on LONI + the serving gate.
+
 ### 18:4x CDT 10-24 — literature re-check from the PDFs (user: "重新回顾这些论文 … 而不是说在你印象里")
 - reports/analysis/main_grid_seeds/literature_student_vs_teacher.md (10 papers read; PDFs in session scratchpad papers/).
   Main-table papers (Kang, SAD, SmartAD): students 2-64x smaller, all below teacher; SmartAD reports no teacher score.
