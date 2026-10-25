@@ -788,6 +788,11 @@ def variant_cells(tag, loni_trains=None):
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
             c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{c['cell']}"}
         cells.append(c)
+    # 10-24 19:3x CDT: E-series template/architecture differs from the 12B (no empty-thought OFF prefill, Gemma4TextAttention,
+    # KV-shared layers, per-layer inputs, audio tower); every variant stage failed or would fail on trees without that
+    # support -> held until the eseries-template fix lands on new trees.
+    for c in cells:
+        c["hold"] = True
     return cells
 
 
