@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:2x CDT 10-25 — SAD relaunch failed on identity (my mistake), preps rerun on c265b5d
+- All 4 SAD trains on c265b5d (47601174/75, 47601896, 47602122) failed in prepare(): "Refusing to overwrite a different
+  frozen artifact .../identity.json". The SAD identity binds code_sha256 of every source file, so the 95a62b2 preps are
+  invalid on the new tree (I had wrongly assumed identity = data/recipe/config only). Lost ~6-12 min x 2 GPUs each.
+  Fix: cell dirs -> hpg _trash/sad_identity_95a62b2_1025, keeper state of the 4 SAD cells reset -> prep (CPU, local,
+  SAD has no teacher transport) + train + eval rerun on c265b5d/17eec0d. Watcher bfz2s9vvd (e4b K30 past update 400).
+- Rule for later tree swaps: a baseline cell's prep and train must run on the same tree; a code change => fresh cell dir.
+
 ### 01:4x CDT 10-25 — all 8 variant tsft/AD cells done (dev140 solved, converged column, seed 0)
 | student | base | tsft K30 | tsft K100 | AD K30 | AD K100 |
 |---|---|---|---|---|---|
