@@ -404,8 +404,8 @@ def lora_rung(method, k, epochs, lr=None):
     Rungs 2 (paper), 4, 8, 16 run concurrently (32 only if 16 is not converged); only the reported rung is evaluated
     (trajectory SFT greedy, AD with SAG)."""
     cell = f"{method}-k{k}-e{epochs}" + (f"-lr{lr}" if lr else "")   # 10-21: lr suffix = stabilised ladder (LONI-trained)
-    n = 2 if k == 30 else 4
-    per_epoch = {30: 10, 100: 13, 300: 38, 500: 63}[k]          # updates per epoch
+    n = 2 if k <= 30 else 4   # 10-25: K10/K20 (b' = 1/2) as K30: idle rank slots are zero-weight duplicates
+    per_epoch = {10: 10, 20: 10, 30: 10, 100: 13, 300: 38, 500: 63}[k]          # updates per epoch
     hours = 0.5 + epochs * per_epoch * (8 if n == 4 else 6) / 3600 * 2.5   # 8 s/update is an estimate: margin 2.5x
     hh = f"{int(hours):02d}:{int((hours % 1) * 60):02d}:00"
     out = f"{BL}/{cell}"
@@ -487,7 +487,7 @@ def smc_rung(k, epochs, lr):
     Greedy evaluation; the serving-check prompts come from the trajectory-SFT support view of the same K (strict-clean;
     teacher candidates at T=1.0 may hold empty replies)."""
     cell = f"smc-k{k}-e{epochs}-lr{lr}"
-    n = 2 if k == 30 else 4
+    n = 2 if k <= 30 else 4
     # 10-23 03:1x CDT: with GPU stages group-only (6 GPUs) the K500 5e-5 e64 train holds 4 and the 4-GPU K100/K300 rungs
     # would wait ~7 h beside 2 idle GPUs. The untrained K100/K300 rungs run on 2 GPUs like K30 (global batch stays b' = 4
     # trajectories, recipe.original_batch; only the data-parallel split changes). identity.json binds gpus -> fresh prep.
@@ -499,7 +499,7 @@ def smc_rung(k, epochs, lr):
     # while e32 trains on 4 GPUs instead of queueing after it (4-GPU preps -> _trash).
     if lr == "5e-5" and k == 500 and epochs in (16, 8, 4, 2):
         n = 2
-    per_epoch = {30: 8, 100: 25, 300: 75, 500: 125}[k]
+    per_epoch = {10: 3, 20: 5, 30: 8, 100: 25, 300: 75, 500: 125}[k]
     # 10-22 00:2x CDT: smc-k30-e2 (47091127) timed out at 1:04 before its first update: the pipeline prepare phase alone
     # took ~52 min (61 GB read: collection + snapshot hashing), then rank-0 prepare_data. 3 h startup allowance.
     hours = 3.0 + epochs * per_epoch * 10 / 3600 * 1.6
@@ -767,6 +767,14 @@ def v_sel(tag):
 E4B_RUNGS = [("tsft", 30, 64, "5e-5"), ("tsft", 100, 64, "1e-4"), ("adc", 30, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
              ("smc", 30, 32, "1e-4"), ("smc", 100, 64, "1e-4"), ("sad", 30, 1, None), ("sad", 100, 0.5, None)]
 E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100)}   # trained on LONI A100; hpg evaluates the verified copy
+# 10-25 15:5x CDT (pre-registered 11:5x, user approved 11:44 CDT): E4B few-shot K10/K20, seed 0. Rule-A ladders run in
+# parallel: LoRA rungs e16/e32/e64/e128 at the lr of the method's E4B K30 cell (tsft 5e-5, AD 1e-4, SmartAD 1e-4), SAD
+# budget x0.5/x1 (x2 only if not converged); only the chosen rung is evaluated. Views K10 c K20 c K30 from tool 5bea6b0
+# (gates/e4b_few_views_ft after the full-TRAIN views, gates/e4b_few_views after the SmartAD selection views, on hpg). Trajectory SFT and AD train on LONI gpu2
+# (verified view copies; hpg keeps its 8 group GPUs for SmartAD/SAD and all evals); hpg evaluates the verified copy.
+E4B_FEW_RUNGS = ([(m, k, e, lr) for k in (10, 20) for m, lr in (("tsft", "5e-5"), ("adc", "1e-4"), ("smc", "1e-4"))
+                  for e in (16, 32, 64, 128)] + [("sad", k, b, None) for k in (10, 20) for b in (0.5, 1)])
+E4B_FEW_LONI = {"tsft", "adc"}
 # 10-25 01:0x CDT (user "咱们尽量并行"): SmartAD prep+train had moved to LONI too (v21). 11:3x CDT: back on hpg (v24): every
 # hpg -> LONI copy of the selected collection died at ~60 min with "Disk quota exceeded" -- LONI /work is at its 4,000,000
 # file-count quota (3,996,928 used); hpg is idle and already holds the selection, so no copy is needed.
@@ -777,7 +785,7 @@ def variant_cell(tag, method, k, epochs, lr):
     CONFIG/MODEL_PATH exported, SmartAD on the pool re-selected with that student, no per-rung eval gates."""
     c = (sadc(k, epochs) if method == "sad" else smc_rung(k, epochs, lr) if method == "smc"
          else lora_rung(method, k, epochs, lr=lr))
-    if method == "sad" and k != 30:
+    if method == "sad" and k > 30:   # K10/K20 are prefixes of K30 (no parser-rejected reply)
         # 10-25 02:5x CDT: as the 12B SAD K100-K500 (tree override in the 10-20 plan, applied outside sadc()): mask the
         # teacher replies the H0 parser rejects (fb22f09); without it e4b-sadc-k100-b05 failed "SAD reply requires an
         # Action line" (47607394). K30 contains no such reply and stays on 20cb697, as for the 12B.
@@ -867,11 +875,16 @@ def variant_selection(tag):
     return cells
 
 
-def variant_cells(tag, loni_trains=None):
-    cells = variant_selection(tag)
-    for m, k, e, lr in E4B_RUNGS:
+def variant_cells(tag, loni_trains=None, few=False):
+    cells = [] if few else variant_selection(tag)
+    for m, k, e, lr in (E4B_FEW_RUNGS if few else E4B_RUNGS):
         c = variant_cell(tag, m, k, e, lr)
-        if (m, k) in E4B_LONI:
+        if few:
+            # rule-A ladder: only the chosen rung is evaluated (gates/eval_<cell>, opened by hand after the decision)
+            c["stages"][-1]["gate"] = {"file": f"{GATES}/eval_{c['cell']}"}
+            if m in ("smc", "sad"):   # SAD needs only the full-TRAIN views; SmartAD also its selection views
+                c["stages"][0]["gate"] = {"file": f"{GATES}/{tag}_few_views" + ("_ft" if m == "sad" else "")}
+        if (m, k) in E4B_LONI or (few and m in E4B_FEW_LONI):
             train = [st for st in c["stages"] if not st["name"].endswith("-eval")]
             if loni_trains is not None:
                 loni_trains.extend(train)
@@ -961,7 +974,8 @@ def main():
         c["hold"] = True
     loni_trains = []
     cells = (es_k30_override(variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains)
-                             + variant_seed_cells("e4b", loni_trains)) + seed_cells() + chain_cells() + cells)
+                             + variant_cells("e4b", loni_trains, few=True) + variant_seed_cells("e4b", loni_trains))
+             + seed_cells() + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
             st["exports"] = ",".join(x for x in (st.get("exports"), OFF_HOME) if x)
