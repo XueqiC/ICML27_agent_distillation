@@ -719,6 +719,8 @@ VARIANTS = {   # tag -> (config, snapshot); model.safetensors sha256 verified on
             "snapshots/3e22461f65e89153144f8adb70e3b8c2cc9845a7"),   # 2db5482b...
 }
 E4B_GATE = {"file": f"{GATES}/e4b_ready"}
+ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9f9a80": "0c2cd9e",
+           "20cb697": "95a62b2"}   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
 
 
 def v_env(tag):
@@ -789,10 +791,14 @@ def variant_cells(tag, loni_trains=None):
             c["stages"][0]["gate"] = {"file": f"{GATES}/eval_{c['cell']}"}
         cells.append(c)
     # 10-24 19:3x CDT: E-series template/architecture differs from the 12B (no empty-thought OFF prefill, Gemma4TextAttention,
-    # KV-shared layers, per-layer inputs, audio tower); every variant stage failed or would fail on trees without that
-    # support -> held until the eseries-template fix lands on new trees.
+    # KV-shared layers, per-layer inputs, audio tower); every variant stage failed on trees without that support.
+    # 21:xx CDT: fix 2506fa9 (Codex, reviewed; 12B byte-identical by golden tests against each base tree) cherry-picked onto
+    # every tree the variant cells use -> variant cells run on the fixed twin of their 12B tree.
+    for st in [st for c in cells for st in c["stages"]] + list(loni_trains or []):
+        if st.get("tree") in ES_TREE:
+            st["tree"] = ES_TREE[st["tree"]]
     for c in cells:
-        c["hold"] = True
+        c["tree"] = ES_TREE[c["tree"]]
     return cells
 
 
