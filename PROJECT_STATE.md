@@ -25,8 +25,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - Views: full-TRAIN, AD-FTP, SmartAD-selection k10/k20 created + verified on hpg; existing views unchanged; LONI copies of
   full-TRAIN + AD-FTP k10/k20 sha256-identical. Gates e4b_few_views_ft (SAD preps done 15:1x-15:3x) and e4b_few_views open.
 - LONI: tsft K10/K20 e16-e128 1130936-44 RUNNING (15:18 CDT), AD K10/K20 e16-e128 1130998-1131006 submitted 15:53 CDT.
-- Next: rule A per (method, K) once its 4 rungs finish -> sync chosen LONI rung to hpg -> open gates/eval_<cell>; SmartAD/SAD
-  rungs on hpg -> open the chosen rung's eval gate. Then seeds 1,2 at K10/K20.
+- Rule A (16:3x CDT): tsft K10 e16 L_last 0.0019 -> e32 0.0001 (d 0.0018 < 0.01, both valid) => **K10 tsft = e32**; tsft K20
+  0.0024 -> 0.0001 => **K20 tsft = e32**. sync_and_gate_v3.sh (pid 432622) copies both to hpg + opens their eval gates.
+- rai watcher scratchpad/rule_a_watch.py (setsid pid 435428; logs/rule_a_few.log, decisions logs/rule_a_few.jsonl): every
+  10 min, rule A on each LoRA ladder (tsft/AD on LONI, SmartAD on hpg) -> first converged pair's larger rung -> LONI: verified
+  copy to hpg, then gates/eval_<cell>; INVALID / not converged by e128 -> logged, left for the user. SAD b05/b1 by hand.
+  Then seeds 1,2 at K10/K20 (chosen rung + lr).
 
 ### 15:3x CDT 10-25 — user direction question: interactive agent distillation (OPEN, awaiting user choices)
 - User Q&A (15:00-15:32): K = K TRAIN tasks x 1 env-verified teacher trajectory; filtered to successes only, correctness is
