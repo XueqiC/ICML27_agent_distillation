@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 12:1x CDT 10-25 — plan v25: E4B seeds 1,2 (K30/K100) in parallel (user 11:46 "咱们其实可以并行")
+- 12 cells e4b-{tsft,adc,smc}-k{30,100}-*-s{1,2} (train + eval) on hpg; trees tsft 2506fa9, AD f30e46b, SmartAD 892e3ef
+  (deployed, sha-identical), eval 46b8527. Diff vs seed-0 = seed var, output paths, hpg cache env, tree twin.
+- K10/K20 waits only for the Codex view tool review (no longer for SmartAD to finish). LONI file census running.
+
 ### 11:5x CDT 10-25 — PRE-REGISTERED (user approved 11:44 CDT "可以"): E4B K10/K20 (seed 0) + training seeds 1,2 at K10/K20/K30/K100
 - User 11:37 CDT: "结束smartAD30和100后，在E4B上先把10和20跑出来，然后加seed两个，在E4B上把10，20，30，100都跑一下".
 - Views: K10 ⊂ K20 ⊂ K30 from the same stratified nested v2 order (seed 0); zero teacher calls; no existing file changes.
