@@ -767,7 +767,7 @@ def v_sel(tag):
 E4B_RUNGS = [("tsft", 30, 64, "5e-5"), ("tsft", 100, 64, "1e-4"), ("adc", 30, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
              ("smc", 30, 32, "1e-4"), ("smc", 100, 64, "1e-4"), ("sad", 30, 1, None), ("sad", 100, 0.5, None)]
 E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100)}   # trained on LONI A100; hpg evaluates the verified copy
-# 10-25 15:5x CDT (pre-registered 11:5x, user approved 11:44 CDT): E4B few-shot K10/K20, seed 0. Rule-A ladders run in
+# 10-25 14:5x CDT (pre-registered 11:5x, user approved 11:44 CDT): E4B few-shot K10/K20, seed 0. Rule-A ladders run in
 # parallel: LoRA rungs e16/e32/e64/e128 at the lr of the method's E4B K30 cell (tsft 5e-5, AD 1e-4, SmartAD 1e-4), SAD
 # budget x0.5/x1 (x2 only if not converged); only the chosen rung is evaluated. Views K10 c K20 c K30 from tool 5bea6b0
 # (gates/e4b_few_views_ft after the full-TRAIN views, gates/e4b_few_views after the SmartAD selection views, on hpg). Trajectory SFT and AD train on LONI gpu2

@@ -17,6 +17,27 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:5x CDT 10-25 — E4B SmartAD K100 118; SmartAD K30 serving gates -> pre-registered override; K10/K20 views + plan v28
+- dev140 (training all rule-A valid): e4b-smc-k100-e64 **118** (vs tsft 107 p=.019, AD 102 p=.0015, SAD 111 p=.27; 12B 120);
+  E4B seed 1: tsft K30 79 (s0 86), tsft K100 102 (107), AD K30 104 (112); none differs from seed 0 at p<.2.
+- All four E-series SmartAD K30 e32 evals (e4b, e2b, e4b s1, s2) failed the serving gate on tolerance only (pooled 0.053-0.079
+  vs tol 0.050/0.068; s1 >0.5-count 12 > 11); effect + all 8 prompts pass = the 12B K30 pattern. Pre-registered rule (10-24,
+  carried over 10-25 11:44): float32 HF reference + recorded tolerance override, marked. Tree d822255 = 46b8527 + fea3a8e +
+  8b47413 (clean cherry-picks, patch-identical; 290 serving/E-series tests pass, the 2 golden failures are 46b8527's own);
+  deployed on hpg (1,248 files sha-identical). Plan v27 (2581aff); failed OUT -> hpg _trash/*-eval-bf16ref-1025. Evals
+  47702959/65/72 (+ s2 later) pending on QOSGrpGRES (group 8/8: yd26 3-4 GPUs). Cancelled our pending 4-GPU
+  e4b-smc-k100-s1-train 47698664 (never started) so the 1-GPU evals go first; keeper resubmits it.
+- TODO after the reruns: diagnostic |HF bf16 - HF fp32| vs |vLLM - HF fp32| per cell (old reports in _trash), as for the 12B.
+- K10/K20 views: Codex tool reviewed + committed (ICML27_views 5bea6b0: regenerated K30 byte-identical on real full-TRAIN (3
+  files) and real AD-FTP (8,499 files) + SmartAD fixture; 28/28 deployed-tree acceptance checks; 23 new tests pass (rerun by
+  me); full suite 2,572 pass / 55 fail = same 55 as before). Deployed on hpg ICML27_runs/5bea6b0 (1,313 files sha-identical).
+  hpg job views-full-train 47703005 (group, hpg-milan, build/views_job.sh: dry run, then create) running; then adftp +
+  smartad_selection jobs (they need the full-TRAIN k10/k20). Then copy full-TRAIN + AD-FTP k10/k20 to LONI
+  (scratchpad/copy_views_loni.sh: sha256 of every file both sides).
+- Plan v28 (e6ea174): 28 gated E4B K10/K20 ladder cells. SmartAD (e16-e128, 1e-4) + SAD (b05/b1) prep/train/eval on hpg (gates
+  e4b_few_views / e4b_few_views_ft); tsft (5e-5) / AD (1e-4) e16-e128 train on LONI (scratchpad/loni_few_e4b.sh from
+  loni_few_submit.py, same argv as the E4B K30 LONI cells except K/epochs/out), hpg evals gated eval_<cell> after rule A.
+
 ### 12:3x CDT 10-25 — LONI back (3,049,702 / 4,000,000 files); 5 E4B seed trainings on LONI (plan v26, 9729668)
 - User 12:24 "可以": deleted exactly the 4 partials in /work/xueqic/hq/_trash (947k files).
 - f30e46b deployed on LONI (1,261 files sha-identical). LONI gpu2 jobs (scratchpad loni_seed_e4b.sh, from
