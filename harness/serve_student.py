@@ -191,7 +191,7 @@ def main(argv=None):
     adapters = [derive_gemma4_value_lora(a, model, output / "derived_adapters" / a["name"])
                 for a in adapters]
     if args.lora_conversion != "none":
-        adapters = [convert_adapter(a, output / "adapters" / a["name"], args.lora_conversion)
+        adapters = [convert_adapter(a, output / "adapters" / a["name"], args.lora_conversion, snapshot=model)
                     for a in adapters]
     command = server_command(args, student, runtime, adapters)
     # Record local config/template/index hashes; weights remain the user's pinned

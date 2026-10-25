@@ -22,6 +22,16 @@ from sed.thinking import split_thinking
 TURN_TOKEN = "<turn|>"
 TURN_ID = 106
 EMPTY_THOUGHT = "<|channel>thought\n<channel|>"
+MODEL_PREFIX = "<|turn>model\n"
+
+
+def _off_prefix(prompt, completed):
+    """Accept only the two native OFF prefixes; never rewrite the template."""
+    if prompt.endswith(EMPTY_THOUGHT):
+        return prompt[:-len(EMPTY_THOUGHT)], EMPTY_THOUGHT
+    if prompt.endswith(MODEL_PREFIX) and completed.startswith(prompt):
+        return prompt, ""
+    raise ValueError("Gemma OFF generation prefix changed")
 
 
 def build_action_example(record):
@@ -56,13 +66,11 @@ def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
     # These are exactly the messages and generation settings used by evaluation.
     prompt = tokenizer.apply_chat_template(messages, tokenize=False,
                 add_generation_prompt=True, enable_thinking=False)
-    if not prompt.endswith(EMPTY_THOUGHT):
-        raise ValueError("Gemma OFF generation prefix changed")
     # Completed-chat rendering omits the empty thought prefill. Use it only to
     # obtain the native target serialization, retaining the evaluation prefix.
     completed = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": reply}],
                 tokenize=False, add_generation_prompt=False, enable_thinking=False)
-    prefix_without_thought = prompt[:-len(EMPTY_THOUGHT)]
+    prefix_without_thought, prefill = _off_prefix(prompt, completed)
     if not completed.startswith(prefix_without_thought) or not completed.endswith(TURN_TOKEN + "\n"):
         raise ValueError("Gemma chat-template boundary changed")
     target = completed[len(prefix_without_thought):-1]
@@ -73,7 +81,7 @@ def encode_turn(tokenizer, messages, reply, *, max_length, as_history=False):
         raise ValueError("Visible teacher reply contains a model control token")
     prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
     native_prefix_ids = tokenizer.encode(prefix_without_thought, add_special_tokens=False)
-    if prompt_ids != native_prefix_ids + tokenizer.encode(EMPTY_THOUGHT, add_special_tokens=False):
+    if prompt_ids != native_prefix_ids + tokenizer.encode(prefill, add_special_tokens=False):
         raise ValueError("Tokenizer boundary crosses native history/empty thought")
     turn_forward_tokens = len(prompt_ids) + len(target_ids)
     if as_history:
@@ -103,8 +111,11 @@ def _encode_empty_history(tokenizer, messages, *, max_length):
                 add_generation_prompt=True, enable_thinking=False)
     completed = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": ""}],
                 tokenize=False, add_generation_prompt=False, enable_thinking=False)
-    if (not prompt.endswith(EMPTY_THOUGHT)
-            or completed != prompt[:-len(EMPTY_THOUGHT)] + TURN_TOKEN + "\n"):
+    try:
+        native_prefix, _ = _off_prefix(prompt, completed)
+    except ValueError:
+        raise ValueError("Gemma empty assistant history boundary changed") from None
+    if completed != native_prefix + TURN_TOKEN + "\n":
         raise ValueError("Gemma empty assistant history boundary changed")
     ids = tokenizer.encode(completed[:-1], add_special_tokens=False)
     if len(ids) > max_length:
@@ -185,6 +196,13 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
 
 
 def mask_report(examples, tokenizer, *, first=3):
+    messages = [{"role": "user", "content": "Prefix check"}]
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False,
+                add_generation_prompt=True, enable_thinking=False)
+    completed = tokenizer.apply_chat_template(messages + [{"role": "assistant", "content": "Reply"}],
+                tokenize=False, add_generation_prompt=False, enable_thinking=False)
+    _, prefill = _off_prefix(prompt, completed)
+    generation_prefix = MODEL_PREFIX + prefill
     rows = []
     packing = examples[0]["packing"]
     for index, example in enumerate(examples):
@@ -199,7 +217,7 @@ def mask_report(examples, tokenizer, *, first=3):
             expected[start:stop] = ids[start:stop]
             prefix = tokenizer.decode(ids[:start], skip_special_tokens=False)
             if packing == "turn" or span["turn_index"] == example["turn_count"] - 1:
-                assert prefix.endswith(EMPTY_THOUGHT)
+                assert prefix.endswith(generation_prefix)
             else:
                 assert prefix.endswith("<|turn>model\n")
         assert labels == expected
@@ -209,7 +227,7 @@ def mask_report(examples, tokenizer, *, first=3):
                "assistant_spans": spans, "turn_count": example["turn_count"],
                "empty_visible_turns_masked": example["empty_visible_turns_masked"],
                "prefix_mismatch_turn_indices": [s["turn_index"] for s in spans
-                   if packing == "episode" and s["turn_index"] != example["turn_count"] - 1],
+                   if prefill and packing == "episode" and s["turn_index"] != example["turn_count"] - 1],
                "assertions": {"all_system_user_observation_tokens_masked": True,
                               "empty_thought_channel_masked": True,
                               "only_assistant_replies_and_native_turn_ends_supervised": True},
@@ -228,13 +246,15 @@ def mask_report(examples, tokenizer, *, first=3):
                 for mode in ("turn", "episode")},
             "evaluation_prefix_mismatch": {
                 "affected_turns": sum(len(r["prefix_mismatch_turn_indices"]) for r in rows),
-                "generation_prefix": "<|turn>model\n" + EMPTY_THOUGHT,
+                "generation_prefix": generation_prefix,
                 "history_prefix": "<|turn>model\n",
                 "description": "Generation appends an empty thought channel before the reply; "
                     "completed history renders <|turn>model\\n<reply><turn|> without it. "
                     "Episode packing supervises all non-final turns in that history format; "
                     "the final reply retains the exact evaluation generation prefix. "
-                    "Turn packing retains that prefix for every supervised reply. Template unchanged."},
+                    "Turn packing retains that prefix for every supervised reply. Template unchanged."
+                    if prefill else "Generation and completed history use the same native model prefix; "
+                    "there is no empty thought prefill. Template unchanged."},
             "examples": rows}
 
 

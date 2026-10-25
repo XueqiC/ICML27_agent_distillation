@@ -62,12 +62,13 @@ def _select_flex_kernel_options(module, args, kwargs):
 def configure_flex_attention(model, kernel_options=None):
     """Install per-module routing, without replacing HF's attention implementation."""
     from transformers.models.gemma4_unified.modeling_gemma4_unified import Gemma4UnifiedTextAttention
+    from transformers.models.gemma4.modeling_gemma4 import Gemma4TextAttention
     config = model.config.get_text_config()
     settings = flex_attention_settings(kernel_options if kernel_options is not None else
                                        getattr(config, "shared_history_flex_kernel_options", None))
     config.shared_history_flex_kernel_options = dict(settings["kernel_options"])
     for module in model.modules():
-        if isinstance(module, Gemma4UnifiedTextAttention) and not getattr(module, "_shared_history_flex_hook", False):
+        if isinstance(module, (Gemma4UnifiedTextAttention, Gemma4TextAttention)) and not getattr(module, "_shared_history_flex_hook", False):
             module.register_forward_pre_hook(_select_flex_kernel_options, with_kwargs=True)
             module._shared_history_flex_hook = True
     return settings
@@ -89,7 +90,7 @@ def pack_shared_history(row):
         start = turn.get("generation_start")
         prompt = turn.get("prompt_tokens")
         if (not isinstance(start, int) or not isinstance(prompt, int)
-                or not 0 < start < prompt < len(source) <= 32768
+                or not 0 < start <= prompt < len(source) <= 32768
                 or len(source) != len(target)
                 or target[:prompt] != [-100] * prompt
                 or any(label not in (-100, token) for label, token in zip(target[prompt:], source[prompt:]))
@@ -232,8 +233,8 @@ def dropout_equivalence(model):
 def validate_model(model):
     """Reject unsupported attention/position features; allow LoRA-input dropout."""
     config = model.config.get_text_config()
-    if config.model_type != "gemma4_unified_text" or getattr(config, "use_bidirectional_attention", None) == "all":
-        raise ValueError("Shared history requires causal Gemma4 unified text attention")
+    if config.model_type not in {"gemma4_unified_text", "gemma4_text"} or getattr(config, "use_bidirectional_attention", None) == "all":
+        raise ValueError("Shared history requires causal Gemma4 text attention")
     if config.attention_dropout:
         raise ValueError("Shared history requires zero dropout in attention (FlexAttention limitation)")
     # Length-dependent RoPE scaling may depend on the longest branch in a call.
