@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 11:4x CDT 10-25 — SmartAD variants back on hpg (plan v24); LONI /work file-count quota full; figure K=0 axis
+- Root cause of the 3x ~60 min copy deaths: LONI /work file-count quota 3,996,928 / 4,000,000 ("Disk quota exceeded" in
+  the chunked copier's tar stderr). Block usage unlimited (4.16 TB). LONI cannot take new files until old-phase data
+  moves out (loni_cold_move.sh, stopped since 08:40; restart only with a direct LONI leg). LONI _trash partials
+  (chain_k500_s0_r2_e{4,2}b.partial.*, smartad_e4b_partial_1025) hold some of those files.
+- Plan v24 (8d28cd6): e4b/e2b smc K30/K100 prep (hpg-milan) + train (hpg-b200, NGPUS 2/4 as 12B, tree f453db8) + eval
+  (46b8527) on hpg from the hpg selection; diff vs 12B cells = intended only (CONFIG/MODEL_PATH/paths, no 12B
+  serving-gate override). All LONI orchestrators (smc_loni*/smc_copy_chunked) stopped.
+- User 10-25 11:2x: "K30到K100 AD怎么会下降" -> checked: N_examples 30/100, same recipe, loss ->0, eval healthy
+  (inadmissible 4.1% -> 2.7%), only E4B drops (112->102, 18/8, p=.08); offered seed-1 retrain of E4B AD K30/K100.
+  User: next K=10/20 (few-shot) after this; asked which base -> recommended E4B main, 12B confirmation, E2B stress panel.
+  User: figure x = K 0/30/100/300/500 with K=0 = base (done, 92a0b28).
+
 ### 10:3x CDT 10-25 — E2B SAD K100 = 103: SAD complete for all three students
 - E2B SAD K100 103 (vs 12B 109 p=.31, E4B 111 p=.19, own K30 58 50/5 p=2e-10, E2B AD100 100 p=.72, tsft100 96 p=.28).
   K100 by size: SAD 109/111/103 vs tsft 112/107/96 (E2B tsft vs 12B p=.007): SAD's K100 result degrades less with size.
