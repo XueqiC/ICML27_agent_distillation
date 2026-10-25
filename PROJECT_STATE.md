@@ -17,6 +17,21 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 21:1x CDT 10-24 — E-series fix landed; variants relaunched (plan v19 d8cead0)
+- Fix 2506fa9 (branch eseries-template, Codex reviewed): template-aware OFF prefix (_off_prefix: 12B empty-thought prefill
+  or no prefill), shared history allows generation_start == prompt_tokens + flex hook on Gemma4TextAttention,
+  load_student/FSDP dispatch on model_type (Gemma4TextDecoderLayer; towers frozen + FSDP ignored_params), LoRA targets =
+  same 7 projection names restricted to model.language_model.layers.N.(self_attn|mlp).*, k_eq_v derivation no-op for
+  gemma4, serving conversion branch. Tests: 267 pass on c6b15b2+fix; 297/267/267 on e599953/3318b54/b9f9a80 twins;
+  20cb697 twin 2 golden failures only vs the c6b15b2 reference (empty_visible_reply_masked field absent in 20cb697) ->
+  52/52 pass with 20cb697 as reference. CPU only; GPU paths (real-weight FSDP/flex, vLLM E-series LoRA) unverified.
+- ES_TREE: c6b15b2->2506fa9, e599953->f453db8, 3318b54->4c2bcfc, b9f9a80->0c2cd9e, 20cb697->95a62b2; deployed on hpg
+  (every tracked file sha-identical, third_party 1,857 files) and 2506fa9 on LONI. Partial first deploys -> _trash.
+- Old variant outputs -> hpg _trash/variants_pre_eseries_1024 (4 SAD preps), LONI _trash/variants_pre_eseries_1024 (8).
+  Keeper state of the 26 variant cells reset (state.bak.es_relaunch.json). Gates e4b_ready/e2b_ready reopened.
+- LONI resubmitted on 2506fa9: e4b 1128644/45/46/48, e2b 1128649/51/52/54 (all RUNNING 21:1x CDT). Watchers still up:
+  sync_and_gate_v2 (1964069 e4b, 1970367 e2b), gate_e{4,2}b_smartad (1964070, 1970368).
+
 ### 19:4x CDT 10-24 — E4B/E2B blocked on E-series support (engineering); variant cells held
 - All 8 LONI variant trainings FAILED (1128289-92, 1128302-06; ~25 min, data encoding): "Gemma OFF generation prefix
   changed". Cause: the E-series chat template's thinking-OFF generation prompt has no empty-thought prefill (ends
