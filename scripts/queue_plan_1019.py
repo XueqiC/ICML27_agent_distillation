@@ -738,9 +738,10 @@ def v_sel(tag):
 
 E4B_RUNGS = [("tsft", 30, 64, "5e-5"), ("tsft", 100, 64, "1e-4"), ("adc", 30, 64, "1e-4"), ("adc", 100, 64, "1e-4"),
              ("smc", 30, 32, "1e-4"), ("smc", 100, 64, "1e-4"), ("sad", 30, 1, None), ("sad", 100, 0.5, None)]
-E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100),   # trained on LONI A100; hpg evaluates the verified copy
-            ("smc", 30), ("smc", 100)}   # 10-25 01:0x CDT (user "咱们尽量并行"): SmartAD prep+train on LONI too; the selected
-            # collection (6 GB, self-contained) is copied hpg -> LONI with a full sha256 manifest check before prep
+E4B_LONI = {("tsft", 30), ("tsft", 100), ("adc", 30), ("adc", 100)}   # trained on LONI A100; hpg evaluates the verified copy
+# 10-25 01:0x CDT (user "咱们尽量并行"): SmartAD prep+train had moved to LONI too (v21). 11:3x CDT: back on hpg (v24): every
+# hpg -> LONI copy of the selected collection died at ~60 min with "Disk quota exceeded" -- LONI /work is at its 4,000,000
+# file-count quota (3,996,928 used); hpg is idle and already holds the selection, so no copy is needed.
 
 
 def variant_cell(tag, method, k, epochs, lr):
