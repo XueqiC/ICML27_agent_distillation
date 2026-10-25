@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 12:3x CDT 10-25 — LONI file census; asked user to delete my failed-copy partials in LONI _trash
+- LONI /work 3,996,928 / 4,000,000 files: hq/ICML27_data 2.09M (verified 1.62M, adftp-chain 466k), hq/_trash 947k =
+  ONLY today's failed selection copies (chain_k500_s0_r2_e4b.partial.1792939622 557k, e2b.partial.1792939932 382k,
+  e4b.partial.1792935670 5k, smartad_e4b_partial_1025 3k); tc-alignment 221k, tc-alfworld-ce 189k, miniconda3 306k,
+  .cache 292k. Before today ~3.05M: the two copies (~600k files per selection) filled it. Asked user (12:3x) to delete
+  the 4 partials (not deleted; _trash rule).
+- Keeper v25: seeds s1 tsft K30/K100, adc K30 trains + smc preps submitted 11:52 CDT (8/8 GPUs, 10/10 jobs).
+
 ### 12:1x CDT 10-25 — plan v25: E4B seeds 1,2 (K30/K100) in parallel (user 11:46 "咱们其实可以并行")
 - 12 cells e4b-{tsft,adc,smc}-k{30,100}-*-s{1,2} (train + eval) on hpg; trees tsft 2506fa9, AD f30e46b, SmartAD 892e3ef
   (deployed, sha-identical), eval 46b8527. Diff vs seed-0 = seed var, output paths, hpg cache env, tree twin.
