@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 21:4x CDT 10-24 — variants training on real weights; hpg limited to 3 GPUs
+- LONI (2506fa9) all 8 updating, loss falling (e4b tsft K30 0.83 -> ~0.2). Measured 21:36-21:46 CDT: K30 4-8 s/update
+  (done ~22:45 CDT), K100 10-15 s/update (done ~0:15-1:15 CDT). Then sync_and_gate_v2 copies + opens eval gates.
+- hpg: group QOS 8 GPUs, yd26 holds 5 (reachguard 4 RTX, 20 h limit; parser 1 L4); dept 24/24 GPU, 127/128 CPU -> we run
+  3: e4b selection s0-s2 (47569122/23, 47569925) RUNNING; e4b s3 + e2b s0-s3 PENDING QOSGrpGRES. SAD preps (4) done
+  (47570116/25, 47571651/866); SAD trains wait for GPUs. SmartAD pool too large to copy to LONI (stays on hpg).
+- Told user: tsft/AD 8 cells ~1-2 AM CDT; SmartAD/SAD tomorrow morning-noon depending on group GPUs.
+
 ### 21:1x CDT 10-24 — E-series fix landed; variants relaunched (plan v19 d8cead0)
 - Fix 2506fa9 (branch eseries-template, Codex reviewed): template-aware OFF prefix (_off_prefix: 12B empty-thought prefill
   or no prefill), shared history allows generation_start == prompt_tokens + flex hook on Gemma4TextAttention,
