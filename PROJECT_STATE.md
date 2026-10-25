@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:1x CDT 10-25 — hpg tunnel down (notice sent 04:17 CDT, scratchpad/hpg_tunnel_notified)
+- E4B SmartAD selection merged (gate e4b_smartad_selected 03:44 CDT); smc_loni.sh e4b copy hpg -> LONI hung in ssh
+  (children 3816167/3816168). After the tunnel is back: kill those two ssh children (ours) -> the script deletes the
+  partial .incoming copy, retries, and verifies the full sha256 manifest. SAD K30 trains + e2b merge keep running on hpg.
+
 ### 03:2x CDT 10-25 — SAD K100 needs the parser mask (12B per-cell override lost in the variant generator)
 - e4b-sadc-k100-b05-train 47607394 (c265b5d) failed at data encoding: "SAD reply requires an Action line". The 12B SAD
   K100-K500 run on fb22f09 (masks the 5 H0-parser-rejected teacher replies; set outside sadc() in the 10-20 plan),
