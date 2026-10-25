@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 18:47 CDT 10-25 — tunnel back (user); loops resumed (kill -CONT); keeper resumed 18:52 CDT
+- During the outage all hpg jobs finished OK (smc-k100-s1 train, sadc-k10-b05 train, 8 SmartAD K10/K20 preps, smc K10 e16/e32
+  trains). tsft-k10-e32 had been moved into place before the drop (OK line lost): re-verified by hand (19 files, 558,720,011 B,
+  adapter sha256 2066bab2...) and OK line appended -> gate opens. 5 copies re-running (~230 KB/s tunnel, ~2-3 h).
+- Plan: K10/K20 seeds 1,2 of tsft/AD train on hpg (no LONI copy through the tunnel).
+
 ### 18:14 CDT 10-25 — TUNNEL DOWN (rai :2222 connection refused; no hpg master); one notice sent (scratchpad/hpg_tunnel_notified)
 - Copies LONI -> hpg that died at 18:09-18:13 CDT: adc-k10-e32, adc-k20-e32, tsft-k20-e32, tsft-k100-s2, adc-k100-s2 (partials may
   sit in hpg baselines.incoming; overwritten + verified on retry). Rule A so far: AD K10 = e32, AD K20 = e32 (both valid).
