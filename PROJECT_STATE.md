@@ -17,6 +17,22 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:4x CDT 10-25 — the "tunnel outage" was my relay deadlock; hpg back, keeper resuming
+- Correction: the tunnel never dropped. smc_loni.sh e4b (`ssh hpg tar | ssh loni tar`, from 03:44) and
+  scripts/ops/loni_cold_move.sh (`ssh loni tar | throttle | ssh hpg tar`) ran in opposite directions through the hpg and
+  loni ControlMasters; mux masters write the passed client fds blocking (wchan pipe_write) -> cycle, every ssh hung
+  (keeper SSH_FAIL from 03:48). The user's fresh master (08:32) deadlocked the same way. Fixed 08:40: killed the
+  cold-move pipeline (2017009 + throttle 4048633 + its 2 ssh), both masters recovered (`ssh -O check` OK, hpg 3 s).
+- New scripts (LONI leg = direct `ssh -o ControlMaster=no -o ControlPath=none`, partials -> _trash not rm):
+  scratchpad smc_loni2.sh, sync_and_gate_v3.sh, sync_loni_hpg_v3.sh. Running: smc_loni2.sh e4b (pid 4060537, copying),
+  e2b (4060538, waiting for gate e2b_smartad_selected). LONI partial copies -> /work/xueqic/hq/_trash.
+- loni_cold_move.sh STOPPED (resumable via logs/loni_cold_move.done). Restart only after both SmartAD copies + adapter
+  syncs are done, and only with its LONI leg made direct too.
+- Done during the stall (hpg, no failures): e4b/e2b-sadc-k30-b1-train 47607392/95, e4b-sadc-k100-b05-train 47613033,
+  e2b-smartadselc-merge 47595553. SAD losses (16ths of updates) fall monotonically to ~0 like 12B (K30 E4B 58.3->0.0,
+  E2B 81.3->0.0; K100 E4B 170.9->0.0002 vs 12B 200.6->0.016): no collapse. Pending keeper: SAD evals (17eec0d),
+  e2b-sadc-k100-b05-train (96209eb).
+
 ### 04:1x CDT 10-25 — hpg tunnel down (notice sent 04:17 CDT, scratchpad/hpg_tunnel_notified)
 - E4B SmartAD selection merged (gate e4b_smartad_selected 03:44 CDT); smc_loni.sh e4b copy hpg -> LONI hung in ssh
   (children 3816167/3816168). After the tunnel is back: kill those two ssh children (ours) -> the script deletes the
