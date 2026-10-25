@@ -17,6 +17,20 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 11:5x CDT 10-25 — PRE-REGISTERED: E4B K10/K20 (seed 0) + training seeds 1,2 at K10/K20/K30/K100
+- User 11:37 CDT: "结束smartAD30和100后，在E4B上先把10和20跑出来，然后加seed两个，在E4B上把10，20，30，100都跑一下".
+- Views: K10 ⊂ K20 ⊂ K30 from the same stratified nested v2 order (seed 0); zero teacher calls; no existing file changes.
+  tsft/SAD: seeds_full_train_r2/subsets/k10,k20; AD: AD-FTP chain collection views; SmartAD: e4b selection views (after
+  the smc K30/K100 cells finish). Tool = Codex task tools/add_nested_views.py (worktree ICML27_views, branch k10k20-views);
+  acceptance: regenerated k30 byte-identical to the existing k30, existing views/bindings unchanged.
+- Convergence = rule A: LoRA (lr of the method's K30 cell: tsft 5e-5, AD 1e-4, SmartAD 1e-4) rungs e16/e32/e64/e128 in
+  parallel; converged = larger rung of the first doubling pair with delta L_last < 0.01; INVALID (L_last > max(1.1 L_min,
+  L_min + 0.02)) -> lr-halved ladder; collapse annotated. SAD b0.5/b1 (b2 if not converged). Only the chosen rung evaluated.
+- Seeds 1,2 (pre-registration of 10-24 carried over): tsft/AD/SmartAD at each E4B seed-0 cell's rung+lr, training seed only;
+  SAD not retrained (seed-independent); INVALID or <= 5/140 -> one rerun at half lr. All on hpg B200.
+- E-series seed trees: f30e46b = e6459b9 (seed-ad) + 2506fa9; 892e3ef = 4f5a138 (seed-smc) + f453db8 (clean cherry-picks;
+  tests running; scratchpad wt_es_e6459b9 / wt_es_4f5a138).
+
 ### 11:4x CDT 10-25 — SmartAD variants back on hpg (plan v24); LONI /work file-count quota full; figure K=0 axis
 - Root cause of the 3x ~60 min copy deaths: LONI /work file-count quota 3,996,928 / 4,000,000 ("Disk quota exceeded" in
   the chunked copier's tar stderr). Block usage unlimited (4.16 TB). LONI cannot take new files until old-phase data
