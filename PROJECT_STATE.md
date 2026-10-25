@@ -17,6 +17,19 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:2x CDT 10-25 — SAD K100 needs the parser mask (12B per-cell override lost in the variant generator)
+- e4b-sadc-k100-b05-train 47607394 (c265b5d) failed at data encoding: "SAD reply requires an Action line". The 12B SAD
+  K100-K500 run on fb22f09 (masks the 5 H0-parser-rejected teacher replies; set outside sadc() in the 10-20 plan),
+  K30 on 20cb697 (none in K30); variant_cell called sadc() and lost that override. Cancelled e2b k100 47607399 (pending).
+  Fix: ES twin 96209eb = fb22f09 + 2506fa9 + 4f47296 + 5df9eb4 (clean cherry-picks; SAD/export/serve/eseries tests 172
+  pass, the 2 golden failures pass with fb22f09 as reference = 12B byte-identical to fb22f09), deployed on hpg
+  (1,255 files sha-identical). Plan v23 (df9db66): variant SAD K100 prep/train on 96209eb, eval 17eec0d. K100 cell dirs
+  -> _trash/sad_k100_nomask_1025, state reset.
+- Audit of all 8 variant cells vs their 12B cells (stage exports/tree/res): only differences = intended (CONFIG/
+  MODEL_PATH, attempt-000 adapters, own SmartAD selection, INCLUDE_BASE on tsft K30, SAD 14 h, smc K30 eval without the
+  12B-specific serving-gate override/fp32 reference) + LONI trains lack hpg cache env (not recipe). No other lost override.
+- e4b-sadc-k30-b1 47607392 (c265b5d) past the old failure: update 486 at 02:5x CDT, checkpoints sad-1of16/1of8 exported.
+
 ### 02:2x CDT 10-25 — SAD relaunch failed on identity (my mistake), preps rerun on c265b5d
 - All 4 SAD trains on c265b5d (47601174/75, 47601896, 47602122) failed in prepare(): "Refusing to overwrite a different
   frozen artifact .../identity.json". The SAD identity binds code_sha256 of every source file, so the 95a62b2 preps are
