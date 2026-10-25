@@ -37,7 +37,7 @@ for ax, (title, tag) in zip(axes, panels):
             if tag == "12b":
                 runs = S12.get(f"conv|{m}|{k}", {}); v = [pct(len(x)) for x in runs.values()]
             else:
-                v = [pct(len(SV[f"{tag}|{m}|{k}"]))] if f"{tag}|{m}|{k}" in SV else []
+                v = [pct(len(SV[key])) for key in (f"{tag}|{m}|{k}", f"{tag}|{m}|{k}|s1", f"{tag}|{m}|{k}|s2") if key in SV]
             x = POS[k] + 0.05 * (j - 1.5)
             if not v:   # still running: break the line there instead of drawing a segment across the gap
                 xs.append(x); ys.append(float("nan"))
@@ -58,7 +58,7 @@ axes[0].set_ylabel("dev140 success rate")
 fig.legend([handles[m] for m in M if m in handles], [LBL[m] for m in M if m in handles], loc="upper center", ncol=4,
            frameon=False, bbox_to_anchor=(0.5, 1.07), fontsize=12)
 fig.text(0.5, -0.03, "Converged column (each cell's 12B ladder rung and lr reused for E4B/E2B). 12B: mean over training seeds "
-         "(open circles: single seeds; SAD seed-independent); E4B/E2B: seed 0, K30 and K100"
+         "(open circles: single seeds; SAD seed-independent); E4B: mean over the training seeds evaluated so far, E2B: seed 0; K30 and K100"
          + ("" if all(f"{t}|{m}|{k}" in SV for t in ("e4b", "e2b") for m in M for k in (30, 100)) else
             " (missing points still running)") + ". K = 0: base student. Teacher: gpt-6-luna, one run.",
          ha="center", va="top", fontsize=10.5, color="#444")

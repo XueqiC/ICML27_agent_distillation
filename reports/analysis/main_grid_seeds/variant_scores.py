@@ -1,5 +1,5 @@
 """dev140 results of the student-base variants (run on hpg): e4b-/e2b- converged-column cells + the base student.
-Writes JSON to stdout: {"e4b|tsft|30": [solved task ids], ..., "e4b|base": [...]}; missing evals are left out."""
+Writes JSON to stdout: {"e4b|tsft|30": [solved task ids], "e4b|tsft|30|s1": [...], ..., "e4b|base": [...]}; missing\nevals are left out."""
 import csv, glob, json
 
 R = "/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation/reports/runs"
@@ -27,6 +27,10 @@ for tag in REPO:
                 fs = glob.glob(f"{R}/eval/chain/{cell}/{cell}/eval/per_task.tsv")
             if fs:
                 out[f"{tag}|{m}|{k}"] = solved(fs[-1])
+            for seed in (1, 2):   # training seeds 1, 2 (SAD is seed-independent: no seed cells)
+                fs = glob.glob(f"{R}/eval/chain/{cell}-s{seed}/{cell}-s{seed}/eval/per_task.tsv")
+                if fs and not c.startswith("sadc-"):
+                    out[f"{tag}|{m}|{k}|s{seed}"] = solved(fs[0])
     fs = glob.glob(f"{R}/eval/chain/{tag}-tsft-k30-e64-lr5e-5/{REPO[tag]}/eval/per_task.tsv")
     if fs:
         out[f"{tag}|base"] = solved(fs[0])

@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 16:2x CDT 10-25 — E4B K30 seeds complete; E-series SmartAD K30/K100 complete; all K10/K20 views live
+- dev140, converged column. E4B K30 seeds 0/1/2: tsft 86/79/96 (mean 87.0), AD 112/104/110 (108.7), SmartAD 91/96/94 (93.7;
+  fp32-reference gate passed for all 3, no override), SAD 58 (seed-independent). E4B K100: tsft 107/102, AD 102, SAD 111,
+  SmartAD 118 (seeds pending). E2B: SmartAD K30 83 (fp32 gate), K100 108.
+- Serving diagnostic: in all 4 SmartAD K30 cells vLLM is closer to HF fp32 than HF bf16 is -> HF bf16 reference sensitivity.
+- Views: full-TRAIN, AD-FTP, SmartAD-selection k10/k20 created + verified on hpg; existing views unchanged; LONI copies of
+  full-TRAIN + AD-FTP k10/k20 sha256-identical. Gates e4b_few_views_ft (SAD preps done 15:1x-15:3x) and e4b_few_views open.
+- LONI: tsft K10/K20 e16-e128 1130936-44 RUNNING (15:18 CDT), AD K10/K20 e16-e128 1130998-1131006 submitted 15:53 CDT.
+- Next: rule A per (method, K) once its 4 rungs finish -> sync chosen LONI rung to hpg -> open gates/eval_<cell>; SmartAD/SAD
+  rungs on hpg -> open the chosen rung's eval gate. Then seeds 1,2 at K10/K20.
+
 ### 15:3x CDT 10-25 — user direction question: interactive agent distillation (OPEN, awaiting user choices)
 - User Q&A (15:00-15:32): K = K TRAIN tasks x 1 env-verified teacher trajectory; filtered to successes only, correctness is
   never a training signal; the student never interacts with the environment during training (only frozen at dev140 eval).
