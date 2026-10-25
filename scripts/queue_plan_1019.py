@@ -735,6 +735,8 @@ ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
 # float32 HF reference, then the recorded override of the tolerance verdict only (user option B for the 12B cell, Discord
 # 1563422934167461943), marked in the table. ES_OVR_EVAL_TREE = ES_EVAL_TREE + fea3a8e + 8b47413 (clean cherry-picks,
 # patch-identical; serving tests pass, the 2 golden failures are those of 46b8527).
+# 10-25 15:00 CDT (user "可以"): pre-registered for EVERY SmartAD cell (K10/K20 included): a tolerance-only failure of the
+# standard check -> add the cell here (rerun with float32 reference + recorded override, marked); other failures never.
 ES_OVR_EVAL_TREE = "d822255"
 ES_K30_OVERRIDE = {"e4b-smc-k30-e32-lr1e-4", "e2b-smc-k30-e32-lr1e-4", "e4b-smc-k30-e32-lr1e-4-s1",
                    "e4b-smc-k30-e32-lr1e-4-s2"}

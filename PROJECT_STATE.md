@@ -40,7 +40,12 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - rai watcher scratchpad/few_views_orch.sh (setsid pid 312317, log logs/few_views_orch.log): full-TRAIN job 47703005 ->
   verify report -> gate e4b_few_views_ft, submit adftp + smartad_selection view jobs, copy full-TRAIN k10/k20 to LONI ->
   LONI tsft trains; adftp verified -> LONI copy -> LONI AD trains; smartad verified + existing views unchanged -> gate
-  e4b_few_views. Stops at the first failure. Asked user (15:0x) to pre-register the K30 serving rule for all SmartAD cells.
+  e4b_few_views. Stops at the first failure.
+- **PRE-REGISTERED (user 15:00 CDT "可以", before any K10/K20 result):** for every SmartAD cell (any K, any seed, any
+  student), the standard bf16-reference serving check runs first; if it fails on the tolerance rules ONLY (pooled mean
+  and/or >0.5-count; effect rules and every per-prompt check pass), the eval reruns with the float32 HF reference + recorded
+  tolerance override (E-series tree d822255), and the number is marked ‡. Any other failure (effect, identity, exception)
+  is NOT overridden and is investigated. The vLLM-vs-HF-bf16 diagnostic is reported for every overridden cell.
 
 ### 12:3x CDT 10-25 — LONI back (3,049,702 / 4,000,000 files); 5 E4B seed trainings on LONI (plan v26, 9729668)
 - User 12:24 "可以": deleted exactly the 4 partials in /work/xueqic/hq/_trash (947k files).
