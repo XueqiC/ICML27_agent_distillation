@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:3x CDT 10-25 — E2B tsft K100 96, E2B AD K30 95: E2B falls behind once there is more signal
+- e2b-tsft-k100-e64-lr1e-4-eval 47596876: 96/140 (68.6%); e2b-adc-k30-e64-lr1e-4-eval 47596920: 95/140 (67.9%); both
+  serving checks passed, 0 error/parser/overflow. Paired: E2B AD30 vs 12B AD30 10/24 p=.024, vs E4B AD30 9/26 p=.006,
+  vs E2B tsft30 24/13 p=.10; E2B tsft100 vs 12B tsft100 (112) 8/24 p=.007, vs E2B tsft30 23/11 p=.06.
+- Reading so far: K30 tsft is capacity-insensitive (12B 88 / E4B 86 / E2B 84); AD K30 and tsft K100 separate E2B
+  (95-96) from 12B/E4B (107-112). e4b-tsft-k100 LONI training valid (L_last 1.09e-5); eval 47600525 running.
+
 ### 01:2x CDT 10-25 — E2B tsft K30 + base; SAD export fix deployed (plan v22)
 - e2b-tsft-k30-e64-lr5e-5-eval 47596875: E2B tsft K30 84/140 (60.0%); E2B base 9/140 (6.4%; 25 parser errors, 1 context
   overflow = base behaviour, harness unchanged); serving check passed (adapter max |diff| 2.4e-4). Paired: vs 12B tsft30
