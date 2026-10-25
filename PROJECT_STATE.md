@@ -20,7 +20,11 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 ### 01:0x CDT 10-25 — first E-series result: E4B AD K30 = 112/140 (80.0%)
 - e4b-adc-k30-e64-lr1e-4-eval 47596874 (tree 46b8527): serving check passed (adapter max |diff| 4.4e-5); 0 error /
   parser / overflow / failed calls. vs 12B AD K30 conv 109 (77.9%): both 96, E4B-only 16, 12B-only 13, McNemar p=.71.
-  Teacher 114 (81.4%). E4B base pending (rides on e4b-tsft-k30 eval 47596869).
+  Teacher 114 (81.4%).
+- e4b-tsft-k30-e64-lr5e-5-eval 47596869: E4B tsft K30 86/140 (61.4%), E4B base 43/140 (30.7%); serving check passed
+  (adapter max |diff| 1.3e-4); 0 error/parser/overflow. 12B: base 62, tsft K30 88, AD K30 109. Paired: E4B AD vs E4B tsft
+  36 vs 10 (p=.0002); E4B tsft vs 12B tsft 16 vs 18 (p=.86); E4B tsft vs E4B base 47 vs 4. E4B starts 19 tasks lower but
+  K30 distillation lands at the 12B level for both tsft and AD.
 - e4b-adc-k100 LONI training valid (L_last 2.31e-5, no collapse); eval 47598299 queued. e4b-tsft-k100 still on LONI.
 
 ### 00:4x CDT 10-25 — two E-series engineering failures fixed/in progress; SmartAD moved to LONI (user: "咱们尽量并行")
