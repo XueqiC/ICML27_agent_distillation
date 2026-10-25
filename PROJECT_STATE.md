@@ -17,6 +17,22 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:4x CDT 10-24 — E4B/E2B blocked on E-series support (engineering); variant cells held
+- All 8 LONI variant trainings FAILED (1128289-92, 1128302-06; ~25 min, data encoding): "Gemma OFF generation prefix
+  changed". Cause: the E-series chat template's thinking-OFF generation prompt has no empty-thought prefill (ends
+  "<|turn>model\n"; thinking via "<|think|>" in the system turn) while train/dataset.py requires the 12B prefill.
+- Deeper: E-series = HF Gemma4ForConditionalGeneration (Gemma4TextAttention, audio+vision towers, 18/42 (E4B) KV-shared
+  layers without k/v_proj, per-layer input gates/projections), not Gemma4Unified*; fsdp_train wrap class, shared-history
+  flex hook, LoRA target/vLLM key conversion are unified-class specific. vLLM 0.27.1 (hpg + rai envs/vllm-serve) has
+  Gemma4ForConditionalGeneration with SupportsLoRA + KV sharing; Gemma4Unified subclasses it.
+- Actions: gates e4b_ready/e2b_ready moved to gates/_closed; plan v18 (6810d73) holds all 26 variant cells; hpg
+  selection shards (8) scancelled. SAD preps of both variants COMPLETED (validation only). Codex (pid 1994425, worktree
+  ../ICML27_eseries branch eseries-template from c6b15b2, task scratchpad/codex_eseries.txt): template-aware encoding,
+  shared-history no-prefill + E-series attention hook, FSDP/LoRA for Gemma4ForConditionalGeneration, serving conversion;
+  12B byte-identical; tiny-model shared-history == per-turn tests. Then cherry-pick onto c6b15b2/e599953/3318b54/
+  20cb697/b9f9a80 (train/dataset.py identical in all but 20cb697), deploy, GPU smoke (rai GPU ok per user), relaunch.
+- Told user: results likely 10-25 morning CDT.
+
 ### 19:1x CDT 10-24 — STUDENT VARIANTS E4B + E2B (user 18:38-18:55 CDT); multi-seed STOPPED
 - User: stop the multi-seed runs; only change the student base (everything else incl. the recipe unchanged), seed 0,
   K30 + K100 first, compare with teacher and the base student; E4B (google/gemma-4-E4B-it @ee0ef602) and, in parallel,
