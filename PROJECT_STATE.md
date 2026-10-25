@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 18:14 CDT 10-25 — TUNNEL DOWN (rai :2222 connection refused; no hpg master); one notice sent (scratchpad/hpg_tunnel_notified)
+- Copies LONI -> hpg that died at 18:09-18:13 CDT: adc-k10-e32, adc-k20-e32, tsft-k20-e32, tsft-k100-s2, adc-k100-s2 (partials may
+  sit in hpg baselines.incoming; overwritten + verified on retry). Rule A so far: AD K10 = e32, AD K20 = e32 (both valid).
+- Paused (kill -STOP) my loops: sync_and_gate_v3 143086 (seeds) + 432622 (tsft K10/K20), rule_a_watch.py 435428. Resume with
+  kill -CONT after `ssh -O check hpg` succeeds. hpg jobs unaffected; keeper backs off by itself.
+
 ### 16:2x CDT 10-25 — E4B K30 seeds complete; E-series SmartAD K30/K100 complete; all K10/K20 views live
 - dev140, converged column. E4B K30 seeds 0/1/2: tsft 86/79/96 (mean 87.0), AD 112/104/110 (108.7), SmartAD 91/96/94 (93.7;
   fp32-reference gate passed for all 3, no override), SAD 58 (seed-independent). E4B K100: tsft 107/102, AD 102, SAD 111,
