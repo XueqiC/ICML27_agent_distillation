@@ -43,7 +43,8 @@ SAD trains submitted 01:22-01:32 CDT on c265b5d: e4b k30 47601174, e4b k100 4760
 - SAD export fix 5df9eb4 (branch eseries-kvexport, Codex, reviewed): model_type gemma4 only, unused KV-shared base tensors
   copied byte-for-byte + sha256 at export and validate_checkpoint; tower hash flattens before the uint8 view (E-series
   towers hold 0-dim buffers; bytes unchanged). Checkpoint/serving/eseries/stage3 tests: same 24 failures as unchanged
-  2506fa9, 21 new tests pass. Trees: c265b5d = 46b8527 + 5df9eb4 (SAD prep/train), 17eec0d = 0c2cd9e + 4f47296 + 5df9eb4
+  2506fa9, 21 new tests pass; Codex full suite 2,404 pass / 57 fail after vs 2,383 / 57 before (same failures), real E4B
+  meta check = exactly 54 unused tensors. Trees: c265b5d = 46b8527 + 5df9eb4 (SAD prep/train), 17eec0d = 0c2cd9e + 4f47296 + 5df9eb4
   (SAD eval), both on hpg sha-identical. Plan v22 (26a093d): 4 SAD cells unheld, train limit 14 h; preps stay done.
 
 ### 01:0x CDT 10-25 — first E-series result: E4B AD K30 = 112/140 (80.0%)
