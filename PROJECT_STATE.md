@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:3x CDT 10-25 — user direction question: interactive agent distillation (OPEN, awaiting user choices)
+- User Q&A (15:00-15:32): K = K TRAIN tasks x 1 env-verified teacher trajectory; filtered to successes only, correctness is
+  never a training signal; the student never interacts with the environment during training (only frozen at dev140 eval).
+- User 15:32: wants a method that interacts with the environment DURING distillation ("才是在agent中蒸馏小模型"). My reply:
+  feasible within the setting; signals = env outcome (free), self-generated successes (free), teacher relabels of
+  student-visited states (DAgger/on-policy; budgeted teacher calls, text only). Asked: (A) env access = K tasks only
+  (recommended main) vs + unlabeled TRAIN games (separate expansion column; dev/valid_unseen never); (B) free env signal
+  only vs also teacher budget (match AD/SmartAD actual calls; report env steps + teacher calls); (C) add an interactive
+  baseline (RFT / ETO / IPR / AgentEvol ports). Next: one-page method draft + pre-registration before any GPU.
+
 ### 14:5x CDT 10-25 — E4B SmartAD K100 118; SmartAD K30 serving gates -> pre-registered override; K10/K20 views + plan v28
 - dev140 (training all rule-A valid): e4b-smc-k100-e64 **118** (vs tsft 107 p=.019, AD 102 p=.0015, SAD 111 p=.27; 12B 120);
   E4B seed 1: tsft K30 79 (s0 86), tsft K100 102 (107), AD K30 104 (112); none differs from seed 0 at p<.2.
