@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:2x CDT 10-25 — E2B tsft K30 + base; SAD export fix deployed (plan v22)
+- e2b-tsft-k30-e64-lr5e-5-eval 47596875: E2B tsft K30 84/140 (60.0%); E2B base 9/140 (6.4%; 25 parser errors, 1 context
+  overflow = base behaviour, harness unchanged); serving check passed (adapter max |diff| 2.4e-4). Paired: vs 12B tsft30
+  (88) 15/19 p=.61, vs E4B tsft30 (86) 19/21 p=.88, vs E2B base 77/2. K30 tsft: 12B 88 / E4B 86 / E2B 84 despite bases
+  62 / 43 / 9.
+- SAD export fix 5df9eb4 (branch eseries-kvexport, Codex, reviewed): model_type gemma4 only, unused KV-shared base tensors
+  copied byte-for-byte + sha256 at export and validate_checkpoint; tower hash flattens before the uint8 view (E-series
+  towers hold 0-dim buffers; bytes unchanged). Checkpoint/serving/eseries/stage3 tests: same 24 failures as unchanged
+  2506fa9, 21 new tests pass. Trees: c265b5d = 46b8527 + 5df9eb4 (SAD prep/train), 17eec0d = 0c2cd9e + 4f47296 + 5df9eb4
+  (SAD eval), both on hpg sha-identical. Plan v22 (26a093d): 4 SAD cells unheld, train limit 14 h; preps stay done.
+
 ### 01:0x CDT 10-25 — first E-series result: E4B AD K30 = 112/140 (80.0%)
 - e4b-adc-k30-e64-lr1e-4-eval 47596874 (tree 46b8527): serving check passed (adapter max |diff| 4.4e-5); 0 error /
   parser / overflow / failed calls. vs 12B AD K30 conv 109 (77.9%): both 96, E4B-only 16, 12B-only 13, McNemar p=.71.
