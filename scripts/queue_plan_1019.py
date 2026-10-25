@@ -720,7 +720,8 @@ VARIANTS = {   # tag -> (config, snapshot); model.safetensors sha256 verified on
 }
 E4B_GATE = {"file": f"{GATES}/e4b_ready"}
 ES_TREE = {"c6b15b2": "2506fa9", "e599953": "f453db8", "3318b54": "4c2bcfc", "b9f9a80": "0c2cd9e",
-           "20cb697": "95a62b2"}   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
+           "20cb697": "95a62b2",   # 12B tree -> same tree + E-series support (branch eseries-template, cherry-picks)
+           "fb22f09": "96209eb"}   # fb22f09 + 2506fa9 + 4f47296 + 5df9eb4 (SAD K100: parser mask; serving + export fixes)
 ES_EVAL_TREE = "46b8527"   # 95a62b2 + 4f47296 (TRITON_ATTN for model_type gemma4); 12B serving command unchanged
 ES_SAD_TREE = "c265b5d"   # 46b8527 + 5df9eb4 (E-series full-parameter export: KV-shared layers' unused base tensors)
 ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
@@ -747,6 +748,11 @@ def variant_cell(tag, method, k, epochs, lr):
     CONFIG/MODEL_PATH exported, SmartAD on the pool re-selected with that student, no per-rung eval gates."""
     c = (sadc(k, epochs) if method == "sad" else smc_rung(k, epochs, lr) if method == "smc"
          else lora_rung(method, k, epochs, lr=lr))
+    if method == "sad" and k != 30:
+        # 10-25 02:5x CDT: as the 12B SAD K100-K500 (tree override in the 10-20 plan, applied outside sadc()): mask the
+        # teacher replies the H0 parser rejects (fb22f09); without it e4b-sadc-k100-b05 failed "SAD reply requires an
+        # Action line" (47607394). K30 contains no such reply and stays on 20cb697, as for the 12B.
+        c["tree"] = "fb22f09"
     old, new = c["cell"], f"{tag}-" + c["cell"]
     pat = re.compile(rf"(?<=[/=]){re.escape(old)}(?=[/=,]|$)")
     for i, st in enumerate(c["stages"]):
@@ -817,7 +823,8 @@ def variant_cells(tag, loni_trains=None):
         # ~5-6.6 s/update (12B 4.3) -> 14 h train limit (12B K30 took 4.1 h of 8.5 h).
         if c["cell"].startswith(f"{tag}-sadc-"):
             for st in c["stages"]:
-                st["tree"] = {ES_TREE[CHAIN_TREE]: ES_SAD_TREE, ES_TREE["b9f9a80"]: ES_SAD_EVAL_TREE}[st.get("tree", c["tree"])]
+                st["tree"] = {ES_TREE[CHAIN_TREE]: ES_SAD_TREE, ES_TREE["b9f9a80"]: ES_SAD_EVAL_TREE,
+                              ES_TREE["fb22f09"]: ES_TREE["fb22f09"]}[st.get("tree", c["tree"])]
                 if st["name"].endswith("-train"):
                     st["time"] = "14:00:00"
     return cells
