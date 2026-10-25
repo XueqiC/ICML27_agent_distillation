@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:2x CDT 10-24 — variant K30 trainings done (LONI), evals queued on hpg
+- LONI K30 done + synced (adapter sha verified) + eval gates opened: e2b-adc 22:43, e4b-adc 22:44, e2b-tsft 22:50,
+  e4b-tsft 23:03 CDT. All 4 valid (L_last within rule, no collapse flag): e4b tsft 3.1e-5, e4b adc 1.8e-5, e2b tsft
+  4.1e-5, e2b adc 1.6e-5. LONI K100 (1128645/48/51/54) still RUNNING (2 h in).
+- hpg: e4b selection s0-s2 done 22:18 CDT; e4b s3 + e2b s0 RUNNING, e2b s1 done, e2b s2/s3 PENDING; e4b-sadc-k30 train
+  47578027 RUNNING (2 GPU); first E-series eval e4b-adc-k30 47583436 PENDING QOSGrpGRES (scontrol top not permitted).
+  Dept QOS still full (24/24 GPU, QOSGrpCpuLimit). Watcher b8j8zlgl5 (watch_first_es_eval.sh) reports the vLLM E-series
+  LoRA serving gate verdict of 47583436.
+
 ### 21:4x CDT 10-24 — variants training on real weights; hpg limited to 3 GPUs
 - LONI (2506fa9) all 8 updating, loss falling (e4b tsft K30 0.83 -> ~0.2). Measured 21:36-21:46 CDT: K30 4-8 s/update
   (done ~22:45 CDT), K100 10-15 s/update (done ~0:15-1:15 CDT). Then sync_and_gate_v2 copies + opens eval gates.
