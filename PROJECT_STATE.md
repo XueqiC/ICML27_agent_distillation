@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 09:2x CDT 10-25 — E-series SAD evals: K30 fails at every size, K100 matches 12B
+- dev140 (seed 0, converged rungs of 12B; teacher 114): SAD K30 12B 49 / E4B 58 / E2B 58; SAD K100 12B 109 / E4B 111
+  (E2B K100 training 47648041 running). McNemar: E4B/E2B SAD30 vs 12B p=.27/.25; E4B SAD100 vs 12B p=.85; E4B SAD100
+  vs SAD30 58/5 p=2e-12; SAD30 vs tsft30 E4B 15/43 p=.0003, E2B 13/39 p=.0004; E4B SAD30 vs base 31/16 p=.04.
+  Reading: SAD's K30 failure is data-scale, not capacity; at K100 SAD is the best E4B cell (111 vs AD 102 p=.11, tsft 107).
+- variant_scores.json + student_variants.png regenerated (SmartAD E-series + E2B SAD K100 still missing).
+
 ### 08:4x CDT 10-25 — the "tunnel outage" was my relay deadlock; hpg back, keeper resuming
 - Correction: the tunnel never dropped. smc_loni.sh e4b (`ssh hpg tar | ssh loni tar`, from 03:44) and
   scripts/ops/loni_cold_move.sh (`ssh loni tar | throttle | ssh hpg tar`) ran in opposite directions through the hpg and
