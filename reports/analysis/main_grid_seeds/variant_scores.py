@@ -3,10 +3,12 @@ Writes JSON to stdout: {"e4b|tsft|30": [solved task ids], "e4b|tsft|30|s1": [...
 import csv, glob, json
 
 R = "/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation/reports/runs"
-CONV = {"tsft": {30: "tsft-k30-e64-lr5e-5", 100: "tsft-k100-e64-lr1e-4"},
-        "AD": {30: "adc-k30-e64-lr1e-4", 100: "adc-k100-e64-lr1e-4"},
-        "SAD": {30: "sadc-k30-b1", 100: "sadc-k100-b05"},
-        "SmartAD": {30: "smc-k30-e32-lr1e-4", 100: "smc-k100-e64-lr1e-4"}}
+CONV = {"tsft": {10: "tsft-k10-e32-lr5e-5", 20: "tsft-k20-e32-lr5e-5", 30: "tsft-k30-e64-lr5e-5", 100: "tsft-k100-e64-lr1e-4"},
+        "AD": {10: "adc-k10-e32-lr1e-4", 20: "adc-k20-e32-lr1e-4", 30: "adc-k30-e64-lr1e-4", 100: "adc-k100-e64-lr1e-4"},
+        "SAD": {10: "sadc-k10-b1", 20: "sadc-k20-b1", 30: "sadc-k30-b1", 100: "sadc-k100-b05"},
+        "SmartAD": {10: "smc-k10-e32-lr1e-4", 20: "smc-k20-e32-lr1e-4", 30: "smc-k30-e32-lr1e-4", 100: "smc-k100-e64-lr1e-4"}}
+# 10-26: E4B K10/K20 (rule-A rungs; E2B has no K10/K20 cells, its globs simply find nothing). SAD K20's reported rung is
+# decided by rule A once b05/b1 are trained; b1 is listed provisionally and only an evaluated cell can appear.
 REPO = {"e4b": "google/gemma-4-E4B-it", "e2b": "google/gemma-4-E2B-it"}
 
 
