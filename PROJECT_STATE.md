@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:1x CDT 10-26 — repair pilot M0a done (e500e7b on repair-v01); M0b-1 running
+- M0a: repair/ (patch compiler per design 6.3, alignment + supervised positions per 8.4, reset+replay executor with cache,
+  minimality 7.3 + joint necessity 2-4 blocks, ledger 2.3, records 4.2); 101 CPU tests; real ALFWorld determinism acceptance
+  (design 3.3) on 5 train tasks / 5 types PASSED (reports/repair/m0a_determinism_5tasks.json on the branch).
+- M0b-1 (Codex, running): data/manifest/build_repair_splits.py (D_probe 60, D_unseen_quick 24, U_mech 20; excludes K100 seeds,
+  K500 chain selection, r03 sets, dev140, sealed), a "sampled" decoding mode (T 0.7, top_p 0.95), tools/repair_coverage.py (M1).
+- Still waiting for the user's 4 answers before any GPU/teacher use.
+
 ### 02:0x CDT 10-26 — SmartAD K20 = 84 (fp32 gate passed, no override); tsft K10 seed 1 = 69
 - K20 so far: tsft 78, SmartAD 84, AD pending (copy), SAD retraining. K10: tsft 72/69 (mean 70.5), SmartAD 76, SAD 8 (b1).
 
