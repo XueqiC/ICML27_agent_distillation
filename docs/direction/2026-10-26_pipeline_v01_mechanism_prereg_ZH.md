@@ -97,3 +97,8 @@
 - D_repair_probe：失败任务中 sha256([20261029, task_id]) 最小的 2 个，在任何 teacher 调用前固定。
 - 失败顺序：按任务类型，再按 sha256([20261028, task_id])。
 - θ₀ = e4b-tsft-k20-e32-lr5e-5（LONI 训练），rai 副本 reports/runs/baselines_loni/e4b-tsft-k20-e32-lr5e-5（19 个文件，与 LONI sha256 一致）。
+
+## 6. M1 第一组结果与由此确定的分支细节（2026-10-26 11:1x CDT，看任何修复结果之前写下）
+- θ₀ 在自己的 20 个 K20 训练题上 greedy + T=0.7 共 40 个 episode 全部成功（LoRA 检查通过，adapter 误差 5e-6）。按规则补 2 次 T=0.7 rollout；仍不足 6 个失败任务就走 K=0 分支。两个分支与 U_mech 分别报告，不混成一条曲线。
+- **U_mech 分支（P1）**：失败来自 θ₀ 在 20 个 U_mech 任务上的 rollout。E2 的 seed 回放（0.25）用 θ₀ 原来的 K20 teacher 示范，对应文档 11.2 的 D 桶，因为 U_mech 任务没有属于 θ₀ 的 seed 示范。U_mech 任务在 full-TRAIN 采集里的 teacher 成功轨迹**不读取**，既不作 Far target，也不回放，避免引入额外的 teacher 示范。新任务的监督单独记账。
+- **K=0 分支**：θ₀ = base E4B（无 adapter）。E2 两臂用继承的 tsft LoRA 配方（r64/α128/dropout 0.05、lr 5e-5）从同一个初始化开始。seed 回放用 D_repair_train 任务的 K20 teacher 示范。原 teacher 示范仍不作 Far target（保守选择）。
