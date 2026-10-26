@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:2x CDT 10-26 — user picked a new small experiment (condition-guidance probe); teacher-only-task analysis sent
+- User 13:57 CDT note (docs/direction/2026-10-26_condition_guidance_user_ZH.md): method core = the student recognises which plan
+  conditions are unmet and satisfies them through interaction; first test = CG probe. Prereg 83b53b4
+  (docs/direction/2026-10-26_condition_guidance_probe_prereg_ZH.md): 7 never-saw-target theta0 U_mech failures, branch after
+  action 10 (30 steps left), A none / B generic reminder / C teacher condition hint / D C + one info-gathering command;
+  greedy + 8 sampled seeds per cell (252 rollouts) on rai GPU 1; teacher cap 200k in / 60k out. Codex implementing on
+  repair-v01-eval (new files repair/guidance.py, tools/cg_probe.py, tests/test_cg_probe.py). E2 (Near/Far) deferred.
+- Teacher-only analysis (reports/analysis/main_grid_seeds/teacher_only_tasks_ZH.md, 123c866): teacher-ok tasks failed by every
+  cell at K: K10 7 / K20 5 / K30 1 / K100 0; causes = task-type rules (heat while holding, one object in hand), unseen goal
+  phrasing ("put a hot X": 0 demos at K<=30; "hot plate" read as an object), refused actions not updated (38% -> 12% of
+  failures), fixed exhaustive search (not fixed by K; 41% of K100 failures). K adds per-type demos and phrasing, not scene memory.
+
 ### 13:5x CDT 10-26 — cold move done (dept /blue 19.83T -> 18.56T); SAD K20 b1 train done; b05 moved to dept
 - Job 47839869 COMPLETED (1:08 h): 74 intermediate SAD checkpoint dirs copied to /orange/yd24f.fsu/xc25.fsu/icml27-cold/
   reports/runs/baselines/<same rel path>, each verified (file count, du -sb bytes, sha256 of the largest file) before deleting
