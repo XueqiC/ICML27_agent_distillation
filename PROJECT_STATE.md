@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:2x CDT 10-26 — repair pilot M0b-1 committed (7dcf5fe); M0b-2 running (Codex)
+- M0b-1: data/manifest/repair_v01_splits.json, sampled decoding, tools/repair_coverage.py; 141 repair + 387 touched tests pass.
+- M0b-2 (Codex, ../ICML27_wt_repair): teacher prompts 17.1-17.3, schemas, repair driver 7.2-7.6, Near/Far pairs 14.6-14.7,
+  prefix-consistent labels 8.2 + review sheet; fake teacher only. Still no GPU/teacher use (awaiting user answers).
+
 ### 03:1x CDT 10-26 — SmartAD K10 seed 1 = 86 (s0 76; bf16 gate passed); split amendment for the repair pilot
 - K10: tsft 72/69, AD s1 83, SmartAD 76/86 (mean 81), SAD 8. M0b-1 splits rebuilt on the amended exclusion rule (actually
   selected training tasks of every baseline, by task group; candidate/replacement lists are not exposure): 1,009/1,465 TRAIN
