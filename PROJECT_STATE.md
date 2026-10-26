@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:4x CDT 10-26 — mechanism pilot E1 complete; report sent; awaiting user A/B/C/D
+- E1 U_mech: 3/15 verified (all partial-progress; 0/10 search failures). Combined: partial-progress 10/14, search 1/12;
+  10/11 repairs single replace (median 2.5 actions); joint necessity 1 case; 0 pairs in both branches -> E2 not run.
+- Report: reports/analysis/repair_v01_evidence/mechanism_pilot_report_1026_ZH.md (a6e091e). Options: A stop; B strip env-
+  rejected no-ops from N and F and pair/E2 on K0 (recommended); C multi-round teacher repair for search failures (new
+  variant); D more U_mech failures. Teacher used 450k / 157k of 5M / 0.5M.
+
 ### 13:2x CDT 10-26 — E1 K0 done (8/11 verified, 0 pairs); move-syntax bug fixed (91237e3); E1 U_mech running
 - E1 K0 (reports/analysis/repair_v01_evidence/e1_k0_summary_ZH.md): 8/11 verified repairs (both probes), 7 single replace
   blocks (1-15 actions, median 3); 1 two-block joint-necessity case (Candle) -> joint claim not tested (needs >= 2); 0 N/F
