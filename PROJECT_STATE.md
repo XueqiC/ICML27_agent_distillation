@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:3x CDT 10-25 — TUNNEL DOWN again (2222 accepts, no banner; master gone); one notice sent 19:31
+- Likely cause: 3 parallel unthrottled LONI -> hpg adapter copies (~560 MB each) saturated the Mac upload (4 MB queued at rai).
+- All my loops paused (kill -STOP 143086 432622 435428; seeds relay LONI ssh 694645 stopped since 19:2x).
+- On master return (background task b9cgr8pml): scratchpad/switch_v4.sh kills the old loops by verified pid and starts
+  copier_v4.sh (ONE copy at a time, throttle.py 100 kB/s, mv confirmed by re-stat) + rule_a_watch2.py (LONI rungs only recorded;
+  the copier copies them, K10/K20 first, then K100 seeds tsft-s2/adc-s2). tsft-k10-e32 gate opened by hand (verified).
+- Decision: K10/K20 seeds 1,2 of tsft/AD train on hpg (no tunnel copies).
+
 ### 18:47 CDT 10-25 — tunnel back (user); loops resumed (kill -CONT); keeper resumed 18:52 CDT
 - During the outage all hpg jobs finished OK (smc-k100-s1 train, sadc-k10-b05 train, 8 SmartAD K10/K20 preps, smc K10 e16/e32
   trains). tsft-k10-e32 had been moved into place before the drop (OK line lost): re-verified by hand (19 files, 558,720,011 B,
