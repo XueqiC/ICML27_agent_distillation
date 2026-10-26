@@ -745,6 +745,11 @@ ES_K30_OVERRIDE = {"e4b-smc-k30-e32-lr1e-4", "e2b-smc-k30-e32-lr1e-4", "e4b-smc-
                    "e4b-smc-k10-e32-lr1e-4",
                    # 23:4x CDT: 47763054 tolerance only (0.0568 > 0.050; count 7 <= 11, effect 1.62, 8/8 prompts)
                    "e4b-smc-k20-e32-lr1e-4"}
+# 10-26 00:0x CDT (user: no single issue may stall the grid): further SmartAD cells whose standard check failed on tolerance only
+# are appended by the handler (scratchpad smc_tol_handler.py; same criteria as above, verified from report.json) to this file.
+_OVR_FILE = Path(GATES).parent / "smc_tolerance_override.txt"
+if _OVR_FILE.exists():
+    ES_K30_OVERRIDE |= {x.strip() for x in _OVR_FILE.read_text().splitlines() if x.strip() and not x.startswith("#")}
 
 
 def es_k30_override(cells):
