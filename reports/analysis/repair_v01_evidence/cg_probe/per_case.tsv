@@ -1,0 +1,57 @@
+task_id	branch	decoding	cd_status	scheduled	expected	recorded	valid	void	missing	found_rate	median_steps_to_find	picked_rate	success_rate	follow_rate
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	A	greedy	approved	True	1	1	1	0	0	1.0	12	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	A	sampled	approved	True	8	8	8	0	0	0.75	12.0	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	B	greedy	approved	True	1	1	1	0	0	1.0	12	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	B	sampled	approved	True	8	8	8	0	0	0.875	12	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	C	greedy	approved	True	1	1	1	0	0	1.0	12	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	C	sampled	approved	True	8	8	8	0	0	1.0	12.0	0.0	0.0	
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	D	greedy	approved	True	1	1	1	0	0	1.0	1	0.0	0.0	1.0
+train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448	D	sampled	approved	True	8	8	8	0	0	1.0	1.0	0.125	0.125	1.0
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	A	greedy	approved	True	1	1	1	0	0	1.0	30	0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	A	sampled	approved	True	8	8	8	0	0	0.125	30	0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	B	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	B	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	C	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	C	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	D	greedy	approved	True	1	1	1	0	0	1.0	26	1.0	1.0	1.0
+train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370	D	sampled	approved	True	8	8	8	0	0	0.25	30.0	0.0	0.0	1.0
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	A	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	A	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	B	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	B	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	C	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	C	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	D	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	1.0
+train/pick_clean_then_place_in_recep-Kettle-None-DiningTable-7/trial_T20190907_144338_014196	D	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	1.0
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	A	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	A	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	B	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	B	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	C	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	C	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	D	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	1.0
+train/pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18/trial_T20190909_071155_178558	D	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	1.0
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	A	greedy	approved	True	1	1	1	0	0	1.0	6	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	A	sampled	approved	True	8	8	8	0	0	1.0	9.0	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	B	greedy	approved	True	1	1	1	0	0	1.0	6	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	B	sampled	approved	True	8	8	8	0	0	1.0	6.0	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	C	greedy	approved	True	1	1	1	0	0	1.0	5	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	C	sampled	approved	True	8	8	8	0	0	1.0	5.0	1.0	1.0	
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	D	greedy	approved	True	1	1	1	0	0	1.0	5	1.0	1.0	1.0
+train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566	D	sampled	approved	True	8	8	8	0	0	1.0	6.0	1.0	1.0	1.0
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	A	greedy	approved	True	1	1	1	0	0	1.0	28	1.0	0.0	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	A	sampled	approved	True	8	8	8	0	0	0.5	28.0	0.5	0.0	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	B	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	B	sampled	approved	True	8	8	8	0	0	0.5	28.0	0.5	0.125	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	C	greedy	approved	True	1	1	1	0	0	1.0	28	1.0	0.0	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	C	sampled	approved	True	8	8	8	0	0	1.0	28.0	1.0	0.0	
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	D	greedy	approved	True	1	1	1	0	0	1.0	2	1.0	1.0	1.0
+train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201	D	sampled	approved	True	8	8	8	0	0	1.0	5.5	1.0	0.5	0.5
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	A	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	A	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	B	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	B	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	C	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	C	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	D	greedy	approved	True	1	1	1	0	0	0.0		0.0	0.0	1.0
+train/pick_cool_then_place_in_recep-Egg-None-Microwave-5/trial_T20190908_005812_214691	D	sampled	approved	True	8	8	8	0	0	0.0		0.0	0.0	1.0

@@ -17,6 +17,17 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:1x CDT 10-26 — CG probe done: all prereg comparisons "no clear difference"; awaiting user choice of next step
+- 252/252 rollouts valid (rai GPU 1, 14:33-15:09 CDT). Found rate A .34 / B .34 / C .43 / D .46; success .14/.16/.14/.23.
+  C-B +.09 (2 up/0 down), D-A +.125 (3/0), below the .15 threshold -> prereg mapping "C, D not better than B" -> teacher
+  closed-loop follow-up needs user authorization. Caveats: 4 cases at floor (0 found in every branch), Potato at ceiling (8/8
+  every branch; original failure was greedy nondeterminism) -> only Newspaper + Apple informative. B/C barely read (first action
+  = A in 56/56 and 53/56); D followed 93%, revealed target only for Newspaper (sofa). After finding: hands full (credit card),
+  invented verbs, refused actions ignored; Apple found only at branch+28 by exhaustive cabinet search.
+- Options sent: (1) teacher closed loop on the same prefixes (~210 calls, ~200k output), (2) interleaved guidance every k steps /
+  after refusals, (3) train on interleaved, evidence-backed decisions and test unprompted. Pre-screen cases with A sampling next time.
+- Teacher totals for the mechanism pilot: 473,091 input / 174,920 output of the 5M / 0.5M cap.
+
 ### 14:2x CDT 10-26 — user picked a new small experiment (condition-guidance probe); teacher-only-task analysis sent
 - User 13:57 CDT note (docs/direction/2026-10-26_condition_guidance_user_ZH.md): method core = the student recognises which plan
   conditions are unmet and satisfies them through interaction; first test = CG probe. Prereg 83b53b4
