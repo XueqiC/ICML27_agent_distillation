@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:3x CDT 10-26 — repair pilot: M1 done, E1 (K0) running on rai; dept /blue quota full -> intermediate SAD checkpoints to /orange
+- M1: theta0 0/80 failures on its K20 tasks -> K0 fallback; base E4B 11 failed tasks; theta0 on U_mech 15 failed tasks.
+- Code: eval branch M0c 6c0c149 (branches) + M0d 1a12f78 (reasoning-inclusive teacher caps); train branch M0c 425945c.
+  ALL runs from pinned detached worktrees (../ICML27_run_repair_eval_<sha>); Codex edits only ../ICML27_wt_repair_*.
+- rai project .venv: + transformers 5.14.1 / tokenizers 0.22.2 / huggingface-hub 1.27.0 (additive; collector needs the tokenizer).
+- E1 K0: rai pid in reports/runs/repair_pilot/e1_k0.pid, caps 2.5M in / 0.25M out (the other half for U_mech; user total 5M/0.5M).
+- hpg: fsu-compsci-dept /blue 19.83T/20T -> e4b-sadc-k20-b05 train failed (Disk quota exceeded, update 1637); unblocked.
+  Job 47839869 (burst QOS, CPU) moves the 73 intermediate SAD checkpoint dirs (sad-1of16/8/4/2, ~1.3T; never sad-1of1) to
+  /orange/yd24f.fsu/xc25.fsu/icml27-cold/reports/runs/baselines/<same rel path> with copy->verify(count,du -sb,sha256 largest)
+  ->delete; log logs/cold_move/move_sad_intermediate.tsv on hpg. Those stages' completion seals are broken by the move: rsync
+  back before rerunning any of them. User 12:13 CDT: "我们部分的该清理就清理了 / 该转移到orange就转移过去".
+
 ### 10:0x CDT 10-26 — AD K10 seed 2 = 83 -> AD K10 seeds 85/83/83 (mean 83.7, tight); tsft-k20-s2 train started
 
 ### 08:1x CDT 10-26 — hpg saturated: group 8/8 GPUs + 482G mem held by others, dept 24/24 GPUs; our 4 jobs all pending
