@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:4x CDT 10-25 — SAD K20 OOM from my resize (reverted, v31 cea43fa); SmartAD K20 eval tolerance-only -> fp32 rerun
+- e4b-sadc-k20-b05-train 47763059 OOM at 64G while loading (MaxRSS 87G). 2-GPU SAD trains back to 8 CPU/160G; b05 unblocked;
+  b1 47763060 (64G, still loading) cancelled + resubmitted by the keeper at 160G (new attempt dirs; failed attempt-000 kept).
+- e4b-smc-k20-e32 eval 47763054: 0.0568 > 0.050 only -> ES_K30_OVERRIDE (d822255, fp32 reference, recorded override);
+  bf16 OUT -> hpg _trash/e4b-smc-k20-e32-lr1e-4-eval-bf16ref-1025b. Both SmartAD K10/K20 evals now wait for GPUs.
+- Missed for ~20 min because the re-armed keeper-log watcher started at the current line count (memory feedback-watcher-line-offset).
+- Evals/preps at the reduced sizes ran fine (evals 32G: MaxRSS 7.5-10.5G; preps 12G: 4.6G). LoRA trains at 4 CPU/40G untested yet.
+
 ### 23:3x CDT 10-25 — SmartAD K10 eval: tolerance-only serving failure -> pre-registered fp32 rerun (plan v30)
 - 47768359: pooled 0.0607 > 0.050 only (count 6 <= 11, effect 1.56, 8/8 prompts pass). ES_K30_OVERRIDE += e4b-smc-k10-e32
   (eval on d822255, REFERENCE_DTYPE=float32, override recorded with the 15:00 CDT approval); bf16 OUT -> hpg
