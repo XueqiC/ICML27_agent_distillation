@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:1x CDT 10-26 — hourly check: new terminal links already handled; idle-GPU flags = eval startup (3 min, HF stage)
+- Running: tsft-k20-s1 eval 47802428, adc-k20-s1 eval 47802444, smc-k20-s1 eval 47804346 queued. Copier on adc-k20-e32 (seed 0).
+
 ### 06:0x CDT 10-26 — AD K10 seed 0 = 85 (s1 83); AD K100 seed 2 = 108 (seeds 102/107/108)
 - K10 complete for seed 0 except SAD (8): tsft 72, AD 85, SmartAD 76 (seed 1: 69 / 83 / 86). K100 seeds: tsft 107/102/119,
   AD 102/107/108, SmartAD 118/118/(s2 train pending).
