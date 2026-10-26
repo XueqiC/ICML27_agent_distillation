@@ -84,3 +84,16 @@
 2. Teacher 硬上限 5M 输入 / 0.5M 输出 token 是否可以。
 3. GPU 阶段放在 hpg（与 baseline 同为 B200，数据和 checkpoint 都已在那里）。rai 磁盘只剩 157G（99%），不在 rai 落大文件。
 4. 文档 8.2 要求对入训 reasoning 标签逐条做人工前缀检查：我先跑自动检查，再逐条审读，审核表发你。你是否也要亲自过一遍？
+
+## 5. 用户决定（2026-10-26 10:40 CDT，"可以"；10:40 CDT "我们现在先在RAI上完成新方法机制实验吧"）
+1. 加 U_mech（P1）分支：θ₀ 在 data/manifest/repair_v01_splits.json 的 20 个 U_mech 任务上采集失败，直接回答"能否在 SFT-K20 上继续提升"；与 K20 原题分支（或 K=0 分支）分开报告。
+2. Teacher 全实验硬上限 5M 输入 / 0.5M 输出 token（工具在每次调用前检查）。
+3. 机制实验全部在 rai 上做（覆盖检查、E1、E2 训练、probe），θ₀ / N / F 的所有比较用同一种卡（rai Blackwell RTX PRO 6000，CUDA_DEVICE_ORDER=PCI_BUS_ID）；主表数字仍全部来自 hpg B200，不与 pilot 数字混用。
+4. 入训 reasoning 标签：我先跑自动检查并逐条审读，审核表发用户抽查。
+
+预注册的实现细节（工程 M0 完成后确定，未看任何结果）：
+- 代码：eval/采集/probe = 分支 repair-v01-eval（46b8527 + repair，c30e411）；训练 = 分支 repair-v01-train（2506fa9 + repair，511dc5e）。
+- 划分：data/manifest/repair_v01_splits.json（排除所有 baseline 实际训练过的任务组；D_probe 60 / D_unseen_quick 24 / U_mech 20，无缺额）。
+- D_repair_probe：失败任务中 sha256([20261029, task_id]) 最小的 2 个，在任何 teacher 调用前固定。
+- 失败顺序：按任务类型，再按 sha256([20261028, task_id])。
+- θ₀ = e4b-tsft-k20-e32-lr5e-5（LONI 训练），rai 副本 reports/runs/baselines_loni/e4b-tsft-k20-e32-lr5e-5（19 个文件，与 LONI sha256 一致）。
