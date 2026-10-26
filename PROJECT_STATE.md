@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 10:0x CDT 10-26 — AD K10 seed 2 = 83 -> AD K10 seeds 85/83/83 (mean 83.7, tight); tsft-k20-s2 train started
+
 ### 08:1x CDT 10-26 — hpg saturated: group 8/8 GPUs + 482G mem held by others, dept 24/24 GPUs; our 4 jobs all pending
 - Group: sl26u 1 GPU + 288G (~6.8 days), yd26 7 GPUs (3 for 13 days, 3 for ~7.8 h, 1 L4 ~9.7 h). Next group GPUs ~16:00 CDT.
 - Pending: smc-k10-s2 train, adc-k10-s2 eval (group); sadc-k20-b05/b1 trains (dept). No action possible inside the rules.
