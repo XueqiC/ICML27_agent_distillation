@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:3x CDT 10-25 — group QOS bound on CPU+mem, not GPUs -> E-series stages sized from sacct (v29b ba76e5d, v29c 6716c6d)
+- yd24f QOS = cpu 64 / gpu 8 / mem 500G; sl26u CPU-only jobs hold 40 CPU / 160G (~7 days left) -> our 4 pending GPU jobs sat in
+  QOSGrpCpuLimit with GPUs free. sacct of completed E-series stages: evals MaxRSS <= 22.0G (23 jobs), 2-GPU SAD <= 26.8G (~2 CPU
+  avg), 2-GPU LoRA trains <= 27.8G (1.1-2 CPU avg), SmartAD prep <= 5.2G (0.35 CPU avg).
+- Plan: K10/K20 seed preps 2 CPU/12G, their 2-GPU trains 4 CPU/40G; all E-series evals 4 CPU/32G; 2-GPU SAD trains 4 CPU/64G.
+  Pending jobs shrunk with scontrol (47763049/054 evals 32G; 47763059/060 SAD K20 4 CPU/64G; preps 47763738/741/745 2 CPU/12G)
+  -> evals + SAD now pend on (Priority), i.e. cluster b200 contention, not our QOS.
+- Seed preps running: 47763733 (smc-k10-s1, 8 CPU, submitted before the resize).
+
 ### 22:0x CDT 10-25 — tunnel back 21:57 CDT (user: VPN + `ssh -fN -M hpg`); rule A complete; plan v29 installed
 - Outage 19:5x-21:5x CDT: every hpg job in flight finished OK (smc K10 e64/e128, smc K20 e16-e128 trains). No ghost submit from
   the keeper's failed 20:17 EDT sbatch (sacct). copier_v4 (754546/754660) + rule_a_watch2 (754547) resumed 21:57 CDT; tunnel
