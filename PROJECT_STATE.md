@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:3x CDT 10-26 — SAD K10 b0.5 DIAGNOSTIC = 25/140 (b1 8, base 43): less over-training helps but still below base
+- b0.5 (726 epochs) vs b1 (1,452): +22/-5 p=.0015; still -18 vs base (+14/-32 p=.011); 44% inadmissible actions. Reported SAD K10
+  stays b1 = 8 (rule A); b0.5 labelled diagnostic everywhere. Pain point: fixed-budget SAD at K10 over-trains by ~1-2 orders.
+
 ### 02:2x CDT 10-26 — tsft K100 seed 2 = 119 (s0 107, s1 102): seed spread 17 tasks, s2 vs s0 p=.0075
 - Seeds 0-2 mean 109.3 (102-119). Training seed alone moves dev140 by up to 17 tasks at K100 -> single-seed method comparisons
   at this K are underpowered; report seed min-max. s0 and s2 were both trained on LONI A100 and still differ (p=.0075), so the
