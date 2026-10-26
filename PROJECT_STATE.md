@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:2x CDT 10-26 — E1 K0 done (8/11 verified, 0 pairs); move-syntax bug fixed (91237e3); E1 U_mech running
+- E1 K0 (reports/analysis/repair_v01_evidence/e1_k0_summary_ZH.md): 8/11 verified repairs (both probes), 7 single replace
+  blocks (1-15 actions, median 3); 1 two-block joint-necessity case (Candle) -> joint claim not tested (needs >= 2); 0 N/F
+  pairs: (1) coverage check was put-only (bug, fixed), (2) 6/8 Near targets keep the student's environment-rejected actions,
+  which design 14.6-2 excludes. Asked user A (keep rule; E2 on U_mech only) vs B (strip rejected no-ops from N and F).
+- E1 U_mech: pid in reports/runs/repair_pilot/e1_umech.pid, tree 91237e3, caps 2.5M in / 0.43M out (used so far 224k/61k).
+
 ### 12:3x CDT 10-26 — repair pilot: M1 done, E1 (K0) running on rai; dept /blue quota full -> intermediate SAD checkpoints to /orange
 - M1: theta0 0/80 failures on its K20 tasks -> K0 fallback; base E4B 11 failed tasks; theta0 on U_mech 15 failed tasks.
 - Code: eval branch M0c 6c0c149 (branches) + M0d 1a12f78 (reasoning-inclusive teacher caps); train branch M0c 425945c.
