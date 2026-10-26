@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:1x CDT 10-26 — SmartAD K10 seed 1 = 86 (s0 76; bf16 gate passed); split amendment for the repair pilot
+- K10: tsft 72/69, AD s1 83, SmartAD 76/86 (mean 81), SAD 8. M0b-1 splits rebuilt on the amended exclusion rule (actually
+  selected training tasks of every baseline, by task group; candidate/replacement lists are not exposure): 1,009/1,465 TRAIN
+  groups excluded, D_probe 60 / D_unseen_quick 24 / U_mech 20 with no shortfall.
+
 ### 02:4x CDT 10-26 — AD K10 seed 1 = 83 (seed 0 pending copy)
 - K10 so far: tsft 72/69, AD s1 83, SmartAD 76, SAD 8 (b1; b0.5 diagnostic 25). AD K10 -> K30 (112): +29 tasks.
 
