@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:1x CDT 10-26 — hourly check: new terminal links already handled; idle-GPU flag = SAD eval startup
+- 47786524 (sadc-k10-b05 diagnostic eval) idle at 14 min: HF reference stage done, vLLM server starting (b1 eval took 33 min
+  total). No action (idle-GPU policy). adc-k10-s1 train done -> eval 47787930 submitted.
+
 ### 03:1x CDT 10-26 — repair pilot M0a done (e500e7b on repair-v01); M0b-1 running
 - M0a: repair/ (patch compiler per design 6.3, alignment + supervised positions per 8.4, reset+replay executor with cache,
   minimality 7.3 + joint necessity 2-4 blocks, ledger 2.3, records 4.2); 101 CPU tests; real ALFWorld determinism acceptance
