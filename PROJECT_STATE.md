@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:1x CDT 10-26 — hourly check: all new terminal links already handled; SAD trains 4 CPU/160G (v33 670637a)
+- sadc-k20-b05 47776278 pended on QOSGrpCpuLimit at 8 CPU -> scontrol 4 CPU (160G kept). tsft-k10-s1 train at 40G past
+  loading (MaxRSS 26G, 20 min). LONI copier on adc-k10-e32 since 23:30 CDT.
+
 ### 00:1x CDT 10-26 — E4B traj SFT K20 = 78 (K10 72, K30 86/79/96)
 - 47772920: 78/140, serving gate passed; vs K10 +17/-11 p=.35; vs K30 s0 +14/-22 p=.24. Curve so far 43 -> 72 -> 78 -> 87.0 (K30 mean).
 
