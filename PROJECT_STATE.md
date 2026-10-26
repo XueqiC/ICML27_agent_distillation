@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 01:5x CDT 10-26 — NEW METHOD (user design doc v0.1): mechanism pilot pre-registered (draft, awaiting 4 answers)
+- User 01:39 CDT: "看看这份文档...安排上相对应的机制验证试验，可以和现有进度并行". Design archived at
+  docs/direction/2026-10-26_agent_distillation_pipeline_v0_1_ZH.md (sha 423a43e2); pre-registration draft
+  docs/direction/2026-10-26_pipeline_v01_mechanism_prereg_ZH.md (3484764). Supersedes my earlier A/B/C interactive-method questions.
+- Method: teacher repairs the STUDENT's failed trajectory with minimal joint (non-contiguous) action edits, verified by real
+  env execution; student SFTs on these near-own-route successes. Step 1 = H1 (repair feasibility, E1) + H2 (Near vs Far
+  target, E2) only. theta0 = e4b-tsft-k20-e32 s0 (78/140); H=40, 1024-token turns (inherited overrides).
+- Open questions to user: (1) also a U_mech P1 branch if K20 train-task failures < 6; (2) teacher hard cap 5M in / 0.5M out;
+  (3) GPU stages on hpg; (4) does the user also hand-check the reasoning labels.
+- M0a (engineering, no GPU/teacher) running: Codex in worktree ../ICML27_wt_repair (branch repair-v01): repair/ package
+  (patch compiler, alignment, executor, minimality, ledger, records) + tools/repair_determinism_check.py + tests.
+
 ### 01:1x CDT 10-26 — hourly check: new terminal links already reported; idle-GPU flag = startup preflight
 - 47779721 (adc-k10-s1 train) flagged idle at 4 min: log still empty (preflight hashing, as the tsft seed train's ~7 min);
   no action (idle-GPU policy). Our 5 jobs otherwise pending on group GPUs.
