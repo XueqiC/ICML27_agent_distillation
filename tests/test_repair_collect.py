@@ -71,7 +71,7 @@ def test_pending_reviews_keep_far_labels_offline_finalize_without_teacher(tmp_pa
     assert len(pairs) == 4 and all(not e['reasons'] for e in exclusions)
     from tools.repair_collect import main
     rp = tmp_path / 'reviews.json'; rp.write_text(json.dumps(accepted))
-    assert main(['--finalize', str(tmp_path / 'pending' / 'collection.json'), '--reviews', str(rp),
+    assert main(['--branch', 'P0_K20', '--finalize', str(tmp_path / 'pending' / 'collection.json'), '--reviews', str(rp),
                  '--output', str(tmp_path / 'final')]) == 0
     assert len(checked_document(tmp_path / 'final' / 'collection.json')['pairs']) == 4
 
@@ -149,7 +149,7 @@ def test_global_caps_include_http_retry_and_canary_never_retries(tmp_path, task,
 
 def test_cli_dry_run_full_pipeline(tmp_path):
     from tools.repair_collect import main
-    assert main(['--dry-run', '--output', str(tmp_path / 'cli')]) == 0
+    assert main(['--branch', 'P0_K20', '--dry-run', '--output', str(tmp_path / 'cli')]) == 0
     assert len(checked_document(tmp_path / 'cli' / 'collection.json')['pairs']) == 4
 
 

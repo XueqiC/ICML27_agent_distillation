@@ -17,7 +17,7 @@ from test_repair_collect import run
 def test_export_public_turns_approvals_and_training_tree_compatibility(tmp_path):
     data = run(tmp_path / 'collection', reviewer=fake_review)
     export = checked_document(tmp_path / 'collection/e2_training_collection.json')
-    assert export['schema_version'] == 1 and export['format'] == 'repair_e2_training_collection'
+    assert export['schema_version'] == 2 and export['format'] == 'repair_e2_training_collection'
     assert export['source_collection_sha256'] == file_hash(tmp_path / 'collection/collection.json')
     assert export['theta0'] == data['checkpoint'] and export['training_exposure'] == 0
     assert not export['ready_for_training'] and export['training_blockers'] == ['synthetic_or_canary']
@@ -78,7 +78,7 @@ def test_pending_export_is_empty_and_offline_approval_publishes_bound_export(tmp
     monkeypatch.setattr(repair.runtime, 'make_teachers', lambda *a, **k: pytest.fail('No teacher at finalize'))
     requests = json.loads((tmp_path / 'pending/review_requests.json').read_text())
     write_json(tmp_path / 'reviews.json', {k: fake_review(v) for k, v in requests.items()})
-    main(['--finalize', str(tmp_path / 'pending/collection.json'), '--reviews', str(tmp_path / 'reviews.json'),
+    main(['--branch', 'P0_K20', '--finalize', str(tmp_path / 'pending/collection.json'), '--reviews', str(tmp_path / 'reviews.json'),
           '--output', str(tmp_path / 'approved')])
     approved = checked_document(tmp_path / 'approved/e2_training_collection.json')
     assert len(approved['arms']['N']) == 4

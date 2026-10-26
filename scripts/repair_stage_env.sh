@@ -1,7 +1,7 @@
 # Common repair stage setup. Paths/caches may be supplied by a keeper export.
 set -euo pipefail
 PROJECT_ROOT=${PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}}
-source "${HPG_CONFIG:-${PROJECT_ROOT:-${SLURM_SUBMIT_DIR}}/configs/hpg.env}"
+source "${HPG_CONFIG:-$PROJECT_ROOT/configs/hpg.env}"
 cd "$PROJECT_ROOT"
 : "${REPAIR_OUT:?Set a fresh stage output directory}"
 [[ ! -e "$REPAIR_OUT" && ! -L "$REPAIR_OUT" ]] || { echo 'Output already exists' >&2; exit 2; }

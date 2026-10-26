@@ -43,9 +43,10 @@ def _budget(values, schema):
 
 
 class BudgetLedger:
-    def __init__(self, path):
+    def __init__(self, path, *, context=None):
         self.path = Path(path)
         self.ledger = JsonlLedger(path)
+        self.context = dict(context or {})
 
     def append(self, event, *, settled=True, attempt_id=None, parent_attempt_id=None,
                task_id=None, candidate_id=None, reason=None, supervision=None,
@@ -61,6 +62,7 @@ class BudgetLedger:
                "supervision": _budget(supervision or {}, BUDGETS["supervision"]),
                "interaction": _budget(interaction or {}, BUDGETS["interaction"]),
                "optimization": _budget(optimization or {}, BUDGETS["optimization"])}
+        row.update(self.context)
         self.ledger.append(row, unique_key="entry_id")
         return row
 

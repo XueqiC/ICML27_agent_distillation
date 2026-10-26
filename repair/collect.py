@@ -20,6 +20,7 @@ from repair.records import RepairRecord
 from repair.runtime import CaseSession, CaseStopped, Limits, OUTPUT_CAPS
 from repair.schemas import parse_diagnosis
 from repair.align import canonical_action
+from repair.branches import branch_fields
 
 # The preregistration requires a seeded selection but specifies no numeric seed.
 # Freeze this implementation constant before any teacher request, never CLI-tune it.
@@ -92,7 +93,8 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
             tokenizer_id, checkpoint, inputs=(), reviewer=None, seed_actions=None, K=None,
             max_teacher_input_tokens=5_000_000, max_teacher_output_tokens=500_000,
             limits=None, canary=False, dry_run=False, tokenizer_metadata=None,
-            seed_demonstrations=None):
+            seed_demonstrations=None, branch='P0_K20'):
+    context = branch_fields(branch)
     split = freeze_probe_split(tasks)
     expected = split["failure_order"][:1] if canary else split["failure_order"]
     if [f.task_id for f in failures] not in (expected, split["failure_order"] if canary else expected):
@@ -102,13 +104,16 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
         max_teacher_output_tokens = min(max_teacher_output_tokens, 128)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    write_sealed(output / "repair_split.json", split)  # must precede factory, let alone requests
+    write_sealed(output / "repair_split.json", {**split, **context})  # before teacher requests
     if dry_run and seed_demonstrations is None:
         from repair.dry_fakes import write_seed_demonstrations
-        seed_demonstrations = write_seed_demonstrations(output / "synthetic_seeds", tasks)
+        seed_tasks = tasks if branch != 'P1_U_mech' else [
+            {**t, 'task_id': t['task_id'] + '-original-support', 'group_id': t['group_id'] + '-original-support'}
+            for t in tasks]
+        seed_demonstrations = write_seed_demonstrations(output / "synthetic_seeds", seed_tasks)
     config = deepcopy(config)
     case_limits = Limits(format_retry_calls=0) if canary else limits or Limits()
-    config['repair_collection'] = {'case_limits': asdict(case_limits),
+    config['repair_collection'] = {**context, 'case_limits': asdict(case_limits),
         'max_teacher_input_tokens': max_teacher_input_tokens,
         'max_teacher_output_tokens': max_teacher_output_tokens, 'canary': canary, 'dry_run': dry_run,
         'teacher_output_caps': {'diagnosis': 128} if canary else OUTPUT_CAPS,
@@ -118,10 +123,10 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
         tokenizer=tokenizer_metadata or {"id": tokenizer_id, "chat_template_sha256": digest(getattr(tokenizer, "chat_template", None))},
         tasks=tasks, seeds={"repair_probe": PROBE_SPLIT_SEED, "environment": config["environment"]["seed"]},
         K_trusted_seed_trajectories=K, unique_instances=len(tasks), task_groups=len(tasks),
-        dry_run=dry_run, canary=canary, training_exposure=0, teacher_responses=[])
+        **context, dry_run=dry_run, canary=canary, training_exposure=0, teacher_responses=[])
     write_json(output / "run_manifest.json", manifest, exclusive=True)
     budget = GlobalTeacherBudget(output / "global_teacher_budget.jsonl",
-        input_tokens=max_teacher_input_tokens, output_tokens=max_teacher_output_tokens)
+        input_tokens=max_teacher_input_tokens, output_tokens=max_teacher_output_tokens, context=context)
     teachers = teacher_factory(config, output / "teachers", run_id=prov["run_id"])
     cases, reviews, sheets, stopped = [], {}, [], None
     for index, (failure, task) in enumerate(zip(failures, tasks)):
@@ -129,12 +134,13 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
             break
         directory = output / "cases" / f"{index:02d}-{digest(task['task_id'])[:12]}"
         directory.mkdir(parents=True)
-        ledger = BudgetLedger(directory / "budget.jsonl")
+        ledger = BudgetLedger(directory / "budget.jsonl", context=context)
         session = CaseSession(task=task, teacher=teachers, ledger=ledger, config=config,
             limits=case_limits,
             global_budget=budget, output_caps={"diagnosis": 128} if canary else None)
-        case = {"task_id": task["task_id"], "parent_seed_ids": task.get("parent_seed_ids", []),
-                "generation_mode": "repair_existing_training_task", "training_exposure": 0}
+        case = {**context, "task_id": task["task_id"], "parent_seed_ids": task.get("parent_seed_ids", []),
+                "generation_mode": "repair_U_mech_task" if branch == 'P1_U_mech' else "repair_existing_training_task",
+                "design_bucket": 'G' if branch == 'P1_U_mech' else 'R', "training_exposure": 0}
         try:
             if canary:
                 replay = execute_actions(env_factory, failure.task_id,
@@ -182,7 +188,8 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
                         ("provider_model_id", "returned_model_id", "timestamp")})
                 if row["event"] == "label_result":
                     for item in csv.DictReader(io.StringIO(row["details"]["review_tsv"]), delimiter="\t"):
-                        sheets.append({"task_id": task["task_id"], "branch": row["details"]["branch"],
+                        sheets.append({"task_id": task["task_id"], "protocol": context['protocol'],
+                            "collection_branch": branch, "branch": row["details"]["branch"],
                             "episode_id": row["details"]["episode_id"], **item})
             cases.append(case)
             write_json(directory / "case.json", case, exclusive=True)
@@ -205,7 +212,9 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
                 pass
     if canary and not stopped:
         stopped = "canary_complete" if cases and "diagnosis" in cases[0] else "canary_failed"
-    value = {"schema_version": 1, "split": split, "tasks": tasks, "cases": cases, "pairs": pairs,
+    for row in pairs + exclusions:
+        row.update(context)
+    value = {"schema_version": 1, **context, "split": split, "tasks": tasks, "cases": cases, "pairs": pairs,
         "D_repair_train": [p["task_id"] for p in pairs], "D_repair_probe": split["D_repair_probe"],
         "exclusions": exclusions, "seed_actions": seed_actions or {}, "checkpoint": checkpoint,
         "seed_demonstrations": seed_demonstrations or {},
@@ -214,7 +223,22 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
         "valid_probe_task_ids": valid_probes,
         "shortfall": {"train_pairs": 4 - len(pairs), "probe_tasks": 2 - len(split["D_repair_probe"]),
                       "probe_execution_evidence": 2 - len(valid_probes)},
-        "input_hashes": prov["inputs"]}
+        "input_hashes": prov["inputs"],
+        "original_teacher_far_policy": "excluded_without_replay_pair_check",
+        "seed_replay_tasks_are_repair_tasks": branch != 'P1_U_mech',
+        "supervision_accounting": {
+            "initial_teacher_demonstrations": K,
+            "seed_support_unique_instances": len(seed_demonstrations or {}),
+            "seed_support_task_groups": len({r['receipt']['group_id']
+                for refs in (seed_demonstrations or {}).values() for r in refs}),
+            "theta0_seed_training_trajectories": 0 if branch == 'P0_K0' else K,
+            "repair_task_source": 'U_mech' if branch == 'P1_U_mech' else 'K20_seed_tasks',
+            "new_task_ids": split['failure_order'] if branch == 'P1_U_mech' else [],
+            "new_task_unique_instances": len(tasks) if branch == 'P1_U_mech' else 0,
+            "new_task_groups": len({t['group_id'] for t in tasks}) if branch == 'P1_U_mech' else 0,
+            "case_costs": [{"task_id": c['task_id'], **context, "budget": c['budget'],
+                            "costs": c['costs']} for c in cases],
+            "training_exposure": 0}}
     write_sealed(output / "collection.json", value)
     from repair.export import write_training_export
     write_training_export(output)
@@ -230,6 +254,7 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
         writer.writerows(sheets)
     manifest.update(status=value["status"], global_budget=budget.summary(),
                     collection_sha256=digest(value), completed_cases=len(cases),
+                    supervision_accounting=value['supervision_accounting'],
                     e2_training_collection_sha256=file_hash(output / "e2_training_collection.json"))
     write_json(output / "run_manifest.json", manifest)
     return value

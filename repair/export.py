@@ -4,6 +4,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from repair.artifacts import checked_document, write_sealed
+from repair.branches import collection_branch
 from repair.labels import LearningEpisode
 from repair.pairs import TargetReview, pair_exclusions, review_evidence
 from repair.records import RepairRecord
@@ -13,7 +14,18 @@ from sed.thinking import split_thinking
 from sed.visibility import visible_observation
 
 FORMAT = "repair_e2_training_collection"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+
+def export_branch(value):
+    """Schema 1 is a legacy P0_K20 adapter export only; never infer P1/K0."""
+    fields = collection_branch(value)
+    version = value.get('schema_version')
+    if (value.get('format') != FORMAT or type(version) is not int or version not in (1, 2)
+            or (version == 1 and fields['branch'] != 'P0_K20')
+            or (version == 2 and any(k not in value for k in fields))):
+        raise ValueError('Unsupported E2 export version/branch')
+    return fields
 
 
 def learning_view(repair, episode):
@@ -60,6 +72,17 @@ def seed_references(verified_path, collection, evidence_root, episodes):
 
 def training_export(collection, *, collection_sha256):
     """Only selected, approved pairs enter arms; pending evidence stays in collection.json."""
+    context = collection_branch(collection)
+    original_support = context['seed_replay_scope'] == 'original_support'
+    support = collection.get('seed_demonstrations', {})
+    support_refs = [r for refs in support.values() for r in refs]
+    if original_support:
+        if (set(support) & set(collection['split']['failure_order'])
+                or any(r['task_id'] != tid for tid, refs in support.items() for r in refs)
+                or {r['receipt']['group_id'] for r in support_refs} & {t['group_id'] for t in collection['tasks']}):
+            raise ValueError('P1 replay must use original support disjoint from repair tasks/groups')
+        if len(support_refs) != collection['K'] or (not collection['dry_run'] and collection['K'] != 20):
+            raise ValueError('P1 replay requires the complete original K20 support')
     tids = collection["D_repair_train"]
     probes = collection["D_repair_probe"]
     tasks = {t["task_id"]: t for t in collection["tasks"]}
@@ -81,25 +104,26 @@ def training_export(collection, *, collection_sha256):
         if pair_exclusions(repairs[0].original_trajectory, *[r.executed_trajectory for r in repairs],
                            *episodes, *reviews):
             raise ValueError("Export requires approved E2 pair evidence")
-        refs = collection.get("seed_demonstrations", {}).get(tid, [])
+        refs = support_refs if original_support else support.get(tid, [])
         if not refs:
             blockers.append("missing_seed_demonstrations:" + tid)
-        if any(ref["task_id"] != tid for ref in refs):
+        if not original_support and any(ref["task_id"] != tid for ref in refs):
             raise ValueError("Seed demonstration is outside the repair-training task")
         for arm, repair, episode, review in zip(("N", "F"), repairs, episodes, reviews):
             public = learning_view(repair, episode)
             if public["task_id"] != tid:
                 raise ValueError("Pair task differs from LearningEpisode")
             evidence = review_evidence(repair.executed_trajectory, episode)
-            arms[arm].append({"task_id": tid, "group_id": tasks[tid]["group_id"],
+            arms[arm].append({**context, "task_id": tid, "group_id": tasks[tid]["group_id"],
                 "learning_episode_id": episode.stable_id, "repair_id": repair.repair_id,
                 "trajectory_id": repair.executed_trajectory.trajectory_id,
                 "episode": public, "episode_sha256": digest(public),
                 "human_review": {"status": "approved", "reviewed": True, "approved": True,
                     "evidence_sha256": digest(evidence), "episode_sha256": digest(public),
                     "decision": asdict(review)},
-                "seed_demonstrations": deepcopy(refs), "source_bucket": "successful_repair"})
-    return {"format": FORMAT, "schema_version": SCHEMA_VERSION,
+                "seed_demonstrations": deepcopy(refs), "source_bucket": "successful_repair",
+                "design_bucket": 'G' if original_support else 'R', "seed_design_bucket": 'D'})
+    return {"format": FORMAT, "schema_version": SCHEMA_VERSION, **context,
         "source_collection_sha256": collection_sha256,
         "source_collection_content_sha256": collection.get("content_sha256", digest(collection)),
         "theta0": deepcopy(collection["checkpoint"]), "tokenizer": deepcopy(collection["tokenizer"]),
@@ -109,7 +133,11 @@ def training_export(collection, *, collection_sha256):
         "task_groups": len({tasks[t]["group_id"] for t in tids}),
         "dry_run": collection["dry_run"], "canary": collection["canary"],
         "training_exposure": 0, "ready_for_training": not blockers,
-        "training_blockers": blockers, "arms": arms}
+        "training_blockers": blockers, "arms": arms,
+        "seed_replay_task_ids": list(support) if original_support else list(tids),
+        "seed_replay_tasks_are_repair_tasks": not original_support,
+        "original_teacher_far_policy": collection.get('original_teacher_far_policy', 'excluded_without_replay_pair_check'),
+        "supervision_accounting": deepcopy(collection.get('supervision_accounting', {}))}
 
 
 def write_training_export(directory):

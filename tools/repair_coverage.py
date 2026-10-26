@@ -264,6 +264,9 @@ def main(argv=None):
             raise ValueError("Adapter differs from configured student")
         config["lora_equivalence"] = report
         inputs.append(args.lora_check)
+    else:
+        from repair.branches import validate_base_serving
+        validate_base_serving(config, spec)
     task_source = ("U_mech" if set(t["task_id"] for t in tasks) <=
                    set(splits["sets"]["U_mech"]["task_ids"]) else "K20_seed_tasks")
     summary = run_coverage(tasks, config, args.output, spec=spec,

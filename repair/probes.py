@@ -4,7 +4,8 @@ import csv
 
 from repair.align import canonical_action
 from repair.artifacts import provenance, run_manifest, write_sealed, checkpoint_files
-from repair.export import FORMAT, SCHEMA_VERSION, require_approved
+from repair.export import export_branch, require_approved
+from repair.branches import collection_branch, validate_base_serving, ADAPTER_KEYS
 from repair.execute import execute_actions
 from repair.ledger import BudgetLedger
 from repair.minimality import same_reset
@@ -51,17 +52,18 @@ def probe_point(case):
     return original, point, {a: sorted(set(ids)) for a, ids in sorted(witnesses.items())}, sorted(set(excluded))
 
 
-def probe_case(case, *, env_factory, policy_factory, output):
+def probe_case(case, *, env_factory, policy_factory, output, context=None):
     """policy_factory(seed, task_id, log_dir) -> (public_history, visible) -> reply."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    ledger = BudgetLedger(output / 'budget.jsonl')
+    context = context or {}
+    ledger = BudgetLedger(output / 'budget.jsonl', context=context)
     original, point, witnesses, excluded = probe_point(case)
     prefix = [s['action_raw'] for s in original.steps[:point]]
     samples = []
     def observe(history, visible):
         for seed in SAMPLING_SEEDS:
-            row = {'seed': seed, 'request_seed': int(digest([seed, original.task_id, point])[:8], 16)}
+            row = {**context, 'seed': seed, 'request_seed': int(digest([seed, original.task_id, point])[:8], 16)}
             try:
                 reply = policy_factory(seed, original.task_id, output / f'decision-{seed}')(history, visible)
                 try:
@@ -83,11 +85,11 @@ def probe_case(case, *, env_factory, policy_factory, output):
         # A location in observed execution, never a claim about a hidden cause.
         rejected = next((i for i, s in enumerate(result.steps) if i >= point and
                          s.get('action_outcome') == 'parser_error'), None)
-        continuations.append({'seed': seed, 'success': result.success,
+        continuations.append({**context, 'seed': seed, 'success': result.success,
             'new_failure_position': None if result.success is not False else rejected if rejected is not None else len(result.steps),
             'failure_position_rule': 'first parser error after prefix, else terminal boundary (zero-based); causal attribution unknown',
             'prefix_turns': point, 'remaining_H': original.max_steps - point, 'execution': result.to_json()})
-    return {'task_id': original.task_id, 'decision_index': point, 'H': original.max_steps,
+    return {**context, 'task_id': original.task_id, 'decision_index': point, 'H': original.max_steps,
         'A_plus': sorted(witnesses), 'witnesses': witnesses, 'excluded_witnesses': excluded,
         'decision_replay': replay.to_json(), 'samples': samples,
         'm': sum(r['hit'] for r in samples) / 8 if usable else None,
@@ -121,11 +123,13 @@ def quick_eval(config, splits, output, spec, *, workers=1, suite_runner=None):
     return {'summary': summary, 'tasks': rows, 'list_sha256': listing['list_sha256']}
 
 
-def validate_serving(config, spec):
+def validate_serving(config, spec, *, base_model=False, expected=None):
     from tools.check_lora_serving import validate_report
     server = config.get('server_provenance', {})
     if server.get('config', {}).get('server', {}).get('batch_invariant') is not True:
         raise ValueError('Repair probes require the grid BATCH_INVARIANT=1 server')
+    if base_model:
+        return validate_base_serving(config, spec, expected=expected)
     report = config.get('lora_equivalence', {})
     validate_report(report, server, spec['model'], spec['endpoint'])
     # The report's identity intentionally excludes filesystem paths. The
@@ -139,9 +143,9 @@ def validate_serving(config, spec):
 
 def validate_training_checkpoint(trained, export, collection_path, export_path, *, arm, checkpoint, adapter):
     """Cross-branch receipt contract; paths may relocate, artifact bytes may not."""
+    context = export_branch(export)
     if (trained.get('format') != 'repair_e2_training_run' or trained.get('schema_version') != 1
             or trained.get('arm') != arm or trained.get('dry_run') is not False
-            or export.get('format') != FORMAT or export.get('schema_version') != SCHEMA_VERSION
             or export.get('ready_for_training') is not True or export.get('dry_run') is not False
             or export.get('canary') is not False or export.get('training_blockers') != []
             or trained.get('training_collection_sha256') != file_hash(export_path)
@@ -149,6 +153,8 @@ def validate_training_checkpoint(trained, export, collection_path, export_path, 
             or trained.get('source_collection_sha256') != file_hash(collection_path)
             or trained.get('theta0') != export.get('theta0')):
         raise ValueError('Training receipt/export/collection/theta0 mismatch')
+    if context['branch'] != 'P0_K20' and any(trained.get(k) != v for k, v in context.items()):
+        raise ValueError('Training receipt branch differs from export')
     if len(export['D_repair_train']) != 4 or set(export['D_repair_train']) & set(export['D_repair_probe']):
         raise ValueError('Training receipt requires four disjoint approved pairs')
     for name in ('N', 'F'):
@@ -175,16 +181,18 @@ def run_probes(collection, splits, config, output, *, arm, checkpoint, spec, env
                policy_factory=None, quick_runner=quick_eval, workers=1, inputs=()):
     if (arm, checkpoint) not in {('shared', 0), *[(a, c) for a in ('N', 'F') for c in (1, 5, 20)]}:
         raise ValueError('Use shared checkpoint 0 or N/F checkpoints 1/5/20')
-    adapter = validate_serving(config, spec)
-    if checkpoint == 0:
+    context = collection_branch(collection)
+    base_zero = checkpoint == 0 and context['theta0_kind'] == 'base_model'
+    adapter = (validate_serving(config, spec, base_model=True, expected=collection['checkpoint'])
+               if base_zero else validate_serving(config, spec))
+    if checkpoint == 0 and not base_zero:
         expected = collection['checkpoint']['identity']
-        for key in ('adapter_config_sha256', 'adapter_weights_sha256', 'base_model', 'revision',
-                    'training_state_sha256', 'training_provenance_sha256'):
+        for key in ADAPTER_KEYS:
             if adapter.get(key) != expected.get(key):
                 raise ValueError('Checkpoint zero is not collection theta0')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    prov = provenance(output, config, command='repair_probes', inputs=inputs)
+    prov = provenance(output, config, command='repair_probes', inputs=inputs, details=context)
     factory = policy_factory or served_policy_factory(spec)
     rows = []
     for tid in collection['D_repair_probe']:
@@ -193,19 +201,20 @@ def run_probes(collection, splits, config, output, *, arm, checkpoint, spec, env
             if case is None:
                 raise ValueError('Probe case was not measured')
             rows.append(probe_case(case, env_factory=env_factory, policy_factory=factory,
-                                   output=output / 'cases' / digest(tid)[:12]))
+                                   output=output / 'cases' / digest(tid)[:12], context=context))
         except (ValueError, KeyError) as exc:
-            rows.append({'task_id': tid, 'm': None, 'continuations': [], 'status': 'unavailable',
+            rows.append({**context, 'task_id': tid, 'm': None, 'continuations': [], 'status': 'unavailable',
                          'error_type': type(exc).__name__})
     quick = quick_runner(config, splits, output / 'quick', spec, workers=workers) if checkpoint in (0, 20) else None
-    result = {'schema_version': 1, 'arm': arm, 'checkpoint': checkpoint, 'adapter': adapter, 'cases': rows, 'quick_eval': quick,
+    result = {'schema_version': 1, **context, 'arm': arm, 'checkpoint': checkpoint,
+        'adapter': None if base_zero else adapter, 'served_checkpoint': adapter, 'cases': rows, 'quick_eval': quick,
         'seeds': list(SAMPLING_SEEDS), 'temperature': .7, 'top_p': .95, 'H': config['environment']['max_episode_steps'],
         'collection_sha256': digest(collection), 'split_sha256': splits['content_sha256'],
         'model_updates': 0, 'teacher_calls': 0}
     write_sealed(output / 'checkpoint.json', result)
     write_json(output / 'manifest.json', run_manifest(prov, checkpoint=adapter,
         tokenizer=collection['tokenizer'], tasks=collection['D_repair_probe'], seeds={'sampling': list(SAMPLING_SEEDS)},
-        evaluation_only=True, result_sha256=digest(result)), exclusive=True)
+        **context, evaluation_only=True, result_sha256=digest(result)), exclusive=True)
     return result
 
 
@@ -219,6 +228,9 @@ def combined_table(results, output):
         if any(r[key] != results[0][key] for r in results):
             raise ValueError('Paired probe conditions differ')
     base = by_key['shared', 0]
+    context = collection_branch(base)
+    if any(collection_branch(r) != context for r in results):
+        raise ValueError('Cannot combine different pilot branches')
     ids = [c['task_id'] for c in base['cases']]
     def mean_m(r):
         if r is None or [c['task_id'] for c in r['cases']] != ids or any(c['m'] is None for c in r['cases']):
@@ -275,7 +287,7 @@ def combined_table(results, output):
                 'right_only': sum(p[left] is False and p[right] is True for p in paired),
                 'both_failure': sum(p[left] is False and p[right] is False for p in paired),
                 'unknown': sum(type(p[left]) is not bool or type(p[right]) is not bool for p in paired)}
-    result = {'schema_version': 1, 'checkpoints': rows, 'per_probe': per_probe,
+    result = {'schema_version': 1, **context, 'checkpoints': rows, 'per_probe': per_probe,
               'source_checkpoint_sha256': [digest(r) for r in results],
               'quick_paired': paired, 'quick_paired_counts': quick_counts,
               'missing_checkpoints': [[a, c] for a in ('N', 'F') for c in (1, 5, 20) if (a, c) not in by_key]}

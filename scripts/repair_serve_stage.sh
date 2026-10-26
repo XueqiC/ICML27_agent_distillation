@@ -1,6 +1,16 @@
 # Shared one-adapter HF/vLLM equivalence gate, following eval_adapters.sh.
 # The caller defines repair_work(endpoint, provenance, check) before sourcing.
-: "${ADAPTER:?Set adapter path}" "${MODEL_NAME:?Set exact served adapter name}" "${VERIFIED:?Set original verified seeds}"
+: "${MODEL_NAME:?Set exact served model name}"
+serve_args=()
+support_args=()
+if [[ -n "${REPAIR_SUPPORT_THETA0:-}" ]]; then
+    support_args+=(--repair-support-theta0 "$REPAIR_SUPPORT_THETA0"
+                   --repair-splits "${REPAIR_SPLITS:-data/manifest/repair_v01_splits.json}")
+fi
+if [[ "${SERVE_BASE:-0}" != 1 ]]; then
+    : "${ADAPTER:?Set adapter path}" "${VERIFIED:?Set original verified seeds}"
+    serve_args+=(--lora-adapter "$MODEL_NAME=$ADAPTER" --lora-conversion none --lora-dtype bfloat16)
+fi
 mkdir -p "$(dirname "$REPAIR_OUT")"
 mkdir "$REPAIR_OUT"
 launcher_pid=''
@@ -21,10 +31,12 @@ run_work() {
     work_pid=''
     return "$status"
 }
-run_work "$TRAIN_PYTHON" tools/check_lora_serving.py --config "$CONFIG" --snapshot "$MODEL_PATH" \
-    --adapter "$ADAPTER" --verified "$VERIFIED" --model-name "$MODEL_NAME" --hf-only --output "$REPAIR_OUT/hf"
+if [[ "${SERVE_BASE:-0}" != 1 ]]; then
+    run_work "$TRAIN_PYTHON" tools/check_lora_serving.py --config "$CONFIG" --snapshot "$MODEL_PATH" \
+    --adapter "$ADAPTER" --verified "$VERIFIED" "${support_args[@]}" --model-name "$MODEL_NAME" --hf-only --output "$REPAIR_OUT/hf"
+fi
 "$ENV_PYTHON" harness/serve_student.py --config "$CONFIG" --python "$VLLM_PYTHON" --model-path "$MODEL_PATH" \
-    --lora-adapter "$MODEL_NAME=$ADAPTER" --lora-conversion none --lora-dtype bfloat16 \
+    "${serve_args[@]}" \
     --port 0 --ready-timeout "${READY_TIMEOUT:-900}" --output "$REPAIR_OUT/server" &
 launcher_pid=$!
 deadline=$((SECONDS + ${READY_TIMEOUT:-900} + 30))
@@ -38,8 +50,12 @@ import json, sys
 print(json.load(open(sys.argv[1]))['endpoint'])
 PY
 )
-CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
-    --snapshot "$MODEL_PATH" --adapter "$ADAPTER" --verified "$VERIFIED" --model-name "$MODEL_NAME" \
+check_report=''
+if [[ "${SERVE_BASE:-0}" != 1 ]]; then
+    CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" tools/check_lora_serving.py --config "$CONFIG" \
+    --snapshot "$MODEL_PATH" --adapter "$ADAPTER" --verified "$VERIFIED" "${support_args[@]}" --model-name "$MODEL_NAME" \
     --hf-reference "$REPAIR_OUT/hf/reference.json" --endpoint "$endpoint" \
     --server-provenance "$REPAIR_OUT/server/provenance.json" --output "$REPAIR_OUT/check"
-repair_work "$endpoint" "$REPAIR_OUT/server/provenance.json" "$REPAIR_OUT/check/report.json"
+    check_report="$REPAIR_OUT/check/report.json"
+fi
+repair_work "$endpoint" "$REPAIR_OUT/server/provenance.json" "$check_report"

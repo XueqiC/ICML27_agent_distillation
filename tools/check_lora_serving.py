@@ -239,6 +239,8 @@ def main(argv=None):
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--adapter", required=True, help="Original HF/PEFT checkpoint, never the converted copy")
     parser.add_argument("--verified", required=True)
+    parser.add_argument("--repair-support-theta0", help="P1 only: original theta0 adapter binds K20; read no other teacher episodes")
+    parser.add_argument("--repair-splits", default="data/manifest/repair_v01_splits.json")
     parser.add_argument("--model-name", required=True)
     parser.add_argument("--endpoint")
     parser.add_argument("--server-provenance")
@@ -263,6 +265,9 @@ def main(argv=None):
         identity = source_identity(args, config, adapter)
         inputs = [args.config, Path(args.verified) / "manifest.json", config["paths"]["manifest"],
                   config["paths"]["split_freeze"], Path(args.adapter) / "training_state.json"]
+        if args.repair_support_theta0:
+            inputs.extend([args.repair_splits, Path(args.repair_support_theta0).parent / 'provenance.json',
+                           Path(__file__).resolve().parents[1] / 'repair/support.py'])
         if args.hf_reference:
             inputs.append(args.hf_reference)
         if args.server_provenance:
@@ -287,8 +292,15 @@ def main(argv=None):
                 raise RuntimeError("HF equivalence reference requires a GPU (bf16/eager)")
             tokenizer = load_tokenizer(args.snapshot)
             manifest, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
-            cases = fixed_prompts(build_verified_dataset(args.verified, tokenizer, manifest, freeze,
-                                                         packing="turn"))
+            if args.repair_support_theta0:
+                from repair.support import original_support_examples
+                from tools.repair_coverage import checked_repair_splits
+                splits = checked_repair_splits(args.repair_splits, manifest, freeze)
+                examples = original_support_examples(args.verified, tokenizer, manifest, freeze,
+                    adapter=args.repair_support_theta0, splits=splits)
+            else:
+                examples = build_verified_dataset(args.verified, tokenizer, manifest, freeze, packing="turn")
+            cases = fixed_prompts(examples)
             model = PeftModel.from_pretrained(load_student(args.snapshot), args.adapter,
                                              local_files_only=True, is_trainable=False,
                                              autocast_adapter_dtype=False)

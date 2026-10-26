@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class GlobalTeacherBudget:
-    def __init__(self, path, *, input_tokens=5_000_000, output_tokens=500_000):
+    def __init__(self, path, *, input_tokens=5_000_000, output_tokens=500_000, context=None):
         if any(type(v) is not int or v < 0 for v in (input_tokens, output_tokens)):
             raise ValueError("Global token caps must be nonnegative integers")
         if Path(path).exists():
@@ -14,6 +14,7 @@ class GlobalTeacherBudget:
         self.caps = {"input_tokens": input_tokens, "output_tokens": output_tokens}
         self.used = {"input_tokens": 0, "output_tokens": 0}
         self.calls, self.stop_reason = 0, None
+        self.context = dict(context or {})
 
     def reserve(self, input_bound, output_cap):
         if self.stop_reason:
@@ -40,5 +41,5 @@ class GlobalTeacherBudget:
             raise CaseStopped(self.stop_reason)
 
     def summary(self):
-        return {"caps": dict(self.caps), "tokens_or_unsettled_bounds": dict(self.used),
+        return {**self.context, "caps": dict(self.caps), "tokens_or_unsettled_bounds": dict(self.used),
                 "reserved_attempts": self.calls, "stop_reason": self.stop_reason}
