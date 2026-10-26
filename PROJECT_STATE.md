@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 03:1x CDT 10-26 — hourly check: all new terminal links already reported; adc-k100-s2 copy verified (08:14Z)
+- Copier: adc-k100-s2 OK after one BrokenPipe retry (2h10m); its eval gate opened. Next passes: adc-k10-e32, adc-k20-e32
+  (~1.5 h each at 100 kB/s -> ~04:50 and ~06:25 CDT). Keeper: 4 jobs, seed trains (tsft-k20-s1, adc-k20-s1) running.
+
 ### 03:2x CDT 10-26 — repair pilot M0b-1 committed (7dcf5fe); M0b-2 running (Codex)
 - M0b-1: data/manifest/repair_v01_splits.json, sampled decoding, tools/repair_coverage.py; 141 repair + 387 touched tests pass.
 - M0b-2 (Codex, ../ICML27_wt_repair): teacher prompts 17.1-17.3, schemas, repair driver 7.2-7.6, Near/Far pairs 14.6-14.7,
