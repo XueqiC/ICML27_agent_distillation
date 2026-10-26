@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 08:1x CDT 10-26 — hpg saturated: group 8/8 GPUs + 482G mem held by others, dept 24/24 GPUs; our 4 jobs all pending
+- Group: sl26u 1 GPU + 288G (~6.8 days), yd26 7 GPUs (3 for 13 days, 3 for ~7.8 h, 1 L4 ~9.7 h). Next group GPUs ~16:00 CDT.
+- Pending: smc-k10-s2 train, adc-k10-s2 eval (group); sadc-k20-b05/b1 trains (dept). No action possible inside the rules.
+- Suggest to user: run the repair pilot on rai GPUs (pilot-internal comparisons on one card type), keep paper columns on hpg.
+
 ### 07:3x CDT 10-26 — tsft K10 seed 2 = 62 -> tsft K10 seeds 72/69/62, mean 67.7 (first complete K10 seed column)
 
 ### 07:2x CDT 10-26 — AD K20 seed 0 = 104 (s1 95); SmartAD K20 seed 1 = 90 (s0 84). K10/K20 seed 0 complete except SAD K20
