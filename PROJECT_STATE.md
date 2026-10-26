@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:1x CDT 10-26 — E4B traj SFT K20 = 78 (K10 72, K30 86/79/96)
+- 47772920: 78/140, serving gate passed; vs K10 +17/-11 p=.35; vs K30 s0 +14/-22 p=.24. Curve so far 43 -> 72 -> 78 -> 87.0 (K30 mean).
+
 ### 00:0x CDT 10-26 — E4B SmartAD K100 seed 1 = 118 (seed 0 118); SAD K20 b05 resubmitted at 160G (47776278)
 - 47770401: 118/140, standard bf16 serving gate passed (0.0469); vs s0 +9/-9; vs AD K100 s1 107 +18/-7 p=.043.
 
