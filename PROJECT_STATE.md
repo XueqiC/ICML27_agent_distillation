@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:3x CDT 10-26 — repair pilot restructured onto the grid's exact trees (no re-implemented E-series code)
+- Codex's first M0b-3 re-implemented Gemma-4 E-series support in shared trainer/serving files (main lacks 2506fa9) -> rejected
+  (stashed on repair-v01; draft copy in scratchpad/m0b3_save). The pilot must run the same code as theta0 and the baselines.
+- New branches (cherry-picks of M0a/M0b-1/M0b-2 + docs + configs/base_e4b.yaml, 203 tests pass on both):
+  * repair-v01-eval  = 46b8527 (E-series eval tree) + repair -> worktree ../ICML27_wt_repair_eval: coverage, E1 collection, probes.
+  * repair-v01-train = 2506fa9 (tree that trained e4b-tsft-k20-e32) + repair -> worktree ../ICML27_wt_repair_train: E2 arms.
+- M0b-3 eval side running (Codex, pid 1315171): collector + canary/dry-run, e2_training_collection.json export, probes, stage scripts.
+  Then the train side (reader + 20-update arm on 2506fa9's trainer).
+
 ### 04:0x CDT 10-26 — repair pilot M0b-2 committed (c7d0b5a); M0b-3 running (Codex)
 - M0b-2: prompts/schemas/driver/pairs/labels, 203 CPU tests (fake teacher). Limitation: originals with parser-feedback turns
   are excluded (INVALID_PATCH/original_contains_parser_feedback). Pairs need an explicit reviewer certification (else
