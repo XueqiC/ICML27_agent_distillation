@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:0x CDT 10-26 — hardening (user: no single issue may stall the grid)
+- Plan v32 (9b788a2): K10/K20 seed LoRA trains 4 CPU/64G (completed size). Evals 32G / preps 12G proven at the new size.
+- scratchpad/smc_tol_handler.py (setsid pid in scratchpad/smc_tol_handler.pid; log logs/smc_tol_handler.log; offset file
+  scratchpad/smc_tol_handler.offset): executes the pre-registered SmartAD serving rule automatically -- tolerance-only failure
+  (verified from report.json + slurm log) -> logs/queue/smc_tolerance_override.txt -> plan rebuilt (7b130c1 reads it) ->
+  edit_ovr_cell.py via keeper_edit.sh (only that cell's eval changes; bf16 OUT -> hpg _trash; unblock). Else NEEDS_REVIEW only.
+- Keeper-log watcher re-armed from scratchpad/keeper_watch_offset, wakes on any terminal/SSH_FAIL event.
+- Remaining big risk: overnight tunnel drop (asked user to keep the Mac awake). Restart checklist: restart the handler.
+
 ### 23:4x CDT 10-25 — E4B AD K100 seed 1 = 107 (seed 0 102)
 - e4b-adc-k100-s1 eval 47768361: 107/140, serving gate passed; vs s0 +11/-6 p=.33 -> seeds 0-1 mean 104.5; s2 copy queued (copier).
 - Keeper 23:47 CDT: SmartAD K10/K20 e32 fp32-reference evals submitted (47773892, 47773894).
