@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:0x CDT 10-26 — AD K10 seed 0 = 85 (s1 83); AD K100 seed 2 = 108 (seeds 102/107/108)
+- K10 complete for seed 0 except SAD (8): tsft 72, AD 85, SmartAD 76 (seed 1: 69 / 83 / 86). K100 seeds: tsft 107/102/119,
+  AD 102/107/108, SmartAD 118/118/(s2 train pending).
+
 ### 05:3x CDT 10-26 — repair pilot engineering (M0) COMPLETE; waiting for the user's 4 answers before M1
 - repair-v01-eval c30e411 (46b8527 + repair): coverage/collect/probes; repair-v01-train 511dc5e (2506fa9 + repair): e2 reader +
   arm trainer (opt-in fixed_batches/optimizer_state hooks in fsdp_train.py only). Pre-existing failures on 2506fa9: 7 official-
