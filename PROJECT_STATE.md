@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 13:5x CDT 10-26 — cold move done (dept /blue 19.83T -> 18.56T); SAD K20 b1 train done; b05 moved to dept
+- Job 47839869 COMPLETED (1:08 h): 74 intermediate SAD checkpoint dirs copied to /orange/yd24f.fsu/xc25.fsu/icml27-cold/
+  reports/runs/baselines/<same rel path>, each verified (file count, du -sb bytes, sha256 of the largest file) before deleting
+  the /blue source; log logs/cold_move/move_sad_intermediate.tsv (hpg). Includes e4b-sadc-k20-b1 attempt-001 sad-1of16/1of8,
+  which existed when the job listed directories while that train was still running (harmless: SAD never reads intermediate
+  checkpoints and the stage seal was written after the move; next time exclude directories of running jobs).
+- e4b-sadc-k20-b1-train 47777264 COMPLETED; e4b-sadc-k20-b05-train resubmitted 47851956 and moved to the dept account.
+
 ### 13:4x CDT 10-26 — mechanism pilot E1 complete; report sent; awaiting user A/B/C/D
 - E1 U_mech: 3/15 verified (all partial-progress; 0/10 search failures). Combined: partial-progress 10/14, search 1/12;
   10/11 repairs single replace (median 2.5 actions); joint necessity 1 case; 0 pairs in both branches -> E2 not run.
