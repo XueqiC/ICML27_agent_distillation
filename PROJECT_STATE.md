@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:3x CDT 10-25 — SmartAD K10 eval: tolerance-only serving failure -> pre-registered fp32 rerun (plan v30)
+- 47768359: pooled 0.0607 > 0.050 only (count 6 <= 11, effect 1.56, 8/8 prompts pass). ES_K30_OVERRIDE += e4b-smc-k10-e32
+  (eval on d822255, REFERENCE_DTYPE=float32, override recorded with the 15:00 CDT approval); bf16 OUT -> hpg
+  _trash/e4b-smc-k10-e32-lr1e-4-eval-bf16ref-1025b; keeper resubmits when a GPU frees. Then ref_diag for this cell; mark ‡ if the
+  fp32 check also fails and the override is used. tsft-k20-e32 copy verified -> eval 47772920 submitted 23:31 CDT.
+
 ### 23:1x CDT 10-25 — first K10 result: E4B traj SFT K10 = 72/140
 - e4b-tsft-k10-e32-lr5e-5 eval 47763049 (23:01-23:17 CDT): dev140 72/140 (51.4%), serving gate passed, 0 errors. vs base E4B 43
   (+31/-2, p=1.3e-7); vs K30 seed 0 86 (+12/-26, p=.034). Gains over base mostly place (30/35 vs 29), clean (17 vs 7), two (10 vs 2);
