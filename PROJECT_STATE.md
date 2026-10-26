@@ -17,6 +17,21 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 22:0x CDT 10-25 — tunnel back 21:57 CDT (user: VPN + `ssh -fN -M hpg`); rule A complete; plan v29 installed
+- Outage 19:5x-21:5x CDT: every hpg job in flight finished OK (smc K10 e64/e128, smc K20 e16-e128 trains). No ghost submit from
+  the keeper's failed 20:17 EDT sbatch (sacct). copier_v4 (754546/754660) + rule_a_watch2 (754547) resumed 21:57 CDT; tunnel
+  Recv-Q 0, one throttled copy at a time (tsft-k20-e32 first). scratchpad/hpg_tunnel_notified -> *.resolved_1025_2157.
+- Rule A, E4B K10/K20 (all rungs valid, chosen = e32 everywhere): tsft K10/K20, AD K10/K20 (LONI), SmartAD K10 (e16 L_last
+  0.00137 -> e32 0.000068) and K20 (0.00110 -> 0.000046). SAD K10/K20 b0.5 vs b1: by hand once all four are trained.
+- Keeper resumed 22:04 CDT: submitted e4b-tsft-k10-e32 eval 47763049, e4b-smc-k20-e32 eval 47763054, e4b-sadc-k20-b05 train
+  47763059, e4b-sadc-k20-b1 train 47763060; e4b-sadc-k10-b1 train 47742589 running (10,545 updates at 22:0x; b05 total 7,260).
+  Group 8/8 GPUs. Queued next: smc-k100-s1 eval, adc-k100-s1 eval, smc-k10-e32 eval, smc-k100-s2 train, then K10/K20 seeds.
+- Plan v29 (046e983, 420 cells): + 12 cells e4b-{tsft,adc,smc}-k{10,20}-e32-lr{5e-5,1e-4,1e-4}-s{1,2}, all trained on hpg
+  (first stage gated on e4b_few_views[_ft], both open). Exports identical to the seed-0 cells except seed var + output paths;
+  AD on f30e46b, SmartAD on 892e3ef, tsft on 2506fa9, evals on 46b8527. Backup logs/queue/plan.v29pre.json.
+- hpg $HOME 40G/40G full (29G ~/.cache/vllm, last written 10-22 20:33); our stages keep caches on /blue (OFF_HOME) -> only
+  login-profile warnings. Not ours to clean (hpg $HOME not authorized).
+
 ### 19:51 CDT 10-25 — tunnel down (2222 refused); user asked to restart autossh + `ssh -fN -M hpg`
 - Sequence: 19:32 a new Mac session + auto master (19:33); the unpaused CHILD retry loops of the old syncs relaunched relays into
   it; the Mac connection stalled ~19:35 (700 KB unacked, rto backoff), sshd dropped it 19:50. 19:3x "no action needed" message
