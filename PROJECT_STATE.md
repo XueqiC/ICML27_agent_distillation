@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:3x CDT 10-26 — SAD K10 b0.5 eval = labelled DIAGNOSTIC (user "可以" 00:30 CDT), not the reported cell
+- gates/eval_e4b-sadc-k10-b05 opened. The reported SAD K10 number stays b1 (rule A) = 8/140; b0.5 (726 epochs) only answers
+  whether halving the over-training budget avoids the memorization collapse. Mark it "diagnostic" in every table/figure.
+
 ### 00:2x CDT 10-26 — E4B SAD K10 (b1) = 8/140: memorization collapse, far below base 43
 - Fixed token budget (655M at x1) = 1,452 epochs on 10 trajectories; train loss 0.0. Replies well-formed (77 parser errors /
   5,356 steps) but 49% of actions inadmissible, replaying training-task content. Genuine method behavior under the registered
