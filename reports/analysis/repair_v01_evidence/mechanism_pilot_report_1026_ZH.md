@@ -235,7 +235,7 @@
 
 - **A. 按原规则收尾**：本轮以 E1 的结论为止，H2 留到条件更合适时再测。
 - **B. 统一清理无效动作后补做配对和 E2（K0 分支）**：在 Near 和 F 两边删掉被环境拒绝的 no-op 动作，重新真实执行确认仍成功；这些删除另列一栏，不算修复改动。
-  - K0 分支修复成功的训练候选有 6 个：Bowl 和 Cloth 是 probe，Tomato 和 CD 的标签不合格，剩下 Candle、AlarmClock、Laptop、Statue 4 个可能凑够 4 对。
+  - K0 分支有 8 个修复成功：Bowl 和 Cloth 是 probe，不进训练；Tomato 和 CD 的标签不合格；剩下 Candle、AlarmClock、Laptop、Statue 4 个训练候选，可能刚好凑够 4 对（还要每个都找到合格的 Far）。
   - 需要：实现和 review 约 1 小时，补 Far 的 teacher 调用约 20 分钟，E2 两臂训练加 probe 约 1.5–2 小时。
 - **C. 扩展 E1 到搜索失败**：允许 teacher 多轮"提修复 → 看真实执行 → 再提"，例如 5 轮；或者用文档第 13 节的"teacher 闭环执行"变体。
   - 这超出预注册的 2 × 3 预算，要作为新的 variant 单独登记。
