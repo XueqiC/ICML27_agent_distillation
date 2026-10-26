@@ -15,7 +15,7 @@ LORA_DTYPE=${LORA_DTYPE:-bfloat16}
 case "$LORA_DTYPE" in bfloat16|float16) ;; *) echo 'LORA_DTYPE must be bfloat16 or float16' >&2; exit 2 ;; esac
 CONFIG=${CONFIG:-configs/base.yaml}
 DECODING=${DECODING:-greedy}
-case "$DECODING" in greedy|sag|wkm) ;; *) echo 'DECODING must be greedy, sag or wkm' >&2; exit 2 ;; esac
+case "$DECODING" in greedy|sag|wkm|sampled) ;; *) echo 'DECODING must be greedy, sag, wkm or sampled' >&2; exit 2 ;; esac
 if [[ "$DECODING" == sag && "$BATCH_INVARIANT" != 1 ]]; then
     echo 'Stage 3b SAG requires BATCH_INVARIANT=1' >&2; exit 2
 fi
