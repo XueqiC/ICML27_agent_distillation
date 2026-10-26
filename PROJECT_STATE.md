@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:0x CDT 10-26 — SmartAD K20 = 84 (fp32 gate passed, no override); tsft K10 seed 1 = 69
+- K20 so far: tsft 78, SmartAD 84, AD pending (copy), SAD retraining. K10: tsft 72/69 (mean 70.5), SmartAD 76, SAD 8 (b1).
+
 ### 01:5x CDT 10-26 — NEW METHOD (user design doc v0.1): mechanism pilot pre-registered (draft, awaiting 4 answers)
 - User 01:39 CDT: "看看这份文档...安排上相对应的机制验证试验，可以和现有进度并行". Design archived at
   docs/direction/2026-10-26_agent_distillation_pipeline_v0_1_ZH.md (sha 423a43e2); pre-registration draft
