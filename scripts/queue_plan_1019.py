@@ -742,7 +742,9 @@ ES_K30_OVERRIDE = {"e4b-smc-k30-e32-lr1e-4", "e2b-smc-k30-e32-lr1e-4", "e4b-smc-
                    "e4b-smc-k30-e32-lr1e-4-s2",
                    # 10-25 23:3x CDT: 47768359 failed on tolerance only (pooled 0.0607 > 0.050; >0.5-count 6 <= 11, effect
                    # 1.56 >= 0.0625, all 8 prompts pass) -> pre-registered rule of 15:00 CDT
-                   "e4b-smc-k10-e32-lr1e-4"}
+                   "e4b-smc-k10-e32-lr1e-4",
+                   # 23:4x CDT: 47763054 tolerance only (0.0568 > 0.050; count 7 <= 11, effect 1.62, 8/8 prompts)
+                   "e4b-smc-k20-e32-lr1e-4"}
 
 
 def es_k30_override(cells):
@@ -768,13 +770,12 @@ def es_k30_override(cells):
 def es_sacct_sizes(cells):
     """10-25 22:3x CDT: the group QOS (cpu=64, mem=500G, gpu=8) binds on CPU and memory, not GPUs (another user's CPU jobs
     hold 40 CPUs / 160G for ~7 days). E-series stages sized from sacct of the completed E4B/E2B stages of the same type:
-    evals MaxRSS <= 22.0G (23 jobs) -> 32G; 2-GPU SAD trains (K <= 30) MaxRSS <= 26.8G at ~2 CPU avg -> 4 CPU/64G."""
+    evals MaxRSS <= 22.0G (23 jobs) -> 32G. 23:4x CDT: the 2-GPU SAD trains keep 8 CPU/160G: e4b-sadc-k20-b05-train 47763059
+    at 64G was OOM-killed while loading (MaxRSS 87.0G; the sampled MaxRSS of earlier SAD trains, <= 26.8G, missed that peak)."""
     for c in cells:
         for st in c["stages"]:
             if st["name"].endswith("-eval"):
                 st["res"] = st["res"].replace("--gpus=1 --cpus-per-task=4 --mem=48G", "--gpus=1 --cpus-per-task=4 --mem=32G")
-            elif c["cell"].startswith(("e4b-sadc-", "e2b-sadc-")) and st["name"].endswith("-train"):
-                st["res"] = st["res"].replace("--gpus=2 --cpus-per-task=8 --mem=160G", "--gpus=2 --cpus-per-task=4 --mem=64G")
     return cells
 
 
