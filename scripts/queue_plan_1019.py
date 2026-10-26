@@ -850,10 +850,22 @@ E4B_SEED_LONI = {"e4b-tsft-k30-e64-lr5e-5-s2", "e4b-tsft-k100-e64-lr1e-4-s2", "e
                  "e4b-adc-k30-e64-lr1e-4-s2", "e4b-adc-k100-e64-lr1e-4-s2"}
 
 
-def variant_seed_cells(tag, loni_trains=None):
-    cells = [variant_seed_cell(tag, m, k, e, lr, s) for s in (1, 2) for m, k, e, lr in E4B_SEED_RUNGS]
+# 10-25 22:0x CDT: training seeds 1, 2 of the E4B K10/K20 cells (user 11:44 CDT: seeds at K10/K20/K30/K100), at the rule-A
+# rung of each seed-0 ladder (logs/rule_a_few.jsonl) and its lr; SAD is not retrained (as K30/K100). All train on hpg (no
+# LONI adapter copies through the tunnel); the first stage waits for the K10/K20 views, as the seed-0 ladders.
+E4B_FEW_CHOSEN = {("tsft", 10): 32, ("tsft", 20): 32, ("adc", 10): 32, ("adc", 20): 32, ("smc", 10): 32, ("smc", 20): 32}
+E4B_FEW_SEED_RUNGS = [(m, k, E4B_FEW_CHOSEN[m, k], lr) for k in (10, 20)
+                      for m, lr in (("tsft", "5e-5"), ("adc", "1e-4"), ("smc", "1e-4"))]
+
+
+def variant_seed_cells(tag, loni_trains=None, few=False):
+    rungs = E4B_FEW_SEED_RUNGS if few else E4B_SEED_RUNGS
+    assert all(e for _, _, e, _ in rungs), rungs
+    cells = [variant_seed_cell(tag, m, k, e, lr, s) for s in (1, 2) for m, k, e, lr in rungs]
     for c in cells:
-        if c["cell"] in E4B_SEED_LONI:
+        if few:
+            c["stages"][0]["gate"] = {"file": f"{GATES}/{tag}_few_views" + ("" if c["cell"].startswith(f"{tag}-smc-") else "_ft")}
+        elif c["cell"] in E4B_SEED_LONI:
             if loni_trains is not None:
                 loni_trains.extend(st for st in c["stages"] if not st["name"].endswith("-eval"))
             c["stages"] = [st for st in c["stages"] if st["name"].endswith("-eval")]
@@ -976,7 +988,8 @@ def main():
         c["hold"] = True
     loni_trains = []
     cells = (es_k30_override(variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains)
-                             + variant_cells("e4b", loni_trains, few=True) + variant_seed_cells("e4b", loni_trains))
+                             + variant_cells("e4b", loni_trains, few=True) + variant_seed_cells("e4b", loni_trains)
+                             + variant_seed_cells("e4b", few=True))
              + seed_cells() + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
