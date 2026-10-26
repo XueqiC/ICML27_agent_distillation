@@ -1,0 +1,454 @@
+{
+ "per_case": {
+  "pick_cool_then_place_in_recep-Potato-None-SideTable-21": {
+   "D": {
+    "found": 8,
+    "picked": 8,
+    "success": 8,
+    "n": 8
+   },
+   "C": {
+    "found": 8,
+    "picked": 8,
+    "success": 8,
+    "n": 8
+   },
+   "B": {
+    "found": 8,
+    "picked": 8,
+    "success": 8,
+    "n": 8
+   },
+   "A": {
+    "found": 8,
+    "picked": 8,
+    "success": 8,
+    "n": 8
+   }
+  },
+  "pick_clean_then_place_in_recep-Kettle-None-DiningTable-7": {
+   "B": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "A": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "C": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "D": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   }
+  },
+  "pick_and_place_simple-Kettle-None-Shelf-1": {
+   "C": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "D": {
+    "found": 2,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "A": {
+    "found": 1,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "B": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   }
+  },
+  "pick_cool_then_place_in_recep-Egg-None-Microwave-5": {
+   "B": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "D": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "C": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "A": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   }
+  },
+  "look_at_obj_in_light-Newspaper-None-DeskLamp-224": {
+   "A": {
+    "found": 6,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "D": {
+    "found": 8,
+    "picked": 1,
+    "success": 1,
+    "n": 8
+   },
+   "B": {
+    "found": 7,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "C": {
+    "found": 8,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   }
+  },
+  "pick_clean_then_place_in_recep-Lettuce-None-CounterTop-18": {
+   "D": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "A": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "B": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   },
+   "C": {
+    "found": 0,
+    "picked": 0,
+    "success": 0,
+    "n": 8
+   }
+  },
+  "pick_cool_then_place_in_recep-Apple-None-Microwave-19": {
+   "C": {
+    "found": 8,
+    "picked": 8,
+    "success": 0,
+    "n": 8
+   },
+   "A": {
+    "found": 4,
+    "picked": 4,
+    "success": 0,
+    "n": 8
+   },
+   "D": {
+    "found": 8,
+    "picked": 8,
+    "success": 4,
+    "n": 8
+   },
+   "B": {
+    "found": 4,
+    "picked": 4,
+    "success": 1,
+    "n": 8
+   }
+  }
+ },
+ "branch_totals": {
+  "D": {
+   "found": 26,
+   "picked": 17,
+   "success": 13,
+   "n": 56,
+   "followed": 52,
+   "first_action_differs_from_A": 36
+  },
+  "B": {
+   "found": 19,
+   "picked": 12,
+   "success": 9,
+   "n": 56,
+   "followed": 0,
+   "first_action_differs_from_A": 0
+  },
+  "C": {
+   "found": 24,
+   "picked": 16,
+   "success": 8,
+   "n": 56,
+   "followed": 0,
+   "first_action_differs_from_A": 3
+  },
+  "A": {
+   "found": 19,
+   "picked": 12,
+   "success": 8,
+   "n": 56,
+   "followed": 0,
+   "first_action_differs_from_A": 0
+  }
+ },
+ "steps_to_find": {
+  "D": [
+   12,
+   null,
+   1,
+   30,
+   6,
+   9,
+   null,
+   null,
+   1,
+   6,
+   null,
+   null,
+   null,
+   7,
+   9,
+   null,
+   null,
+   null,
+   null,
+   2,
+   9,
+   null,
+   2,
+   6,
+   null,
+   2,
+   null,
+   null,
+   1,
+   null,
+   null,
+   1,
+   null,
+   30,
+   null,
+   null,
+   5,
+   null,
+   2,
+   9,
+   null,
+   null,
+   null,
+   9,
+   1,
+   1,
+   null,
+   null,
+   null,
+   1,
+   null,
+   6,
+   null,
+   1,
+   null,
+   null
+  ],
+  "B": [
+   null,
+   null,
+   null,
+   6,
+   null,
+   null,
+   null,
+   null,
+   28,
+   null,
+   12,
+   null,
+   12,
+   null,
+   null,
+   null,
+   null,
+   null,
+   6,
+   6,
+   12,
+   null,
+   12,
+   9,
+   6,
+   null,
+   null,
+   12,
+   6,
+   6,
+   null,
+   28,
+   12,
+   null,
+   null,
+   null,
+   null,
+   null,
+   13,
+   null,
+   null,
+   null,
+   14,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   6,
+   null,
+   28,
+   null,
+   null,
+   null
+  ],
+  "C": [
+   null,
+   28,
+   5,
+   null,
+   null,
+   28,
+   null,
+   5,
+   28,
+   null,
+   null,
+   28,
+   5,
+   null,
+   null,
+   null,
+   28,
+   null,
+   12,
+   12,
+   null,
+   null,
+   5,
+   12,
+   null,
+   null,
+   null,
+   12,
+   null,
+   5,
+   null,
+   12,
+   null,
+   null,
+   5,
+   28,
+   28,
+   null,
+   null,
+   5,
+   12,
+   5,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   12,
+   null,
+   28,
+   null,
+   null,
+   null,
+   12
+  ],
+  "A": [
+   12,
+   null,
+   null,
+   28,
+   30,
+   13,
+   28,
+   null,
+   null,
+   null,
+   null,
+   12,
+   28,
+   null,
+   null,
+   6,
+   null,
+   28,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   12,
+   null,
+   6,
+   19,
+   null,
+   null,
+   null,
+   12,
+   12,
+   null,
+   null,
+   null,
+   12,
+   null,
+   null,
+   6,
+   null,
+   6,
+   null,
+   null,
+   null,
+   17,
+   12,
+   null,
+   null
+  ]
+ }
+}

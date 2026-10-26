@@ -1,0 +1,510 @@
+{
+ "cells_per_K": {
+  "10": 8,
+  "20": 6,
+  "30": 10,
+  "100": 9
+ },
+ "cells": {
+  "10": [
+   "AD|10",
+   "AD|10|s1",
+   "AD|10|s2",
+   "SmartAD|10",
+   "SmartAD|10|s1",
+   "tsft|10",
+   "tsft|10|s1",
+   "tsft|10|s2"
+  ],
+  "20": [
+   "AD|20",
+   "AD|20|s1",
+   "SmartAD|20",
+   "SmartAD|20|s1",
+   "tsft|20",
+   "tsft|20|s1"
+  ],
+  "30": [
+   "AD|30",
+   "AD|30|s1",
+   "AD|30|s2",
+   "SAD|30",
+   "SmartAD|30",
+   "SmartAD|30|s1",
+   "SmartAD|30|s2",
+   "tsft|30",
+   "tsft|30|s1",
+   "tsft|30|s2"
+  ],
+  "100": [
+   "AD|100",
+   "AD|100|s1",
+   "AD|100|s2",
+   "SAD|100",
+   "SmartAD|100",
+   "SmartAD|100|s1",
+   "tsft|100",
+   "tsft|100|s1",
+   "tsft|100|s2"
+  ]
+ },
+ "mode_counts": {
+  "10": {
+   "D_placed_without_transform": 47,
+   "success": 582,
+   "A_never_seen": 91,
+   "F_two_incomplete": 58,
+   "C_took_no_transform": 40,
+   "E_transformed_not_placed": 14,
+   "B_seen_not_taken": 54,
+   "C_took_no_lamp": 22,
+   "E_took_not_placed": 4
+  },
+  "20": {
+   "success": 493,
+   "B_seen_not_taken": 33,
+   "A_never_seen": 60,
+   "F_two_incomplete": 27,
+   "C_took_no_lamp": 10,
+   "C_took_no_transform": 26,
+   "E_transformed_not_placed": 16,
+   "D_placed_without_transform": 16,
+   "E_took_not_placed": 3
+  },
+  "30": {
+   "success": 844,
+   "E_transformed_not_placed": 27,
+   "D_placed_without_transform": 30,
+   "B_seen_not_taken": 45,
+   "F_two_incomplete": 35,
+   "A_never_seen": 87,
+   "C_took_no_lamp": 23,
+   "C_took_no_transform": 39,
+   "E_took_not_placed": 10
+  },
+  "100": {
+   "success": 898,
+   "D_placed_without_transform": 9,
+   "B_seen_not_taken": 20,
+   "C_took_no_transform": 17,
+   "E_transformed_not_placed": 12,
+   "C_took_no_lamp": 7,
+   "A_never_seen": 52,
+   "F_two_incomplete": 9,
+   "E_took_not_placed": 2
+  }
+ },
+ "refused_target_action_in_failures": {
+  "10": [
+   127,
+   330
+  ],
+  "20": [
+   56,
+   191
+  ],
+  "30": [
+   75,
+   296
+  ],
+  "100": [
+   15,
+   128
+  ]
+ },
+ "phrasing": [
+  {
+   "type": "look_at_obj_in_light",
+   "phrasing": "examine",
+   "tasks": 6,
+   "teacher_ok": 6,
+   "solve_rate": {
+    "10": 0.6875,
+    "20": 0.8055555555555556,
+    "30": 0.6333333333333333,
+    "100": 0.9259259259259259
+   }
+  },
+  {
+   "type": "look_at_obj_in_light",
+   "phrasing": "look at",
+   "tasks": 7,
+   "teacher_ok": 7,
+   "solve_rate": {
+    "10": 0.6964285714285714,
+    "20": 0.6666666666666666,
+    "30": 0.7571428571428571,
+    "100": 0.9365079365079365
+   }
+  },
+  {
+   "type": "pick_and_place_simple",
+   "phrasing": "put",
+   "tasks": 35,
+   "teacher_ok": 34,
+   "solve_rate": {
+    "10": 0.8321428571428572,
+    "20": 0.8761904761904762,
+    "30": 0.8771428571428571,
+    "100": 0.9492063492063492
+   }
+  },
+  {
+   "type": "pick_clean_then_place_in_recep",
+   "phrasing": "clean some X",
+   "tasks": 12,
+   "teacher_ok": 11,
+   "solve_rate": {
+    "10": 0.9375,
+    "20": 0.875,
+    "30": 0.8416666666666667,
+    "100": 0.8240740740740741
+   }
+  },
+  {
+   "type": "pick_clean_then_place_in_recep",
+   "phrasing": "put a clean X",
+   "tasks": 15,
+   "teacher_ok": 8,
+   "solve_rate": {
+    "10": 0.4666666666666667,
+    "20": 0.5333333333333333,
+    "30": 0.52,
+    "100": 0.6222222222222222
+   }
+  },
+  {
+   "type": "pick_cool_then_place_in_recep",
+   "phrasing": "cool some X",
+   "tasks": 11,
+   "teacher_ok": 7,
+   "solve_rate": {
+    "10": 0.4090909090909091,
+    "20": 0.3787878787878788,
+    "30": 0.4818181818181818,
+    "100": 0.6060606060606061
+   }
+  },
+  {
+   "type": "pick_cool_then_place_in_recep",
+   "phrasing": "put a cool X",
+   "tasks": 14,
+   "teacher_ok": 8,
+   "solve_rate": {
+    "10": 0.17857142857142858,
+    "20": 0.39285714285714285,
+    "30": 0.4642857142857143,
+    "100": 0.6190476190476191
+   }
+  },
+  {
+   "type": "pick_heat_then_place_in_recep",
+   "phrasing": "heat some X",
+   "tasks": 6,
+   "teacher_ok": 5,
+   "solve_rate": {
+    "10": 0.20833333333333334,
+    "20": 0.4444444444444444,
+    "30": 0.5166666666666667,
+    "100": 0.8148148148148148
+   }
+  },
+  {
+   "type": "pick_heat_then_place_in_recep",
+   "phrasing": "hot X",
+   "tasks": 10,
+   "teacher_ok": 7,
+   "solve_rate": {
+    "10": 0.1,
+    "20": 0.16666666666666666,
+    "30": 0.3,
+    "100": 0.4666666666666667
+   }
+  },
+  {
+   "type": "pick_two_obj_and_place",
+   "phrasing": "find two",
+   "tasks": 8,
+   "teacher_ok": 6,
+   "solve_rate": {
+    "10": 0.421875,
+    "20": 0.5833333333333334,
+    "30": 0.6,
+    "100": 0.8055555555555556
+   }
+  },
+  {
+   "type": "pick_two_obj_and_place",
+   "phrasing": "put two",
+   "tasks": 16,
+   "teacher_ok": 15,
+   "solve_rate": {
+    "10": 0.5,
+    "20": 0.6770833333333334,
+    "30": 0.7625,
+    "100": 0.8958333333333334
+   }
+  }
+ ],
+ "teacher_ok_all_cells_fail": {
+  "10": [
+   "pick_heat_then_place_in_recep-Egg-None-Fridge-14",
+   "pick_heat_then_place_in_recep-Plate-None-DiningTable-28",
+   "pick_heat_then_place_in_recep-Potato-None-Fridge-12",
+   "pick_heat_then_place_in_recep-Tomato-None-DiningTable-16",
+   "pick_heat_then_place_in_recep-Tomato-None-Fridge-23",
+   "pick_two_obj_and_place-Pan-None-CounterTop-14",
+   "pick_two_obj_and_place-Spatula-None-Drawer-13"
+  ],
+  "20": [
+   "pick_clean_then_place_in_recep-ButterKnife-None-DiningTable-16",
+   "pick_heat_then_place_in_recep-Mug-None-SideTable-21",
+   "pick_heat_then_place_in_recep-Plate-None-DiningTable-28",
+   "pick_heat_then_place_in_recep-Potato-None-Fridge-12",
+   "pick_two_obj_and_place-Pan-None-CounterTop-14"
+  ],
+  "30": [
+   "pick_heat_then_place_in_recep-Plate-None-DiningTable-28"
+  ],
+  "100": []
+ },
+ "demos_by_type": {
+  "10": {
+   "look_at_obj_in_light": 1,
+   "pick_and_place_simple": 3,
+   "pick_clean_then_place_in_recep": 2,
+   "pick_cool_then_place_in_recep": 1,
+   "pick_heat_then_place_in_recep": 1,
+   "pick_two_obj_and_place": 2
+  },
+  "20": {
+   "look_at_obj_in_light": 2,
+   "pick_and_place_simple": 5,
+   "pick_clean_then_place_in_recep": 3,
+   "pick_cool_then_place_in_recep": 3,
+   "pick_heat_then_place_in_recep": 2,
+   "pick_two_obj_and_place": 5
+  },
+  "30": {
+   "look_at_obj_in_light": 3,
+   "pick_and_place_simple": 8,
+   "pick_clean_then_place_in_recep": 5,
+   "pick_cool_then_place_in_recep": 4,
+   "pick_heat_then_place_in_recep": 3,
+   "pick_two_obj_and_place": 7
+  },
+  "100": {
+   "look_at_obj_in_light": 10,
+   "pick_and_place_simple": 25,
+   "pick_clean_then_place_in_recep": 17,
+   "pick_cool_then_place_in_recep": 13,
+   "pick_heat_then_place_in_recep": 11,
+   "pick_two_obj_and_place": 24
+  }
+ },
+ "prevalence": {
+  "10": {
+   "failed_eps_with_repeated_refused_action": [
+    105,
+    330
+   ],
+   "same_type_goto_pairs_in_numeric_order": [
+    5707,
+    6077
+   ],
+   "mean_types_before_target_seen_successes": 2.247422680412371
+  },
+  "20": {
+   "failed_eps_with_repeated_refused_action": [
+    45,
+    191
+   ],
+   "same_type_goto_pairs_in_numeric_order": [
+    3749,
+    3982
+   ],
+   "mean_types_before_target_seen_successes": 2.233265720081136
+  },
+  "30": {
+   "failed_eps_with_repeated_refused_action": [
+    109,
+    296
+   ],
+   "same_type_goto_pairs_in_numeric_order": [
+    6341,
+    6724
+   ],
+   "mean_types_before_target_seen_successes": 2.264218009478673
+  },
+  "100": {
+   "failed_eps_with_repeated_refused_action": [
+    24,
+    128
+   ],
+   "same_type_goto_pairs_in_numeric_order": [
+    4998,
+    5271
+   ],
+   "mean_types_before_target_seen_successes": 2.2037861915367483
+  },
+  "teacher": {
+   "failed_eps_with_repeated_refused_action": [
+    0,
+    0
+   ],
+   "same_type_goto_pairs_in_numeric_order": [
+    399,
+    426
+   ],
+   "mean_types_before_target_seen_successes": 2.192982456140351
+  }
+ },
+ "search_runs": {
+  "10": {
+   "episodes": 91,
+   "student_never_seen": {
+    "median_longest_same_type_run": 18,
+    "median_types_visited": 2,
+    "median_visits": 22
+   },
+   "teacher_same_tasks_until_seen": {
+    "median_longest_same_type_run": 2,
+    "median_types_visited": 2,
+    "median_visits": 5
+   },
+   "student_same_type_next_visit": [
+    1550,
+    1785
+   ],
+   "student_same_type_next_visit_first10": [
+    693,
+    793
+   ],
+   "teacher_same_type_next_visit": [
+    293,
+    443
+   ]
+  },
+  "20": {
+   "episodes": 60,
+   "student_never_seen": {
+    "median_longest_same_type_run": 17.0,
+    "median_types_visited": 2.0,
+    "median_visits": 21.0
+   },
+   "teacher_same_tasks_until_seen": {
+    "median_longest_same_type_run": 3.0,
+    "median_types_visited": 2.0,
+    "median_visits": 5.0
+   },
+   "student_same_type_next_visit": [
+    873,
+    1049
+   ],
+   "student_same_type_next_visit_first10": [
+    408,
+    487
+   ],
+   "teacher_same_type_next_visit": [
+    232,
+    354
+   ]
+  },
+  "30": {
+   "episodes": 87,
+   "student_never_seen": {
+    "median_longest_same_type_run": 15,
+    "median_types_visited": 2,
+    "median_visits": 20
+   },
+   "teacher_same_tasks_until_seen": {
+    "median_longest_same_type_run": 3,
+    "median_types_visited": 3,
+    "median_visits": 5
+   },
+   "student_same_type_next_visit": [
+    1150,
+    1328
+   ],
+   "student_same_type_next_visit_first10": [
+    557,
+    662
+   ],
+   "teacher_same_type_next_visit": [
+    330,
+    511
+   ]
+  },
+  "100": {
+   "episodes": 52,
+   "student_never_seen": {
+    "median_longest_same_type_run": 18.0,
+    "median_types_visited": 2.0,
+    "median_visits": 20.0
+   },
+   "teacher_same_tasks_until_seen": {
+    "median_longest_same_type_run": 3.0,
+    "median_types_visited": 3.0,
+    "median_visits": 5.0
+   },
+   "student_same_type_next_visit": [
+    794,
+    914
+   ],
+   "student_same_type_next_visit_first10": [
+    377,
+    428
+   ],
+   "teacher_same_type_next_visit": [
+    201,
+    317
+   ]
+  }
+ },
+ "precondition": {
+  "10": {
+   "transform_task_failures": 175,
+   "with_refused_transform": 18,
+   "refused_transform_after_putting_target_inside_appliance": 16,
+   "two_object_failures": 80,
+   "second_take_refused_while_holding": 48,
+   "no_transform_failures_target_moved_into_appliance": [
+    25,
+    140
+   ]
+  },
+  "20": {
+   "transform_task_failures": 110,
+   "with_refused_transform": 17,
+   "refused_transform_after_putting_target_inside_appliance": 15,
+   "two_object_failures": 36,
+   "second_take_refused_while_holding": 18,
+   "no_transform_failures_target_moved_into_appliance": [
+    19,
+    78
+   ]
+  },
+  "30": {
+   "transform_task_failures": 168,
+   "with_refused_transform": 14,
+   "refused_transform_after_putting_target_inside_appliance": 11,
+   "two_object_failures": 48,
+   "second_take_refused_while_holding": 16,
+   "no_transform_failures_target_moved_into_appliance": [
+    27,
+    107
+   ]
+  },
+  "100": {
+   "transform_task_failures": 91,
+   "with_refused_transform": 4,
+   "refused_transform_after_putting_target_inside_appliance": 0,
+   "two_object_failures": 15,
+   "second_take_refused_while_holding": 0,
+   "no_transform_failures_target_moved_into_appliance": [
+    4,
+    57
+   ]
+  }
+ }
+}
