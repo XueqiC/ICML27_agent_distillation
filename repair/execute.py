@@ -73,7 +73,7 @@ def _transition(result, *, raw=None, action=None, outcome="not_applicable", step
 
 def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, ledger=None,
                     interaction_kind="candidate_replay_steps", version=None, candidate_id=None,
-                    retry_of=None):
+                    retry_of=None, continuation=None, prefix_reference=None):
     """max_steps counts policy turns as in runner; failed step calls are charged.
 
     Cache lookup follows a real reset (zero action steps), never a snapshot.
@@ -84,6 +84,10 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
         raise ValueError("max_steps must be a nonnegative integer")
     if interaction_kind not in BUDGETS["interaction"]:
         raise ValueError("Unknown interaction budget")
+    if continuation is not None and (cache is not None or prefix_reference is None):
+        raise ValueError("Hand-back requires an uncached replay and a measured prefix reference")
+    if continuation is not None and (prefix_reference.task_id != task_id or prefix_reference.max_steps != max_steps):
+        raise ValueError("Hand-back task/horizon differs from its measured reference")
     actions = list(actions)
     raw_actions = [action_reply(a) for a in actions]
     attempt_id = str(uuid.uuid4())
@@ -119,9 +123,30 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
             visible, _, terminated, truncated, audit = result
             success = audit.get("won", "unknown")
             reason = "FAILED"
-            for index, raw in enumerate(raw_actions):
+            for index in range(max_steps):
                 if success is True or terminated or truncated or index >= max_steps:
                     break
+                if index < len(raw_actions):
+                    raw = raw_actions[index]
+                elif continuation is None:
+                    break
+                else:
+                    phase = "handback_prefix_check"
+                    reference = prefix_reference
+                    keys = ("visible", "audit_sha256", "reward", "terminated", "truncated")
+                    if (game_hash != reference.game_sha256 or seed != reference.env_seed or
+                            version != reference.environment_version or
+                            any(initial[k] != reference.initial[k] for k in keys) or
+                            any(any(s[k] != r[k] for k in (*keys, "action_parsed"))
+                                for s, r in zip(steps[:len(raw_actions)], reference.steps))):
+                        raise ValueError("Handback prefix replay diverged")
+                    from sed.visibility import visible_history
+                    history, previous = [], initial["visible"]
+                    for step in steps:
+                        history.append({"visible": previous, "reply": step["action_raw"]})
+                        previous = step["visible"]
+                    phase = "handback_policy"
+                    raw = action_reply(continuation(visible_history(history), visible_observation(visible)))
                 action, outcome = action_outcome(raw, visible["admissible_commands"])
                 if outcome == "parser_error":
                     result = ({"observation": PARSER_FEEDBACK,
@@ -149,6 +174,16 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
                                          steps=int(outcome != "parser_error"), feedback_source=(
                                              "analytic_verifier" if outcome == "parser_error"
                                              else "real_environment")))
+                if continuation is not None and index < len(raw_actions):
+                    phase = "handback_prefix_check"
+                    reference = prefix_reference
+                    keys = ("visible", "audit_sha256", "reward", "terminated", "truncated")
+                    if (index >= len(reference.steps) or game_hash != reference.game_sha256 or
+                            seed != reference.env_seed or version != reference.environment_version or
+                            any(initial[k] != reference.initial[k] for k in keys) or
+                            any(steps[-1][k] != reference.steps[index][k]
+                                for k in (*keys, "action_parsed"))):
+                        raise ValueError("Handback prefix replay diverged")
                 success = audit.get("won", "unknown")
             reason = ("SUCCESS" if success is True else "FAILED" if terminated else
                       "STEP_LIMIT" if truncated or len(steps) >= max_steps else "FAILED")
