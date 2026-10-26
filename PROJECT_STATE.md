@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:51 CDT 10-25 — tunnel down (2222 refused); user asked to restart autossh + `ssh -fN -M hpg`
+- Sequence: 19:32 a new Mac session + auto master (19:33); the unpaused CHILD retry loops of the old syncs relaunched relays into
+  it; the Mac connection stalled ~19:35 (700 KB unacked, rto backoff), sshd dropped it 19:50. 19:3x "no action needed" message
+  was wrong; corrected twice (19:41, 19:51).
+- Old loops killed (switch_v4.sh). New copier_v4.sh (754546, child 754660) and rule_a_watch2.py (754547) are kill -STOPped.
+  Resume both with kill -CONT after `ssh -O check hpg` works AND a quick `ssh hpg true` returns in seconds.
+
 ### 19:3x CDT 10-25 — TUNNEL DOWN again (2222 accepts, no banner; master gone); one notice sent 19:31
 - Likely cause: 3 parallel unthrottled LONI -> hpg adapter copies (~560 MB each) saturated the Mac upload (4 MB queued at rai).
 - All my loops paused (kill -STOP 143086 432622 435428; seeds relay LONI ssh 694645 stopped since 19:2x).
