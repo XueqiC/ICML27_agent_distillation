@@ -19,7 +19,8 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 ## RUNNING JOBS
 ### 02:2x CDT 10-26 — tsft K100 seed 2 = 119 (s0 107, s1 102): seed spread 17 tasks, s2 vs s0 p=.0075
 - Seeds 0-2 mean 109.3 (102-119). Training seed alone moves dev140 by up to 17 tasks at K100 -> single-seed method comparisons
-  at this K are underpowered; report seed min-max. (s0, s2 LONI A100; s1 hpg B200 -- machine not separable from seed here.)
+  at this K are underpowered; report seed min-max. s0 and s2 were both trained on LONI A100 and still differ (p=.0075), so the
+  spread is a training-seed effect, not only machine; s1 was trained on hpg B200.
 
 ### 02:1x CDT 10-26 — hourly check: new terminal links already handled; idle-GPU flag = SAD eval startup
 - 47786524 (sadc-k10-b05 diagnostic eval) idle at 14 min: HF reference stage done, vLLM server starting (b1 eval took 33 min
