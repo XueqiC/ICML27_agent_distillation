@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 05:3x CDT 10-26 — repair pilot engineering (M0) COMPLETE; waiting for the user's 4 answers before M1
+- repair-v01-eval c30e411 (46b8527 + repair): coverage/collect/probes; repair-v01-train 511dc5e (2506fa9 + repair): e2 reader +
+  arm trainer (opt-in fixed_batches/optimizer_state hooks in fsdp_train.py only). Pre-existing failures on 2506fa9: 7 official-
+  reference tests (leap/stage3a-d) fail identically on the pristine tree.
+- Next on approval: deploy both trees to hpg (copy base tree server-side + new files), M1 coverage (theta0 on its 20 K20
+  train tasks, greedy + sampled; also base E4B), branch decision per prereg, then M2 freeze (already built) and M3 E1.
+
 ### 05:1x CDT 10-26 — hourly check: tsft-k20-s1 train done; idle-GPU flag = AD seed-train preflight
 - 47791793 (adc-k20-s1 train) idle at 5 min: preflight (AD seed trains spend ~19 min there, cf. 47779721). No action.
 - Evals queued/running: adc-k10-e32 (seed 0, copy verified), adc-k100-s2, tsft-k20-s1 (next).
