@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:1x CDT 10-25 — first K10 result: E4B traj SFT K10 = 72/140
+- e4b-tsft-k10-e32-lr5e-5 eval 47763049 (23:01-23:17 CDT): dev140 72/140 (51.4%), serving gate passed, 0 errors. vs base E4B 43
+  (+31/-2, p=1.3e-7); vs K30 seed 0 86 (+12/-26, p=.034). Gains over base mostly place (30/35 vs 29), clean (17 vs 7), two (10 vs 2);
+  cool 5/25, heat 2/16 stay low. Next: eval of smc-k20-e32 (47763054), smc-k10-e32 (47768359), sadc-k10-b1 (47769837).
+
 ### 23:1x CDT 10-25 — SAD K10 rule A = b1; its eval gate opened
 - e4b-sadc-k10-b1-train 47742589 COMPLETED (3:51 h). tools/convergence_check.py (tree c265b5d) on b0.5 vs b1: L_last 4.5e-10
   (726 epochs) -> 0.0 (1,452 epochs), delta < 0.01 -> converged; both rungs valid, no collapse epoch -> **SAD K10 = b1**
