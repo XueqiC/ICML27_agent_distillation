@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:1x CDT 10-25 — SAD K10 rule A = b1; its eval gate opened
+- e4b-sadc-k10-b1-train 47742589 COMPLETED (3:51 h). tools/convergence_check.py (tree c265b5d) on b0.5 vs b1: L_last 4.5e-10
+  (726 epochs) -> 0.0 (1,452 epochs), delta < 0.01 -> converged; both rungs valid, no collapse epoch -> **SAD K10 = b1**
+  (hpg reports/runs/convergence/e4b-sadc-k10-b05_vs_b1.json). gates/eval_e4b-sadc-k10-b1 opened 23:16 CDT. K20 b0.5/b1 trains pending.
+- Keeper 23:05 CDT: + e4b-smc-k10-e32 eval 47768359, e4b-adc-k100-s1 eval 47768361 (9 jobs, 8 GPUs).
+
 ### 22:3x CDT 10-25 — group QOS bound on CPU+mem, not GPUs -> E-series stages sized from sacct (v29b ba76e5d, v29c 6716c6d)
 - yd24f QOS = cpu 64 / gpu 8 / mem 500G; sl26u CPU-only jobs hold 40 CPU / 160G (~7 days left) -> our 4 pending GPU jobs sat in
   QOSGrpCpuLimit with GPUs free. sacct of completed E-series stages: evals MaxRSS <= 22.0G (23 jobs), 2-GPU SAD <= 26.8G (~2 CPU
