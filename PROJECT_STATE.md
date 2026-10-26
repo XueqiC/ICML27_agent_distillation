@@ -17,6 +17,12 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:2x CDT 10-26 — SAD K20 trains moved to the dept account (group memory locked for days)
+- yd24f QOS mem 507,904/512,000 MB: sl26u 288G (~6.5 days left), yd26 144G (~13 days) -> the 160G SAD K20 trains (pending
+  since 23:0x CDT) could not start for days. scontrol moved 47776278 (b05) and 47777264 (b1) to fsu-compsci-dept (dept is full
+  now too, GPUs 24/24, but turns over). Group evals (32G) still fit as our running evals finish.
+- LONI depedlab04 has 1.45M SU (memory note updated); LONI is an option for trainings but adapters/models must cross the tunnel.
+
 ### 06:3x CDT 10-26 — tsft K20 seed 1 = 78 (s0 78); AD K20 seed 1 = 95 (cool 18/25)
 - AD K20 s1 vs tsft K20 +33/-16 p=.021. AD K20 seed 0 copy verified -> eval 47805371. K10 seed-2 trains starting.
 
