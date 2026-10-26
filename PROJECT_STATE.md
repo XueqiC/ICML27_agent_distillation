@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 06:3x CDT 10-26 — tsft K20 seed 1 = 78 (s0 78); AD K20 seed 1 = 95 (cool 18/25)
+- AD K20 s1 vs tsft K20 +33/-16 p=.021. AD K20 seed 0 copy verified -> eval 47805371. K10 seed-2 trains starting.
+
 ### 06:1x CDT 10-26 — hourly check: new terminal links already handled; idle-GPU flags = eval startup (3 min, HF stage)
 - Running: tsft-k20-s1 eval 47802428, adc-k20-s1 eval 47802444, smc-k20-s1 eval 47804346 queued. Copier on adc-k20-e32 (seed 0).
 
