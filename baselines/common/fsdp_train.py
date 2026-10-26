@@ -327,7 +327,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
                packing=None, processed_token_budget=None, checkpoint_callback=None,
-               scoring=None, flex_kernel_options=None, replicated_lora=False):
+               scoring=None, flex_kernel_options=None, replicated_lora=False,
+               fixed_batches=None, optimizer_state=None):
     import torch
     import torch.distributed as dist
     from transformers import set_seed
@@ -371,7 +372,21 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             if any(r.get("label_provenance", {}).get("training_eligible") is False
                    for r in [row, *sequence_rows(row)]):
                 raise ValueError("Diagnostic examples cannot enter training")
-    if objective == "sad":
+    if fixed_batches is not None:
+        # Opt-in continuation: retain the existing objective, microsteps,
+        # optimizer, reduction and schedule; only replace the global sampler.
+        if objective != "sft" or processed_token_budget is not None:
+            raise ValueError("Fixed batches require SFT without a token budget")
+        batches = list(fixed_batches)
+        if (not batches or type(original_batch) is not int or original_batch < 1
+                or any(len(b["indices"]) != original_batch or any(
+                    type(i) is not int or not 0 <= i < len(examples) for i in b["indices"])
+                       for b in batches)):
+            raise ValueError("Invalid fixed global batches")
+        plan = {"b_orig": original_batch, "b_prime": original_batch, "N_examples": len(examples),
+                "steps_per_epoch": len(batches), "epochs": 1, "total_steps": len(batches),
+                "last_batch": original_batch, "sampler": "explicit_fixed_batches"}
+    elif objective == "sad":
         from baselines.sad.data import token_plan, ordered_batches
         plan = token_plan(examples, original_batch, processed_token_budget)
         batches = ordered_batches(len(examples), plan["b_prime"], plan["total_steps"])
@@ -383,6 +398,28 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=learning_rate, betas=(0.9, 0.999), eps=1e-8,
                                  weight_decay=weight_decay, foreach=False, fused=False)
+    if optimizer_state is not None:
+        if fixed_batches is None:
+            raise ValueError("Optimizer continuation requires explicit fixed batches")
+        from copy import deepcopy
+        saved = deepcopy(optimizer_state)
+        groups = saved["param_groups"]
+        expected = optimizer.state_dict()["param_groups"]
+        if len(groups) != len(expected):
+            raise ValueError("Saved optimizer group count differs")
+        for group, target in zip(groups, expected):
+            if (len(group["params"]) != len(target["params"]) or any(
+                    group.get(k, target[k]) != target[k] for k in target
+                    if k not in {"params", "lr", "initial_lr"})):
+                raise ValueError("Saved optimizer differs from inherited AdamW")
+            # Theta0's schedule ended: keep moments, restart the same shape.
+            group["lr"] = group["initial_lr"] = learning_rate
+            for index, parameter in zip(group["params"], parameters):
+                state = saved["state"].get(index)
+                if (state is None or any(k not in state or state[k].shape != parameter.shape
+                                         for k in ("exp_avg", "exp_avg_sq"))):
+                    raise ValueError("Saved optimizer moments are missing or have different shapes")
+        optimizer.load_state_dict(saved)
     lr_schedule = torch.optim.lr_scheduler.LambdaLR(optimizer, partial(lr_multiplier,
                   scheduler=scheduler, total_steps=plan["total_steps"], warmup_ratio=warmup_ratio,
                   warmup_steps=warmup_steps))
@@ -507,7 +544,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                 "physical_policy_forward_tokens": physical_tokens, "packing": packing,
                 "physical_policy_recompute_forward_tokens": recompute_tokens,
                 "physical_reference_forward_tokens": 0, "scoring": scoring, "flex_attention": flex_settings,
-                "loss_normalization": "batch mean of trajectory span-token sums"})
+                "loss_normalization": ("per_example_mean_then_global_batch_mean" if fixed_batches is not None
+                                       else "batch mean of trajectory span-token sums")})
     if cuda:
         torch.cuda.synchronize(device)
     memory = {"rank": rank, "peak_memory_bytes": torch.cuda.max_memory_allocated(device) if cuda else None,
