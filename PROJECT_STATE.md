@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 02:4x CDT 10-26 — AD K10 seed 1 = 83 (seed 0 pending copy)
+- K10 so far: tsft 72/69, AD s1 83, SmartAD 76, SAD 8 (b1; b0.5 diagnostic 25). AD K10 -> K30 (112): +29 tasks.
+
 ### 02:3x CDT 10-26 — SAD K10 b0.5 DIAGNOSTIC = 25/140 (b1 8, base 43): less over-training helps but still below base
 - b0.5 (726 epochs) vs b1 (1,452): +22/-5 p=.0015; still -18 vs base (+14/-32 p=.011); 44% inadmissible actions. Reported SAD K10
   stays b1 = 8 (rule A); b0.5 labelled diagnostic everywhere. Pain point: fixed-budget SAD at K10 over-trains by ~1-2 orders.
