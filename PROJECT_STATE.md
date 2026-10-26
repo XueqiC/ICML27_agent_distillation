@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:2x CDT 10-26 — E4B SAD K10 (b1) = 8/140: memorization collapse, far below base 43
+- Fixed token budget (655M at x1) = 1,452 epochs on 10 trajectories; train loss 0.0. Replies well-formed (77 parser errors /
+  5,356 steps) but 49% of actions inadmissible, replaying training-task content. Genuine method behavior under the registered
+  budget ladder, not a harness fault (same pipeline: K30 58, 0 parser errors). Rule A picks b1 (both rungs loss ~0); it has no
+  over-training guard. Pain point candidate: budget-defined SAD at small K. Asked user whether to evaluate b0.5 (726 epochs)
+  as a labelled diagnostic (~35 GPU-min). sadc-k20-b1 train resubmitted 47777264 (4 CPU/160G).
+
 ### 00:1x CDT 10-26 — hourly check: all new terminal links already handled; SAD trains 4 CPU/160G (v33 670637a)
 - sadc-k20-b05 47776278 pended on QOSGrpCpuLimit at 8 CPU -> scontrol 4 CPU (160G kept). tsft-k10-s1 train at 40G past
   loading (MaxRSS 26G, 20 min). LONI copier on adc-k10-e32 since 23:30 CDT.
