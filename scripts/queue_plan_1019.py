@@ -757,6 +757,19 @@ def es_k30_override(cells):
     return cells
 
 
+def es_sacct_sizes(cells):
+    """10-25 22:3x CDT: the group QOS (cpu=64, mem=500G, gpu=8) binds on CPU and memory, not GPUs (another user's CPU jobs
+    hold 40 CPUs / 160G for ~7 days). E-series stages sized from sacct of the completed E4B/E2B stages of the same type:
+    evals MaxRSS <= 22.0G (23 jobs) -> 32G; 2-GPU SAD trains (K <= 30) MaxRSS <= 26.8G at ~2 CPU avg -> 4 CPU/64G."""
+    for c in cells:
+        for st in c["stages"]:
+            if st["name"].endswith("-eval"):
+                st["res"] = st["res"].replace("--gpus=1 --cpus-per-task=4 --mem=48G", "--gpus=1 --cpus-per-task=4 --mem=32G")
+            elif c["cell"].startswith(("e4b-sadc-", "e2b-sadc-")) and st["name"].endswith("-train"):
+                st["res"] = st["res"].replace("--gpus=2 --cpus-per-task=8 --mem=160G", "--gpus=2 --cpus-per-task=4 --mem=64G")
+    return cells
+
+
 def v_env(tag):
     cfg, model = VARIANTS[tag]
     return f"CONFIG={cfg},MODEL_PATH={model}"
@@ -996,9 +1009,9 @@ def main():
     for c in cells:
         c["hold"] = True
     loni_trains = []
-    cells = (es_k30_override(variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains)
-                             + variant_cells("e4b", loni_trains, few=True) + variant_seed_cells("e4b", loni_trains)
-                             + variant_seed_cells("e4b", few=True))
+    cells = (es_sacct_sizes(es_k30_override(variant_cells("e4b", loni_trains) + variant_cells("e2b", loni_trains)
+                                            + variant_cells("e4b", loni_trains, few=True)
+                                            + variant_seed_cells("e4b", loni_trains) + variant_seed_cells("e4b", few=True)))
              + seed_cells() + chain_cells() + cells)
     for c in cells:
         for st in c["stages"]:
