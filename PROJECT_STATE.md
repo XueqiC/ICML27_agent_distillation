@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:3x CDT 10-26 — E4B SmartAD K10 = 76 (fp32 gate passed, override not used)
+- 47773892: 76/140; vs tsft K10 72 +19/-15 p=.61; vs SmartAD K30 91 p=.04. Ref diagnostic: HF bf16 is the noisy side (0.0548 vs
+  vLLM 0.0357 to HF fp32). Annotate "serving check vs float32 HF reference". K10 so far: tsft 72, SmartAD 76, SAD 8, AD pending.
+
 ### 00:3x CDT 10-26 — SAD K10 b0.5 eval = labelled DIAGNOSTIC (user "可以" 00:30 CDT), not the reported cell
 - gates/eval_e4b-sadc-k10-b05 opened. The reported SAD K10 number stays b1 (rule A) = 8/140; b0.5 (726 epochs) only answers
   whether halving the over-training budget avoids the memorization collapse. Mark it "diagnostic" in every table/figure.
