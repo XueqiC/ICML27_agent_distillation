@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 04:0x CDT 10-26 — repair pilot M0b-2 committed (c7d0b5a); M0b-3 running (Codex)
+- M0b-2: prompts/schemas/driver/pairs/labels, 203 CPU tests (fake teacher). Limitation: originals with parser-feedback turns
+  are excluded (INVALID_PATCH/original_contains_parser_feedback). Pairs need an explicit reviewer certification (else
+  PAIR_NOT_FOUND).
+- M0b-3: train arm (inherit tsft LoRA trainer; 20 updates, ckpt 1/5/20), probes 14.9-14.11, tools/repair_collect.py (global
+  teacher caps, --dry-run, --canary = 1 real diagnosis call), hpg stage scripts.
+
 ### 03:1x CDT 10-26 — hourly check: all new terminal links already reported; adc-k100-s2 copy verified (08:14Z)
 - Copier: adc-k100-s2 OK after one BrokenPipe retry (2h10m); its eval gate opened. Next passes: adc-k10-e32, adc-k20-e32
   (~1.5 h each at 100 kB/s -> ~04:50 and ~06:25 CDT). Keeper: 4 jobs, seed trains (tsft-k20-s1, adc-k20-s1) running.
