@@ -8,6 +8,7 @@ from pathlib import Path
 
 from repair.artifacts import read_json
 from sed.manifest import authorize_task, resolve_task
+from sed.provenance import training_support_manifest
 from sed.seed_evidence import (_subset_values, artifact_hashes, checked_episodes,
                                environment_won, receipt_path)
 from sed.seed_selection import validate_selection
@@ -19,7 +20,7 @@ def load_original_support(path, manifest, freeze, *, adapter, splits):
     collection, selection, identity = [read_json(path / n) for n in
                                       ('manifest.json', 'selection.json', 'identity.json')]
     training = read_json(Path(adapter).resolve().parent / 'provenance.json')
-    original_path = Path(training['config']['sft']['verified']) / 'manifest.json'
+    original_path = training_support_manifest(training)
     # Accept the spelling kept in --verified or an absolute provenance input path.
     hashes = [v for k, v in training['inputs'].items()
               if k == str(original_path) or k.endswith('/' + str(original_path))]

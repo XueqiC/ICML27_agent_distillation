@@ -226,7 +226,11 @@ def test_cli_requires_branch_even_for_dry_run_and_finalize(tmp_path):
         main(['--finalize', 'missing.json', '--output', str(tmp_path / 'final')])
 
 
-def test_p1_support_never_opens_parent_non_support_evidence(branch_bank, tmp_path, monkeypatch):
+@pytest.mark.parametrize('training_section, support_location', [
+    ('sft', 'local'), ('sft', 'remote'), ('sft', 'relative'),
+    ('baseline_training', 'remote'), ('both', 'remote')])
+def test_p1_support_never_opens_parent_non_support_evidence(
+        branch_bank, tmp_path, monkeypatch, training_section, support_location):
     from teachers.collect_seeds import collect
     from sed.seed_selection import select_full_train
     from sed.seed_evidence import materialize_full_train_views
@@ -247,8 +251,16 @@ def test_p1_support_never_opens_parent_non_support_evidence(branch_bank, tmp_pat
     splits = {'sets': {'D_probe': {'group_ids': [other[-1]['group_id']]},
                        'U_mech': {'task_ids': [r['task_id'] for r in other[:20]]}}}
     adapter = tmp_path / 'sft/checkpoint'
-    write_json(adapter.parent / 'provenance.json', {'config': {'sft': {'verified': str(view)}},
-               'inputs': {str(view / 'manifest.json'): file_hash(view / 'manifest.json')}})
+    recorded_path = {'local': str(view), 'remote': '/original-cluster/verified/subsets/k20',
+                     'relative': 'verified/subsets/k20'}[support_location]
+    input_path = str(Path(recorded_path) / 'manifest.json')
+    if support_location == 'relative':
+        input_path = '/original-cluster/' + input_path
+    config = {'sft': {'packing': 'episode'}}
+    for section in (('sft', 'baseline_training') if training_section == 'both' else (training_section,)):
+        config.setdefault(section, {})['verified'] = recorded_path
+    provenance = {'config': config, 'inputs': {input_path: file_hash(view / 'manifest.json')}}
+    write_json(adapter.parent / 'provenance.json', provenance)
     forbidden = [(root / r['episode_dir']).parent.resolve() for r in other]
     opened = []
     real_open = Path.open
@@ -265,10 +277,38 @@ def test_p1_support_never_opens_parent_non_support_evidence(branch_bank, tmp_pat
     examples = original_support_examples(view, FakeTokenizer(), manifest, freeze, adapter=adapter, splits=splits)
     assert examples == [row for episode in episodes for row in episode_examples(episode, FakeTokenizer(), packing='turn')]
     assert not any(p.name == 'episode.json' and any(p.is_relative_to(q) for q in forbidden) for p in opened)
-    write_json(adapter.parent / 'provenance.json', {'config': {'sft': {'verified': str(view)}},
-               'inputs': {str(view / 'manifest.json'): 'wrong'}})
+    # Identical JSON with different bytes must still fail the training hash binding.
+    manifest_bytes = (view / 'manifest.json').read_bytes()
+    (view / 'manifest.json').write_bytes(manifest_bytes + b'\n')
     with pytest.raises(ValueError, match='original support'):
         load_original_support(view, manifest, freeze, adapter=adapter, splits=splits)
+    (view / 'manifest.json').write_bytes(manifest_bytes)
+    write_json(adapter.parent / 'provenance.json', {**provenance, 'inputs': {input_path: 'wrong'}})
+    with pytest.raises(ValueError, match='original support'):
+        load_original_support(view, manifest, freeze, adapter=adapter, splits=splits)
+    # A matching hash stored for another path is not evidence for the recorded support.
+    write_json(adapter.parent / 'provenance.json', {**provenance,
+        'inputs': {'/unrelated/manifest.json': file_hash(view / 'manifest.json')}})
+    with pytest.raises(ValueError, match='original support'):
+        load_original_support(view, manifest, freeze, adapter=adapter, splits=splits)
+
+
+@pytest.mark.parametrize('config, error', [
+    ({}, 'needs sft.verified or baseline_training.verified'),
+    ({'sft': {}, 'baseline_training': {}}, 'needs sft.verified or baseline_training.verified'),
+    ({'sft': {'verified': '/original/support'}, 'baseline_training': {'verified': '/other/support'}},
+     'conflicting sft.verified and baseline_training.verified'),
+    ({'sft': {'verified': None}, 'baseline_training': {'verified': '/original/support'}}, 'nonempty strings'),
+])
+def test_p1_support_rejects_missing_or_conflicting_paths(tmp_path, config, error):
+    from repair.support import load_original_support
+    view, adapter = tmp_path / 'verified', tmp_path / 'training/checkpoint'
+    for name in ('manifest.json', 'selection.json', 'identity.json'):
+        write_json(view / name, {})
+    write_json(adapter.parent / 'provenance.json', {'config': config,
+        'inputs': {'/original/support/manifest.json': file_hash(view / 'manifest.json')}})
+    with pytest.raises(ValueError, match=error):
+        load_original_support(view, {}, {}, adapter=adapter, splits={})
 
 
 @pytest.mark.parametrize('branch', ['P1_U_mech', 'P0_K0'])

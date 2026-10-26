@@ -15,6 +15,21 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def training_support_manifest(provenance):
+    """Select the recorded support path without resolving it on the current host."""
+    config = provenance["config"]
+    paths = [config.get(section, {})["verified"]
+             for section in ("sft", "baseline_training")
+             if "verified" in config.get(section, {})]
+    if not paths:
+        raise ValueError("Training provenance needs sft.verified or baseline_training.verified")
+    if any(not isinstance(path, str) or not path for path in paths):
+        raise ValueError("Training provenance verified support paths must be nonempty strings")
+    if len(paths) == 2 and paths[0] != paths[1]:
+        raise ValueError("Training provenance has conflicting sft.verified and baseline_training.verified")
+    return Path(paths[0]) / "manifest.json"
+
+
 def versions():
     result = {}
     for name in ("sufficient-experience-distillation", "alfworld", "textworld",
