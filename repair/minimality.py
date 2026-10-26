@@ -82,7 +82,7 @@ class MinimalityChecker:
 
     def run(self, task_id, original_actions, patch, *, replays_used=0,
             ablation_replays_used=0, preserved_subgoals=None, check_minimality=True,
-            original_trajectory=None):
+            original_trajectory=None, verified_executions=None):
         """Counters include earlier proposals/retries for this same failure.
 
         This call checks the original, verifies the candidate, ablates, and
@@ -145,9 +145,27 @@ class MinimalityChecker:
             validations.append(evidence)
             return result, evidence
 
-        if replays_used >= self.total_replays:
-            return finish()
-        original, evidence = replay(Patch(patch.original_trajectory_id), original_actions, "original", force=True)
+        # A collection driver may supply the original and selected executions
+        # it just measured. Reuse their evidence, never repeat/discount those
+        # replays. This is not a snapshot restore or a new success claim.
+        if verified_executions is not None:
+            original, selected = verified_executions
+            if replays_used < 1 or original.task_id != task_id or selected.task_id != task_id:
+                raise ValueError("Invalid preverified execution accounting")
+            if original.max_steps != self.max_steps or selected.max_steps != self.max_steps:
+                raise ValueError("Preverified execution horizon differs")
+            from repair.align import action_reply
+            from sed.react import action_outcome
+            expected = [action_outcome(action_reply(a), [])[0] for a in actions[:len(selected.steps)]]
+            if expected != [s["action_parsed"] for s in selected.steps]:
+                raise ValueError("Preverified candidate differs from compiled patch")
+            evidence = {"phase": "original", "patch": Patch(patch.original_trajectory_id).to_json(),
+                        "execution": original.to_json(), "same_initial_state": True}
+            validations.append(evidence)
+        else:
+            if replays_used >= self.total_replays:
+                return finish()
+            original, evidence = replay(Patch(patch.original_trajectory_id), original_actions, "original", force=True)
         if original_trajectory is not None:
             evidence["matches_recorded_original"] = (
                 patch.original_trajectory_id == original_trajectory.trajectory_id and
@@ -158,9 +176,14 @@ class MinimalityChecker:
         if original.termination_reason == "ENV_ERROR" or original.success is not False:
             repair_status = "NONREPLAYABLE"
             return finish()
-        if replays_used >= self.total_replays:
-            return finish()
-        selected, evidence = replay(patch, actions, "candidate")
+        if verified_executions is None:
+            if replays_used >= self.total_replays:
+                return finish()
+            selected, evidence = replay(patch, actions, "candidate")
+        else:
+            evidence = {"phase": "candidate", "patch": patch.to_json(), "execution": selected.to_json(),
+                        "same_initial_state": same_reset(original, selected)}
+            validations.append(evidence)
         if not evidence["same_initial_state"]:
             reject(patch, "initial_state_changed", selected)
             repair_status = "NONREPLAYABLE"
