@@ -1,4 +1,4 @@
-"""Continue one E2 arm using the main-grid tsft train_loop and existing adapter."""
+"""Train one E2 arm using this tree's trajectory-SFT recipe and train_loop."""
 from copy import deepcopy
 from math import prod
 from pathlib import Path
@@ -7,7 +7,7 @@ import re
 
 from baselines.common.conversation import sequence_rows
 from baselines.kang.pipeline import RECIPE
-from repair.e2_reader import prepare_examples, require
+from repair.e2_reader import prepare_examples, require, branch_metadata, checked_base
 from baselines.common.shared_history import pack_shared_history
 from harness.lora_adapters import inspect_adapter, safetensors_header
 from repair.artifacts import read_json, checkpoint_files, provenance, run_manifest
@@ -16,6 +16,78 @@ from sed.storage import digest, file_hash, write_json
 THETA0_NAME = 'e4b-tsft-k20-e32-lr5e-5'
 CHECKPOINTS = (0, 1, 5, 20)
 TRAINING_SEED = 1
+LORA_INIT_SEED = 20261026
+
+
+def base_recipe(theta, config, snapshot):
+    """K0 uses the registered tsft LoRA, with the K20 LR override, from scratch."""
+    from train.modeling import LORA_TARGETS
+    require(config['environment']['max_episode_steps'] == 40
+            and config['training']['thinking_mode'] == 'off'
+            and config['training']['student_step_token_cap'] == 1024,
+            'Inherited H/thinking/output-cap protocol differs')
+    require(config['models']['student']['requested_repo'] == 'google/gemma-4-E4B-it',
+            'Repair pilot requires the configured E4B student')
+    metadata = checked_base(theta, snapshot, config['models']['student'])
+    recipe = {k: RECIPE[k] for k in ('adaptation', 'scheduler', 'warmup_ratio', 'warmup_steps',
+                                    'weight_decay', 'packing', 'max_length')}
+    recipe.update(objective='sft', learning_rate=5e-5, scoring='shared_history',
+                  attention='flex_attention', compute_dtype='bfloat16', adapter_master_dtype='float32',
+                  frozen_base_dtype='bfloat16', optimizer={'name': 'AdamW', 'betas': [.9, .999], 'eps': 1e-8})
+    return {'identity': deepcopy(theta['identity']), 'files': deepcopy(theta['files']), 'recipe': recipe,
+        'sft': {k: RECIPE[k] for k in ('rank', 'alpha', 'dropout')} | {
+            'targets': list(LORA_TARGETS), 'base_snapshot': metadata, 'packing': recipe['packing']},
+        'trainer_state': {'gradient_clip': RECIPE['gradient_clip'],
+                          'loss_reduction': 'per_example_mean_then_global_batch_mean'},
+        'recipe_sources': {p: file_hash(p) for p in ('scripts/hpg_kang.slurm', 'baselines/kang/pipeline.py',
+            'baselines/common/fsdp_train.py', 'baselines/common/schedule.py',
+            'baselines/common/shared_history.py', 'train/dataset.py', 'train/modeling.py')},
+        'parameters': None, 'trainable_modules': None, 'initialization_seed': LORA_INIT_SEED,
+        'optimizer_state': {'mode': 'fresh_AdamW_for_both', 'path': None, 'sha256': None},
+        'scheduler_policy': {'decision': 'fresh linear schedule over 20 updates in both arms',
+            'shape': recipe['scheduler'], 'learning_rate': recipe['learning_rate'],
+            'warmup_ratio': recipe['warmup_ratio'], 'warmup_steps': recipe['warmup_steps'],
+            'total_updates': 20, 'restore_scheduler_state': False}}
+
+
+def initial_adapter_hash(model):
+    """Canonical names/shapes/dtypes and raw tensor bytes, independent of save path."""
+    import hashlib
+    import torch
+    tensors = {}
+    for name, parameter in model.named_parameters():
+        if parameter.requires_grad:
+            require('.lora_' in name, 'Fresh model has non-LoRA trainable tensors')
+            value = parameter.detach().cpu().contiguous()
+            tensors[name] = {'shape': list(value.shape), 'dtype': str(value.dtype),
+                'sha256': hashlib.sha256(value.view(torch.uint8).numpy().tobytes()).hexdigest()}
+    require(bool(tensors), 'Missing initial adapter tensors')
+    return digest(tensors)
+
+
+def load_fresh_adapter(snapshot, device, inherited, student):
+    import torch
+    from train.modeling import load_student, attach_lora
+    from baselines.common.shared_history import configure_flex_attention, validate_model
+    recipe, sft = inherited['recipe'], inherited['sft']
+    base = load_student(snapshot, device=str(device), dtype=recipe['frozen_base_dtype'])
+    base.set_attn_implementation(recipe['attention'])
+    configure_flex_attention(base, recipe.get('flex_kernel_options'))
+    devices = [torch.device(device).index] if torch.device(device).type == 'cuda' else []
+    # Loading a base can consume RNG differently; seed attachment itself and
+    # restore the training stream. Both ranks and both arms use the same seed.
+    with torch.random.fork_rng(devices=devices):
+        torch.manual_seed(inherited['initialization_seed'])
+        model = attach_lora(base, rank=sft['rank'], alpha=sft['alpha'], dropout=sft['dropout'],
+                            targets=sft['targets'])
+    require(set(model.peft_config) == {'default'}, 'Expected exactly one fresh adapter')
+    model.peft_config['default'].revision = student['revision']
+    model.peft_config['default'].base_model_name_or_path = student['requested_repo']
+    for p in model.parameters():
+        if p.requires_grad:
+            p.data = p.data.to(getattr(torch, recipe['adapter_master_dtype']))
+    validate_model(model)
+    return model
 
 
 def inherited_recipe(theta0, config, snapshot):
@@ -90,7 +162,7 @@ def inherited_recipe(theta0, config, snapshot):
             'total_updates': 20, 'restore_scheduler_state': False}}
 
 
-def batch_schedule(tasks, slots):
+def batch_schedule(tasks, slots, replay_tasks=None):
     rng = random.Random(TRAINING_SEED)
     result = []
     for update in range(1, 21):
@@ -98,7 +170,7 @@ def batch_schedule(tasks, slots):
         rng.shuffle(buckets)
         selections = []
         for bucket in buckets:
-            tid = rng.choice(tasks)
+            tid = rng.choice(replay_tasks if bucket == 'seed' and replay_tasks is not None else tasks)
             position = rng.randrange(len(slots[tid, bucket]))
             selections.append({'task_id': tid, 'bucket': bucket, 'episode_index': position,
                                'index': slots[tid, bucket][position]})
@@ -150,13 +222,13 @@ def publish_checkpoint(model, output, provenance_record, state, counts, inherite
     """Use the shared serving-compatible adapter exporter at fixed updates."""
     from baselines.common.fsdp_train import export_adapter
     update = state['updates']
-    if update not in CHECKPOINTS[1:]:
-        raise ValueError('Only fixed nonzero checkpoints may be published')
+    if update not in CHECKPOINTS or (update == 0 and 'initialization_seed' not in inherited):
+        raise ValueError('Only fixed checkpoints (zero for fresh LoRA) may be published')
     destination = Path(output) / f'update-{update:02d}'
     destination.mkdir()
     write_json(destination / 'provenance.json', provenance_record, exclusive=True)
     saved = export_adapter(model, destination / 'checkpoint', provenance_record,
-        {**state, 'adaptation': inherited['recipe']['adaptation'], 'epochs': 1,
+        {**state, 'adaptation': inherited['recipe']['adaptation'], 'epochs': 0 if update == 0 else 1,
          'packing': inherited['recipe']['packing'],
          'optimizer_state': inherited['optimizer_state'], 'scheduler_policy': inherited['scheduler_policy'],
          'gradient_clip': inherited['trainer_state']['gradient_clip'],
@@ -167,6 +239,10 @@ def publish_checkpoint(model, output, provenance_record, state, counts, inherite
          'actual_trainable_module_names': inherited['trainable_modules'], **counts})
     item = {'update': update, 'status': 'saved', 'path': str((destination / 'checkpoint').resolve()),
             'sha256': checkpoint_files(destination / 'checkpoint'), 'trainer_state': saved, **counts}
+    if update == 0:
+        item.update(initial_adapter_sha256=initial_adapter_hash(model),
+                    initialization_seed=inherited['initialization_seed'], verification_only=True,
+                    probe_checkpoint_zero='base_model')
     write_json(destination / 'manifest.json', item, exclusive=True)
     return item
 
@@ -175,16 +251,22 @@ def run_arm(collection, config, output, *, theta0, snapshot, tokenizer, arm,
             dry_run=False, inputs=()):
     """Consume only read_collection's checked evidence; train_loop owns updates."""
     import os
-    inherited = inherited_recipe(theta0, config, snapshot)
     document = collection['document']
+    branch = branch_metadata(document)
+    fresh = branch['theta0_kind'] == 'base_model'
+    require(not fresh or theta0 is None or Path(theta0).resolve() == Path(snapshot).resolve(),
+            'Base-model branch cannot load an SFT adapter')
+    inherited = base_recipe(document['theta0'], config, snapshot) if fresh else inherited_recipe(theta0, config, snapshot)
     require(document['theta0']['files'] == inherited['files'], 'Theta0 changed after reader validation')
     examples, slots = prepare_examples(collection, tokenizer, arm,
         packing=inherited['recipe']['packing'], max_length=inherited['recipe']['max_length'])
-    batches = batch_schedule(document['D_repair_train'], slots)
+    batches = batch_schedule(document['D_repair_train'], slots, collection['seed_replay_task_ids'])
     counts = accounting(examples, batches)
+    training_tasks = {t['task_id']: t for t in [*collection['tasks'], *collection['seed_tasks']]}
     config = deepcopy(config)
     config['sft'] = inherited['sft']
-    config['repair_training'] = {'arm': arm, 'inherited': inherited, 'training_seed': TRAINING_SEED,
+    config['repair_training'] = {'arm': arm, **branch, 'inherited': inherited, 'training_seed': TRAINING_SEED,
+        'seed_replay_task_ids': collection['seed_replay_task_ids'],
         'optimizer_updates_cap': 20, 'effective_batch_episodes': 4, 'repair_weight': .75,
         'seed_replay_weight': .25, 'loss_mask': 'full_trajectory', 'schedule_sha256': digest(batches),
         'examples_sha256': digest(examples),
@@ -197,14 +279,18 @@ def run_arm(collection, config, output, *, theta0, snapshot, tokenizer, arm,
     def record():
         output.mkdir(parents=True, exist_ok=False)
         prov = provenance(output, config, command='repair_train_arm',
-            inputs=[*inputs, *collection['inputs'], Path(theta0).parent / 'provenance.json'])
+            inputs=[*inputs, *collection['inputs'],
+                    *([] if fresh else [Path(theta0).parent / 'provenance.json'])])
         write_json(output / 'batches.json', batches, exclusive=True)
         write_json(output / 'example_sources.json', [e['label_provenance'] for e in examples], exclusive=True)
         manifest = run_manifest(prov, checkpoint=inherited, tokenizer=document['tokenizer'],
-            tasks=collection['tasks'],
+            tasks=list(training_tasks.values()),
             seeds={'training': TRAINING_SEED, 'rank_seeds': [TRAINING_SEED + r for r in range(world)],
                    'environment': config['environment']['seed']},
-            format='repair_e2_training_run', arm=arm, dry_run=dry_run,
+            format='repair_e2_training_run', arm=arm, dry_run=dry_run, **branch,
+            seed_replay_task_ids=collection['seed_replay_task_ids'],
+            initialization_seed=inherited.get('initialization_seed'),
+            initial_adapter_sha256=inherited.get('initial_adapter_sha256'),
             theta0=document['theta0'], training_collection_sha256=collection['training_collection_sha256'],
             source_collection_sha256=document['source_collection_sha256'],
             source_input_hashes=document['input_hashes'],
@@ -212,16 +298,22 @@ def run_arm(collection, config, output, *, theta0, snapshot, tokenizer, arm,
             status='planned' if dry_run else 'running',
             K_trusted_seed_trajectories=document['K_trusted_seed_trajectories'],
             D_repair_train=document['D_repair_train'], D_repair_probe=document['D_repair_probe'],
-            training_unique_instances=document['unique_instances'], training_task_groups=document['task_groups'],
-            trainable_parameter_count=sum(inherited['parameters'].values()),
-            actual_trainable_parameter_names=sorted(inherited['parameters']),
+            repair_training_unique_instances=document['unique_instances'], repair_training_task_groups=document['task_groups'],
+            training_unique_instances=len(training_tasks),
+            training_task_groups=len({t['group_id'] for t in training_tasks.values()}),
+            replay_trusted_seed_trajectories=sum(len(v) for v in collection['seeds'].values()),
+            replay_unique_instances=len(collection['seed_tasks']),
+            replay_task_groups=len({t['group_id'] for t in collection['seed_tasks']}),
+            trainable_parameter_count=sum(inherited['parameters'].values()) if inherited['parameters'] is not None else None,
+            actual_trainable_parameter_names=sorted(inherited['parameters']) if inherited['parameters'] is not None else None,
             actual_trainable_module_names=inherited['trainable_modules'],
-            parameter_names_source='checkpoint_safetensors_header' if dry_run else 'validated_model_named_parameters',
+            parameter_names_source=('pending_fresh_model_attachment' if fresh else 'checkpoint_safetensors_header')
+                                   if dry_run else 'validated_model_named_parameters',
             optimizer_state=inherited['optimizer_state'], scheduler_policy=inherited['scheduler_policy'],
             schedule_sha256=digest(batches), encoded_examples_sha256=digest(examples),
             training_exposure=0, planned_training_exposure=80,
             checkpoints=[{'update': n, **counts[n], 'path': None, 'sha256': None,
-                          'status': 'planned'} for n in CHECKPOINTS[1:]])
+                          'status': 'planned'} for n in (CHECKPOINTS if fresh else CHECKPOINTS[1:])])
         write_json(output / 'manifest.json', manifest, exclusive=True)
         return prov, manifest
     if dry_run:
@@ -239,9 +331,19 @@ def run_arm(collection, config, output, *, theta0, snapshot, tokenizer, arm,
     try:
         group = dist.new_group(backend='gloo', timeout=timedelta(hours=4))
         set_seed(TRAINING_SEED + rank)
-        model = load_existing_adapter(snapshot, theta0, device, inherited['recipe'])
+        model = (load_fresh_adapter(snapshot, device, inherited, config['models']['student']) if fresh else
+                 load_existing_adapter(snapshot, theta0, device, inherited['recipe']))
         actual = {n: p.numel() for n, p in model.named_parameters() if p.requires_grad}
-        require(actual == inherited['parameters'], 'Loaded trainable tensors differ from theta0; no extra adapter allowed')
+        if fresh:
+            initial_hash = initial_adapter_hash(model)
+            rank_hashes = [None] * world
+            dist.all_gather_object(rank_hashes, initial_hash, group=group)
+            require(all(h == initial_hash for h in rank_hashes), 'Fresh adapter initialization differs across ranks')
+            inherited.update(parameters=actual, initial_adapter_sha256=initial_hash,
+                             trainable_modules=sorted({n.split('.lora_', 1)[0] for n in actual}))
+            inherited['sft']['targets'] = sorted(model.peft_config['default'].target_modules)
+        else:
+            require(actual == inherited['parameters'], 'Loaded trainable tensors differ from theta0; no extra adapter allowed')
         for p in model.parameters():
             if p.requires_grad:
                 dist.broadcast(p.data, src=0)
@@ -254,6 +356,16 @@ def run_arm(collection, config, output, *, theta0, snapshot, tokenizer, arm,
                 assert_trainable_equal(model, optimizer['trainable'])
             optimizer = optimizer['optimizer']
         prov, manifest = rank_zero_data(rank, world, record, group)
+        if fresh:
+            def publish_initial():
+                with torch.random.fork_rng(devices=[local]):
+                    item = publish_checkpoint(model, output, prov,
+                        {'updates': 0, 'examples_seen': 0, 'supervised_tokens_seen': 0}, counts[0], inherited)
+                require(item['initial_adapter_sha256'] == inherited['initial_adapter_sha256'],
+                        'Initial adapter changed before checkpoint zero')
+                manifest['checkpoints'][0].update(item)
+                write_json(output / 'manifest.json', manifest)
+            rank_zero_data(rank, world, publish_initial, group)
         def save(model, state):
             update = state['updates']
             if update not in CHECKPOINTS:

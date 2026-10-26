@@ -18,6 +18,117 @@ from sed.visibility import visible_observation
 from tools.repair_coverage import checked_repair_splits
 from train.dataset import episode_examples
 
+BRANCHES = {
+    'P0_K20': ('P0', 'adapter', 'repair_tasks'),
+    'P1_U_mech': ('P1', 'adapter', 'original_support'),
+    'P0_K0': ('P0', 'base_model', 'repair_tasks'),
+}
+BRANCH_FIELDS = ('branch', 'protocol', 'theta0_kind', 'seed_replay_scope')
+
+
+def branch_metadata(data):
+    """Legacy exports can only mean P0_K20; explicit contradictions fail closed."""
+    version = data.get('schema_version')
+    require(type(version) is int and version in (1, 2), 'Unknown E2 format/version')
+    branch = data.get('branch', 'P0_K20' if version == 1 else None)
+    require(isinstance(branch, str) and branch in BRANCHES, 'Unknown E2 branch')
+    expected = dict(zip(BRANCH_FIELDS, (branch, *BRANCHES[branch])))
+    require(version != 1 or branch == 'P0_K20', 'Schema 1 is only P0_K20')
+    require(all(data.get(k, v if version == 1 else None) == v for k, v in expected.items()),
+            'Inconsistent branch/protocol/theta0-kind/replay-scope')
+    return expected
+
+
+def checked_base(theta, snapshot, student):
+    """Same metadata-only identity boundary as the interchange/serving gate."""
+    from train.modeling import snapshot_metadata
+    snapshot = Path(snapshot).resolve()
+    metadata = snapshot_metadata(snapshot)
+    identity = theta['identity']
+    require(identity['base_model'] == student['requested_repo']
+            and identity['revision'] == student['revision']
+            and identity['metadata_sha256'] == theta['files'] == metadata['metadata_sha256']
+            and identity['weight_verification'] == metadata['weight_verification'],
+            'Changed base model/revision/metadata')
+    require(not any((snapshot / name).exists() for name in
+                    ('adapter_config.json', 'adapter_model.safetensors', 'adapter_model.bin',
+                     'training_state.json', 'merge_manifest.json', 'consistency.json', 'provenance.json')),
+            'Base snapshot contains an adapter or trained checkpoint')
+    cfg = read_json(snapshot / 'config.json')
+    require(cfg.get('_commit_hash', student['revision']) == student['revision']
+            and (snapshot.parent.name != 'snapshots' or snapshot.name == student['revision']),
+            'Local base snapshot revision differs')
+    return metadata
+
+
+def scoped_original_support(root, manifest, freeze):
+    """Validate a K20 view without opening unrelated full-TRAIN executions.
+
+    Uses this tree's sed.seed_evidence subset/receipt/win readers. The scoped
+    attempt checks below are adapted from its _load_verified_collection; the
+    recursive parent execution audit is deliberately replaced by metadata
+    validation. No evaluation-branch implementation is imported.
+    """
+    from sed.seed_evidence import _subset_values, artifact_hashes, receipt_path, environment_won
+    from sed.seed_selection import validate_selection, is_stratified_nested
+    root = Path(root).resolve()
+    collection = read_json(root / 'manifest.json')
+    selection = read_json(root / 'selection.json')
+    identity = read_json(root / 'identity.json')
+    require(collection['K'] == selection['K'] == 20, 'Original support must be K20')
+    if 'source_collection' not in collection:
+        # Only an original, standalone K20 collection is safe to audit in full.
+        require(not is_stratified_nested(selection) and 'support_view' not in identity
+                and 'extension_source' not in identity, 'Expected original support view')
+        return load_verified_collection(root, manifest, freeze, allow_subset=False)
+    require(root.parent.name == 'subsets' and root.name == 'k20', 'Invalid original support location')
+    evidence = root.parent.parent
+    parent = read_json(evidence / 'manifest.json')
+    large = read_json(evidence / 'selection.json')
+    parent_identity = read_json(evidence / 'identity.json')
+    validate_selection(large, manifest, freeze)
+    require(parent['status'] == 'complete' and 'source_collection' not in parent
+            and parent['selection_sha256'] == digest(large)
+            and parent['identity_sha256'] == digest(parent_identity)
+            and parent_identity['selection'] == large, 'Invalid parent support metadata')
+    expected_identity, expected = _subset_values(evidence, parent, large, selection)
+    require(identity == expected_identity and collection == expected,
+            'Original support view differs from parent selection/receipts')
+    support_ids = {r['task_id'] for r in collection['verified']}
+    require(len(collection['verified']) == 20, 'Original K20 trajectory count differs')
+    attempts = {}
+    for receipt in collection['attempts']:
+        # Gate scope BEFORE reading any episode or teacher-output directory.
+        tid = receipt['task_id']
+        require(tid in support_ids and receipt['selection_parent_task_id'] in support_ids,
+                'Attempt outside original support')
+        task = resolve_task(manifest, freeze, tid)
+        authorize_task(task, 'generation')
+        require(task['source_split'] == 'train' and receipt['group_id'] == task['group_id']
+                and receipt['task_type'] == task['task_type'], 'Support receipt differs from frozen TRAIN')
+        directory = (evidence / receipt['episode_dir']).resolve()
+        require(not Path(receipt['episode_dir']).is_absolute() and directory.is_relative_to(evidence)
+                and (directory.parent / 'teacher').resolve().is_relative_to(evidence),
+                'Seed path escapes evidence root')
+        require(read_json(receipt_path(evidence, receipt)) == receipt
+                and artifact_hashes(directory) == receipt['episode_hashes']
+                and artifact_hashes(directory.parent / 'teacher') == receipt['teacher_hashes'],
+                'Attempt evidence changed')
+        prior = attempts.setdefault(tid, [])
+        episode = read_json(directory / 'episode.json') if (directory / 'episode.json').exists() else {}
+        require(type(receipt['attempt']) is int and receipt['attempt'] == len(prior) + 1
+                and receipt['attempt'] <= 3 and not any(r['won'] for r in prior)
+                and receipt['won'] == environment_won(directory, episode), 'Invalid support attempt sequence/win')
+        prior.append(receipt)
+    for receipt in collection['verified']:
+        task = resolve_task(manifest, freeze, receipt['task_id'])
+        require(receipt in collection['attempts'] and receipt['won'] is True,
+                'Unverified original support receipt')
+        episode = checked_episode(evidence, receipt)
+        require(episode['task_id'] == task['task_id'] and episode['game_sha256'] == task['game_sha256']
+                and episode['split'] == 'train', 'Support episode differs from frozen TRAIN')
+    return collection, selection, evidence
+
 
 def require(condition, message):
     if not condition:
@@ -95,8 +206,11 @@ def _read_collection(path, *, config, theta0, snapshot, tokenizer, repair_splits
     path = Path(path).resolve()
     data = checked_document(path)
     require(data.get('format') == 'repair_e2_training_collection'
-            and type(data.get('schema_version')) is int and data['schema_version'] == 1,
+            and type(data.get('schema_version')) is int and data['schema_version'] in (1, 2),
             'Unknown E2 format/version')
+    branch = branch_metadata(data)
+    schema2 = data['schema_version'] == 2
+    original_replay = branch['seed_replay_scope'] == 'original_support'
     source_path = path.with_name('collection.json')
     source = checked_document(source_path)
     require(file_hash(source_path) == data['source_collection_sha256']
@@ -113,6 +227,24 @@ def _read_collection(path, *, config, theta0, snapshot, tokenizer, repair_splits
                                ('split', 'split'), ('D_repair_train', 'D_repair_train'),
                                ('D_repair_probe', 'D_repair_probe'), ('input_hashes', 'input_hashes')]:
         require(data[exported] == source[original], 'Source collection metadata mismatch: ' + exported)
+    require(all(source.get(k, v if not schema2 else None) == v for k, v in branch.items()),
+            'Source branch metadata mismatch')
+    if schema2:
+        require(data['original_teacher_far_policy'] == 'excluded_without_replay_pair_check',
+                'Original teacher Far policy differs')
+        require(isinstance(data['supervision_accounting'], dict)
+                and bool(data['supervision_accounting']), 'Missing supervision accounting')
+        theta_exposure = data['supervision_accounting'].get('theta0_seed_training_trajectories')
+        require(type(theta_exposure) is int and theta_exposure == (0 if branch['theta0_kind'] == 'base_model' else 20),
+                'Theta0 seed training exposure differs from branch')
+        # Export-only fields need not exist on historical collection schemas;
+        # when also present in the source they must be identical.
+        for field in ('seed_replay_task_ids', 'seed_replay_tasks_are_repair_tasks',
+                      'supervision_accounting', 'original_teacher_far_policy'):
+            require(field not in source or source[field] == data[field], 'Source metadata mismatch: ' + field)
+        require(source.get('training_exposure', 0) == 0
+                and data['supervision_accounting'].get('training_exposure', 0) == 0,
+                'Collection has training exposure')
     manifest, freeze = load_frozen(config['paths']['manifest'], config['paths']['split_freeze'])
     splits = checked_repair_splits(repair_splits, manifest, freeze)
     # Bind the local frozen files to the collection's input receipts. Other
@@ -135,6 +267,10 @@ def _read_collection(path, *, config, theta0, snapshot, tokenizer, repair_splits
             'Misordered tasks or changed frozen split')
     tasks = {tid: resolve_task(manifest, freeze, tid) for tid in order}
     blocked = set(splits['sets']['D_probe']['group_ids'])
+    if original_replay:
+        blocked.update(splits['E']['group_ids'])
+        require(ids(splits['sets']['U_mech']['task_ids'], 20), 'Expected twenty frozen U_mech tasks')
+        require(set(order) <= set(splits['sets']['U_mech']['task_ids']), 'P1 failures outside frozen U_mech')
     for task in tasks.values():
         authorize_task(task, 'generation')
         require(task['source_split'] == 'train' and task['group_id'] not in blocked,
@@ -150,37 +286,68 @@ def _read_collection(path, *, config, theta0, snapshot, tokenizer, repair_splits
     for arm in ('N', 'F'):
         entries = data['arms'][arm]
         require([e['task_id'] for e in entries] == train, 'Missing/duplicate/misordered arm tasks')
+        require(all(all(e.get(k, v if not schema2 else None) == v for k, v in branch.items()) for e in entries),
+                'Arm branch metadata differs')
+        if schema2:
+            require(all(e['design_bucket'] == ('G' if original_replay else 'R')
+                        and e['seed_design_bucket'] == 'D' for e in entries),
+                    'Arm branch/design bucket differs')
         episodes[arm] = [approved_entry(e, tasks[e['task_id']]) for e in entries]
     require([e['seed_demonstrations'] for e in data['arms']['N']] ==
             [e['seed_demonstrations'] for e in data['arms']['F']], 'Arms have different seed references')
-    identity = inspect_adapter(data['theta0']['identity']['name'], theta0, config['models']['student'], snapshot)
-    require(adapter_identity(identity) == adapter_identity(data['theta0']['identity'])
-            and checkpoint_files(theta0) == data['theta0']['files'], 'Changed theta0 files/base revision')
+    original_support_hash = None
+    if branch['theta0_kind'] == 'adapter':
+        require(theta0 is not None, 'Adapter branch requires theta0')
+        identity = inspect_adapter(data['theta0']['identity']['name'], theta0, config['models']['student'], snapshot)
+        require(adapter_identity(identity) == adapter_identity(data['theta0']['identity'])
+                and checkpoint_files(theta0) == data['theta0']['files'], 'Changed theta0 files/base revision')
+        theta_provenance = read_json(Path(theta0).parent / 'provenance.json')
+        original_support = str(Path(theta_provenance['config']['baseline_training']['verified']) / 'manifest.json')
+        original_support_hash = theta_provenance['inputs'][original_support]
+    else:
+        require(theta0 is None or Path(theta0).resolve() == Path(snapshot).resolve(),
+                'Base-model branch cannot load an SFT adapter')
+        checked_base(data['theta0'], snapshot, config['models']['student'])
     require(tokenizer_identity(snapshot, tokenizer) == data['tokenizer'], 'Changed tokenizer/template identity')
-    theta_provenance = read_json(Path(theta0).parent / 'provenance.json')
-    original_support = str(Path(theta_provenance['config']['baseline_training']['verified']) / 'manifest.json')
-    original_support_hash = theta_provenance['inputs'][original_support]
     # Verify all original K evidence through the existing loader, then select
     # before encoding. Nested K views resolve to the loader's evidence root.
-    collections, seeds, evidence_inputs = {}, {}, set()
-    for entry in data['arms']['N']:
-        tid = entry['task_id']
+    collections, seeds, seed_references, evidence_inputs = {}, {}, {}, set()
+    entries = data['arms']['N']
+    if original_replay:
+        require(all(e['seed_demonstrations'] == entries[0]['seed_demonstrations'] for e in entries),
+                'Every P1 entry must reference the same complete original support')
+        entries = entries[:1]
+    for entry in entries:
         references = entry['seed_demonstrations']
         require(isinstance(references, list) and bool(references), 'Absent seed evidence')
-        seeds[tid] = []
-        seen = set()
+        seen = {}
         for ref in references:
+            tid = ref['task_id'] if original_replay else entry['task_id']
+            key = (tid, ref['episode_id'], ref['episode_sha256']) if original_replay else ref['episode_id']
+            if key in seen:
+                require(original_replay and ref == seen[key], 'Duplicate or conflicting seed reference')
+                continue
             root = remap(ref['verified_collection_path'], path_maps)
             require(file_hash(root / 'manifest.json') == ref['verified_manifest_sha256'],
                     'Changed verified manifest')
-            require(ref['verified_manifest_sha256'] == original_support_hash,
+            require(original_support_hash is None or ref['verified_manifest_sha256'] == original_support_hash,
                     'Seed evidence is not theta0 original support')
             if root not in collections:
-                collections[root] = load_verified_collection(root, manifest, freeze)
+                if original_replay:
+                    # Refuse overlap before the evidence reader opens even one
+                    # original demonstration (including held-out repair probes).
+                    support = read_json(root / 'manifest.json')
+                    require(all(r['task_id'] not in tasks and r['group_id'] not in
+                                {t['group_id'] for t in tasks.values()} | set(splits['sets']['D_probe']['group_ids'])
+                                for r in support['verified']),
+                            'Original support overlaps repair/probe tasks or groups')
+                loader = scoped_original_support if original_replay else load_verified_collection
+                collections[root] = loader(root, manifest, freeze)
             verified, _, evidence_root = collections[root]
             evidence_root = Path(evidence_root).resolve()
             require(type(data['K_trusted_seed_trajectories']) is int
-                    and verified['K'] == data['K_trusted_seed_trajectories'] == source['K'],
+                    and verified['K'] == data['K_trusted_seed_trajectories'] == source['K']
+                    and (not schema2 or verified['K'] == 20),
                     'Original trusted K differs')
             require(remap(ref['evidence_root'], path_maps) == evidence_root, 'Wrong evidence root')
             receipt = ref['receipt']
@@ -189,18 +356,45 @@ def _read_collection(path, *, config, theta0, snapshot, tokenizer, repair_splits
             directory = (evidence_root / ref['episode_dir']).resolve()
             require(not Path(ref['episode_dir']).is_absolute() and directory.is_relative_to(evidence_root)
                     and ref['episode_dir'] == receipt['episode_dir'], 'Seed path escapes evidence root')
+            task = resolve_task(manifest, freeze, tid)
+            authorize_task(task, 'generation')
             require(ref['task_id'] == receipt['task_id'] == tid
-                    and receipt['group_id'] == tasks[tid]['group_id'], 'Seed task/group outside training scope')
+                    and receipt['group_id'] == task['group_id'] and task['source_split'] == 'train',
+                    'Seed task/group outside training scope')
+            if original_replay:
+                require(tid not in tasks and task['group_id'] not in {t['group_id'] for t in tasks.values()}
+                        and task['group_id'] not in splits['sets']['D_probe']['group_ids'],
+                        'Original support overlaps repair/probe tasks or groups')
             require(file_hash(directory / 'episode.json') == ref['episode_sha256'], 'Changed seed episode')
             episode = checked_episode(evidence_root, receipt)
             require(episode['task_id'] == tid and episode['episode_id'] == ref['episode_id'],
                     'Seed episode identity differs')
-            require(ref['episode_id'] not in seen, 'Duplicate seed reference')
-            seen.add(ref['episode_id'])
-            seeds[tid].append(public_episode(episode))
+            seen[key] = ref
+            seeds.setdefault(tid, []).append(public_episode(episode))
+            seed_references.setdefault(tid, []).append(deepcopy(ref))
             evidence_inputs.update([root / 'manifest.json', directory / 'episode.json'])
     require(len(collections) == 1, 'Seed replay must use one original support collection')
+    verified, _, evidence_root = next(iter(collections.values()))
+    if original_replay:
+        require({digest(r) for r in verified['verified']} ==
+                {r['receipt_sha256'] for refs in seed_references.values() for r in refs},
+                'P1 replay must contain the full original K20 support')
+        root = next(iter(collections))
+        evidence_inputs.update(root / name for name in ('selection.json', 'identity.json'))
+        if Path(evidence_root) != root:
+            evidence_inputs.update(Path(evidence_root) / name for name in ('manifest.json', 'selection.json', 'identity.json'))
+    elif schema2:
+        require(set(order) <= {r['task_id'] for r in verified['verified']}, 'P0 failures outside K20 support')
+    replay_tasks = list(seeds)
+    if schema2:
+        require(ids(data['seed_replay_task_ids']) and set(data['seed_replay_task_ids']) == set(replay_tasks)
+                and (original_replay or data['seed_replay_task_ids'] == train)
+                and data['seed_replay_tasks_are_repair_tasks'] is (not original_replay),
+                'Incorrect seed replay task list/scope')
+        replay_tasks = data['seed_replay_task_ids']
     return {'document': deepcopy(data), 'episodes': episodes, 'seeds': seeds,
+            'branch_metadata': branch, 'seed_references': seed_references, 'seed_replay_task_ids': replay_tasks,
+            'seed_tasks': [resolve_task(manifest, freeze, tid) for tid in replay_tasks],
             'tasks': [tasks[t] for t in train], 'path': str(path),
             'training_collection_sha256': file_hash(path),
             'inputs': [str(p) for p in [path, source_path, *sorted(evidence_inputs)]]}
@@ -220,7 +414,7 @@ def prepare_examples(collection, tokenizer, arm, *, packing, max_length):
     for episode, entry in zip(collection['episodes'][arm], document['arms'][arm]):
         add(episode, 'repair', {k: entry[k] for k in
             ('episode_sha256', 'learning_episode_id', 'repair_id', 'trajectory_id')})
-    for entry in document['arms'][arm]:
-        for episode, reference in zip(collection['seeds'][entry['task_id']], entry['seed_demonstrations']):
+    for tid in collection['seed_replay_task_ids']:
+        for episode, reference in zip(collection['seeds'][tid], collection['seed_references'][tid]):
             add(episode, 'seed', {k: reference[k] for k in ('episode_id', 'episode_sha256', 'receipt_sha256')})
     return examples, slots

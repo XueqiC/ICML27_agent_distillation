@@ -67,11 +67,11 @@ def adapter_fixture(tmp_path, config=None):
     return theta, snapshot, config
 
 
-def build_corpus(tmp_path):
+def build_corpus(tmp_path, task_count=24):
     root = tmp_path / 'games'
     for source in ('valid_seen', 'valid_unseen'):
         (root / source).mkdir(parents=True)
-    for i in range(24):
+    for i in range(task_count):
         folder = root / 'train' / f'room_{i}' / 'trial_0'; folder.mkdir(parents=True)
         write_json(folder / 'traj_data.json', {'task_type': 'pick_and_place_simple'})
         write_json(folder / 'game.tw-pddl', {'solvable': True})

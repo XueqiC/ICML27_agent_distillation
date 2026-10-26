@@ -4,6 +4,52 @@ Copied from the evaluation-side M0b-3 handoff for tree `46b8527`, supplied in
 `_m0b3_draft/EVAL_SIDE_M0b-3.md`. This is a format reference, not imported
 evaluation code. The training implementation is based on `2506fa9`.
 
+## M0c schema-2 extension
+
+Schema 1 below remains supported only as P0_K20. Schema 2 uses the same seals,
+public episode whitelist, approvals, frozen split, tokenizer and evidence
+checks, and requires the following combinations at export and arm-entry level:
+
+| branch | protocol | theta0_kind | seed_replay_scope |
+|---|---|---|---|
+| P0_K20 | P0 | adapter | repair_tasks |
+| P1_U_mech | P1 | adapter | original_support |
+| P0_K0 | P0 | base_model | repair_tasks |
+
+The schema-2 reference was the supplied `EVAL_SIDE_M0b-3_schema2.md`, SHA-256
+`c7322cfac0f5257f1ba850cbe8dc530da98176d07b7f7a03dc4368c604cc8597`.
+No evaluation-branch code was imported; the temporary `_ref/` was removed.
+
+Each entry also has `design_bucket` G for P1 / R for P0 and
+`seed_design_bucket` D. Top-level `seed_replay_task_ids` names the actual
+replay pool; `seed_replay_tasks_are_repair_tasks` is false for P1 and true for
+P0. `original_teacher_far_policy` is `excluded_without_replay_pair_check`.
+`supervision_accounting` retains collection costs and distinguishes available
+K20 evidence from theta0 seed-training exposure (zero for K0).
+
+P1 entries in both arms reference the same complete original K20 support.
+Resolve the repeated references once; sample uniformly by task, then episode.
+All repair failures, including held-out repair probes, must be disjoint from
+this support by task and group and belong to frozen U_mech. Validate original
+view/parent selection and receipt metadata using this training tree's evidence
+helpers, but audit only K20 attempts and executed episodes. Never open the
+parent full-TRAIN episode pool or U_mech teacher outputs. P0 retains the
+existing verified-collection reader and only encodes D_repair_train seeds.
+
+For K0, theta0 is a base identity (`base_model`, `revision`, `metadata_sha256`,
+`weight_verification`); `files` equals its JSON/Jinja metadata map, not weight
+shard hashes. The snapshot must match the configured student and contain no
+adapter, training-state or merge artifacts. Local metadata/revision binding
+does not certify base weight bytes. Omit CLI `--theta0` (or supply the same
+base snapshot); adapter branches still require their original theta0.
+
+Run manifests carry the four branch fields and replay task list. K0 adds
+`initialization_seed`, `initial_adapter_sha256`, and a saved checkpoint-0
+entry at `update-00/checkpoint`, marked `verification_only: true` and
+`probe_checkpoint_zero: base_model`. Probes use the original base for K0 zero.
+Checkpoints 1/5/20 retain the existing serving receipt format. A dry-run has
+only planned checkpoints and cannot claim an initial tensor hash.
+
 ## E2 interchange contract (training branch needs no repair imports)
 
 The file is `e2_training_collection.json`, with `format` equal to

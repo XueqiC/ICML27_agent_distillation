@@ -1,4 +1,4 @@
-"""Continue one E2 arm; --dry-run loads tokenizer and adapter headers only."""
+"""Train one sealed E2 arm; --dry-run never allocates model/optimizer tensors."""
 import argparse
 from pathlib import Path
 
@@ -11,8 +11,9 @@ from train.dataset import load_tokenizer
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', default='configs/base_e4b.yaml')
-    for name in ('theta0', 'snapshot', 'collection', 'output'):
+    for name in ('snapshot', 'collection', 'output'):
         parser.add_argument('--' + name, required=True)
+    parser.add_argument('--theta0', help='Required adapter for P0_K20/P1_U_mech; omit for P0_K0')
     parser.add_argument('--arm', choices=('N', 'F'), required=True)
     parser.add_argument('--repair-splits', default='data/manifest/repair_v01_splits.json')
     parser.add_argument('--path-map', action='append', default=[], metavar='OLD_ROOT=LOCAL_ROOT',
