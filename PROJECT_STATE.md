@@ -17,6 +17,8 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 07:3x CDT 10-26 — tsft K10 seed 2 = 62 -> tsft K10 seeds 72/69/62, mean 67.7 (first complete K10 seed column)
+
 ### 07:2x CDT 10-26 — AD K20 seed 0 = 104 (s1 95); SmartAD K20 seed 1 = 90 (s0 84). K10/K20 seed 0 complete except SAD K20
 - Seed 0: K10 tsft 72 / AD 85 / SmartAD 76 / SAD 8; K20 tsft 78 / AD 104 / SmartAD 84 / SAD pending (dept queue).
 - AD K20 vs tsft K20 +35/-9 p=.0001, vs SmartAD K20 +30/-10 p=.002. Remaining seeds: K10 s2 x3 methods, K20 s2 x3, smc-k100-s2.
