@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 13:3x CDT 10-26 — repair pilot: M1 done, E1 (K0) running on rai; dept /blue quota full -> intermediate SAD checkpoints to /orange
+### 12:3x CDT 10-26 — repair pilot: M1 done, E1 (K0) running on rai; dept /blue quota full -> intermediate SAD checkpoints to /orange
 - M1: theta0 0/80 failures on its K20 tasks -> K0 fallback; base E4B 11 failed tasks; theta0 on U_mech 15 failed tasks.
 - Code: eval branch M0c 6c0c149 (branches) + M0d 1a12f78 (reasoning-inclusive teacher caps); train branch M0c 425945c.
   ALL runs from pinned detached worktrees (../ICML27_run_repair_eval_<sha>); Codex edits only ../ICML27_wt_repair_*.
