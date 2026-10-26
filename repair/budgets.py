@@ -1,5 +1,6 @@
 """Run-wide conservative teacher reservation, including transport retries."""
 from repair.runtime import CaseStopped
+from repair.ledger import teacher_token_usage
 from sed.storage import JsonlLedger
 from pathlib import Path
 
@@ -13,6 +14,8 @@ class GlobalTeacherBudget:
         self.ledger = JsonlLedger(path)
         self.caps = {"input_tokens": input_tokens, "output_tokens": output_tokens}
         self.used = {"input_tokens": 0, "output_tokens": 0}
+        self.reported_usage = {k: 0 for k in ("input_tokens", "output_tokens", "reasoning_tokens", "visible_tokens")}
+        self.unknown_quantities = {}
         self.calls, self.stop_reason = 0, None
         self.context = dict(context or {})
 
@@ -33,13 +36,20 @@ class GlobalTeacherBudget:
 
     def settle(self, input_bound, output_cap, usage):
         # Release only one known completed attempt; unknown retries stay reserved.
+        counts = teacher_token_usage(usage)
         for key, reserved in (("input_tokens", input_bound), ("output_tokens", output_cap)):
             self.used[key] += usage[key] - reserved
-        self.ledger.append({"event": "settlement", "usage": usage, **self.summary()})
+        for key, amount in counts.items():
+            if amount is None:
+                self.unknown_quantities[key] = self.unknown_quantities.get(key, 0) + 1
+            else:
+                self.reported_usage[key] += amount
+        self.ledger.append({"event": "settlement", "usage": {**usage, **counts}, **self.summary()})
         if any(self.used[k] > self.caps[k] for k in self.caps):
             self.stop_reason = "global_reported_usage_exceeded_reservation"
             raise CaseStopped(self.stop_reason)
 
     def summary(self):
         return {**self.context, "caps": dict(self.caps), "tokens_or_unsettled_bounds": dict(self.used),
+                "reported_usage": dict(self.reported_usage), "unknown_quantities": dict(self.unknown_quantities),
                 "reserved_attempts": self.calls, "stop_reason": self.stop_reason}

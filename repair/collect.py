@@ -1,5 +1,5 @@
 """Frozen E1 collection and offline human-review finalization. No evaluation input."""
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from copy import deepcopy
 from pathlib import Path
 import csv
@@ -17,7 +17,7 @@ from repair.minimality import same_execution
 from repair.pairs import construct_pair, choose_far, review_target, review_evidence
 from repair.prompts import diagnosis_prompt
 from repair.records import RepairRecord
-from repair.runtime import CaseSession, CaseStopped, Limits, OUTPUT_CAPS
+from repair.runtime import CaseSession, CaseStopped, Limits, resolve_output_caps
 from repair.schemas import parse_diagnosis
 from repair.align import canonical_action
 from repair.branches import branch_fields
@@ -93,15 +93,19 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
             tokenizer_id, checkpoint, inputs=(), reviewer=None, seed_actions=None, K=None,
             max_teacher_input_tokens=5_000_000, max_teacher_output_tokens=500_000,
             limits=None, canary=False, dry_run=False, tokenizer_metadata=None,
-            seed_demonstrations=None, branch='P0_K20'):
+            seed_demonstrations=None, branch='P0_K20', output_caps=None):
     context = branch_fields(branch)
     split = freeze_probe_split(tasks)
     expected = split["failure_order"][:1] if canary else split["failure_order"]
     if [f.task_id for f in failures] not in (expected, split["failure_order"] if canary else expected):
         raise ValueError("Failures differ from frozen task order")
+    output_caps = resolve_output_caps(output_caps)
+    case_limits = limits or Limits()
     if canary:
         max_teacher_input_tokens = min(max_teacher_input_tokens, 16_384)
-        max_teacher_output_tokens = min(max_teacher_output_tokens, 128)
+        output_caps['diagnosis'] = min(output_caps['diagnosis'], 8192)
+        max_teacher_output_tokens = min(max_teacher_output_tokens, output_caps['diagnosis'])
+        case_limits = replace(case_limits, format_retry_calls=0)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     write_sealed(output / "repair_split.json", {**split, **context})  # before teacher requests
@@ -112,11 +116,10 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
             for t in tasks]
         seed_demonstrations = write_seed_demonstrations(output / "synthetic_seeds", seed_tasks)
     config = deepcopy(config)
-    case_limits = Limits(format_retry_calls=0) if canary else limits or Limits()
     config['repair_collection'] = {**context, 'case_limits': asdict(case_limits),
         'max_teacher_input_tokens': max_teacher_input_tokens,
         'max_teacher_output_tokens': max_teacher_output_tokens, 'canary': canary, 'dry_run': dry_run,
-        'teacher_output_caps': {'diagnosis': 128} if canary else OUTPUT_CAPS,
+        'teacher_output_caps': output_caps,
         'transport_max_attempts': 1 if canary else 20}
     prov = provenance(output, config, command="repair_collect", inputs=inputs)
     manifest = run_manifest(prov, checkpoint=checkpoint,
@@ -137,7 +140,7 @@ def collect(failures, tasks, config, output, *, env_factory, teacher_factory, to
         ledger = BudgetLedger(directory / "budget.jsonl", context=context)
         session = CaseSession(task=task, teacher=teachers, ledger=ledger, config=config,
             limits=case_limits,
-            global_budget=budget, output_caps={"diagnosis": 128} if canary else None)
+            global_budget=budget, output_caps=output_caps)
         case = {**context, "task_id": task["task_id"], "parent_seed_ids": task.get("parent_seed_ids", []),
                 "generation_mode": "repair_U_mech_task" if branch == 'P1_U_mech' else "repair_existing_training_task",
                 "design_bucket": 'G' if branch == 'P1_U_mech' else 'R', "training_exposure": 0}

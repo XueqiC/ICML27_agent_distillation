@@ -14,7 +14,7 @@ from repair.artifacts import (read_json, checked_document, write_sealed, checkpo
 from repair.export import seed_references, write_training_export
 from repair.collect import collect, finalize_cases, review_reader
 from repair.execute import execute_actions
-from repair.runtime import make_teachers
+from repair.runtime import make_teachers, Limits, OUTPUT_CAPS, resolve_output_caps
 from repair.align import canonical_action
 from repair.branches import (BRANCHES, branch_fields, collection_branch, base_checkpoint,
                              validate_coverage_branch)
@@ -90,10 +90,20 @@ def main(argv=None):
     p.add_argument('--finalize', help='existing collection.json; offline, no teachers or environments')
     p.add_argument('--max-teacher-input-tokens', type=int, default=5_000_000)
     p.add_argument('--max-teacher-output-tokens', type=int, default=500_000)
+    for kind, cap in OUTPUT_CAPS.items():
+        p.add_argument(f'--{kind}-max-output-tokens', type=int, default=cap,
+                       help=f'{kind} per-call output cap, including reasoning (default: {cap})')
+    p.add_argument('--max-failure-output-tokens', type=int, default=64000,
+                   help='per-failure output ceiling, including reasoning (default: 64000)')
     mode = p.add_mutually_exclusive_group()
     mode.add_argument('--dry-run', action='store_true')
-    mode.add_argument('--canary', action='store_true', help='one diagnosis HTTP attempt, output cap 128; no proposals/retry')
+    mode.add_argument('--canary', action='store_true', help='one diagnosis HTTP attempt, input cap 16384/output cap 8192; no proposals/retry')
     args = p.parse_args(argv)
+    try:
+        output_caps = resolve_output_caps({kind: getattr(args, kind + '_max_output_tokens') for kind in OUTPUT_CAPS})
+        limits = Limits(output_tokens=args.max_failure_output_tokens)
+    except ValueError as exc:
+        p.error(str(exc))
     output = Path(args.output)
     if output.exists() or output.is_symlink():
         p.error('Output exists; choose a new run directory')
@@ -138,6 +148,7 @@ def main(argv=None):
         result = collect(failures, tasks, config, output, env_factory=FakeEnvironment,
             teacher_factory=lambda *a, **k: FakeTeacher(), tokenizer=FakeTokenizer(), tokenizer_id='synthetic',
             checkpoint={'name': 'SYNTHETIC_ONLY'}, reviewer=fake_review, K=6, dry_run=True, branch=args.branch,
+            output_caps=output_caps, limits=limits,
             max_teacher_input_tokens=args.max_teacher_input_tokens,
             max_teacher_output_tokens=args.max_teacher_output_tokens)
     else:
@@ -208,9 +219,9 @@ def main(argv=None):
                     coverage_root / 'summary.json', coverage_root / 'provenance.json', coverage_root / 'plan.json',
                     config['paths']['manifest'], config['paths']['split_freeze'], *sorted(preflight.glob('*.json')),
                     preflight / 'preflight_budget.jsonl'],
-            canary=args.canary,
-            max_teacher_input_tokens=min(args.max_teacher_input_tokens, 16384) if args.canary else args.max_teacher_input_tokens,
-            max_teacher_output_tokens=min(args.max_teacher_output_tokens, 128) if args.canary else args.max_teacher_output_tokens)
+            canary=args.canary, output_caps=output_caps, limits=limits,
+            max_teacher_input_tokens=args.max_teacher_input_tokens,
+            max_teacher_output_tokens=args.max_teacher_output_tokens)
     print(f"{result['status']}: {len(result['pairs'])} pairs; output={output}")
     if args.canary:
         return int(result['status'] != 'canary_complete')

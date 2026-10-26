@@ -17,8 +17,17 @@ from teachers.openai_teacher import Teacher, TeacherCallError
 from teachers.stage import require_completed
 from repair.prompts import TEMPLATES, unpack_request
 from repair.schemas import SchemaError
+from repair.ledger import teacher_token_usage
 
-OUTPUT_CAPS = {"diagnosis": 2048, "proposal": 6144, "far": 6144, "rationale": 128}
+# Responses max_output_tokens includes hidden reasoning and visible output.
+OUTPUT_CAPS = {"diagnosis": 8192, "proposal": 16384, "far": 16384, "rationale": 1024}
+
+
+def resolve_output_caps(output_caps=None):
+    caps = {**OUTPUT_CAPS, **(output_caps or {})}
+    if set(caps) != set(OUTPUT_CAPS) or any(type(v) is not int or v < 16 for v in caps.values()):
+        raise ValueError("Stage output caps must be integers >= 16 for the four repair stages")
+    return caps
 
 
 class CaseStopped(RuntimeError):
@@ -33,14 +42,15 @@ class Limits:
     format_retry_calls: int = 1
     total_calls: int = 54
     input_tokens: int = 250000
-    output_tokens: int = 24000
+    output_tokens: int = 64000
     replays: int = 24
     ablations: int = 12
     handbacks: int = 3
 
     def __post_init__(self):
-        ceilings = (1, 2, 50, 1, 54, 250000, 24000, 24, 12, 3)
-        if any(type(v) is not int or not 0 <= v <= cap
+        # Output allowance is configurable; the other v0.1 ceilings stay fixed.
+        ceilings = (1, 2, 50, 1, 54, 250000, None, 24, 12, 3)
+        if any(type(v) is not int or v < 0 or (cap is not None and v > cap)
                for v, cap in zip(asdict(self).values(), ceilings)):
             raise ValueError("Limits must be nonnegative and within the v0.1 ceilings")
 
@@ -74,14 +84,16 @@ def make_teachers(config, output, *, run_id, output_caps=None, single_diagnosis=
     enforces the combined per-case ceilings and reserves EACH transport attempt.
     """
     from teachers.capped import from_config
+    output_caps = resolve_output_caps(output_caps if output_caps is not None else
+        config.get("repair_collection", {}).get("teacher_output_caps"))
     if single_diagnosis:
-        output_caps = {"diagnosis": 128}
+        output_caps = {"diagnosis": min(output_caps["diagnosis"], 8192)}
     return {kind: from_config(config, output=Path(output) / kind,
         cache_dir=Path(output) / kind / "cache", usage_ledger=Path(output) / kind / "usage.jsonl",
         run_id=run_id + "/" + kind, cap=1 if single_diagnosis else 20 * 54,
         teacher_class=CanaryRepairTeacher if single_diagnosis else RepairTeacher,
         sampling={**config["models"]["teacher"]["sampling"], "max_output_tokens": cap})
-        for kind, cap in (output_caps or OUTPUT_CAPS).items()}
+        for kind, cap in output_caps.items()}
 
 
 class _AttemptReservations:
@@ -97,7 +109,8 @@ class _AttemptReservations:
             self.session._reserve(self.input_bound, self.output_cap, "transport_retry")
             self.session.log("teacher_transport_retry", parent_attempt_id=self.parent,
                 supervision={"teacher_calls": {"retry": 1}, "teacher_input_tokens": None,
-                             "teacher_output_tokens": None},
+                             "teacher_output_tokens": None, "teacher_reasoning_tokens": None,
+                             "teacher_visible_tokens": None},
                 details={"previous_attempt_usage": "unknown; see provider usage ledger",
                          "request_id": kwargs["request_id"]})
         self.attempts += 1
@@ -122,7 +135,7 @@ class CaseSession:
         self.action_syntax = config["environment"]["action_format"]
         self.limits, self.branch = limits or Limits(), branch
         self.global_budget = global_budget
-        self.output_caps = output_caps or OUTPUT_CAPS
+        self.output_caps = resolve_output_caps(output_caps)
         if any(row["event"] == "case_started" and row["task_id"] == task["task_id"] and
                row["details"].get("branch") == branch for row in ledger.rows()):
             raise ValueError("Case ledger already started; retain the existing session/budgets instead of resetting them")
@@ -132,7 +145,7 @@ class CaseSession:
             "diagnosis_calls": 0, "rationale_calls": 0}
         self.calls = {k: 0 for k in ("diagnosis", "proposal", "rationale", "retry", "transport_retry")}
         self.input_used, self.output_used, self.stopped = 0, 0, None
-        self.log("case_started", details={"limits": asdict(self.limits), "config": {
+        self.log("case_started", details={"limits": asdict(self.limits), "output_caps": self.output_caps, "config": {
             "max_steps": self.max_steps, "action_syntax": self.action_syntax},
             "parent_seed_ids": list(task.get("parent_seed_ids", []))})
         root = Path(__file__).resolve().parents[1]
@@ -229,7 +242,8 @@ class CaseSession:
                 self.shared["stopped"] = "teacher_stage_failed"
                 self.log("teacher_failure", attempt_id=attempt, reason=type(exc).__name__,
                     supervision={"teacher_calls": {"retry" if kind == "transport_retry" else kind: 1},
-                                 "teacher_input_tokens": None, "teacher_output_tokens": None})
+                                 "teacher_input_tokens": None, "teacher_output_tokens": None,
+                                 "teacher_reasoning_tokens": None, "teacher_visible_tokens": None})
                 # No raw SDK exception text crosses this boundary.
                 if isinstance(exc, (KeyboardInterrupt, SystemExit, CaseStopped)):
                     raise
@@ -238,7 +252,7 @@ class CaseSession:
                 if isinstance(underlying, Teacher):
                     underlying.reservation_budget = previous
             usage = result.metadata["usage"]
-            billed = result.metadata.get("billed_usage", usage)
+            billed = teacher_token_usage(result.metadata.get("billed_usage", usage))
             accounted = billed if result.metadata.get("cache_hit") else usage
             # Release only the completed attempt's reservation. Failed/unknown
             # transport reservations remain charged conservatively.
@@ -249,6 +263,8 @@ class CaseSession:
             self.log("teacher_result", attempt_id=attempt,
                 supervision={"teacher_calls": {kind: int(not result.metadata.get("cache_hit"))}, "teacher_input_tokens": billed.get("input_tokens"),
                     "teacher_output_tokens": billed.get("output_tokens"),
+                    "teacher_reasoning_tokens": billed["reasoning_tokens"],
+                    "teacher_visible_tokens": billed["visible_tokens"],
                     "teacher_cached_tokens": usage.get("cached_input_tokens", 0),
                     "teacher_billed_cost": result.metadata.get("billed_cost")},
                 details={"raw_output": result.raw_text, "teacher_metadata": result.metadata,

@@ -95,7 +95,7 @@ def test_retry_consumed_by_diagnosis_is_unavailable_to_proposal(data_root, tmp_p
 
 @pytest.mark.parametrize("limits,reason", [
     (Limits(total_calls=0), "total_call_cap"), (Limits(diagnosis_calls=0), "diagnosis_call_cap"),
-    (Limits(input_tokens=1), "input_token_cap"), (Limits(output_tokens=2047), "output_token_cap"),
+    (Limits(input_tokens=1), "input_token_cap"), (Limits(output_tokens=8191), "output_token_cap"),
 ])
 def test_caps_stop_before_teacher_call(data_root, tmp_path, task, limits, reason):
     original, teacher, session = setup_case(data_root, tmp_path, task, limits=limits)
@@ -128,7 +128,7 @@ def test_mismatch_stops_before_teacher(data_root, tmp_path, task):
 
 def test_over_cap_response_is_format_rejected_and_retried(data_root, tmp_path, task):
     original, teacher, session = setup_case(data_root, tmp_path, task)
-    teacher.responses = [result(DIAGNOSIS, usage={"input_tokens": 20, "output_tokens": 2049}),
+    teacher.responses = [result(DIAGNOSIS, usage={"input_tokens": 20, "output_tokens": 8193}),
                          DIAGNOSIS, proposal(original)]
     out = repair_one_failure(original, env_factory=factory(data_root), session=session)
     assert out.repair.repair_status == "VERIFIED" and session.shared["format_retries"] == 1
@@ -313,7 +313,7 @@ def test_existing_capped_transport_429_retries_obey_case_preflight(tmp_path, tas
     sdk = SequenceClient([http_429(), success])
     teacher = CappedTeacher(counter_path=tmp_path / "counter.json", cap=54,
         cache_dir=tmp_path / "cache", usage_ledger=tmp_path / "usage.jsonl", run_id="repair-test",
-        client=sdk, teacher_class=RepairTeacher, sampling={"max_output_tokens": 2048},
+        client=sdk, teacher_class=RepairTeacher, sampling={"max_output_tokens": 8192},
         clock=clock, sleep=clock.sleep, jitter=lambda lo, hi: 0)
     session = CaseSession(task=task, teacher=teacher, ledger=BudgetLedger(tmp_path / "repair-budget.jsonl"),
         config=load_config("configs/base_e4b.yaml"), limits=Limits(total_calls=2 if allow_retry else 1))
@@ -329,23 +329,53 @@ def test_existing_capped_transport_429_retries_obey_case_preflight(tmp_path, tas
             session.request(prompt, lambda raw: parse_diagnosis(raw, "original", 3))
         assert len(sdk.requests) == 1
     assert "PRIVATE_PROVIDER_EXCEPTION" not in session.ledger.path.read_text()
-    assert all(request["max_output_tokens"] == 2048 for request in sdk.requests)
+    assert all(request["max_output_tokens"] == 8192 for request in sdk.requests)
 
 
 def test_existing_teacher_cache_hit_is_recorded_in_m0a_ledger(tmp_path, task):
-    from test_capped_teacher import RawClient
+    from types import SimpleNamespace
+    from test_capped_teacher import SequenceClient
     from teachers.capped import CappedTeacher
+    from repair.budgets import GlobalTeacherBudget
     from repair.runtime import RepairTeacher
     from repair.prompts import Prompt
-    sdk = RawClient([json.dumps(label())])
+    sdk = SequenceClient([SimpleNamespace(status_code=200, headers={}, parse=lambda: {
+        'output_text': json.dumps(label()), 'status': 'completed', 'model': 'fake-model',
+        'id': 'fake', '_request_id': 'fake-request', 'usage': {'input_tokens': 13, 'output_tokens': 7,
+            'output_tokens_details': {'reasoning_tokens': 3}}})])
     teacher = CappedTeacher(counter_path=tmp_path / "counter.json", cap=54,
         cache_dir=tmp_path / "cache", usage_ledger=tmp_path / "usage.jsonl", run_id="cache-test",
-        client=sdk, teacher_class=RepairTeacher, sampling={"max_output_tokens": 128})
+        client=sdk, teacher_class=RepairTeacher, sampling={"max_output_tokens": 1024})
+    budget = GlobalTeacherBudget(tmp_path / 'global.jsonl')
     session = CaseSession(task=task, teacher=teacher, ledger=BudgetLedger(tmp_path / "repair-budget.jsonl"),
-        config=load_config("configs/base_e4b.yaml"))
+        config=load_config("configs/base_e4b.yaml"), global_budget=budget)
     prompt = Prompt("rationale", {"task": "public task", "prefix": [], "current_action": "look"})
     session.request(prompt, parse_label)
     session.request(prompt, parse_label)
     assert len(sdk.requests) == 1
     assert any(r["event"] == "teacher_cache_hit" for r in session.ledger.rows())
     assert session.ledger.summary()["supervision"]["teacher_input_tokens"] == 13
+    assert session.ledger.summary()['supervision']['teacher_reasoning_tokens'] == 3
+    assert session.ledger.summary()['supervision']['teacher_visible_tokens'] == 4
+    results = [r['supervision'] for r in session.ledger.rows() if r['event'] == 'teacher_result']
+    assert results[-1]['teacher_output_tokens'] == results[-1]['teacher_reasoning_tokens'] == 0
+    assert results[-1]['teacher_visible_tokens'] == 0
+    assert budget.summary()['reported_usage'] == {
+        'input_tokens': 13, 'output_tokens': 7, 'reasoning_tokens': 3, 'visible_tokens': 4}
+
+
+@pytest.mark.parametrize('failure_cap,expected_calls', [(64000, 2), (24000, 1)])
+def test_reasoning_counts_towards_case_cap_but_not_visible_schema(data_root, tmp_path, task, failure_cap, expected_calls):
+    original, teacher, session = setup_case(data_root, tmp_path, task, limits=Limits(output_tokens=failure_cap))
+    teacher.responses = [
+        result(DIAGNOSIS, usage={'input_tokens': 20, 'output_tokens': 8100, 'reasoning_tokens': 8000}),
+        result(proposal(original), usage={'input_tokens': 20, 'output_tokens': 16000, 'reasoning_tokens': 15000})]
+    outcome = repair_one_failure(original, env_factory=factory(data_root), session=session)
+    assert len(teacher.requests) == expected_calls
+    assert (outcome.repair.repair_status == 'VERIFIED') == (expected_calls == 2)
+    if expected_calls == 1:
+        assert outcome.stop_reason == 'output_token_cap'
+    totals = session.ledger.summary()['supervision']
+    assert totals['teacher_output_tokens'] == (24100 if expected_calls == 2 else 8100)
+    assert totals['teacher_reasoning_tokens'] == (23000 if expected_calls == 2 else 8000)
+    assert totals['teacher_visible_tokens'] == totals['teacher_output_tokens'] - totals['teacher_reasoning_tokens']

@@ -17,6 +17,7 @@ BUDGETS = {
                     "teacher_calls": {k: 0 for k in
                                       ("diagnosis", "proposal", "rationale", "task_generation", "retry")},
                     "teacher_input_tokens": 0, "teacher_output_tokens": 0,
+                    "teacher_reasoning_tokens": 0, "teacher_visible_tokens": 0,
                     "teacher_cached_tokens": 0, "teacher_billed_cost": 0},
     "interaction": {k: 0 for k in ("student_environment_steps", "candidate_replay_steps",
                                    "edit_ablation_steps", "task_validation_steps",
@@ -24,6 +25,14 @@ BUDGETS = {
     "optimization": {k: 0 for k in ("optimizer_updates", "processed_context_tokens",
                                     "supervised_target_tokens", "trainable_parameters")},
 }
+
+
+def teacher_token_usage(usage):
+    """Usage metadata only; never infer unknown reasoning from response text."""
+    result = {key: usage.get(key) for key in ("input_tokens", "output_tokens", "reasoning_tokens")}
+    output, reasoning = result["output_tokens"], result["reasoning_tokens"]
+    result["visible_tokens"] = output - reasoning if output is not None and reasoning is not None else None
+    return result
 
 
 def _budget(values, schema):
