@@ -113,6 +113,12 @@ def test_schema_rejections(original, changes):
         validate_guidance(json.dumps(label(**changes)), original)
 
 
+def test_guidance_template_revision_1():
+    from repair.guidance import TEMPLATE, TEMPLATE_VERSION
+    assert TEMPLATE_VERSION == 'cg-probe/condition_guidance/2'
+    assert 'YOUR OWN choice' in TEMPLATE
+
+
 def test_prompt_is_public_prefix_only_and_template_is_independent(original):
     from repair.prompts import Prompt
     from repair.runtime import OUTPUT_CAPS

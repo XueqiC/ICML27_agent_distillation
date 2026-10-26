@@ -39,7 +39,7 @@ BRANCH_INDEX = 10
 OUTPUT_CAP = 8192
 GENERAL_REMINDER = 'Review your progress so far, then continue to complete the task.'
 SUGGESTION_JOIN = ' A next step that can gather this information: '
-TEMPLATE_VERSION = 'cg-probe/condition_guidance/1'
+TEMPLATE_VERSION = 'cg-probe/condition_guidance/2'
 TEMPLATE = """Analyze ONLY this public student history. Infer the current plan and subgoal
 from the student's own visible Thoughts, not from a replacement plan of your own.
 Use only the supplied task, initial observation, ten prefix replies/actions/observations,
@@ -60,9 +60,15 @@ suggest where to look, name unvisited locations, give any command, or guess the 
 It must not contain any current admissible command string or mention any receptacle
 instance or type (singular or plural) not visited by a legal go to/open/examine action
 in the prefix. Keep C separate from the action suggestion; do not put advice in C.
-action_suggestion.command must be copied EXACTLY from admissible_commands_now, and its
-verb must be go to, open, examine, or look. Its reason may use only public information
-and general household knowledge. Teacher statements are hypotheses, not environment truth.
+action_suggestion is YOUR OWN choice, not a continuation of the student's plan: using what
+the observations have already ruled out and general household knowledge about where such an
+object is usually found, choose the single admissible command most likely to reveal the
+information the unsupported premise needs (for example, where the target is). Continue the
+student's current sequence only if that is genuinely the most likely option. The command must
+be copied EXACTLY from admissible_commands_now, and its verb must be go to, open, examine, or
+look. Its reason (at most 30 words) must say why this location is the most promising, using
+only public information and general household knowledge. Teacher statements are hypotheses,
+not environment truth.
 """
 
 
