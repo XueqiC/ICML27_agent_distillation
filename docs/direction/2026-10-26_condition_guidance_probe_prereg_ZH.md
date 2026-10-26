@@ -139,4 +139,20 @@ C 和 D 来自 teacher 的同一次调用，因此 D 的文本严格包含 C 的
 
 ## 修订
 
-（暂无）
+### 修订 1（2026-10-26 14:5x CDT，任何 rollout 之前）：D 的行动建议改由 teacher 自己判断
+
+- **原因**：
+  - 第一次生成（`reports/runs/repair_pilot/cg_probe/hints/`，7 次调用，10,438 input / 9,218 output token）中，C 的文本符合第 5 节要求。
+  - 但 7 条 D 里有 6 条只是学生当前逐个查找的下一步（`go to drawer 4`、`open cabinet 6`、`go to cabinet 5` 等）。原因是模板要求"从学生自己的 Thought 归纳计划"，teacher 把这一点也套用到了行动建议上。
+  - 这样的 D 与 A 在第一步几乎相同，检验不了用户方案里 D 的含义：当学生持续选择低效搜索时，teacher 提供探索策略或下一步行动。
+  - 如果按原样运行，D 无效的结果会被误读为"行动指导没有作用"。
+- **改动**：
+  - 只改模板中 `action_suggestion` 的说明（模板版本升为 `cg-probe/condition_guidance/2`）。新要求是：
+    - 根据已经排除的位置和一般家居常识，选择 teacher 自己判断最可能揭示未确认前提的那一条 admissible 命令；
+    - 只有当继续学生当前的顺序确实是最可能的选项时，才沿用它；
+    - `reason` 要说明为什么选这个位置。
+  - `student_plan`、`conditions`、`condition_hint` 的要求不变，自动校验和人工审核规则也不变。
+  - 7 个案例全部用新模板重新生成，C 与 D 仍来自同一次调用。第一次的结果保留存档，不使用。
+- **不变**：
+  - 分支、注入方式、样本量、指标、判定规则；
+  - teacher 总上限 200k / 60k，两次生成合计计入。
