@@ -739,7 +739,10 @@ ES_SAD_EVAL_TREE = "17eec0d"   # 0c2cd9e + 4f47296 + 5df9eb4
 # standard check -> add the cell here (rerun with float32 reference + recorded override, marked); other failures never.
 ES_OVR_EVAL_TREE = "d822255"
 ES_K30_OVERRIDE = {"e4b-smc-k30-e32-lr1e-4", "e2b-smc-k30-e32-lr1e-4", "e4b-smc-k30-e32-lr1e-4-s1",
-                   "e4b-smc-k30-e32-lr1e-4-s2"}
+                   "e4b-smc-k30-e32-lr1e-4-s2",
+                   # 10-25 23:3x CDT: 47768359 failed on tolerance only (pooled 0.0607 > 0.050; >0.5-count 6 <= 11, effect
+                   # 1.56 >= 0.0625, all 8 prompts pass) -> pre-registered rule of 15:00 CDT
+                   "e4b-smc-k10-e32-lr1e-4"}
 
 
 def es_k30_override(cells):
@@ -749,11 +752,16 @@ def es_k30_override(cells):
             assert ev["name"] == c["cell"] + "-eval" and ev["tree"] == ES_EVAL_TREE, ev
             assert f"ADAPTERS={c['cell']}=" in ev["exports"] and "SERVING_GATE_OVERRIDE_" not in ev["exports"], ev
             ev["tree"] = ES_OVR_EVAL_TREE
+            if "-k30-" in c["cell"]:
+                why, at = ("preregistered_rule_1024_carried_over_1025_1144CDT_as_12B_smc-k30_option_B_discord_1563422934167461943"
+                           "_bf16_sensitivity_of_sharp_adapter", "2026-10-25T11:44-05:00")
+            else:   # the 15:00 CDT approval extended the rule to every SmartAD cell
+                why, at = ("preregistered_rule_every_smartad_cell_user_approved_1025_1500CDT_tolerance_only_failure"
+                           "_bf16_sensitivity_of_sharp_adapter", "2026-10-25T15:00-05:00")
             ev["exports"] += (f",REFERENCE_DTYPE=float32,SERVING_GATE_OVERRIDE_ADAPTER={c['cell']}"
-                              ",SERVING_GATE_OVERRIDE_REASON=preregistered_rule_1024_carried_over_1025_1144CDT_as_12B_smc-k30"
-                              "_option_B_discord_1563422934167461943_bf16_sensitivity_of_sharp_adapter"
+                              f",SERVING_GATE_OVERRIDE_REASON={why}"
                               ",SERVING_GATE_OVERRIDE_APPROVED_BY=xueqi118_discord"
-                              ",SERVING_GATE_OVERRIDE_APPROVED_AT=2026-10-25T11:44-05:00")
+                              f",SERVING_GATE_OVERRIDE_APPROVED_AT={at}")
     return cells
 
 
