@@ -17,6 +17,9 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 00:0x CDT 10-26 — E4B SmartAD K100 seed 1 = 118 (seed 0 118); SAD K20 b05 resubmitted at 160G (47776278)
+- 47770401: 118/140, standard bf16 serving gate passed (0.0469); vs s0 +9/-9; vs AD K100 s1 107 +18/-7 p=.043.
+
 ### 00:0x CDT 10-26 — hardening (user: no single issue may stall the grid)
 - Plan v32 (9b788a2): K10/K20 seed LoRA trains 4 CPU/64G (completed size). Evals 32G / preps 12G proven at the new size.
 - scratchpad/smc_tol_handler.py (setsid pid in scratchpad/smc_tol_handler.pid; log logs/smc_tol_handler.log; offset file
