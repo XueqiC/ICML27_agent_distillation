@@ -775,12 +775,15 @@ def es_k30_override(cells):
 def es_sacct_sizes(cells):
     """10-25 22:3x CDT: the group QOS (cpu=64, mem=500G, gpu=8) binds on CPU and memory, not GPUs (another user's CPU jobs
     hold 40 CPUs / 160G for ~7 days). E-series stages sized from sacct of the completed E4B/E2B stages of the same type:
-    evals MaxRSS <= 22.0G (23 jobs) -> 32G. 23:4x CDT: the 2-GPU SAD trains keep 8 CPU/160G: e4b-sadc-k20-b05-train 47763059
-    at 64G was OOM-killed while loading (MaxRSS 87.0G; the sampled MaxRSS of earlier SAD trains, <= 26.8G, missed that peak)."""
+    evals MaxRSS <= 22.0G (23 jobs) -> 32G. 23:4x CDT: the 2-GPU SAD trains keep 160G: e4b-sadc-k20-b05-train 47763059
+    at 64G was OOM-killed while loading (MaxRSS 87.0G; the sampled MaxRSS of earlier SAD trains, <= 26.8G, missed that peak).
+    10-26 00:1x CDT: their CPUs 8 -> 4 (TotalCPU/elapsed ~2.0 in every completed E-series SAD train; the group's CPUs bind)."""
     for c in cells:
         for st in c["stages"]:
             if st["name"].endswith("-eval"):
                 st["res"] = st["res"].replace("--gpus=1 --cpus-per-task=4 --mem=48G", "--gpus=1 --cpus-per-task=4 --mem=32G")
+            elif c["cell"].startswith(("e4b-sadc-", "e2b-sadc-")) and st["name"].endswith("-train"):
+                st["res"] = st["res"].replace("--gpus=2 --cpus-per-task=8 --mem=160G", "--gpus=2 --cpus-per-task=4 --mem=160G")
     return cells
 
 
