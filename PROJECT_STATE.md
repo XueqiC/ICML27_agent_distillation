@@ -17,6 +17,11 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 05:0x CDT 10-26 — repair pilot: eval-side M0b-3 committed (c30e411 on repair-v01-eval); train side running
+- Eval side: tools/repair_collect.py (global caps 5M/0.5M, --dry-run, --canary = 1 diagnosis call), e2_training_collection.json
+  interchange (contract in repair/M0b-3.md), probes 14.9-14.11, 1-GPU stage scripts; 238 tests; no shared-file changes.
+- Train side (Codex on repair-v01-train = 2506fa9): e2 reader + 20-update arm with the theta0 trainer + 2-GPU stage script.
+
 ### 04:3x CDT 10-26 — repair pilot restructured onto the grid's exact trees (no re-implemented E-series code)
 - Codex's first M0b-3 re-implemented Gemma-4 E-series support in shared trainer/serving files (main lacks 2506fa9) -> rejected
   (stashed on repair-v01; draft copy in scratchpad/m0b3_save). The pilot must run the same code as theta0 and the baselines.
