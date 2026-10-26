@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 05:1x CDT 10-26 — hourly check: tsft-k20-s1 train done; idle-GPU flag = AD seed-train preflight
+- 47791793 (adc-k20-s1 train) idle at 5 min: preflight (AD seed trains spend ~19 min there, cf. 47779721). No action.
+- Evals queued/running: adc-k10-e32 (seed 0, copy verified), adc-k100-s2, tsft-k20-s1 (next).
+
 ### 05:0x CDT 10-26 — repair pilot: eval-side M0b-3 committed (c30e411 on repair-v01-eval); train side running
 - Eval side: tools/repair_collect.py (global caps 5M/0.5M, --dry-run, --canary = 1 diagnosis call), e2_training_collection.json
   interchange (contract in repair/M0b-3.md), probes 14.9-14.11, 1-GPU stage scripts; 238 tests; no shared-file changes.
