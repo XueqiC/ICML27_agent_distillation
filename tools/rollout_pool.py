@@ -161,8 +161,15 @@ def read_rollouts(paths, manifest, freeze, pool_path, *, subset="all"):
 def _pool_episode(job):
     task, config, directory, env_factory, policy_factory, inputs = job
     try:
-        run_episode(env_factory(task), policy_factory(directory), task, config, directory,
-            policy_condition="r03_p10_lora_greedy_thinking_off", purpose="generation", input_paths=inputs)
+        env, policy = env_factory(task), policy_factory(directory)
+        if getattr(policy, "spec", {}).get("decoding") == "sampled":
+            # The runner's visible_task deliberately strips filename identities.
+            # Bind this only as sampling metadata, exactly as the suite does.
+            policy.task_id = task["task_id"]
+        run_episode(env, policy, task, config, directory,
+            policy_condition=config.get("r03_rollout", {}).get("policy_condition", ("r03_p10_lora_sampled_thinking_off"
+                if config.get("r03_rollout", {}).get("decoding") == "sampled"
+                else "r03_p10_lora_greedy_thinking_off")), purpose="generation", input_paths=inputs)
     except Exception as exc:
         return type(exc).__name__
     return None
@@ -174,6 +181,13 @@ def _pool_environment(task, *, config):
 
 
 def _pool_policy(directory, *, spec):
+    if spec.get("decoding") == "sampled":
+        from students.sampled_student import SampledStudent
+        spec = dict(spec)
+        spec.pop("decoding")
+        if spec.pop("label_samples", 0):
+            raise ValueError("Sampled rollouts do not support unexecuted label samples")
+        return SampledStudent(log_dir=directory / "student_calls", **spec)
     return PoolStudent(log_dir=directory / "student_calls", **spec)
 
 
@@ -247,6 +261,8 @@ def main(argv=None):
     p.add_argument("--model-name")
     p.add_argument("--server-provenance")
     p.add_argument("--lora-check")
+    p.add_argument("--decoding", choices=("greedy", "sampled"), default="greedy")
+    p.add_argument("--sampling-seed", type=int, default=0)
     p.add_argument("--label-samples", type=int, default=0,
                    help="Extra unexecuted temperature-1 student actions per visited state (default: 0)")
     p.add_argument("--workers", type=int, default=1, help="Isolated rollout processes (default: 1)")
@@ -254,6 +270,8 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.label_samples < 0 or (args.mode == "filter" and args.label_samples):
         p.error("--label-samples must be nonnegative and is only used by run")
+    if args.decoding == "sampled" and (args.mode != "run" or args.label_samples):
+        p.error("Sampled decoding requires run without --label-samples")
     if args.workers < 1 or (args.mode == "filter" and args.workers != 1):
         p.error("--workers must be positive and is only used by run")
     config = load_config(args.config)
@@ -302,6 +320,10 @@ def main(argv=None):
         spec = dict(label_samples=args.label_samples, endpoint=args.endpoint,
             model=args.model_name, revision=model["revision"], enable_thinking=False,
             max_tokens=1024, **context_options(config))
+        if args.decoding == "sampled":
+            config["r03_rollout"].update(decoding="sampled", sampling_seed=args.sampling_seed,
+                temperature=0.7, top_p=0.95, n=1)
+            spec.update(decoding="sampled", sampling_seed=args.sampling_seed)
         result = run_pool(tasks, config, args.output,
             env_factory=partial(_pool_environment, config=config),
             policy_factory=partial(_pool_policy, spec=spec), inputs=inputs, workers=args.workers)

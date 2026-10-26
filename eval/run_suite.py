@@ -57,7 +57,7 @@ def policy_condition(policy, spec, config):
         return condition + "_" + spec["had_harness"]
     if spec.get("coa"):
         return condition + "_coa"
-    return condition + "_" + spec["decoding"] if spec.get("decoding") in {"sag", "wkm"} else condition
+    return condition + "_" + spec["decoding"] if spec.get("decoding") in {"sag", "wkm", "sampled"} else condition
 
 
 def _worker(job):
@@ -81,6 +81,9 @@ def _worker(job):
             elif decoding == "sag":
                 from students.sag_student import SAGStudent
                 policy = SAGStudent(log_dir=output / "student_calls", task_id=task["task_id"], **student_spec)
+            elif decoding == "sampled":
+                from students.sampled_student import SampledStudent
+                policy = SampledStudent(log_dir=output / "student_calls", task_id=task["task_id"], **student_spec)
             elif decoding == "wkm":
                 from baselines.wkm.policy import WKMStudent
                 policy = WKMStudent(log_dir=output / "student_calls", **student_spec)
@@ -278,7 +281,8 @@ def main(argv=None):
     parser.add_argument("--tasks", default="data/manifest/dev40.json")
     parser.add_argument("--output", required=True)
     parser.add_argument("--policy", choices=("student", "teacher"), default="student")
-    parser.add_argument("--decoding", choices=("greedy", "sag", "wkm"), default="greedy")
+    parser.add_argument("--decoding", choices=("greedy", "sag", "wkm", "sampled"), default="greedy")
+    parser.add_argument("--sampling-seed", type=int, default=0, help="Seed for sampled decoding")
     parser.add_argument("--full-check")
     parser.add_argument("--knowledge-model")
     parser.add_argument("--knowledge-base")
@@ -299,6 +303,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.decoding == "sag" and args.policy != "student":
         parser.error("SAG is a student-only test-time policy")
+    if args.decoding == "sampled" and args.policy != "student":
+        parser.error("Sampled decoding is student-only")
     if args.decoding == "wkm" and (args.policy != "student" or not all(
             (args.knowledge_model, args.knowledge_base, args.knowledge_lora_check, args.lora_check))):
         parser.error("WKM requires two checked student LoRAs and a state knowledge base")
@@ -314,6 +320,8 @@ def main(argv=None):
     if args.decoding == "sag":
         spec["decoding"] = "sag"
         spec["sampling_seed"] = args.sag_sampling_seed
+    if args.decoding == "sampled":
+        spec.update(decoding="sampled", sampling_seed=args.sampling_seed)
     if args.decoding == "wkm":
         spec.update(decoding="wkm", knowledge_model=args.knowledge_model, knowledge_base=args.knowledge_base)
     if args.had_harness:
