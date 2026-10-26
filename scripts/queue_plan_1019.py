@@ -865,6 +865,15 @@ def variant_seed_cells(tag, loni_trains=None, few=False):
     for c in cells:
         if few:
             c["stages"][0]["gate"] = {"file": f"{GATES}/{tag}_few_views" + ("" if c["cell"].startswith(f"{tag}-smc-") else "_ft")}
+            # 10-25 22:2x CDT: the group QOS's 64 CPUs bind (another user's CPU jobs hold 40 for ~7 days), so these cells are sized
+            # from sacct of the same E4B stages: SmartAD prep MaxRSS <= 5.2G at 0.35 CPU avg -> 2 CPU/12G; 2-GPU LoRA trains
+            # MaxRSS <= 27.8G at 1.1-2 CPU avg -> 4 CPU/40G (dataloader WORKERS is set by its own export). Evals unchanged.
+            for st in c["stages"]:
+                if st["name"].endswith("-prep"):
+                    st["res"] = st["res"].replace("--cpus-per-task=8 --mem=32G", "--cpus-per-task=2 --mem=12G")
+                elif st["name"].endswith("-train"):
+                    st["res"] = st["res"].replace("--cpus-per-task=8 --mem=64G", "--cpus-per-task=4 --mem=40G")
+                assert st["name"].endswith("-eval") or "--cpus-per-task=8" not in st["res"], st
         elif c["cell"] in E4B_SEED_LONI:
             if loni_trains is not None:
                 loni_trains.extend(st for st in c["stages"] if not st["name"].endswith("-eval"))
