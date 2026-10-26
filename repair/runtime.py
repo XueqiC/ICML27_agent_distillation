@@ -60,18 +60,28 @@ class RepairTeacher(Teacher):
         return "structured_repair_response", None
 
 
-def make_teachers(config, output, *, run_id):
+class CanaryRepairTeacher(RepairTeacher):
+    def __init__(self, **kwargs):
+        # CappedTeacher normally installs 20 retries. A canary is explicitly
+        # ONE transport attempt, including when that attempt receives a 429.
+        super().__init__(**dict(kwargs, max_attempts=1))
+
+
+def make_teachers(config, output, *, run_id, output_caps=None, single_diagnosis=False):
     """Construct lazily connected, 429-aware clients, without querying a teacher.
 
     One durable collector counter per stage/branch; CaseSession additionally
     enforces the combined per-case ceilings and reserves EACH transport attempt.
     """
     from teachers.capped import from_config
+    if single_diagnosis:
+        output_caps = {"diagnosis": 128}
     return {kind: from_config(config, output=Path(output) / kind,
         cache_dir=Path(output) / kind / "cache", usage_ledger=Path(output) / kind / "usage.jsonl",
-        run_id=run_id + "/" + kind, cap=54, teacher_class=RepairTeacher,
+        run_id=run_id + "/" + kind, cap=1 if single_diagnosis else 20 * 54,
+        teacher_class=CanaryRepairTeacher if single_diagnosis else RepairTeacher,
         sampling={**config["models"]["teacher"]["sampling"], "max_output_tokens": cap})
-        for kind, cap in OUTPUT_CAPS.items()}
+        for kind, cap in (output_caps or OUTPUT_CAPS).items()}
 
 
 class _AttemptReservations:
@@ -101,7 +111,7 @@ class _AttemptReservations:
 
 class CaseSession:
     def __init__(self, *, task, teacher, ledger, config, limits=None, branch="near",
-                 shared=None):
+                 shared=None, global_budget=None, output_caps=None):
         authorize_task(task, "generation")
         if task.get("evaluation_only") or task.get("task_set") in {"D_probe", "D_unseen_quick"}:
             raise ValueError("Evaluation instances cannot drive repair generation")
@@ -111,6 +121,8 @@ class CaseSession:
             raise ValueError("The v0.1 pilot requires configured H=40")
         self.action_syntax = config["environment"]["action_format"]
         self.limits, self.branch = limits or Limits(), branch
+        self.global_budget = global_budget
+        self.output_caps = output_caps or OUTPUT_CAPS
         if any(row["event"] == "case_started" and row["task_id"] == task["task_id"] and
                row["details"].get("branch") == branch for row in ledger.rows()):
             raise ValueError("Case ledger already started; retain the existing session/budgets instead of resetting them")
@@ -171,6 +183,8 @@ class CaseSession:
             self.stop("rationale_call_cap")
         if kind == "diagnosis" and self.shared["diagnosis_calls"] >= self.limits.diagnosis_calls:
             self.stop("diagnosis_call_cap")
+        if self.global_budget is not None:
+            self.global_budget.reserve(input_bound, output_cap)
         self.calls[kind] += 1
         self.input_used += input_bound
         self.output_used += output_cap
@@ -190,7 +204,7 @@ class CaseSession:
                 self.shared["format_retries"] += 1
                 prompt = replace(prompt, format_retry=True)
             kind = "retry" if retry else "proposal" if prompt.kind == "far" else prompt.kind
-            cap = OUTPUT_CAPS[prompt.kind]
+            cap = self.output_caps[prompt.kind]
             # UTF-8 byte bound + framing, deliberately more conservative than
             # the rate limiter's char/4 estimate. This is NOT reported usage.
             bound = len(canonical_bytes(prompt.messages())) + 32
@@ -239,6 +253,8 @@ class CaseSession:
                     "teacher_billed_cost": result.metadata.get("billed_cost")},
                 details={"raw_output": result.raw_text, "teacher_metadata": result.metadata,
                          "template_sha256": prompt.template_sha256})
+            if self.global_budget is not None:
+                self.global_budget.settle(bound, cap, accounted)
             if result.metadata.get("cache_hit"):
                 self.log("teacher_cache_hit", details={"request_sha256": digest(prompt.messages())})
             if (self.shared["input_tokens"] > self.limits.input_tokens or

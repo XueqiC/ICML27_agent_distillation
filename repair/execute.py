@@ -73,7 +73,7 @@ def _transition(result, *, raw=None, action=None, outcome="not_applicable", step
 
 def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, ledger=None,
                     interaction_kind="candidate_replay_steps", version=None, candidate_id=None,
-                    retry_of=None, continuation=None, prefix_reference=None):
+                    retry_of=None, continuation=None, prefix_reference=None, observe_prefix=None):
     """max_steps counts policy turns as in runner; failed step calls are charged.
 
     Cache lookup follows a real reset (zero action steps), never a snapshot.
@@ -84,12 +84,18 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
         raise ValueError("max_steps must be a nonnegative integer")
     if interaction_kind not in BUDGETS["interaction"]:
         raise ValueError("Unknown interaction budget")
-    if continuation is not None and (cache is not None or prefix_reference is None):
+    branching = continuation is not None or observe_prefix is not None
+    if continuation is not None and observe_prefix is not None:
+        raise ValueError("Choose continuation or prefix observation")
+    if branching and (cache is not None or prefix_reference is None):
         raise ValueError("Hand-back requires an uncached replay and a measured prefix reference")
-    if continuation is not None and (prefix_reference.task_id != task_id or prefix_reference.max_steps != max_steps):
+    if branching and (prefix_reference.task_id != task_id or prefix_reference.max_steps != max_steps):
         raise ValueError("Hand-back task/horizon differs from its measured reference")
     actions = list(actions)
     raw_actions = [action_reply(a) for a in actions]
+    if branching and (len(raw_actions) > len(prefix_reference.steps) or
+            raw_actions != [s["action_raw"] for s in prefix_reference.steps[:len(raw_actions)]]):
+        raise ValueError("Branch must replay the measured public reply prefix exactly")
     attempt_id = str(uuid.uuid4())
     if ledger is not None:
         ledger.append("retry" if retry_of else "attempt", settled=False, attempt_id=attempt_id,
@@ -128,7 +134,7 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
                     break
                 if index < len(raw_actions):
                     raw = raw_actions[index]
-                elif continuation is None:
+                elif not branching:
                     break
                 else:
                     phase = "handback_prefix_check"
@@ -146,6 +152,9 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
                         history.append({"visible": previous, "reply": step["action_raw"]})
                         previous = step["visible"]
                     phase = "handback_policy"
+                    if observe_prefix is not None:
+                        observe_prefix(visible_history(history), visible_observation(visible))
+                        break
                     raw = action_reply(continuation(visible_history(history), visible_observation(visible)))
                 action, outcome = action_outcome(raw, visible["admissible_commands"])
                 if outcome == "parser_error":
@@ -174,7 +183,7 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
                                          steps=int(outcome != "parser_error"), feedback_source=(
                                              "analytic_verifier" if outcome == "parser_error"
                                              else "real_environment")))
-                if continuation is not None and index < len(raw_actions):
+                if branching and index < len(raw_actions):
                     phase = "handback_prefix_check"
                     reference = prefix_reference
                     keys = ("visible", "audit_sha256", "reward", "terminated", "truncated")
@@ -189,7 +198,11 @@ def execute_actions(env_factory, task_id, actions, max_steps, *, cache=None, led
                       "STEP_LIMIT" if truncated or len(steps) >= max_steps else "FAILED")
     except Exception as exc:
         # Exception text can contain credentials or private state. Store only type/phase.
-        success, reason, error_type = "unknown", "ENV_ERROR", phase + ":" + type(exc).__name__
+        from students.vllm_student import ContextOverflow
+        if phase == "handback_policy" and isinstance(exc, ContextOverflow):
+            success, reason, error_type = False, "CONTEXT_LIMIT", "context_overflow"
+        else:
+            success, reason, error_type = "unknown", "ENV_ERROR", phase + ":" + type(exc).__name__
         result_record = None
     finally:
         if env is not None:

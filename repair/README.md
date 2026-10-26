@@ -1,7 +1,9 @@
 # Repair pilot M0a
 
 Later CPU milestones: [M0b-1](M0b-1.md) (splits/coverage) and
-[M0b-2](M0b-2.md) (teacher stages, E1/E2 and prefix labels).
+[M0b-2](M0b-2.md) (teacher stages, E1/E2 and prefix labels), and
+[M0b-3](M0b-3.md) (collection/export, fixed-checkpoint probes and stage scripts;
+training is on the separate 2506fa9-based branch).
 
 This worktree package implements the environment portion of design v0.1,
 sections 3, 4, 6.3, 7, 8.4 and 18. It makes no teacher calls and loads no model.

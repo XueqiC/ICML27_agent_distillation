@@ -1,6 +1,6 @@
 """Bounded Far search and deterministic E2 pairing; Near is never substituted."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
 import re
 
@@ -34,8 +34,9 @@ def review_target(trajectory, episode, reviewer):
     """
     if reviewer is None:
         return None
-    value = reviewer({"execution": public_trace(trajectory), "labels": episode.history,
-                      "prefix_checks": episode.prefix_checks})
+    value = reviewer(review_evidence(trajectory, episode))
+    if value is None:
+        return None
     fields = {"reviewer", "no_rejected_actions", "meaningful_route", "labels_supported", "notes"}
     if (type(value) is not dict or set(value) != fields or
             any(type(value[k]) is not bool for k in fields - {"reviewer", "notes"}) or
@@ -43,6 +44,14 @@ def review_target(trajectory, episode, reviewer):
             not isinstance(value["notes"], str) or not value["notes"].strip()):
         raise ValueError("Pair review must contain explicit decisions, reviewer and public evidence notes")
     return TargetReview(trajectory.trajectory_id, episode.stable_id, **value)
+
+
+def review_evidence(trajectory, episode):
+    # IDs bind offline approvals to this execution/label artifact. These are
+    # review metadata, never teacher or student prompt fields.
+    return {"trajectory_id": trajectory.trajectory_id, "episode_id": episode.stable_id,
+            "execution": public_trace(trajectory), "labels": episode.history,
+            "prefix_checks": episode.prefix_checks}
 
 
 def coverage_signature(trajectory):
@@ -174,6 +183,7 @@ class PairOutcome:
     exclusions: list[dict]
     candidates: list[dict]
     costs: dict
+    labelled_candidates: list[dict] = field(default_factory=list)
 
 
 def choose_far(original, near, near_episode, near_review, candidates):
@@ -197,7 +207,8 @@ def choose_far(original, near, near_episode, near_review, candidates):
 
 
 def construct_pair(near_outcome, near_labels, *, session, env_factory, reviewer=None,
-                   tokenizer=None, tokenizer_id=None, cache=None, proposal_rounds=1):
+                   tokenizer=None, tokenizer_id=None, cache=None, proposal_rounds=1,
+                   collect_pending=False):
     """Default: one extra alternative-route request (up to three candidates).
 
     Explicit proposal_rounds=2 enables the design's ceiling of 2x3 for Far.
@@ -208,10 +219,13 @@ def construct_pair(near_outcome, near_labels, *, session, env_factory, reviewer=
     near = near_outcome.repair
     episode = near_labels.episode
     far_session = CaseSession(task=session.task, teacher=session.teacher, ledger=session.ledger,
-        config=session.config, limits=session.limits, branch="far", shared=session.shared)
+        config=session.config, limits=session.limits, branch="far", shared=session.shared,
+        global_budget=session.global_budget, output_caps=session.output_caps)
     reviews, evidence, exclusions, chosen = [], [], [], None
     nr = review_target(near.executed_trajectory, episode, reviewer) if episode else None
     quality = target_exclusions(near.executed_trajectory, episode, nr) if near.executed_trajectory else ["missing_near"]
+    if collect_pending and nr is None:
+        quality = [r for r in quality if r != "public_quality_review_missing"]
     if near.repair_status != "VERIFIED":
         quality.append("near_not_confirmed")
     if quality:
@@ -224,7 +238,8 @@ def construct_pair(near_outcome, near_labels, *, session, env_factory, reviewer=
             for patch, target in successes:
                 route_reasons = [r for r in pair_exclusions(near.original_trajectory,
                     near.executed_trajectory, target, episode, None, nr, None)
-                    if r != "far:missing_or_mismatched_labels"]
+                    if r != "far:missing_or_mismatched_labels" and not (
+                        collect_pending and nr is None and r == "near:public_quality_review_missing")]
                 if route_reasons:
                     exclusions.append({"candidate_id": patch.patch_id, "reasons": route_reasons})
                     continue
@@ -258,7 +273,9 @@ def construct_pair(near_outcome, near_labels, *, session, env_factory, reviewer=
                      "no_rejected_actions": r.no_rejected_actions, "meaningful_route": r.meaningful_route,
                      "labels_supported": r.labels_supported} for r in [nr, *[x[2] for x in reviews]] if r]})
     return PairOutcome(status, near.repair_id, chosen[0] if chosen else None,
-                       chosen[1] if chosen else None, exclusions, evidence, far_session.cost_record())
+                       chosen[1] if chosen else None, exclusions, evidence, far_session.cost_record(),
+                       [{"repair": r.to_json(), "episode": e.to_json() if e else None}
+                        for r, e, _ in reviews])
 
 
 def first_pairs(frozen_task_order, outcomes, count=4):
