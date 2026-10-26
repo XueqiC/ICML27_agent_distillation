@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 17:5x CDT 10-26 — method design v0.3 (user) in repo + motivation result pages; main pushed to GitHub
+- docs/method/agent_distillation_method_design.md (user doc; 1.1 rewritten as general phenomena + links, per user 17:42-17:45 CDT);
+  docs/method/motivation/M1 (train vs new tasks), M2 (failure modes, four difficulties, how induced, prevalence, K),
+  M3 (CG probe); data/*.json + scripts (build_data/prevalence/search_runs/precondition_stats/make_figs) + figs.
+- New facts: theta0 reproduces teacher demos verbatim on 20/20 K20 tasks in all 4 decodings; two-object failures with a refused
+  second take while holding 60/50/33/0% (K10/20/30/100); never-saw-target failures stay on one receptacle type 0.84-0.88 vs
+  teacher 0.63-0.66; operational failure share exact 20.3% -> 5.6% (earlier 19% was a rounded sum; fixed in design 3.4.1).
+- main pushed (43895bb..58a2c82, 375 commits). Pending: user decision on CG next step (1/2/3) and whether to slim design 3.4.
+
 ### 15:1x CDT 10-26 — CG probe done: all prereg comparisons "no clear difference"; awaiting user choice of next step
 - 252/252 rollouts valid (rai GPU 1, 14:33-15:09 CDT). Found rate A .34 / B .34 / C .43 / D .46; success .14/.16/.14/.23.
   C-B +.09 (2 up/0 down), D-A +.125 (3/0), below the .15 threshold -> prereg mapping "C, D not better than B" -> teacher
