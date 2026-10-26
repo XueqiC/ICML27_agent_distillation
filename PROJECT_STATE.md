@@ -2272,3 +2272,11 @@ SAD trains submitted 01:22-01:32 CDT on c265b5d: e4b k30 47601174, e4b k100 4760
 Run the enabled base dev40 thinking OFF/ON pilot on HPG, inspect paired outcomes and parser/service/length failures, then fix thinking mode.
 Remaining Stage 2: student serving/eval (vLLM, merged LoRA), Seed-SFT trainer with assistant-only loss masks, K=10 seed collection, base/teacher/Seed-SFT
 smoke on a fixed dev subset, hpg environment + profiling report.
+
+## ⟳ RESTART CHECKLIST (added 10-26 00:0x CDT)
+- Long-lived rai processes (setsid, survive a session restart; verify with ps): keeper 1593872 (scripts/hpg_queue_keeper.py),
+  dedupe_ladder_loop.sh 224983, copier_v4.sh 754546 (+ sync_loni_hpg_v4.sh child), smc_tol_handler.py (pid file in scratchpad).
+- Session-level (lost on restart, re-arm): the hourly grid check cron (scratchpad/grid_check_once.sh) and the keeper-log watcher
+  (start from scratchpad/keeper_watch_offset, never from the current line count).
+- The scratchpad lives under /tmp/claude-1010/.../035c9823-.../scratchpad; a new session id means a new scratchpad -- copy the
+  scripts listed above before relying on them.
