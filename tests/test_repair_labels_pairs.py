@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import replace
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,7 +10,7 @@ from repair.execute import execute_actions
 from repair.labels import LearningEpisode, reconstruct_labels
 from repair.ledger import BudgetLedger
 from repair.pairs import (PairOutcome, choose_far, construct_pair, coverage_signature,
-                          first_pairs, pair_exclusions, review_target)
+                          first_pairs, pair_exclusions, required_operations, review_target)
 from repair.patch import Patch, PatchBlock
 from repair.records import RepairRecord
 from repair.runtime import CaseSession, Limits
@@ -95,6 +96,83 @@ O = ["go to cabinet 1", "open cabinet 1", "take apple 1 from cabinet 1", "look",
      "go to table 1", "put apple 1 in/on table 1"]
 N = [*O[:3], "clean apple 1 with sinkbasin 1", *O[4:]]
 F = [O[1], O[0], O[2], O[4], N[3], O[5]]
+PLACEMENTS = {"put": O[-1], "move": "move apple 1 to table 1"}
+
+
+def public_trajectory(actions, observation):
+    # Handwritten public transcripts exercise the harness grammar without ALFWorld.
+    return SimpleNamespace(initial={"visible": {"observation": observation}},
+        steps=[{"action_parsed": a, "visible": {"observation": "Done."}} for a in actions])
+
+
+@pytest.mark.parametrize("placement", ["move statue 2 to coffeetable 1",
+    "put statue 2 in/on coffeetable 1", "put statue 2 in coffeetable 1",
+    "put statue 2 on coffeetable 1"])
+def test_placement_coverage_accepts_harness_move_and_legacy_put(placement):
+    trajectory = public_trajectory(["go to cabinet 1", "open cabinet 1",
+        "take statue 2 from cabinet 1", "inventory", "close cabinet 1",
+        "go to coffeetable 1", "look", "examine statue 2", placement],
+        "You see statue 2, cabinet 1 and coffeetable 1.")
+    assert coverage_signature(trajectory) == {"objects": ["statue 2"],
+        "destinations": ["coffeetable 1"], "operations": [("put", "statue 2")]}
+
+
+@pytest.mark.parametrize("operation,appliance", [
+    ("clean", "sinkbasin 1"), ("heat", "microwave 1"), ("cool", "fridge 1")])
+def test_move_coverage_retains_required_object_operations(operation, appliance):
+    trajectory = public_trajectory(["take apple 1 from countertop 1",
+        f"{operation} apple 1 with {appliance}", "move apple 1 to diningtable 1"],
+        f"You see apple 1, countertop 1, {appliance} and diningtable 1.")
+    assert coverage_signature(trajectory) == {"objects": ["apple 1"],
+        "destinations": ["diningtable 1"],
+        "operations": sorted([(operation, "apple 1"), ("put", "apple 1")])}
+
+
+def test_use_light_coverage_retains_taken_object_and_lamp():
+    trajectory = public_trajectory(["take book 1 from desk 1", "use desklamp 1"],
+        "You see book 1, desk 1 and desklamp 1.")
+    assert coverage_signature(trajectory) == {"objects": ["book 1"],
+        "destinations": ["desklamp 1"], "operations": [("use_light", "book 1")]}
+
+
+def test_pick_two_move_coverage_preserves_distinct_instances():
+    actions = ["take statue 2 from shelf 1", "move statue 2 to coffeetable 1",
+               "take statue 3 from shelf 1", "move statue 3 to coffeetable 1"]
+    observation = "You see statue 2, statue 3, shelf 1 and coffeetable 1."
+    expected = {"objects": ["statue 2", "statue 3"], "destinations": ["coffeetable 1"],
+                "operations": [("put", "statue 2"), ("put", "statue 3")]}
+    assert coverage_signature(public_trajectory(actions, observation)) == expected
+    mixed = [*actions[:-1], "put statue 3 in/on coffeetable 1"]
+    assert coverage_signature(public_trajectory(mixed, observation)) == expected
+    repeated = [a.replace("statue 3", "statue 2") for a in actions]
+    assert coverage_signature(public_trajectory(repeated, observation)) == {
+        "objects": ["statue 2"], "destinations": ["coffeetable 1"],
+        "operations": [("put", "statue 2")]}
+
+
+@pytest.mark.parametrize("action,observation", [
+    ("move statue to coffeetable 1", "statue 2 and coffeetable 1"),
+    ("move statue 2 to coffeetable", "statue 2 and coffeetable 1"),
+    ("move statue 2 in/on coffeetable 1", "statue 2 and coffeetable 1"),
+    ("move statue 2 to coffeetable 1 then look", "statue 2 and coffeetable 1"),
+    ("move statue 2 to coffeetable 1", "Only statue 2 is visible."),
+    ("move statue 2 to coffeetable 1", "Only coffeetable 1 is visible."),
+])
+def test_move_coverage_requires_exact_syntax_and_public_instances(action, observation):
+    assert coverage_signature(public_trajectory([action], observation)) is None
+
+
+@pytest.mark.parametrize("verb", ["Put", "Place", "Move"])
+@pytest.mark.parametrize("qualifier,operations", [
+    ("", {"put"}), ("clean ", {"put", "clean"}),
+    ("hot ", {"put", "heat"}), ("cold ", {"put", "cool"})])
+def test_required_operations_normalizes_placement_verbs(verb, qualifier, operations):
+    assert required_operations(f"{verb} a {qualifier}apple on diningtable 1.") == operations
+
+
+def test_required_operations_does_not_match_move_inside_other_words():
+    assert required_operations("Remove the apple.") == set()
+    assert required_operations("Examine the book under the desklamp light.") == {"use_light"}
 
 
 class PublicTaskEnv:
@@ -102,7 +180,8 @@ class PublicTaskEnv:
     def __init__(self):
         self.held, self.clean, self.won, self.actions = False, False, False, []
     def state(self, observation):
-        return ({"observation": observation, "admissible_commands": sorted(set(O + N + F))},
+        return ({"observation": observation,
+                 "admissible_commands": sorted(set(O + N + F + [PLACEMENTS["move"]]))},
                 0, self.won, False, {"won": self.won, "hidden": "PRIVATE_STATE"})
     def reset(self, task_id):
         return self.state("There are cabinet 1, table 1, sinkbasin 1, apple 1 and apple 2.")
@@ -112,7 +191,7 @@ class PublicTaskEnv:
             self.held = True
         if action.startswith("clean apple"):
             self.clean = True
-        if action.startswith("put apple"):
+        if action.startswith(("put apple", "move apple")):
             self.won = self.held and self.clean
         return self.state("You executed " + action + ".")
     def close(self):
@@ -134,11 +213,12 @@ def approve(public):
             "labels_supported": True, "notes": "Checked every public transition and short label."}
 
 
-def pair_fixture(tmp_path, task):
-    task = {**task, "instruction": "Put a clean apple on table 1."}
+def pair_fixture(tmp_path, task, near_placement="put", far_placement="put", task_verb="Put"):
+    task = {**task, "instruction": f"{task_verb} a clean apple on table 1."}
     original = execute_actions(PublicTaskEnv, TASK_ID,
-        ["Thought: Visible choice.\nAction: " + a for a in O], 40)
-    near, far = witnessed_repair(original, N, "near"), witnessed_repair(original, F, "far")
+        ["Thought: Visible choice.\nAction: " + a for a in [*O[:-1], PLACEMENTS[near_placement]]], 40)
+    near = witnessed_repair(original, [*N[:-1], PLACEMENTS[near_placement]], "near")
+    far = witnessed_repair(original, [*F[:-1], PLACEMENTS[far_placement]], "far")
     session = session_for(tmp_path, task, FakeTeacher([label("Visible choice.")] * 20))
     nl = reconstruct_labels(near, session=session, tokenizer=TinyTokenizer(), tokenizer_id="fake-student")
     fl = reconstruct_labels(far, session=session, tokenizer=TinyTokenizer(), tokenizer_id="fake-student")
@@ -148,14 +228,20 @@ def pair_fixture(tmp_path, task):
     return original, near, far, nl, fl, nr, fr, session
 
 
-def test_pair_filter_accepts_real_success_same_coverage_and_comparable_labels(tmp_path, task):
-    original, near, far, nl, fl, nr, fr, _ = pair_fixture(tmp_path, task)
+@pytest.mark.parametrize("near_placement,far_placement,task_verb", [
+    ("put", "put", "Put"), ("move", "move", "Move"),
+    ("move", "put", "Move"), ("put", "move", "Put")])
+def test_pair_filter_accepts_real_success_same_coverage_and_comparable_labels(
+        tmp_path, task, near_placement, far_placement, task_verb):
+    original, near, far, nl, fl, nr, fr, _ = pair_fixture(
+        tmp_path, task, near_placement, far_placement, task_verb)
     assert coverage_signature(near.executed_trajectory) == coverage_signature(far.executed_trajectory)
     assert not pair_exclusions(original, near.executed_trajectory, far.executed_trajectory,
                                nl.episode, fl.episode, nr, fr)
     selected, reasons = choose_far(original, near.executed_trajectory, nl.episode, nr, [(far, fl.episode, fr)])
     assert selected[0] == far and reasons[0]["reasons"] == []
     for episode in (nl.episode, fl.episode):
+        assert all(c["structural_pass"] for c in episode.prefix_checks)
         assert sum(episode.native_token_mask) == episode.supervised_target_tokens
         assert len(episode.native_token_mask) == len(episode.native_input_ids)
         supervised = [t for t, mask in zip(episode.native_input_ids, episode.native_token_mask) if mask]
@@ -165,6 +251,7 @@ def test_pair_filter_accepts_real_success_same_coverage_and_comparable_labels(tm
         assert "PRIVATE_STATE" not in TinyTokenizer().decode(episode.native_input_ids, skip_special_tokens=False)
 
 
+@pytest.mark.parametrize("placement", ["put", "move"])
 @pytest.mark.parametrize("change,expected", [
     ("horizon", "task_initial_state_success_standard_or_horizon"),
     ("reset", "task_initial_state_success_standard_or_horizon"),
@@ -177,11 +264,13 @@ def test_pair_filter_accepts_real_success_same_coverage_and_comparable_labels(tm
     ("distance", "action_distance_gap"),
     ("length", "action_length_ratio"),
     ("object", "target_object_instances"),
+    ("destination", "target_object_instances"),
     ("operations", "required_operation_types"),
     ("success", "far:no_real_success"),
 ])
-def test_pair_filter_exclusions(tmp_path, task, change, expected):
-    original, near, far, nl, fl, nr, fr, _ = pair_fixture(tmp_path, task)
+def test_pair_filter_exclusions(tmp_path, task, change, expected, placement):
+    original, near, far, nl, fl, nr, fr, _ = pair_fixture(
+        tmp_path, task, placement, placement, placement.title())
     target, episode = far.executed_trajectory, fl.episode
     if change == "horizon":
         target = replace(target, max_steps=39)
@@ -204,7 +293,11 @@ def test_pair_filter_exclusions(tmp_path, task, change, expected):
     elif change == "length":
         target = replace(target, steps=target.steps[:2] + target.steps)
     elif change == "object":
-        target = execute_actions(PublicTaskEnv, TASK_ID, [a.replace("apple 1", "apple 2") for a in F], 40)
+        actions = [a.replace("apple 1", "apple 2") for a in [*F[:-1], PLACEMENTS[placement]]]
+        target = execute_actions(PublicTaskEnv, TASK_ID, actions, 40)
+    elif change == "destination":
+        actions = [*F[:-1], PLACEMENTS[placement].replace("table 1", "cabinet 1")]
+        target = execute_actions(PublicTaskEnv, TASK_ID, actions, 40)
     elif change == "operations":
         steps = deepcopy(target.steps)
         steps[4]["action_parsed"] = "look"
@@ -213,6 +306,8 @@ def test_pair_filter_exclusions(tmp_path, task, change, expected):
         target = replace(target, success=False, termination_reason="FAILED")
     reasons = pair_exclusions(original, near.executed_trajectory, target, nl.episode, episode, nr, fr)
     assert expected in reasons
+    if change == "operations":
+        assert "required_task_operations_missing_or_unknown" in reasons
 
 
 def test_far_tie_choice_and_first_four_follow_frozen_order(tmp_path, task):

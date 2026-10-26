@@ -64,7 +64,10 @@ def coverage_signature(trajectory):
     objects, destinations, operations, held, used = set(), set(), set(), set(), set()
     for step in trajectory.steps:
         action = step["action_parsed"] or ""
-        match = re.fullmatch(r"put (.+? \d+) (?:in/on|in|on) (.+? \d+)", action)
+        # The harness uses move/to; legacy put/in/on has the same placement
+        # signature so object and required-operation comparisons share one key.
+        match = (re.fullmatch(r"move (.+? \d+) to (.+? \d+)", action) or
+                 re.fullmatch(r"put (.+? \d+) (?:in/on|in|on) (.+? \d+)", action))
         if match:
             objects.add(match[1].lower())
             destinations.add(match[2].lower())
@@ -100,7 +103,7 @@ def required_operations(task_text):
     result = set()
     for words, operation in ((r"\b(clean|washed)\b", "clean"), (r"\b(heat|hot|heated)\b", "heat"),
                              (r"\b(cool|cold|cooled)\b", "cool"),
-                             (r"\b(put|place)\b", "put"), (r"\b(light|lamp)\b", "use_light")):
+                             (r"\b(put|place|move)\b", "put"), (r"\b(light|lamp)\b", "use_light")):
         if re.search(words, text):
             result.add(operation)
     return result
