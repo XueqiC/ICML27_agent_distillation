@@ -17,6 +17,10 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:4x CDT 10-25 — E4B AD K100 seed 1 = 107 (seed 0 102)
+- e4b-adc-k100-s1 eval 47768361: 107/140, serving gate passed; vs s0 +11/-6 p=.33 -> seeds 0-1 mean 104.5; s2 copy queued (copier).
+- Keeper 23:47 CDT: SmartAD K10/K20 e32 fp32-reference evals submitted (47773892, 47773894).
+
 ### 23:4x CDT 10-25 — SAD K20 OOM from my resize (reverted, v31 cea43fa); SmartAD K20 eval tolerance-only -> fp32 rerun
 - e4b-sadc-k20-b05-train 47763059 OOM at 64G while loading (MaxRSS 87G). 2-GPU SAD trains back to 8 CPU/160G; b05 unblocked;
   b1 47763060 (64G, still loading) cancelled + resubmitted by the keeper at 160G (new attempt dirs; failed attempt-000 kept).
