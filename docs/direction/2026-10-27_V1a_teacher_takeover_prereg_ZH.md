@@ -80,6 +80,6 @@ CG probe 的 7 个前缀：θ₀ 在 U_mech 上的 greedy 失败轨迹，取前 
   - 用 `tools.prefix_points`（规则 dp/1，代码 43d01a7）取前缀：对每个至少失败一次的任务，按 greedy、seed 0、1、2 的顺序取第一个失败的 rollout。
   - 如果整条 rollout 都没出现目标，就在第 10 步之后分支（search_after_10）；否则在最早的事件之后分支。事件按"被拒绝的目标动作、首次看到目标、首次拿到目标"的顺序比较。
   - 分层：4 次全失败为"地板"，部分失败为"中间"。
-- **新增排除规则**：剩余步数少于 10 的前缀（branch_index > 30）不进入 V1a。这样排除了 3 个，剩下 42 个：target_seen 中间层 20 个，地板层 5 个；search_after_10 地板层 12 个，中间层 5 个。排除名单见 `reports/runs/method_v1/udev_prefix_spec_v1a.json` 的生成记录。
+- **新增排除规则**：剩余步数少于 10 的前缀（branch_index > 30）不进入 V1a。这样排除了 3 个，剩下 42 个：target_seen 中间层 20 个，地板层 4 个；search_after_10 地板层 12 个，中间层 6 个。排除名单见 `reports/runs/method_v1/udev_prefix_spec_v1a.json` 的生成记录。
 - **执行**：每个前缀 4 次接管，与第 3 节相同。起点对照改为：只对 4 次全部失败的前缀跑 1 次（原为 2 次），以控制用量。
 - **预算**：估计 U_dev 接管约 17M input、0.8M output，起点对照约 3M input。为了让 V1a 和 V1b 合计不超过 70M，V1b 每格改为 1 次 greedy 加 4 次采样（方案 §7.1 中的减半选项），具体写进 V1b 预注册。
