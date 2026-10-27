@@ -92,7 +92,7 @@ h_{t+1}=h_t\oplus(a_t,o_{t+1}).
 \mathcal L_{\mathrm{offline}}(\theta)
 =
 \mathbb E_{(c,y)\sim D_T}
-\left[-\sum_j w_j\log \pi_\theta(y_j\mid c,y_{<j})\right].
+\left[-\sum_j w_j\log \pi_\theta(y_j\mid c,y_{\lt j})\right].
 ```
 
 其中 $`D_T`$ 是生成、筛选后的 teacher 数据，$`c`$ 包含任务和已有环境观察，$`w_j`$ 表示监督 mask 或片段权重。
