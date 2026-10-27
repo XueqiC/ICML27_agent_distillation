@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 17:3x CDT 10-27 — V1b main running; E0.4/E0.5 with Codex
+- V1b cost canary (2 prefixes, G greedy): ~110k in / 17k out per G episode -> prereg rule: sampled seeds 8 -> 4 (rev1 fc82998).
+- V1b main launched 17:3x CDT: 38 prefixes x U/G/G1 x (greedy + seeds 0-3) = 570 rollouts, rai GPU 1, tree 43d01a7,
+  launcher pid 1195630, out reports/runs/method_v1/v1b_main, shared ledger v1b_global_teacher_budget.jsonl (caps 43.94M / 7.70M).
+- Engineering in parallel: interchange spec docs/method/V2_interchange_spec.md (4608cb9); Codex E0.4 supervision builder
+  (repair-v01-eval) and E0.5 V2 training arm (repair-v01-train). V2 data collection needs a new budget OK after V1b.
+
 ### 17:1x CDT 10-27 — V1a U_dev done (34/42 feasible); V1b preregistered; cost canary running
 - U_dev coverage (theta0 greedy + 3 sampled): 32/25/32/25 of 60; 45 tasks fail >=1. dp/1 prefixes 45 -> 42 (>=10 steps left).
 - V1a U_dev: feasible 34/42 (target_seen 24/24; search middle 6/6; search floor 4/12); from-start 1/8 on the infeasible.
