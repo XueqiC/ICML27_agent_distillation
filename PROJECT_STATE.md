@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 17:1x CDT 10-27 — V1a U_dev done (34/42 feasible); V1b preregistered; cost canary running
+- U_dev coverage (theta0 greedy + 3 sampled): 32/25/32/25 of 60; 45 tasks fail >=1. dp/1 prefixes 45 -> 42 (>=10 steps left).
+- V1a U_dev: feasible 34/42 (target_seen 24/24; search middle 6/6; search floor 4/12); from-start 1/8 on the infeasible.
+  Pool used 26.06M in / 0.30M out; V1b ledger caps 43,937,153 / 7,695,704 (reports/runs/method_v1/teacher_usage_total.json).
+- V1b prereg d5761de: 38 prefixes (CG 4 + U_dev 34), U/G/G1 x (greedy + 8 sampled), success-rate rule 0.15 & +4 prefixes,
+  teacher-step share <= 30%; cost canary (2 prefixes, G greedy) running on rai GPU 1 (launcher run_v1b_rai.sh, tree 43d01a7).
+
 ### 15:3x CDT 10-27 — splits + joint loop committed; U_dev pre-screen running; prefix builder with Codex
 - repair-v01-eval: 5234c49 E0.3 joint loop (U/G/G1; 127 tests; dry-run 63/63); 713609d method_v1 splits
   (data/manifest/method_v1_splits.json): U_dev 60 (10/type, diagnosis only), V2_pool 200 (34/34/33x4, verified won teacher
