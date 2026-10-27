@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:3x CDT 10-27 — method refinement plan v1 approved (user "ok" 14:31 CDT)
+- User 14:10 CDT: "我们现在实验的优先级放在完善方法吧，你可以根据文档设计一下方案". Plan docs/method/experiment_plan_v1_ZH.md (9826505).
+- Approved: teacher hard cap V1a+V1b 70M input / 8M output (one global counter); U_dev = 60 new TRAIN task groups,
+  diagnosis only, never trained; G reviews every step; V2 trains/evaluates on rai, single seed.
+- Running: Codex E0.1 (teacher takeover) + E0.2 (harness fact table) on repair-v01-eval (from 9f16962).
+- Grid: smc-k10-s2 eval tolerance override applied by hand (handler regex missed the line glued to the crash line);
+  logs/queue/keeper.pid updated to 643198 (keeper_edit.sh reads it). SAD K20 b1 eval 47987384 submitted.
+
 ### 14:2x CDT 10-27 — keeper had died 10-26 18:24 CDT (rai disk full); restarted; SAD K20 rule A = b1
 - keeper.log ends "ERROR O" + 0-byte state.tmp at 19:24 EDT: the step failed on a full disk and log() raised inside the
   except (ENOSPC) -> process exit. state.json (19:21) intact, no orphan sbatch (sacct). Disk now 1.2T free. Restarted pid 643198
