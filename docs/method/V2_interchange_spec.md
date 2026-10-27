@@ -34,6 +34,9 @@ It is the only contract between data construction and training; neither side imp
 ## Validity rules (checked by both sides)
 
 1. Every `task_id` is in `data/manifest/method_v1_splits.json` V2_pool (or the K20 view for `k20_replay`); none in U_dev, U_mech, D_probe, D_unseen_quick or dev140.
-2. No message contains `Guidance:`; every assistant message parses to an action; the supervised action is in the admissible commands of the preceding user turn.
+2. No message contains `Guidance:`; every assistant message parses to an action. For `kind = decision` the supervised action is in the admissible commands of the preceding user turn.
 3. Each decision example's prefix is the real executed public history up to that step (observations exactly as recorded by the environment).
-4. Rationale text (if present in a supervised turn) uses only prefix information (instance ids that appear in the prefix only).
+4. For `kind = decision`, rationale text in the supervised turn uses only prefix information (instance ids that appear in the prefix only).
+5. `kind = trajectory` examples (OFFLINE teacher trajectories, CONTINUE / replay K20 demonstrations) must reproduce the main-grid trajectory-SFT training data exactly (byte-equal rendering); rules 2 (admissibility) and 4 (grounding) do NOT apply to them, because the baselines were trained on these trajectories unchanged, including the teacher's own refused actions and Thoughts. Their counts of supervised turns that are inadmissible or cite not-yet-seen instance ids are recorded in the manifest (`trajectory_diagnostics`) for information only.
+
+Revision 2026-10-27 18:1x CDT: rule 5 added and rules 2/4 restricted to decision examples, after the first build found 4/20 K20 and 62/200 V2_pool teacher trajectories that the main grid trained on but that fail admissibility/grounding.
