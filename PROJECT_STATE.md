@@ -17,6 +17,15 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 16:4x CDT 10-27 — splits + joint loop committed; U_dev pre-screen running; prefix builder with Codex
+- repair-v01-eval: 5234c49 E0.3 joint loop (U/G/G1; 127 tests; dry-run 63/63); 713609d method_v1 splits
+  (data/manifest/method_v1_splits.json): U_dev 60 (10/type, diagnosis only), V2_pool 200 (34/34/33x4, verified won teacher
+  trajectory each); excluded repair_v01 sets, all K<=100 views (any seed) and 84 dev140 task-name collisions.
+  (First two builds rejected: K<=500 exclusion exhausted look/heat/cool; then dev140 name collisions.)
+- Running: U_dev coverage = theta0 greedy + 3 sampled on 60 tasks, rai GPU 1, pinned tree ../ICML27_run_repair_eval_713609d,
+  out reports/runs/repair_pilot/cov_theta0_udev (launcher pid 847132). Codex: tools/prefix_points.py (decision-point rule dp/1)
+  + generalized loader for takeover/joint specs.
+
 ### 15:1x CDT 10-27 — V1a CG-7 done; E0.3 + splits with Codex
 - E0.1/E0.2 committed 95e3947 (98 tests; fact audit 412 eps, 0 exceptions, 139/139 inventory agreements). Canary Newspaper 1/1.
 - V1a (prereg 118563b): takeover success/4 Newspaper 3, Apple 4, Potato 4, Kettle-Shelf 2; Kettle-DiningTable/Lettuce/Egg 0 and
