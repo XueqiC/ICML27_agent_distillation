@@ -83,4 +83,12 @@ teacher 也完成不了的前缀（CG 3 个、U_dev 8 个）不进入主比较�
 
 ## 修订
 
-（暂无）
+### 修订 1（2026-10-27 17:3x CDT，按 §6 的成本规则执行，主运行之前）
+
+- **canary**：2 个前缀，G，greedy，共用 221,569 input / 34,774 output。
+  - pick_two-SoapBottle：30 次审阅，120.7k input / 11.9k output；
+  - pick_heat-Tomato：30 次审阅，100.9k input / 22.8k output。
+  - 平均每个 G episode 约 110k input、17k output，每次审阅约 580 output（含推理）。
+- **推算**（8 次采样）：G 约 38 × 9 × 110k = 37.6M input、5.8M output；G1 约 6.8M input、1M output。合计约 44M / 6.8M，超过剩余额度（43.9M / 7.7M）的 90%。
+- **决定**：按预注册规则，所有组的采样从 8 次统一减为 4 次（seed 0–3）。每个前缀每组 1 次 greedy 加 4 次采样，推算约 25M input / 3.8M output。
+- canary 不计入主分析；其余设置都不变。
