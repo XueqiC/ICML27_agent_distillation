@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 14:2x CDT 10-27 — keeper had died 10-26 18:24 CDT (rai disk full); restarted; SAD K20 rule A = b1
+- keeper.log ends "ERROR O" + 0-byte state.tmp at 19:24 EDT: the step failed on a full disk and log() raised inside the
+  except (ENOSPC) -> process exit. state.json (19:21) intact, no orphan sbatch (sacct). Disk now 1.2T free. Restarted pid 643198
+  15:16 EDT: logged the 4 terminal links, submitted smc-k100-s2-train 47986772 and the tsft/adc/smc K20 seed-2 evals
+  47986773/47986776/47986778. smc-k10-s2-eval 47852468 FAILED = serving tolerance (mean 0.0504 vs 0.05): smc_tol_handler (alive)
+  now sees the FAILED line. copier_v4/rule_a_watch2 dead (BrokenPipe; no LONI rungs pending). Hourly cron re-created (expired).
+- SAD K20 rule A: b0.5 L_last 3.4e-9 -> b1 4.7e-10, converged -> chosen b1; gates/eval_e4b-sadc-k20-b1 opened.
+
 ### 17:5x CDT 10-26 — method design v0.3 (user) in repo + motivation result pages; main pushed to GitHub
 - docs/method/agent_distillation_method_design.md (user doc; 1.1 rewritten as general phenomena + links, per user 17:42-17:45 CDT);
   docs/method/motivation/M1 (train vs new tasks), M2 (failure modes, four difficulties, how induced, prevalence, K),
