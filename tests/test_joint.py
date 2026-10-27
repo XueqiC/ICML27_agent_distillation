@@ -271,6 +271,21 @@ def test_prefix_mismatch_no_calls_and_from_start(original, tmp_path, budget):
     assert row['branch_index'] == 0 and row['success'] and len(student.prompts[0]) == 2
 
 
+@pytest.mark.parametrize('branch_index', [1, 3, 15, 39])
+def test_non_cg_branch_replay_and_metrics(original, tmp_path, budget, branch_index):
+    student = CaptureStudent(['Action: take apple 1 from cabinet 2'])
+    row = execute_joint(dict(case(original), branch_index=branch_index), original,
+        mode='U', decoding='sampled', seed=2, env_factory=ScriptEnvironment,
+        student_factory=lambda _: student, reviewer_factory=lambda _: pytest.fail('R in U'),
+        run_sha256='variable-branch', budget=budget, output=tmp_path)
+    assert row['prefix_verified'] and row['success'] and row['branch_index'] == branch_index
+    assert row['execution']['steps'][:branch_index] == original.to_json()['steps'][:branch_index]
+    assert len(student.prompts[0]) == 2 + 2 * branch_index
+    assert row['metrics']['steps_used_after_branch'] == row['metrics']['steps_to_success'] == 1
+    assert row['metrics']['steps_to_find'] == 1 and row['metrics']['picked']
+    assert row['metrics']['steps_remaining_when_found'] == 39 - branch_index
+
+
 def test_sampled_regeneration_uses_same_request_seed():
     student = object.__new__(SampledStudent)
     student.sampling_seed, student.task_id = 7, 'train/t'

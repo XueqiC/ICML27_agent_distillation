@@ -195,6 +195,23 @@ def test_from_start_has_no_student_prefix(original, tmp_path, budget):
     assert row['metrics']['steps_used_after_branch'] == 1
 
 
+@pytest.mark.parametrize('branch_index', [1, 3, 15, 39])
+def test_non_cg_branch_replay_and_suffix_metrics(original, tmp_path, budget, branch_index):
+    client = FakeClient([response('Action: take apple 1 from cabinet 2')])
+    task = {'task_id': original.task_id, 'split': 'train', 'sealed': False}
+    case = dict(make_case(original), branch_index=branch_index)
+    row = execute_takeover(case, original, mode='takeover', run=0,
+        env_factory=ScriptEnvironment, policy_factory=partial(make_teacher_policy,
+            load_config('configs/base_e4b.yaml'), task, output=tmp_path, budget=budget, client=client),
+        output=tmp_path, run_sha256='variable-branch', budget=budget)
+    assert row['prefix_verified'] and row['success'] and row['branch_index'] == branch_index
+    assert row['execution']['steps'][:branch_index] == original.to_json()['steps'][:branch_index]
+    assert len(client.requests[0]['input']) == 2 + 2 * branch_index
+    assert row['metrics']['steps_used_after_branch'] == row['metrics']['steps_to_success'] == 1
+    assert row['metrics']['steps_to_find'] == 1 and row['metrics']['picked']
+    assert row['metrics']['steps_remaining_when_found'] == 39 - branch_index
+
+
 def test_halted_execution_records_prefix_without_failed_reply(original, tmp_path, budget):
     task = {'task_id': original.task_id, 'split': 'train', 'sealed': False}
     client = FakeClient([Quota429('PRIVATE')])

@@ -10,13 +10,15 @@ import statistics
 
 from repair.artifacts import provenance, read_json, run_manifest
 from repair.records import TrajectoryRecord
+from repair.prefixes import coverage_rows, load_original
 from repair.takeover import (SharedTeacherBudget, RecordedEnvironment, execute_takeover,
                              make_teacher_policy, run_key, usage_summary)
 from sed.config import load_config
+from sed.manifest import load_frozen
 from sed.provenance import code_hashes, safe_config, versions
 from sed.react import PROMPT_TEMPLATE, PROMPT_VERSION
 from sed.storage import atomic_write, digest, file_hash, locked, write_json
-from tools.cg_probe import load_cases, markdown_table, select_groups
+from tools.cg_probe import GROUPS, load_cases, markdown_table, select_groups
 
 
 def spec_from_cg(args):
@@ -43,8 +45,12 @@ def load_spec(path, config, *, dry_run=False):
     if not isinstance(spec, list) or not spec:
         raise ValueError('Prefix spec must be a nonempty list')
     ids, cases, inputs, cache = set(), [], {str(Path(path).resolve())}, {}
+    coverage_cache, frozen = {}, None
     for entry in spec:
-        if set(entry) != {'case_id', 'group', 'task_id', 'source', 'branch_index'}:
+        required = {'case_id', 'group', 'task_id', 'source', 'branch_index'}
+        optional = {'attempt', 'decoding', 'sampling_seed', 'decision_point', 'decision_rule_version',
+                    'task_type', 'coverage_successes', 'coverage_rollouts', 'stratum', 'event_step', 'steps_remaining'}
+        if not required <= set(entry) or set(entry) - required - optional:
             raise ValueError('Invalid prefix spec entry fields')
         if not isinstance(entry['case_id'], str) or not entry['case_id'] or entry['case_id'] in ids:
             raise ValueError('Case ids must be unique nonempty strings')
@@ -56,10 +62,23 @@ def load_spec(path, config, *, dry_run=False):
             p = Path(value)
             return p.resolve() if p.is_absolute() else (Path(path).resolve().parent / p).resolve()
         failures, root = resolve(source['failures_json']), resolve(source['coverage_root'])
-        key = (str(failures), str(root), entry['group'])
-        if key not in cache:
-            cache[key] = load_cases(failures, root, [entry['group']], config, dry_run=dry_run)[0]
-        loaded = cache[key]
+        generalized = (bool(set(entry) & optional) or entry['group'] not in GROUPS
+                       or 'attempt-01-greedy' not in Path(source['episode_dir']).parts)
+        if generalized:
+            coverage_key = (str(failures), str(root))
+            if coverage_key not in coverage_cache:
+                coverage_cache[coverage_key] = coverage_rows(failures, root)
+            if frozen is None and not dry_run:
+                frozen = load_frozen(config['paths']['manifest'], config['paths']['split_freeze'])
+            loaded = load_original({**entry, 'source': {**source, 'failures_json': str(failures),
+                                                       'coverage_root': str(root)}}, config, dry_run=dry_run,
+                                   _coverage=coverage_cache[coverage_key], _frozen=frozen)
+            inputs.update(loaded['source']['coverage_sha256'])
+        else:
+            key = (str(failures), str(root), entry['group'])
+            if key not in cache:
+                cache[key] = load_cases(failures, root, [entry['group']], config, dry_run=dry_run)[0]
+            loaded = cache[key]
         original = loaded['original']
         episode = (root / source['episode_dir']).resolve()
         if not episode.is_relative_to(root) or str(episode / 'episode.json') not in loaded['source']['evidence_sha256']:
