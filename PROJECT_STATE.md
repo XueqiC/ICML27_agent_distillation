@@ -17,6 +17,14 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 15:1x CDT 10-27 — V1a CG-7 done; E0.3 + splits with Codex
+- E0.1/E0.2 committed 95e3947 (98 tests; fact audit 412 eps, 0 exceptions, 139/139 inventory agreements). Canary Newspaper 1/1.
+- V1a (prereg 118563b): takeover success/4 Newspaper 3, Apple 4, Potato 4, Kettle-Shelf 2; Kettle-DiningTable/Lettuce/Egg 0 and
+  from-start 0/2 each (teacher also exhaustively opens 13-20 cabinets) -> excluded from V1b main comparison.
+  Teacher pool V1a+V1b used 6.40M in / 63k out of 70M / 8M (reports/runs/method_v1/teacher_usage_total.json).
+- Next: Codex (running) = data/manifest/method_v1_splits.json (U_dev 60 + V2_pool 200) + E0.3 joint loop (U/G/G1);
+  then U_dev pre-screen (theta0 greedy + 4 sampled, rai GPU) -> V1a on U_dev prefixes -> V1b.
+
 ### 14:3x CDT 10-27 — method refinement plan v1 approved (user "ok" 14:31 CDT)
 - User 14:10 CDT: "我们现在实验的优先级放在完善方法吧，你可以根据文档设计一下方案". Plan docs/method/experiment_plan_v1_ZH.md (9826505).
 - Approved: teacher hard cap V1a+V1b 70M input / 8M output (one global counter); U_dev = 60 new TRAIN task groups,
