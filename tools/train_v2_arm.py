@@ -1,0 +1,54 @@
+"""Run one V2 continuation arm (or an explicitly synthetic CPU dry-run)."""
+import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+# Also support `python tools/train_v2_arm.py` from an uninstalled worktree.
+if __package__ in (None, ""):
+    root = Path(__file__).resolve().parents[1]
+    sys.path[:0] = [str(root), str(root / "src")]
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    run = sub.add_parser("run")
+    for name in ("dataset", "theta0", "snapshot", "output"):
+        run.add_argument("--" + name, required=True)
+    run.add_argument("--config", default="configs/base_e4b.yaml")
+    run.add_argument("--splits", help="Frozen method_v1_splits.json; default: hashed dataset input")
+    run.add_argument("--updates", type=int, required=True)
+    run.add_argument("--batch-examples", type=int, required=True)
+    run.add_argument("--replay-ratio", type=float, required=True)
+    run.add_argument("--checkpoints", nargs="+", type=int, required=True)
+    run.add_argument("--seed", type=int, default=1)
+    run.add_argument("--gpus", type=int, choices=(1, 2), required=True)
+    run.add_argument("--dry-run", action="store_true")
+    values = list(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(values)
+    # Match the main grid's torch.distributed.run launcher. Already-launched
+    # workers must not recursively spawn; dry-run always stays on one CPU.
+    if not args.dry_run and args.gpus == 2 and "RANK" not in os.environ:
+        return subprocess.run([sys.executable, "-m", "torch.distributed.run", "--standalone",
+            "--nproc_per_node", "2", str(Path(__file__).resolve()), *values], check=False).returncode
+    from repair.v2_train import ValidationError, run_arm
+    from sed.config import load_config
+    try:
+        run_arm(args.dataset, load_config(args.config), args.output, theta0=args.theta0, snapshot=args.snapshot,
+            updates=args.updates, batch_examples=args.batch_examples, replay_ratio=args.replay_ratio,
+            checkpoints=args.checkpoints, seed=args.seed, gpus=args.gpus, dry_run=args.dry_run,
+            splits=args.splits, inputs=[args.config])
+    except ValidationError as exc:
+        print(f"V2 training refused: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        # Validation messages are local; never expose raw library exceptions.
+        print(f"V2 training failed ({type(exc).__name__}); no result marked complete.", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
