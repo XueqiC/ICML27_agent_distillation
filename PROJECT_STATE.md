@@ -17,7 +17,7 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
-### 16:4x CDT 10-27 — splits + joint loop committed; U_dev pre-screen running; prefix builder with Codex
+### 15:3x CDT 10-27 — splits + joint loop committed; U_dev pre-screen running; prefix builder with Codex
 - repair-v01-eval: 5234c49 E0.3 joint loop (U/G/G1; 127 tests; dry-run 63/63); 713609d method_v1 splits
   (data/manifest/method_v1_splits.json): U_dev 60 (10/type, diagnosis only), V2_pool 200 (34/34/33x4, verified won teacher
   trajectory each); excluded repair_v01 sets, all K<=100 views (any seed) and 84 dev140 task-name collisions.
