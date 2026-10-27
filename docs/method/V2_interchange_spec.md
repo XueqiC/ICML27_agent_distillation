@@ -1,0 +1,39 @@
+# V2 training interchange format (`v2-train-interchange/1`)
+
+Written 2026-10-27 for method plan v1 §4 (E0.4 builds it on branch `repair-v01-eval`, E0.5 consumes it on branch `repair-v01-train`).
+It is the only contract between data construction and training; neither side imports the other's code.
+
+## File layout
+
+`<dataset_dir>/` (exclusive create, sealed):
+- `examples.jsonl` — one JSON object per line (below), sorted by `example_id`.
+- `manifest.json` — `{schema: "v2-train-interchange/1", arm, created, code_revision, inputs: {path: sha256}, counts: {by_source, by_kind, by_task_type}, supervised_turns, example_ids_sha256, splits_sha256, theta0: {adapter_path, adapter_weights_sha256}, training_exposure_tasks: [group ids], excluded: [{reason, count}]}`.
+- `examples.sha256` — sha256 of `examples.jsonl`.
+
+## Example object
+
+```json
+{"example_id": "<sha256 of canonical [arm, source, task_id, episode_ref, step]>",
+ "arm": "JOINT|JOINT_COMPLETE_ONLY|PREFIX_EXPERT|OFFLINE|CONTINUE",
+ "source": "joint_local|joint_complete|prefix_expert|offline_teacher|k20_replay",
+ "kind": "decision|trajectory",
+ "task_id": "train/...", "group_id": "train/...", "task_type": "...",
+ "messages": [{"role": "system|user|assistant", "content": "..."}],
+ "supervised_assistant_indices": [ ... ],
+ "weight": 1.0,
+ "evidence": {"episode_ref": "<run dir>/records/<key>.json", "step": 17, "executor": "student|student_after_guidance|teacher",
+              "local_event": "target_seen|target_taken|hands_freed|transform_done|placed|lamp_used_with_target|task_success|null",
+              "episode_success": true, "label_source": "student_thought|teacher_rationale|teacher_reply", "label_check": "passed"}}
+```
+
+- `messages` use the exact student prompt contract (`sed.react.build_messages`: system prompt, JSON user turns with observation + admissible_commands, assistant replies `Thought: …\nAction: …`). No `Guidance:` text may appear anywhere in `messages` (guidance is removed from observations; history replies that depended on guidance are replaced, see E0.4 rules).
+- `kind = decision`: `supervised_assistant_indices` = exactly the LAST assistant message (prefix turns are context, loss-masked).
+- `kind = trajectory`: all assistant messages supervised (OFFLINE teacher trajectories, K20 replay, as the main-grid trajectory SFT).
+- `weight` multiplies the per-example token-normalized loss exactly as the existing trainer's sample weights (if the trainer has none, weights must all be 1.0 and mixing is done by sampling ratio in E0.5).
+
+## Validity rules (checked by both sides)
+
+1. Every `task_id` is in `data/manifest/method_v1_splits.json` V2_pool (or the K20 view for `k20_replay`); none in U_dev, U_mech, D_probe, D_unseen_quick or dev140.
+2. No message contains `Guidance:`; every assistant message parses to an action; the supervised action is in the admissible commands of the preceding user turn.
+3. Each decision example's prefix is the real executed public history up to that step (observations exactly as recorded by the environment).
+4. Rationale text (if present in a supervised turn) uses only prefix information (instance ids that appear in the prefix only).
