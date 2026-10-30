@@ -17,6 +17,13 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:3x CDT 10-29 — E4B main grid COMPLETE (all seeds); V1b r2 running
+- During the pause the keeper finished every E4B cell (jobs=0): tsft K10 72/69/62, K20 78/78/90, K30 86/79/96, K100 107/102/119;
+  AD 85/83/83, 104/95/97, 112/104/110, 102/107/108; SmartAD 76/86/79, 84/90/98, 91/96/94, 118/118/111; SAD (rule A)
+  K10 8, K20 52, K30 58, K100 111; base 43; teacher 114. variant_scores.py SAD glob -> attempt-*; figure refreshed.
+- Tunnel back 19:26 CDT. V1b r2 launched 19:26 CDT (tree 7748da5, launcher pid 52796, out method_v1/v1b_r2,
+  38 prefixes x U/G/G1 x (greedy + seeds 0-7) = 1,026 rollouts; ledger v1b_r2_global_teacher_budget.jsonl caps 300M/40M).
+
 ### 19:2x CDT 10-29 — resumed after a usage-limit pause (10-27 ~18:00 to 10-29 19:00 CDT)
 - User 10-27 19:28 CDT: "没有预算限制，我们整个研究都没有预算限制" (memory feedback-no-budget-limit-1027); 10-27 23:46 and
   10-28 18:32 CDT progress questions went unanswered during the pause; replied 19:0x/19:2x CDT 10-29.

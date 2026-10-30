@@ -24,7 +24,7 @@ for tag in REPO:
         for k, c in row.items():
             cell = f"{tag}-{c}"
             if c.startswith("sadc-"):
-                fs = sorted(glob.glob(f"{R}/baselines/{cell}/stages/eval-sad-1of1-attempt-000-greedy/attempt-*/output/per_task.tsv"))
+                fs = sorted(glob.glob(f"{R}/baselines/{cell}/stages/eval-sad-1of1-attempt-*-greedy/attempt-*/output/per_task.tsv"))
             else:
                 fs = glob.glob(f"{R}/eval/chain/{cell}/{cell}/eval/per_task.tsv")
             if fs:
