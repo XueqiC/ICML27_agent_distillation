@@ -22,8 +22,12 @@ from tools.teacher_takeover import load_spec, _reconcile
 
 
 def _job(job):
-    case, config, spec, output, identity, mode, decoding, seed, dry, caps, ledger_path, from_start, review_template = job
-    budget = SharedTeacherBudget(ledger_path, **caps)
+    case, config, spec, output, identity, mode, decoding, seed, dry, caps, ledger_path, from_start, review_template, *evaluation = job
+    if evaluation:
+        from repair.adapter_eval import NoTeacherBudget
+        budget = NoTeacherBudget(caps)
+    else:
+        budget = SharedTeacherBudget(ledger_path, **caps)
     original = TrajectoryRecord.from_json(case['original'])
     n = 0 if from_start else case['spec']['branch_index']
     if dry:
@@ -39,10 +43,16 @@ def _job(job):
         env_factory=env_factory, student_factory=student_factory,
         reviewer_factory=partial(make_reviewer, config, case['task'], output=output, budget=budget, dry_run=dry,
                                  review_template=review_template),
-        output=output, run_sha256=identity, budget=budget, from_start=from_start, review_template=review_template)
+        output=output, run_sha256=identity, budget=budget, from_start=from_start, review_template=review_template,
+        **({'evaluated_adapter': evaluation[0]} if evaluation else {}))
 
 
 def run(args):
+    eval_adapter = getattr(args, 'eval_adapter', False)
+    if eval_adapter and args.modes != ['U']:
+        raise ValueError('--eval-adapter requires --modes U; G/G1 are forbidden')
+    if not eval_adapter and not args.budget_ledger:
+        raise ValueError('--budget-ledger is required unless --eval-adapter is set')
     prompt = JointPrompt({}, template_version=args.review_template)
     if args.workers < 1 or len(set(args.seeds)) != len(args.seeds) or len(set(args.modes)) != len(args.modes):
         raise ValueError('Positive workers and unique modes/seeds required')
@@ -53,7 +63,14 @@ def run(args):
     if not args.dry_run and not all((args.endpoint, args.server_provenance, args.lora_check,
                                     args.model_name, config['environment']['data_root'])):
         raise ValueError('Real runs require endpoint, server-provenance, lora-check, model-name, data-root')
-    spec = {} if args.dry_run else serving_spec(args, config, cases)
+    if eval_adapter:
+        from repair.adapter_eval import (NoTeacherBudget, PREFIX_VERIFICATION, assert_no_teacher_calls,
+                                         leakage_check, serving_spec as eval_serving_spec)
+        spec, evaluated_adapter, adapter_inputs = eval_serving_spec(args, config)
+        leakage = leakage_check(cases, evaluated_adapter)
+        inputs += adapter_inputs
+    else:
+        spec = {} if args.dry_run else serving_spec(args, config, cases)
     caps = dict(input_tokens=args.max_teacher_input_tokens, output_tokens=args.max_teacher_output_tokens)
     inputs += [str(Path(args.config).resolve()), __file__, 'tools/cg_probe.py', 'tools/teacher_takeover.py']
     if not args.dry_run:
@@ -64,14 +81,17 @@ def run(args):
         input_sha256={str(p): file_hash(p) for p in inputs},
         code_sha256={**code_hashes(root), **{str(p.relative_to(root)): file_hash(p) for p in (root / 'repair').glob('*.py')}},
         dependencies=versions(), dry_run=args.dry_run, from_start=args.from_start, modes=args.modes, seeds=args.seeds,
-        caps=caps, budget_ledger=str(Path(args.budget_ledger).resolve()),
+        caps=caps, budget_ledger=str(Path(args.budget_ledger).resolve()) if args.budget_ledger else None,
         template_version=prompt.template_version, template_sha256=prompt.template_sha256,
         output_cap_including_reasoning=OUTPUT_CAP, H=40,
         student_sampling={'temperature': .7, 'top_p': .95,
                           'seed_rule': 'sha256([sampling_seed, task_id, zero_based_turn])[:8]; regeneration uses same turn'})
+    if eval_adapter:
+        identity.update(eval_adapter=True, evaluated_adapter=evaluated_adapter, leakage_check=leakage,
+                        prefix_verification=PREFIX_VERIFICATION, teacher_calls_allowed=0)
     run_sha = digest(identity)
     # Check the external shared caps before creating a new output directory.
-    budget = SharedTeacherBudget(identity['budget_ledger'], **caps)
+    budget = NoTeacherBudget(caps) if eval_adapter else SharedTeacherBudget(identity['budget_ledger'], **caps)
     if args.resume:
         previous = read_json(output / 'plan.json')['identity']
         if previous['template_version'] != args.review_template:
@@ -90,16 +110,23 @@ def run(args):
             source_evidence=[c['source'] for c in cases], template_version=prompt.template_version,
             template_sha256=prompt.template_sha256), exclusive=True)
     with locked(output / 'run.lock'):
-        _reconcile(output, budget)
+        if eval_adapter:
+            assert_no_teacher_calls([], output)
+        else:
+            _reconcile(output, budget)
         jobs = [({**c, 'original': c['original'].to_json()}, config, spec, str(output), run_sha,
                  mode, decoding, seed, args.dry_run, caps, identity['budget_ledger'], args.from_start, args.review_template)
                 for c in cases for mode in args.modes
                 for decoding, seed in [('greedy', None), *[('sampled', s) for s in args.seeds]]]
+        if eval_adapter:
+            jobs = [(*job, evaluated_adapter) for job in jobs]
         if args.workers == 1:
             rows = [_job(job) for job in jobs]
         else:
             with ProcessPoolExecutor(max_workers=args.workers, mp_context=multiprocessing.get_context('spawn')) as pool:
                 rows = list(pool.map(_job, jobs))
+        if eval_adapter:
+            assert_no_teacher_calls(rows, output)
         report = dict(expected=len(jobs), recorded=len(rows), void=sum(r['void'] for r in rows),
                       global_budget=budget.summary(), run_sha256=run_sha, dry_run=args.dry_run)
         write_json(output / 'completion.json', report)
@@ -212,8 +239,14 @@ def summarize_records(plan, rows):
 def summarize(args):
     root, output = Path(args.rollouts), Path(args.output)
     plan = read_json(root / 'plan.json')
-    result = summarize_records(plan, [read_json(p) for p in sorted((root / 'records').glob('*.json'))])
-    result['global_budget'] = SharedTeacherBudget(plan['identity']['budget_ledger'], **plan['identity']['caps']).summary()
+    rows = [read_json(p) for p in sorted((root / 'records').glob('*.json'))]
+    result = summarize_records(plan, rows)
+    if plan['identity'].get('eval_adapter'):
+        from repair.adapter_eval import NoTeacherBudget, assert_no_teacher_calls
+        assert_no_teacher_calls(rows, root)
+        result['global_budget'] = NoTeacherBudget(plan['identity']['caps']).summary()
+    else:
+        result['global_budget'] = SharedTeacherBudget(plan['identity']['budget_ledger'], **plan['identity']['caps']).summary()
     usages = [usage_summary(p) for p in sorted((root / 'calls').glob('*/*/usage.jsonl'))]
     result['all_attempt_usage'] = {k: sum(u['totals'][k] for u in usages) for k in ('input_tokens', 'output_tokens', 'reasoning_tokens')}
     result['unknown_usage_attempts'] = sum(u['unknown_usage_attempts'] for u in usages)
@@ -235,11 +268,13 @@ def main(argv=None):
     r = sub.add_parser('run')
     r.add_argument('--spec', required=True)
     r.add_argument('--from-start', action='store_true', help='Use the spec task identities but reset to turn zero')
+    r.add_argument('--eval-adapter', action='store_true',
+                   help='Evaluate a LoRA-gated adapter without hints or teacher calls; requires --modes U')
     r.add_argument('--review-template', choices=['joint-review/1', 'joint-review/2'], default=TEMPLATE_VERSION)
     r.add_argument('--modes', nargs='+', choices=['U', 'G', 'G1'], default=['U', 'G', 'G1'])
     r.add_argument('--seeds', nargs='*', type=int, default=list(range(8)), help='Sampled seeds; greedy always runs')
     r.add_argument('--workers', type=int, default=1)
-    r.add_argument('--budget-ledger', required=True)
+    r.add_argument('--budget-ledger', help='Required unless --eval-adapter; untouched in adapter evaluation')
     r.add_argument('--max-teacher-input-tokens', type=int, default=5_000_000)
     r.add_argument('--max-teacher-output-tokens', type=int, default=500_000)
     r.add_argument('--resume', action='store_true')
@@ -252,6 +287,8 @@ def main(argv=None):
     for parser in (r, s):
         parser.add_argument('--output', required=True)
     args = p.parse_args(argv)
+    if args.command == 'run' and not args.eval_adapter and not args.budget_ledger:
+        r.error('the following arguments are required: --budget-ledger')
     return {'run': run, 'summarize': summarize}[args.command](args)
 
 

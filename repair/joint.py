@@ -447,7 +447,12 @@ def usage_summary(path=None):
 
 
 def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_factory,
-                  reviewer_factory, output, run_sha256, budget, from_start=False, review_template=TEMPLATE_VERSION):
+                  reviewer_factory, output, run_sha256, budget, from_start=False, review_template=TEMPLATE_VERSION,
+                  evaluated_adapter=None):
+    if evaluated_adapter is not None:
+        from repair.adapter_eval import PREFIX_VERIFICATION, assert_no_teacher_calls
+        if mode != 'U':
+            raise ValueError('Adapter evaluation requires U mode')
     review_template_text(review_template)
     output = Path(output)
     key = run_key(case['case_id'], mode, decoding, seed)
@@ -458,6 +463,10 @@ def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_
             if (row['run_key'] != key or row['run_sha256'] != run_sha256
                     or row.get('template_version', TEMPLATE_VERSION) != review_template):
                 raise ValueError('Resume identity mismatch')
+            if evaluated_adapter is not None:
+                if row.get('evaluated_adapter') != evaluated_adapter:
+                    raise ValueError('Resume evaluated adapter identity mismatch')
+                assert_no_teacher_calls([row])
             return row
         n = 0 if from_start else case['branch_index']
         row = dict(schema_version=1, run_key=key, run_sha256=run_sha256, case_id=case['case_id'],
@@ -465,6 +474,8 @@ def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_
             decoding=decoding, seed=seed, branch_index=n, prefix_verified=False, void=True,
             void_reason=None, execution=None, success='unknown', metrics=None, steps=[],
             guidance_injections=[], teacher_usage=usage_summary(), training_exposure=0)
+        if evaluated_adapter is not None:
+            row.update(evaluated_adapter=evaluated_adapter, prefix_verification=PREFIX_VERIFICATION)
         # V1 already records the version in each review request and the run plan.
         # Preserve its episode schema/bytes, including U and unrun records.
         if review_template != TEMPLATE_VERSION:
@@ -518,6 +529,8 @@ def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_
                 guidance_injections=[dict(step=i, text=text) for i, text in (policy.injections.items() if policy else [])],
                 teacher_usage=usage_summary(directory / 'usage.jsonl'), budget=ledger.summary(),
                 teacher_stop_reason=budget.summary()['stop_reason'])
+        if evaluated_adapter is not None:
+            assert_no_teacher_calls([row])
         write_json(path, row, exclusive=True)
         return row
 
