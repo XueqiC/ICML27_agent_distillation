@@ -14,15 +14,18 @@ from sed.storage import canonical_bytes, digest, file_hash, write_json
 from test_repair_e2_reader import adapter_fixture
 
 
-def example(tid, source, kind, arm="JOINT", step=1):
+def example(tid, source, kind, arm="JOINT", step=...):
+    if step is ...:
+        step = None if kind == "trajectory" else 1
     visible = {"observation": "You see apple 1.", "admissible_commands": ["look", "take apple 1"]}
     first = "Thought: Check apple 1.\nAction: look"
     messages = build_messages([{"visible": visible, "reply": first}], {}, visible)
     messages.append({"role": "assistant", "content": "Thought: Inspect once more.\nAction: look"})
     evidence = {"episode_ref": f"records/{tid.replace('/', '-')}.json", "step": step,
                 "executor": "teacher" if source in ("offline_teacher", "k20_replay") else "student_after_guidance",
-                "local_event": "target_seen", "episode_success": True,
-                "label_source": "teacher_rationale", "label_check": "passed"}
+                "local_event": None if kind == "trajectory" else "target_seen", "episode_success": True,
+                "label_source": "teacher_reply" if source in ("offline_teacher", "k20_replay") else "teacher_rationale",
+                "label_check": "passed"}
     return {"example_id": digest([arm, source, tid, evidence["episode_ref"], step]),
             "arm": arm, "source": source, "kind": kind, "task_id": tid,
             "group_id": tid.rsplit("/", 1)[0], "task_type": "pick_and_place_simple",
@@ -61,7 +64,7 @@ def corpus(tmp_path, data_root):
     write_json(splits, {"sets": sets})
     root = tmp_path / "dataset"
     rows = [example(f"train/room_a/trial_{i}", "joint_local", "decision") for i in range(2)]
-    replay = [example(f"train/room_b/trial_{i}", "k20_replay", "trajectory", "CONTINUE") for i in range(2)]
+    replay = [example(f"train/room_b/trial_{i}", "k20_replay", "trajectory", "CONTINUE", step=None) for i in range(2)]
     seal_bundle(root, rows, theta, splits)
     seal_bundle(root / "replay", replay, theta, splits, "CONTINUE")
     return {"root": root, "rows": rows, "replay": replay, "theta": theta, "snapshot": snapshot,
@@ -114,7 +117,7 @@ def test_separate_and_inline_replay(corpus):
         row["example_id"] = digest(["JOINT", row["source"], row["task_id"], e["episode_ref"], e["step"]])
     corpus["rows"] += inline
     reseal(corpus)
-    with pytest.raises(ValueError, match="one location"):
+    with pytest.raises(ValueError, match="Duplicate replay"):
         read(corpus)
     shutil.rmtree(corpus["root"] / "replay")
     assert len(read(corpus)["rows"]) == 4
@@ -269,6 +272,337 @@ def test_manifest_corruption(corpus, field, value):
         read(corpus)
 
 
+@pytest.mark.parametrize("bundle", ["", "replay"])
+@pytest.mark.parametrize("fault", [None, "by_source", "by_kind", "by_task_type", "by_local_event",
+                                   "examples", "task_groups", "unique_instances", "unknown", "bool"])
+def test_manifest_rule6_counts(corpus, bundle, fault):
+    # Two trials share a group; null decisions and trajectories do not
+    # contribute to by_local_event. Rule 8 requires null trajectory events.
+    corpus["rows"][0]["evidence"]["local_event"] = None
+    reseal(corpus)
+    seal_bundle(corpus["root"] / "replay", corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    path = corpus["root"] / bundle / "manifest.json"
+    doc = json.loads(path.read_text())
+    info = {"by_local_event": {} if bundle else {"target_seen": 1}, "examples": 2,
+            "task_groups": 1, "unique_instances": 2}
+    # Each informational key is independently optional.
+    for key, value in info.items():
+        single = deepcopy(doc); single["counts"][key] = value
+        write_json(path, single)
+        assert len(read(corpus)["rows"]) == 4
+    doc["counts"].update(info)
+    if fault == "unknown":
+        doc["counts"]["tokens"] = 5
+    elif fault == "bool":
+        doc["counts"]["task_groups"] = True
+    elif fault:
+        doc["counts"][fault] = {"wrong": 1} if fault.startswith("by_") else 99
+    write_json(path, doc)
+    if fault:
+        with pytest.raises(ValueError, match="counts"):
+            read(corpus)
+    else:
+        assert len(read(corpus)["rows"]) == 4
+
+
+@pytest.mark.parametrize("key", ["by_source", "by_kind", "by_task_type"])
+def test_manifest_rule6_required_counts_cannot_be_omitted(corpus, key):
+    path = corpus["root"] / "replay/manifest.json"
+    doc = json.loads(path.read_text()); del doc["counts"][key]; write_json(path, doc)
+    with pytest.raises(ValueError, match="counts keys"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("kind,step,accepted", [("trajectory", None, True), ("trajectory", 0, False),
+    ("decision", 0, True), ("decision", None, False), ("decision", True, False),
+    ("decision", 1.0, False), ("trajectory", -1, False), ("trajectory", "0", False)])
+def test_evidence_step_by_kind(corpus, kind, step, accepted):
+    row = example("train/room_a/trial_0", "joint_local", kind, step=step)
+    row["evidence"].update(local_event=None, executor="teacher", label_source="teacher_reply")
+    corpus["rows"] = [row]; reseal(corpus)
+    if accepted:
+        assert row in read(corpus)["rows"]
+    else:
+        with pytest.raises(ValueError, match="unchecked label evidence"):
+            read(corpus)
+
+
+@pytest.mark.parametrize("kind", ["decision", "trajectory"])
+@pytest.mark.parametrize("field,value", [("executor", "generator"), ("local_event", "unknown"),
+    ("label_source", "teacher_thought"), ("label_check", "unchecked"), ("unknown_field", None)])
+def test_evidence_unknown_fields_and_enums_refused(corpus, kind, field, value):
+    corpus["rows"] = [example("train/room_a/trial_0", "joint_local", kind)]
+    corpus["rows"][0]["evidence"][field] = value
+    reseal(corpus)
+    with pytest.raises(ValueError, match="evidence"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("events,expected", [
+    (["target_seen", "placed", "target_seen"], {"target_seen": 3, "placed": 1}),
+    ([], {"target_seen": 1}),
+])
+def test_rule6_plural_events_count_every_element_and_singular_fallback(corpus, events, expected):
+    corpus["rows"][0]["evidence"].update(local_events=events, local_event=events[0] if events else None)
+    reseal(corpus)
+    path = corpus["root"] / "manifest.json"
+    doc = json.loads(path.read_text())
+    doc["counts"]["by_local_event"] = expected
+    write_json(path, doc)
+    assert len(read(corpus)["rows"]) == 4
+    doc["counts"]["by_local_event"] = {"target_seen": 2}
+    write_json(path, doc)
+    with pytest.raises(ValueError, match="by_local_event"):
+        read(corpus)
+
+
+OPTIONAL_EVIDENCE = [
+    ("local_events", ["target_seen", "placed"]), ("local_events", []),
+    ("complete_success_eligible", True), ("complete_success_eligible", False),
+    *[(field, "aB" * 32) for field in sorted(v2.EVIDENCE_HASH_FIELDS)],
+    ("history_rewrites", [{"original_thought": "AUDIT_ONLY_PRIVATE_TEXT", "replacement": "look"}]),
+    ("history_rewrites", []), ("next_legal_target_take", None),
+    ("next_legal_target_take", 0), ("next_legal_target_take", -1),
+]
+
+
+@pytest.mark.parametrize("field,value", OPTIONAL_EVIDENCE)
+def test_rule8_optional_evidence_is_typed_audit_only(corpus, field, value):
+    row = corpus["rows"][0]
+    row["evidence"][field] = value
+    if field == "local_events":
+        row["evidence"]["local_event"] = value[0] if value else None
+    expected = v2.encode_example(row, v2.FakeTokenizer())
+    reseal(corpus)
+    actual = next(r for r in read(corpus)["rows"] if r["example_id"] == row["example_id"])
+    assert v2.encode_example(actual, v2.FakeTokenizer()) == expected
+    assert "AUDIT_ONLY_PRIVATE_TEXT" not in json.dumps(expected)
+    del row["evidence"][field]
+    assert v2.encode_example(row, v2.FakeTokenizer()) == expected
+
+
+@pytest.mark.parametrize("field,value", [
+    ("local_events", None), ("local_events", "target_seen"), ("local_events", [None]),
+    ("local_events", ["unknown"]), ("local_events", [{}]),
+    ("complete_success_eligible", 1), ("complete_success_eligible", None),
+    ("complete_success_eligible", "true"),
+    *[(field, bad) for field in sorted(v2.EVIDENCE_HASH_FIELDS)
+      for bad in (None, 64, "a" * 63, "g" * 64)],
+    ("history_rewrites", {}), ("history_rewrites", ["text"]), ("history_rewrites", [None]),
+    ("next_legal_target_take", True), ("next_legal_target_take", 1.0),
+    ("next_legal_target_take", "1"),
+])
+def test_rule8_bad_optional_types_refused(corpus, field, value):
+    corpus["rows"][0]["evidence"][field] = value
+    reseal(corpus)
+    with pytest.raises(ValueError, match="decision evidence"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("event,events", [("target_seen", ["placed", "target_seen"]),
+    (None, ["target_seen"]), ("target_seen", [])])
+def test_rule8_bad_local_event_pairing_refused(corpus, event, events):
+    corpus["rows"][0]["evidence"].update(local_event=event, local_events=events)
+    reseal(corpus)
+    with pytest.raises(ValueError, match="local_events"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("field,value", OPTIONAL_EVIDENCE)
+def test_rule8_optional_fields_only_allowed_on_decisions(corpus, field, value):
+    corpus["replay"][0]["evidence"][field] = value
+    seal_bundle(corpus["root"] / "replay", corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    with pytest.raises(ValueError, match="evidence schema"):
+        read(corpus)
+
+
+def test_rule8_trajectory_local_event_must_be_null(corpus):
+    corpus["replay"][0]["evidence"]["local_event"] = "target_seen"
+    seal_bundle(corpus["root"] / "replay", corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    with pytest.raises(ValueError, match="unchecked label evidence"):
+        read(corpus)
+
+
+def test_rule7_continue_root_and_replay_keep_origins_and_common_draw(corpus):
+    other = read(corpus)
+    seal_bundle(corpus["root"], corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    assert (corpus["root"] / "examples.jsonl").read_bytes() == (corpus["root"] / "replay/examples.jsonl").read_bytes()
+    data = read(corpus)
+    assert len(data["rows"]) == 4
+    assert data["pools"] == v2.training_pools(data["rows"], arm="CONTINUE", root_count=2)
+    draws = []
+    for d in (other, data):
+        batches = v2.batch_schedule(d["rows"], updates=2, batch_examples=16, replay_ratio=.25,
+                                   seed=0, arm=d["arm"], pools=d["pools"])
+        draws.append([[(i, s["replay_key"], s["pool_epoch"]) for i, s in enumerate(b["selections"])
+                       if s["pool"] == "replay"] for b in batches])
+        for batch in batches:
+            assert Counter(s["pool"] for s in batch["selections"]) == {"new": 12, "replay": 4}
+            if d is data:
+                for s in batch["selections"]:
+                    path = corpus["root"] / ("replay/examples.jsonl" if s["pool"] == "replay" else "examples.jsonl")
+                    assert data["origins"][s["index"]] == str(path)
+    assert draws[0] == draws[1]
+
+
+@pytest.mark.parametrize("arm", sorted(set(v2.ARMS) - {"CONTINUE"}))
+def test_rule7_other_arms_refuse_row_in_both_pools(corpus, arm):
+    rows = deepcopy(corpus["replay"])
+    for row in rows:
+        row["arm"] = arm
+        e = row["evidence"]
+        row["example_id"] = digest([arm, row["source"], row["task_id"], e["episode_ref"], e["step"]])
+    seal_bundle(corpus["root"], rows, corpus["theta"], corpus["splits"], arm)
+    with pytest.raises(ValueError, match="Duplicate replay"):
+        read(corpus)
+
+
+@pytest.fixture
+def external_corpus(corpus):
+    """Method freeze and source shapes emitted by E0.4; fabricated members only."""
+    c = corpus
+    doc = json.loads(c["splits"].read_text())
+    root = c["root"].parent / "producer"
+    repair = root / "data/manifest/repair_v01_splits.json"
+    dev = root / "data/manifest/dev140.json"
+    write_json(repair, {"sets": {name: doc["sets"].pop(name) for name in
+                                ("U_mech", "D_probe", "D_unseen_quick")}})
+    del doc["sets"]["dev140"]
+    frozen = json.loads(Path(c["config"]["paths"]["manifest"]).read_text())
+    dev_tasks = [r["task_id"] for r in frozen["tasks"] if r["source_split"] == "valid_seen"]
+    assert dev_tasks
+    write_json(dev, {"task_ids": dev_tasks})
+    doc["rebuild_arguments"] = {"repair_splits": str(repair.relative_to(root)),
+        "dev140": str(dev.relative_to(root)), "output": "data/manifest/method_v1_splits.json"}
+    doc["exclusion_sources"] = [{"category": category, "path": str(path.relative_to(root)),
+        "sha256": file_hash(path)} for category, path in
+        [(name, repair) for name in ("U_mech", "D_probe", "D_unseen_quick")] + [("dev140", dev)]]
+    doc["input_sha256"] = {str(p.relative_to(root)): file_hash(p) for p in (repair, dev)}
+    c["splits"].unlink()
+    c.update(splits=root / doc["rebuild_arguments"]["output"], repair_splits=repair, dev140=dev)
+    write_json(c["splits"], doc)
+    reseal(c)
+    seal_bundle(c["root"] / "replay", c["replay"], c["theta"], c["splits"], "CONTINUE")
+    return c
+
+
+def refreeze_external(c):
+    doc = json.loads(c["splits"].read_text())
+    for record in doc["exclusion_sources"]:
+        key = "dev140" if record["category"] == "dev140" else "repair_splits"
+        record["sha256"] = file_hash(c[key])
+        doc["input_sha256"][record["path"]] = record["sha256"]
+    write_json(c["splits"], doc)
+    reseal(c)
+    seal_bundle(c["root"] / "replay", c["replay"], c["theta"], c["splits"], "CONTINUE")
+
+
+@pytest.mark.parametrize("source", ["repair_splits", "dev140"])
+@pytest.mark.parametrize("fault", ["missing", "altered", "unrecorded", "conflicting_hash"])
+def test_external_split_sources_fail_closed(external_corpus, source, fault, monkeypatch):
+    c = external_corpus
+    assert {c["repair_splits"], c["dev140"]} <= set(read(c)["inputs"])
+    def forbidden(*_, **__):
+        raise AssertionError("Must reject sources before allocating a tokenizer/model")
+    monkeypatch.setattr(v2, "FakeTokenizer", forbidden)
+    if fault == "missing":
+        c[source].unlink()
+    elif fault == "altered":
+        c[source].write_bytes(c[source].read_bytes() + b" ")
+    else:
+        doc = json.loads(c["splits"].read_text())
+        record = next(r for r in doc["exclusion_sources"] if r["path"] == doc["rebuild_arguments"][source])
+        if fault == "unrecorded":
+            del record["sha256"]
+        else:
+            record["sha256"] = "f" * 64
+        write_json(c["splits"], doc)
+        reseal(c)
+        seal_bundle(c["root"] / "replay", c["replay"], c["theta"], c["splits"], "CONTINUE")
+    with pytest.raises(ValueError, match="missing file|sha256"):
+        run(c, c["root"].parent / "refused")
+
+
+@pytest.mark.parametrize("name", ["V2_pool", *v2.FORBIDDEN_SETS])
+def test_external_missing_set_is_not_empty(external_corpus, name):
+    c = external_corpus
+    path = c["splits"] if name in ("V2_pool", "U_dev") else c["dev140"] if name == "dev140" else c["repair_splits"]
+    doc = json.loads(path.read_text())
+    if name == "dev140":
+        del doc["task_ids"]
+    else:
+        del doc["sets"][name]
+    write_json(path, doc); refreeze_external(c)
+    with pytest.raises(ValueError, match="missing|must include|task_ids"):
+        read(c)
+
+
+@pytest.mark.parametrize("name", ["U_mech", "D_probe", "D_unseen_quick", "dev140"])
+def test_external_diagnostic_groups_are_excluded(external_corpus, name):
+    c = external_corpus
+    path = c["dev140"] if name == "dev140" else c["repair_splits"]
+    doc = json.loads(path.read_text())
+    if name == "dev140":
+        # Deriving dev140 groups must exclude sibling trials too.
+        doc["task_ids"] = ["train/room_a/trial_1"]
+    else:
+        doc["sets"][name]["group_ids"] = ["train/room_a"]
+    write_json(path, doc); refreeze_external(c)
+    with pytest.raises(ValueError, match="diagnostic group"):
+        read(c)
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_external_sources_relocate_and_cli_hash_checks(external_corpus, tmp_path_factory, capsys, explicit):
+    from tools import train_v2_arm as cli
+    from repair.v2_inputs import inspect_inputs
+    c = external_corpus
+    before = read(c)
+    cfg = c["root"].parent / "config.json"; write_json(cfg, c["config"])
+    overrides = {}
+    if explicit:
+        for key in ("repair_splits", "dev140"):
+            replacement = c["root"].parent / (key + "-copy.json")
+            c[key].rename(replacement)
+            overrides[key] = replacement
+    old, new, rules = move_corpus(c, tmp_path_factory)
+    after = v2.read_dataset(c["root"], theta0=c["theta"], config=c["config"], relocate=rules, **overrides)
+    assert after["rows"] == before["rows"] and after["manifests"] == before["manifests"]
+    inspected = inspect_inputs(c["root"], relocate=rules, **overrides)
+    assert set(inspected["split_sources"].values()) <= inspected["files"].files.keys()
+    assert all(inspected["files"].files[p]["seals"] for p in inspected["split_sources"].values())
+    args = ["inputs", "--dataset", str(c["root"]), "--config", str(cfg), "--relocate", rules[0], "--check"]
+    for key, path in overrides.items():
+        args += ["--" + key.replace("_", "-"), str(path)]
+    assert cli.main(args) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "verified"
+    inspected["split_sources"]["dev140"].write_text("{}")
+    assert cli.main(args) == 1
+    assert "dev140 source sha256 mismatch" in capsys.readouterr().err
+
+
+def test_cli_run_with_explicit_external_sources(external_corpus, capsys):
+    from tools import train_v2_arm as cli
+    import torch
+    torch.set_num_threads(1)
+    c = external_corpus
+    cfg = c["root"].parent / "config.json"; write_json(cfg, c["config"])
+    out = c["root"].parent / "external-cli-run"
+    args = ["run", "--dataset", str(c["root"]), "--theta0", str(c["theta"]),
+        "--snapshot", str(c["snapshot"]), "--config", str(cfg), "--output", str(out),
+        "--updates", "1", "--batch-examples", "4", "--replay-ratio", ".25",
+        "--checkpoints", "1", "--gpus", "1", "--dry-run"]
+    for key in ("repair_splits", "dev140"):
+        replacement = c["root"].parent / (key + "-copy.json")
+        c[key].rename(replacement)
+        args += ["--" + key.replace("_", "-"), str(replacement)]
+    assert cli.main(args) == 0, capsys.readouterr().err
+    result = json.loads((out / "manifest.json").read_text())
+    assert result["status"] == "synthetic_complete" and result["training_exposure"] == 0
+    inputs = json.loads((out / "provenance.json").read_text())["inputs"]
+    assert inputs[str(replacement)] == file_hash(replacement)
+
+
 def test_hashes_theta0_and_json_refusals(corpus):
     weights = corpus["theta"] / "adapter_model.safetensors"
     original = weights.read_bytes()
@@ -282,7 +616,7 @@ def test_hashes_theta0_and_json_refusals(corpus):
         read(corpus)
     reseal(corpus)
     (corpus["splits"]).write_text("{}")
-    with pytest.raises(ValueError, match="input sha256"):
+    with pytest.raises(ValueError, match="Split freeze sha256 mismatch"):
         read(corpus)
     with pytest.raises(ValueError, match="Duplicate"):
         v2._json('{"key":1,"key":2}')
@@ -468,6 +802,85 @@ def test_dry_run_real_updates_manifests_and_determinism(corpus, tmp_path, monkey
     assert first["accounting"]["supervised_target_tokens"] == first["trainer_state"]["supervised_tokens_seen"]
     with pytest.raises(ValueError, match="Output already exists"):
         run(corpus, tmp_path / "first")
+
+
+class SnapshotTokenizerStub(v2.FakeTokenizer):
+    """Offline stand-in with IDs outside the byte model's 512-token vocabulary."""
+    chat_template = "snapshot-tokenizer-stub"
+
+    def encode(self, text, **kwargs):
+        return [token if token == 106 else token + 1000 for token in super().encode(text, **kwargs)]
+
+    def decode(self, ids, **kwargs):
+        return super().decode([token if token == 106 else token - 1000 for token in ids], **kwargs)
+
+    def convert_tokens_to_ids(self, token):
+        assert token == "<turn|>"
+        return 106
+
+
+def test_snapshot_dry_run_cli_offline_tokenizer_no_weights(corpus, tmp_path, monkeypatch):
+    from tools import train_v2_arm as cli
+    import torch
+    from transformers import AutoTokenizer
+    torch.set_num_threads(1)
+    calls = []
+    tokenizer = SnapshotTokenizerStub()
+    def load(path, **kwargs):
+        assert Path(path) == corpus["snapshot"]
+        assert kwargs == {"local_files_only": True, "trust_remote_code": False}
+        calls.append(path)
+        return tokenizer
+    def forbidden(*_, **__):
+        raise AssertionError("Snapshot dry run must not load model or optimizer weights")
+    monkeypatch.setattr(AutoTokenizer, "from_pretrained", load)
+    monkeypatch.setattr(v2, "load_existing_adapter", forbidden)
+    monkeypatch.setattr(torch, "load", forbidden)
+    cfg = tmp_path / "config.json"
+    write_json(cfg, corpus["config"])
+    out = tmp_path / "snapshot-run"
+    assert cli.main(["run", "--dataset", str(corpus["root"]), "--theta0", str(corpus["theta"]),
+        "--snapshot", str(corpus["snapshot"]), "--config", str(cfg), "--output", str(out),
+        "--updates", "2", "--batch-examples", "16", "--replay-ratio", ".25", "--seed", "0",
+        "--checkpoints", "1", "2", "--gpus", "1", "--dry-run", "--dry-run-tokenizer", "snapshot"]) == 0
+    result = json.loads((out / "manifest.json").read_text())
+    assert len(calls) == 1
+    assert result["status"] == "synthetic_complete" and result["training_exposure"] == 0
+    assert result["dry_run_tokenizer"] == "snapshot" and result["tokenizer"]["synthetic"] is False
+    assert result["tokenizer"]["chat_template_sha256"] == digest(tokenizer.chat_template)
+    assert [c["update"] for c in result["checkpoints"]] == [0, 1, 2]
+    examples = [v2.encode_example(r, tokenizer) for r in read(corpus)["rows"]]
+    assert result["encoded_examples_sha256"] == digest(examples)
+    scoring, vocabulary = v2.fake_scoring_examples(examples)
+    assert result["fake_scoring_vocabulary"] == vocabulary and max(vocabulary) > 512
+    assert result["scoring_examples_sha256"] == digest(scoring)
+    assert result["trainable_parameter_count"] == len(vocabulary) + 1
+    for before, after in zip(examples, scoring):
+        for a, b in zip(before["turns"], after["turns"]):
+            assert a["input_ids"] == [vocabulary[i] for i in b["input_ids"]]
+            assert a["labels"] == [-100 if i == -100 else vocabulary[i] for i in b["labels"]]
+            assert {k: v for k, v in a.items() if k not in ("input_ids", "labels")} == {
+                k: v for k, v in b.items() if k not in ("input_ids", "labels")}
+    prov = json.loads((out / "provenance.json").read_text())
+    assert prov["config"]["v2_training"]["dry_run_tokenizer"] == "snapshot"
+    assert prov["config"]["models"]["student"]["requested_repo"] == "synthetic/v2-tiny-fake"
+
+
+def test_snapshot_dry_run_enforces_inherited_context_limit(corpus, tmp_path, monkeypatch):
+    monkeypatch.setattr("train.dataset.load_tokenizer", lambda _: SnapshotTokenizerStub())
+    original = v2.continuation_recipe
+    def short_recipe(*args):
+        inherited = original(*args)
+        inherited["recipe"]["max_length"] = 8
+        return inherited
+    def forbidden(*_, **__):
+        raise AssertionError("Context overflow must fail before model allocation")
+    monkeypatch.setattr(v2, "continuation_recipe", short_recipe)
+    monkeypatch.setattr(v2, "fake_model", forbidden)
+    out = tmp_path / "overflow"
+    with pytest.raises(ValueError, match="max_length=8; no truncation"):
+        run(corpus, out, dry_run_tokenizer="snapshot")
+    assert not out.exists()
 
 
 def test_serving_checkpoint_export_keeps_original_lora(corpus, tmp_path):

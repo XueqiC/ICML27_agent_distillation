@@ -212,8 +212,57 @@ def training_view_inputs(files, source):
     return view
 
 
+def split_source_inputs(files, splits, split_doc, *, repair_splits=None, dev140=None):
+    """Follow only the hash-bound diagnostic sources named by the method freeze."""
+    sets = split_doc.get("sets", {})
+    require(isinstance(sets, dict) and {"V2_pool", "U_dev"} <= sets.keys(),
+            "Method split freeze must include V2_pool and U_dev")
+    # Preserve the previously supported self-contained frozen split format.
+    # Once external sources are recorded, inline sets cannot bypass their seals.
+    if (set(FORBIDDEN_SETS) <= sets.keys() and "exclusion_sources" not in split_doc
+            and "rebuild_arguments" not in split_doc and repair_splits is None and dev140 is None):
+        return {}
+    records, arguments = split_doc.get("exclusion_sources"), split_doc.get("rebuild_arguments")
+    require(isinstance(records, list) and isinstance(arguments, dict),
+            "Missing hash-bound diagnostic split sources")
+    result = {}
+    for key, override, categories in (("repair_splits", repair_splits, ("U_mech", "D_probe", "D_unseen_quick")),
+                                       ("dev140", dev140, ("dev140",))):
+        original = arguments.get(key)
+        require(isinstance(original, str) and original, f"Missing {key} source path")
+        seals = set()
+        for category in categories:
+            matches = [r for r in records if isinstance(r, dict) and r.get("category") == category]
+            require(matches and all(r.get("path") == original and _sha(r.get("sha256")) for r in matches),
+                    f"Missing or conflicting {category} source sha256")
+            seals.update(r["sha256"] for r in matches)
+        require(len(seals) == 1, f"Conflicting {key} source sha256")
+        sha = next(iter(seals))
+        recorded = split_doc.get("input_sha256", {}).get(original, sha)
+        require(recorded == sha, f"Conflicting {key} source sha256")
+        if override is not None:
+            path = files.relocation.path(override)
+        elif Path(original).is_absolute():
+            path = files.relocation.path(original)
+        else:
+            # Rebuild paths are relative to the producer project, not to its
+            # data/manifest directory or the consumer's current directory.
+            output = arguments.get("output")
+            require(isinstance(output, str) and output and not Path(output).is_absolute()
+                    and ".." not in Path(output).parts and ".." not in Path(original).parts,
+                    "Relative split sources require a relative rebuild output path")
+            tail = Path(output).parts
+            require(tuple(splits.parts[-len(tail):]) == tail,
+                    "Cannot locate split source root; provide --repair-splits and --dev140")
+            project = splits.parents[len(tail) - 1]
+            # splits is already relocated: do not apply a second substitution.
+            path = files.relocation.local(project / original)
+        result[key] = files.add(path, sha, original=original, reason=f"{key} source sha256 mismatch")
+    return result
+
+
 def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=None,
-                   splits=None, inputs=(), check=True, runtime=True):
+                   splits=None, repair_splits=None, dev140=None, inputs=(), check=True, runtime=True):
     """Inventory and verify bytes only; no tokenizer, model or training imports.
 
     Snapshot defaults to the sealed tokenizer location, then theta0's recorded
@@ -255,12 +304,24 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
             local_config["paths"][key] = str(files.reference(config["paths"][key]))
     for path in inputs:
         files.reference(path)
-    if splits is not None:
+    if splits is None:
+        candidates = [name for name in bundles[0]["manifest"]["inputs"]
+                      if Path(name).name == "method_v1_splits.json"]
+        require(len(candidates) == 1, "Provide --splits or a hashed method_v1_splits.json input")
+        splits = files.reference(candidates[0], root=root)
+    else:
         splits = files.reference(splits)
-        for bundle in bundles:
-            files.add(splits, bundle["manifest"]["splits_sha256"], reason="Split freeze sha256 mismatch")
+    for bundle in bundles:
+        require(splits in {relocation.path(name, root=bundle["root"]) for name in bundle["manifest"]["inputs"]},
+                "Split freeze must be an interchange input")
+        files.add(splits, bundle["manifest"]["splits_sha256"], reason="Split freeze sha256 mismatch")
+    if check:
+        files.verify()
+    require(splits.is_file(), "Input listing requires local method split metadata")
+    split_doc = read_json(splits)
+    split_sources = split_source_inputs(files, splits, split_doc, repair_splits=repair_splits, dev140=dev140)
     result = {"files": files, "bundles": bundles, "theta0": theta0,
-              "config": local_config, "splits": splits}
+              "config": local_config, "splits": splits, "split_sources": split_sources}
     if not runtime:
         if check:
             files.verify()
@@ -295,14 +356,8 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
     for path in sorted(snapshot.rglob("*")):
         if path.is_file() or path.is_symlink():
             files.add(path)
-    candidates = ([splits] if splits is not None else [relocation.path(name, root=root)
-                  for name in bundles[0]["manifest"]["inputs"] if Path(name).name == "method_v1_splits.json"])
-    if len(candidates) == 1 and candidates[0].is_file():
-        sets = read_json(candidates[0]).get("sets", {})
-        # A split lacking required sets is refused before K20 in read_dataset.
-        # Hash-only inspection still works for such older producer bundles.
-        if {"V2_pool", *FORBIDDEN_SETS} <= sets.keys() and "K20" not in sets:
-            training_view_inputs(files, source)
+    if "K20" not in split_doc["sets"]:
+        training_view_inputs(files, source)
     if check:
         files.verify()
     return {**result, "snapshot": snapshot, "theta0_provenance": source}

@@ -24,16 +24,28 @@ world size one, without creating a process group. Existing torchrun workers
 are recognized and never recursively launch. No GPU allocation is requested
 by this tool; the caller supplies the devices and the grid runtime.
 
-Add `--dry-run` for one CPU process with an explicit byte tokenizer and a
-513-parameter fake model. This executes the shared scorer, backward, AdamW,
-scheduler, batch accounting and checkpoint exporter. It never loads the real
-base, adapter tensors, tokenizer, or optimizer tensors. Theta0 metadata and
-hashes are still validated. Fake checkpoints have a `synthetic/v2-tiny-fake`
+Add `--dry-run` for one CPU process with a tiny fake model. The default
+`--dry-run-tokenizer bytes` keeps the explicit byte tokenizer and 513-parameter
+model. `--dry-run-tokenizer snapshot` loads only the real tokenizer from the
+local `--snapshot`, using `local_files_only=True` and `trust_remote_code=False`.
+It uses the unchanged production encoder and inherited `max_length`, refusing
+overlong contexts without truncation. After validation, a bijective vocabulary
+compaction makes the synthetic projection small enough for CPU scoring; it
+preserves every token distinction, length, boundary and mask. The original
+encoded-example hash, scoring-example hash, vocabulary mapping and tokenizer
+file/template hashes are recorded. Only the fake projection's vocabulary size
+changes; no pretrained model is loaded.
+
+Both modes execute the shared scorer, backward, AdamW, scheduler, batch
+accounting and checkpoint exporter. Neither loads real base, adapter, or
+optimizer tensors. Theta0 metadata and hashes are still validated. Fake
+checkpoints have a `synthetic/v2-tiny-fake`
 identity, `synthetic: true`, and `synthetic_saved` status; they are not E4B
 adapters. Their artifact structure passes the serving identity inspector,
 but they cannot be served as E4B. Real training exposure stays zero; fake
-exposure is recorded separately. Dry-run token counts use the fake tokenizer
-and must not be reported as E4B token counts. Dry-run with `--gpus 2` still
+exposure is recorded separately. Byte-mode counts are synthetic; snapshot-mode
+lengths use the real tokenizer, while losses and updates remain synthetic.
+Dry-run with `--gpus 2` still
 uses one CPU; production padding estimates are available through `accounting`.
 
 Outputs must be new directories outside the sealed dataset, theta0 and base
@@ -76,7 +88,9 @@ theta0 metadata must be local, so list on the source host before transfer.
 Theta0 defaults to the sealed `adapter_path`. Snapshot defaults to the sealed
 tokenizer path, then theta0's recorded base path. Config defaults to the same
 `configs/base_e4b.yaml` as `run`; supply the run's exact overrides for a matching
-inventory. `--theta0`, `--snapshot`, `--config`, and `--splits` accept relocation.
+inventory. `--theta0`, `--snapshot`, `--config`, `--splits`, `--repair-splits`,
+and `--dev140` accept relocation. Diagnostic split sources are included in the
+inventory with their method-freeze SHA256 seals.
 
 On the destination, use `inputs --dataset /local/OFFLINE --check` with the same
 config/snapshot overrides and relocation flags. This reads all recorded file
@@ -104,13 +118,20 @@ Each bundle has the contract's `examples.jsonl`, `examples.sha256`, and
 whitelists. JSON duplicate keys and nonfinite values are refused. The reader
 checks example byte hashes, sorted unique canonical IDs, counts, supervised
 turn totals, exposure groups, hashed input files and theta0's weight hash.
+Under spec rule 6, `counts.by_source`, `by_kind`, and `by_task_type` are required
+and must equal recomputed counts. Optional `by_local_event` counts every element
+of `evidence.local_events` over decisions only, including repeated elements.
+When the list is absent it counts `evidence.local_event`, omitting null.
+`examples` counts rows,
+`task_groups` distinct group IDs, and `unique_instances` distinct task IDs.
+Each is checked when present, separately for root and replay. Other count keys
+are refused.
 All hash references must be available locally. Relative `inputs` paths are
 relative to their bundle; absolute paths are used directly. No path is
 silently relocated. List/object seals use `sed.storage.digest` (sorted-key,
 compact UTF-8 JSON); file seals, including `splits_sha256`, hash raw bytes.
 
-The spec lists `k20_replay` but does not specify a `replay/` layout. This
-consumer accepts either of these explicit representations:
+The consumer accepts these explicit replay representations:
 
 - A separately sealed interchange bundle at `dataset/replay/`, containing
   only `k20_replay` rows (normally arm `CONTINUE`). Its split and theta0 hashes
@@ -119,14 +140,27 @@ consumer accepts either of these explicit representations:
 - Contract-format replay rows directly in root `examples.jsonl`, with the
   root arm. They are partitioned into the replay pool by source.
 
-Mixing both representations is refused. Repeated replay content is refused
-by the sampler. Replay sampling order ignores the arm-dependent example ID.
+Under rule 7, CONTINUE root and `replay/` may be byte-identical K20 pools.
+The arm share is drawn from root and the replay share from `replay/`, retaining
+both file origins and independent epoch streams. The replay draw uses the same
+seeded sequence as every other arm. For other arms a row in both pools is
+refused. Repeated content within either sampling pool is refused. Replay
+sampling order ignores the arm-dependent example ID.
 
 The frozen method split file is taken from the hashed input named
 `method_v1_splits.json`, or explicitly supplied with `--splits`. It must still
-be a hashed input of every bundle. Its `sets` uses this repository's existing
-split representation: each set has `task_ids` and `group_ids`. Required sets
-are `V2_pool`, `U_dev`, `U_mech`, `D_probe`, `D_unseen_quick`, and `dev140`.
+be a hashed input of every bundle. The real method freeze contains `V2_pool`
+and `U_dev`, each with `task_ids` and `group_ids`. `U_mech`, `D_probe`, and
+`D_unseen_quick` are read from `repair_v01_splits.json`; dev140 task IDs come
+from `dev140.json`, with groups resolved through the configured frozen manifest.
+Both source files must match the SHA256 recorded by the method freeze's
+`exclusion_sources` and paths in `rebuild_arguments`. Relative rebuild paths
+are resolved from the producer project using `rebuild_arguments.output`, not
+from the consumer's working directory. `--repair-splits` and `--dev140` can
+specify local copies on both `run` and `inputs`, but cannot override the seals.
+Missing sources, missing sets, or changed bytes are refused; none are treated
+as empty. Previously supported self-contained method freezes with every set
+inline remain valid; recorded external sources always require verification.
 Replay membership comes from `sets.K20` when present; otherwise the reader
 loads theta0's original hash-bound verified K20 view through the existing
 local evidence reader. Every task's group/type and TRAIN eligibility are also
@@ -140,6 +174,20 @@ text is accepted in any message. Every assistant turn must parse. Decision
 indices must identify exactly the last assistant message; its action must be
 admissible in the preceding user turn, and its label instance references must
 already occur in the prefix. Only `label_check: passed` labels are accepted.
+Evidence requires `episode_ref`, `step`, `executor`, `local_event`,
+`episode_success`, `label_source`, and `label_check`. A trajectory requires null
+`step` and `local_event`; a decision requires a nonnegative integer `step`.
+The spec's executor, local-event and label-source enums apply to both kinds.
+
+Rule 8 permits optional decision evidence: `local_events` is a list of non-null
+local-event enum values; `complete_success_eligible` is a bool;
+`public_prefix_sha256`, `fact_state_sha256`, `facts_before_sha256`, and
+`facts_after_sha256` are 64-hex strings; `history_rewrites` is a list of objects;
+`next_legal_target_take` is an int or null (bool is refused). If `local_events`
+is present, `local_event` must equal its first element, or null for an empty
+list. These fields remain audit-only and never enter encoded model inputs.
+Any other extra evidence field is refused, as are optional decision fields
+on trajectories.
 
 Under the 2026-10-27 spec revision (rules 2, 4 and 5), trajectory indices must
 identify every assistant message, and OFFLINE, CONTINUE and K20 replay
@@ -273,7 +321,7 @@ CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python \
   -m pytest -q tests/test_v2_train.py tests/test_repair_*.py
 ```
 
-Relocation verification: **501 passed** in the combined suite, with the same
+Earlier relocation verification: **501 passed** in the combined suite, with the same
 four existing PEFT warnings. The final targeted invocation of
 `CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python
 -m pytest -q tests/test_v2_train.py` passed **95 tests**. This includes 20 new
@@ -285,10 +333,58 @@ The no-relocation `inputs --check` on
 `/home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/method_v1/v2_data/OFFLINE`
 passed: **18,212 file paths present; 18,196 distinct files verified against
 recorded SHA256 seals**, including replay and the default run config inputs.
-This is a file-integrity check, not training-schema acceptance: that producer
-bundle has extra count fields and lacks the training reader's required split
-sets, and some evidence steps are null. Those existing protocol checks remain
-unchanged. No real training, API calls, commits or pushes were performed.
+This was a file-integrity check, not training-schema acceptance. At that
+revision, the reader rejected the producer's informational count fields,
+external diagnostic split sources, and null trajectory steps. The current
+reader fixes those three mismatches as described above.
+
+Earlier rule 6 / split-source / evidence verification: **171 passed** with
+`CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python
+-m pytest -q tests/test_v2_train.py`. Coverage includes optional count fields
+in both bundles, unknown/missing/wrong counts, null trajectory versus integer
+decision steps, undefined evidence fields/enums, missing or altered split
+sources, missing sets, diagnostic group exclusion, explicit source overrides,
+relocation, input inventories and a synthetic CLI update using external sources.
+
+The 2026-10-30 rule 6/7/8 revision resolves the former plural-event,
+CONTINUE-layout and optional-evidence blockers. Snapshot-tokenizer dry runs
+address the byte-tokenizer context overflow without truncation or a limit
+change. Theta0's original K20 view needs
+the explicit local mapping
+`--relocate /ddnB/work/xueqic/hq/ICML27_data=/home/xueqi/hq/projects/ICML27_agent_distillation/data`.
+
+Current targeted verification: **226 passed** with the same CUDA-disabled
+pytest command above. New cases cover every plural event (including repeats),
+singular fallback, empty lists, CONTINUE root/replay origins and shared seeded
+draws, overlap refusal in all other arms, every optional evidence field's type,
+local-event pairing, unknown fields, trajectory null requirements, and offline
+snapshot-tokenizer dry runs without model/optimizer loading. Byte mode remains
+the default and retains its 513-parameter fake model.
+
+Real snapshot-tokenizer length profiling uses the longest production turn
+context per trajectory, with nearest-rank p95. All contexts fit the inherited
+32,768 limit; no context was truncated.
+
+| Pool | Trajectories | Max tokens | p95 tokens |
+|---|---:|---:|---:|
+| OFFLINE root | 200 | 15,967 | 11,309 |
+| K20 replay / CONTINUE root | 20 | 16,759 | 9,405 |
+| OFFLINE root plus replay | 220 | 16,759 | 11,309 |
+
+CONTINUE's two files contain the same 20 trajectories, unique instances and
+task groups; 40 stored rows do not create 40 independent examples. The
+per-trajectory measurements and acceptance artifacts are under
+`/tmp/claude-1010/-home-xueqi-hq-projects-tc-alignment/035c9823-fbb5-436e-b37c-069b2060bb62/scratchpad/e05_dry/reader_validation_20261030_02/`.
+
+Both real-bundle CLI acceptance runs passed with `--dry-run-tokenizer snapshot`,
+2 updates, B=16, replay ratio 0.25, checkpoints 1 and 2, seed 0, and `--gpus 1`.
+The sibling outputs are `OFFLINE_reader_snapshot_01/` and
+`CONTINUE_reader_snapshot_01/`. Each run records 32 synthetic exposures and
+zero real training exposure. The replay draws match across arms, and CONTINUE
+uses 12 root selections plus 4 `replay/` selections per batch. The report
+records commands, byte hashes, update logs, checkpoint checks and provenance;
+these remain synthetic smoke results, with no pretrained model weights loaded.
+Nothing was committed.
 
 Rules 2/4/5 revision verification: **481 passed**, including 75 V2 tests;
 four existing PEFT warnings concern missing base-config paths for synthetic

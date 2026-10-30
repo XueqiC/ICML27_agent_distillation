@@ -27,6 +27,8 @@ def main(argv=None):
     run.add_argument("--seed", type=int, default=1)
     run.add_argument("--gpus", type=int, choices=(1, 2), required=True)
     run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--dry-run-tokenizer", choices=("bytes", "snapshot"), default="bytes",
+                     help="Dry-run tokenizer: synthetic bytes (default), or offline snapshot tokenizer with the tiny fake model")
     inventory = sub.add_parser("inputs", help="List local dependencies or verify their byte hashes on CPU")
     inventory.add_argument("--dataset", required=True)
     for name in ("theta0", "snapshot", "splits", "output"):
@@ -36,6 +38,8 @@ def main(argv=None):
     mode.add_argument("--list", action="store_true", help="Print a grouped JSON file inventory with byte sizes")
     mode.add_argument("--check", action="store_true", help="Verify presence and SHA256 only; never load a model")
     for command in (run, inventory):
+        command.add_argument("--repair-splits", help="Diagnostic repair split source; still checked against the method freeze hash")
+        command.add_argument("--dev140", help="dev140 source; still checked against the method freeze hash")
         command.add_argument("--relocate", action="append", default=[], metavar="OLD=NEW",
                              help="Explicit absolute directory-prefix relocation (repeatable)")
     values = list(sys.argv[1:] if argv is None else argv)
@@ -56,6 +60,7 @@ def main(argv=None):
         if args.command == "inputs":
             inspected = inspect_inputs(args.dataset, theta0=args.theta0, relocate=relocation,
                 snapshot=args.snapshot, config=config, splits=args.splits,
+                repair_splits=args.repair_splits, dev140=args.dev140,
                 inputs=[args.config] if args.config else [], check=args.check)
             files = inspected["files"]
             result = files.listing() if args.list else {"schema": "v2-training-inputs/1", "status": "verified",
@@ -75,7 +80,9 @@ def main(argv=None):
         run_arm(args.dataset, config, args.output, theta0=args.theta0, snapshot=args.snapshot,
             updates=args.updates, batch_examples=args.batch_examples, replay_ratio=args.replay_ratio,
             checkpoints=args.checkpoints, seed=args.seed, gpus=args.gpus, dry_run=args.dry_run,
-            splits=args.splits, inputs=[args.config], relocate=relocation)
+            dry_run_tokenizer=args.dry_run_tokenizer,
+            splits=args.splits, repair_splits=args.repair_splits, dev140=args.dev140,
+            inputs=[args.config], relocate=relocation)
     except ValidationError as exc:
         print(f"V2 training refused: {exc}", file=sys.stderr)
         return 1

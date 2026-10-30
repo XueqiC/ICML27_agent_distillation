@@ -38,6 +38,12 @@ EXAMPLE_FIELDS = {"example_id", "arm", "source", "kind", "task_id", "group_id",
                   "task_type", "messages", "supervised_assistant_indices", "weight", "evidence"}
 EVIDENCE_FIELDS = {"episode_ref", "step", "executor", "local_event", "episode_success",
                    "label_source", "label_check"}
+LOCAL_EVENTS = {"target_seen", "target_taken", "hands_freed", "transform_done",
+                "placed", "lamp_used_with_target", "task_success"}
+EVIDENCE_HASH_FIELDS = {"public_prefix_sha256", "fact_state_sha256",
+                        "facts_before_sha256", "facts_after_sha256"}
+DECISION_EVIDENCE_FIELDS = EVIDENCE_HASH_FIELDS | {"local_events", "complete_success_eligible",
+                                                "history_rewrites", "next_legal_target_take"}
 
 
 def _json(text):
@@ -54,6 +60,36 @@ def _json(text):
 
 def _sha(value):
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _validate_evidence(row):
+    evidence = row["evidence"]
+    optional = DECISION_EVIDENCE_FIELDS if row["kind"] == "decision" else set()
+    require(isinstance(evidence, dict) and EVIDENCE_FIELDS <= evidence.keys()
+            and evidence.keys() <= EVIDENCE_FIELDS | optional, "Invalid evidence schema")
+    event, step = evidence["local_event"], evidence["step"]
+    require(isinstance(evidence["episode_ref"], str) and evidence["episode_ref"]
+        and (step is None if row["kind"] == "trajectory" else type(step) is int and step >= 0)
+        and evidence["executor"] in ("student", "student_after_guidance", "teacher")
+        and (event is None or isinstance(event, str) and event in LOCAL_EVENTS)
+        and (row["kind"] != "trajectory" or event is None)
+        and type(evidence["episode_success"]) in (bool, type(None))
+        and evidence["label_source"] in ("student_thought", "teacher_rationale", "teacher_reply")
+        and evidence["label_check"] == "passed", "Invalid or unchecked label evidence")
+    for field in evidence.keys() & optional:
+        value = evidence[field]
+        if field in EVIDENCE_HASH_FIELDS:
+            valid = isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{64}", value) is not None
+        elif field == "local_events":
+            valid = (isinstance(value, list) and all(isinstance(v, str) and v in LOCAL_EVENTS for v in value)
+                     and event == (value[0] if value else None))
+        elif field == "complete_success_eligible":
+            valid = type(value) is bool
+        elif field == "history_rewrites":
+            valid = isinstance(value, list) and all(isinstance(v, dict) for v in value)
+        else:  # next_legal_target_take: int (not bool), or null; no range restriction.
+            valid = value is None or type(value) is int
+        require(valid, f"Invalid decision evidence: {field}")
 
 
 def _read_bundle(bundle, theta0, files):
@@ -78,8 +114,24 @@ def _read_bundle(bundle, theta0, files):
     ids = [row["example_id"] for row in rows]
     require(all(_sha(i) for i in ids) and ids == sorted(set(ids)), "Example IDs must be sorted and unique")
     require(manifest["example_ids_sha256"] == digest(ids), "Example ID seal mismatch")
-    require(manifest["counts"] == {"by_" + k: dict(Counter(row[k] for row in rows))
-                                   for k in ("source", "kind", "task_type")}, "Manifest counts mismatch")
+    required_counts = {"by_" + k: dict(Counter(row[k] for row in rows))
+                       for k in ("source", "kind", "task_type")}
+    for row in rows:
+        _validate_evidence(row)
+    expected_counts = {**required_counts,
+        "by_local_event": dict(Counter(event for row in rows if row["kind"] == "decision"
+            for event in row["evidence"].get("local_events", [row["evidence"]["local_event"]])
+            if event is not None)),
+        "examples": len(rows), "task_groups": len({row["group_id"] for row in rows}),
+        "unique_instances": len({row["task_id"] for row in rows})}
+    counts = manifest["counts"]
+    require(isinstance(counts, dict) and required_counts.keys() <= counts.keys()
+            and counts.keys() <= expected_counts.keys(), "Invalid manifest counts keys")
+    for name, value in counts.items():
+        expected = expected_counts[name]
+        valid_type = (isinstance(value, dict) and all(type(n) is int for n in value.values())
+                      if isinstance(expected, dict) else type(value) is int)
+        require(valid_type and value == expected, f"Manifest counts mismatch: {name}")
     require(all(isinstance(row["supervised_assistant_indices"], list) for row in rows),
             "Supervised indices must be a list")
     require(type(manifest["supervised_turns"]) is int and manifest["supervised_turns"] == sum(
@@ -123,15 +175,7 @@ def validate_example(row, arm, task, allowed, forbidden):
     require(row["task_id"] not in forbidden[0] and row["group_id"] not in forbidden[1],
             "Diagnostic/dev/test task or group cannot enter training")
     evidence = row["evidence"]
-    require(isinstance(evidence, dict) and set(evidence) == EVIDENCE_FIELDS, "Invalid evidence schema")
-    require(isinstance(evidence["episode_ref"], str) and evidence["episode_ref"]
-        and type(evidence["step"]) is int and evidence["step"] >= 0
-        and evidence["executor"] in {"student", "student_after_guidance", "teacher"}
-        and evidence["local_event"] in {None, "target_seen", "target_taken", "hands_freed", "transform_done",
-                                       "placed", "lamp_used_with_target", "task_success"}
-        and type(evidence["episode_success"]) in (bool, type(None))
-        and evidence["label_source"] in {"student_thought", "teacher_rationale", "teacher_reply"}
-        and evidence["label_check"] == "passed", "Invalid or unchecked label evidence")
+    _validate_evidence(row)
     require(row["example_id"] == digest([arm, row["source"], row["task_id"],
                                          evidence["episode_ref"], evidence["step"]]), "Canonical example ID mismatch")
     if row["source"] in {"k20_replay", "offline_teacher"}:
@@ -174,10 +218,11 @@ def validate_example(row, arm, task, allowed, forbidden):
     return diagnostics
 
 
-def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspection=None):
+def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, dev140=None,
+                 relocate=(), _inspection=None):
     """No eval-side imports. Both inline replay and a sealed replay/ bundle work."""
     inspection = _inspection or inspect_inputs(directory, theta0=theta0, config=config,
-                                               splits=splits, relocate=relocate, runtime=False)
+        splits=splits, repair_splits=repair_splits, dev140=dev140, relocate=relocate, runtime=False)
     files = inspection["files"]
     require(files.all_hashes_verified, "Dataset requires a completed input hash verification")
     theta0, config, splits = (inspection[k] for k in ("theta0", "config", "splits"))
@@ -187,8 +232,6 @@ def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspec
         bundles.append(_read_bundle(inspection["bundles"][1], theta0, files))
         require(all(row["source"] == "k20_replay" for row in bundles[1]["rows"]),
                 "replay/ must contain only k20_replay examples")
-        require(not any(row["source"] == "k20_replay" for row in main["rows"]),
-                "Replay must have one location; refuse duplicate inline/replay pools")
     if splits is None:
         candidates = [p for p in main["inputs"] if p.name == "method_v1_splits.json"]
         require(len(candidates) == 1, "Provide --splits or a hashed method_v1_splits.json input")
@@ -202,7 +245,27 @@ def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspec
     for key, value in (("manifest_sha256", frozen), ("split_freeze_sha256", freeze)):
         if key in split_doc:
             require(split_doc[key] == digest(value), "Method split differs from configured manifest/freeze")
-    sets = split_doc.get("sets", {})
+    sets = dict(split_doc.get("sets", {}))
+    sources = inspection["split_sources"]
+    if sources:
+        repair_sets = read_json(sources["repair_splits"]).get("sets", {})
+        for name in ("U_mech", "D_probe", "D_unseen_quick"):
+            require(name in repair_sets, f"Repair split source is missing {name}")
+            if name in sets:
+                require(_members(sets[name]) == _members(repair_sets[name]), "Conflicting split members")
+            sets[name] = repair_sets[name]
+        dev = read_json(sources["dev140"])
+        require(isinstance(dev.get("task_ids"), list) and all(isinstance(t, str) for t in dev["task_ids"])
+                and len(dev["task_ids"]) == len(set(dev["task_ids"])), "Invalid dev140 task_ids")
+        # dev140 records task IDs only. Resolve groups through the frozen task
+        # manifest, never guess them or treat a missing group list as empty.
+        groups = sorted({resolve_task(frozen, freeze, t)["group_id"] for t in dev["task_ids"]})
+        if "group_ids" in dev:
+            require(_members(dev)[1] == set(groups), "dev140 groups differ from frozen manifest")
+        dev_members = {"task_ids": dev["task_ids"], "group_ids": groups}
+        if "dev140" in sets:
+            require(_members(sets["dev140"]) == _members(dev_members), "Conflicting split members")
+        sets["dev140"] = dev_members
     require("V2_pool" in sets and all(name in sets for name in FORBIDDEN_SETS),
             "Method split freeze must include V2_pool and all diagnostic exclusions")
     pool = _members(sets["V2_pool"])
@@ -210,7 +273,7 @@ def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspec
     for name in FORBIDDEN_SETS:
         members = _members(sets[name])
         forbidden[0].update(members[0]); forbidden[1].update(members[1])
-    inputs = [p for bundle in bundles for p in bundle["inputs"]]
+    inputs = [*[p for bundle in bundles for p in bundle["inputs"]], *sources.values()]
     if "K20" in sets:
         replay = _members(sets["K20"])
     else:
@@ -237,7 +300,10 @@ def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspec
             rows.append(row)
             origins.append(str(bundle["root"] / "examples.jsonl"))
     require(rows, "Empty training dataset")
+    pools = training_pools(rows, arm=main["manifest"]["arm"],
+                           root_count=len(main["rows"]) if len(bundles) > 1 else None)
     return {"arm": main["manifest"]["arm"], "rows": rows, "origins": origins,
+            "pools": pools,
             "trajectory_diagnostics": trajectory_diagnostics,
             "manifests": [b["manifest"] for b in bundles],
             "relocation": files.report(),
@@ -262,7 +328,26 @@ def _replay_key(row):
     return digest({k: v for k, v in row.items() if k not in {"arm", "example_id"}})
 
 
-def batch_schedule(rows, *, updates, batch_examples, replay_ratio, seed, arm):
+def training_pools(rows, *, arm, root_count=None):
+    if arm == "CONTINUE":
+        require(all(r["source"] == "k20_replay" for r in rows), "CONTINUE can only train original K20 replay")
+        # Keep both copies and their origins: root supplies the arm share,
+        # replay/ supplies the common replay share. A root-only bundle keeps
+        # the existing independent epoch streams over the same K20 pool.
+        pools = {"new": list(range(len(rows) if root_count is None else root_count)),
+                 "replay": list(range(0 if root_count is None else root_count, len(rows)))}
+    else:
+        pools = {"new": [i for i, r in enumerate(rows) if r["source"] != "k20_replay"],
+                 "replay": [i for i, r in enumerate(rows) if r["source"] == "k20_replay"]}
+    for name, indices in pools.items():
+        require(len({_replay_key(rows[i]) for i in indices}) == len(indices),
+                f"Duplicate {name} trajectories; a row in both pools is only allowed for CONTINUE")
+        indices.sort(key=lambda i: _replay_key(rows[i]) if name == "replay" or arm == "CONTINUE"
+                     else rows[i]["example_id"])
+    return pools
+
+
+def batch_schedule(rows, *, updates, batch_examples, replay_ratio, seed, arm, pools=None):
     require(type(updates) is int and updates > 0 and type(batch_examples) is int and batch_examples > 0,
             "Positive integer updates/batch-examples required")
     require(type(seed) is int and seed >= 0, "Seed must be a nonnegative integer")
@@ -270,17 +355,7 @@ def batch_schedule(rows, *, updates, batch_examples, replay_ratio, seed, arm):
     quota = Decimal(str(replay_ratio)) * batch_examples
     require(quota == int(quota), "B * replay-ratio must be integral; no silent ratio rounding")
     replay_n = int(quota)
-    pools = {"replay": sorted((i for i, r in enumerate(rows) if r["source"] == "k20_replay"),
-                              key=lambda i: _replay_key(rows[i])),
-             "new": sorted((i for i, r in enumerate(rows) if r["source"] != "k20_replay"),
-                           key=lambda i: rows[i]["example_id"])}
-    require(len({_replay_key(rows[i]) for i in pools["replay"]}) == len(pools["replay"]),
-            "Duplicate replay trajectories")
-    # CONTINUE's non-replay slots are a separate epoch stream of original K20.
-    # Common replay slots remain identical to every other arm even when R < 1.
-    if arm == "CONTINUE":
-        require(not pools["new"], "CONTINUE can only train original K20 replay")
-        pools["new"] = list(pools["replay"])
+    pools = training_pools(rows, arm=arm) if pools is None else pools
     require((replay_n == 0 or pools["replay"]) and (replay_n == batch_examples or pools["new"]),
             "Requested mixture has an empty pool")
     rngs = {name: random.Random(digest(["v2-epochs", seed, name])) for name in pools}
@@ -403,15 +478,15 @@ class FakeTokenizer:
         return text + ("assistant\n" + EMPTY_THOUGHT if add_generation_prompt else "")
 
 
-def fake_model():
-    """513 trainables, actual shared scorer/AdamW/backward/export on CPU."""
+def fake_model(vocab_size=512):
+    """Tiny synthetic projection, actual shared scorer/AdamW/backward/export on CPU."""
     import torch
     from types import SimpleNamespace
     class Tiny(torch.nn.Module):
         def __init__(self):
             super().__init__()
             self.lora_A = torch.nn.Parameter(torch.ones(1, 1))
-            self.lora_B = torch.nn.Parameter(torch.zeros(512, 1))
+            self.lora_B = torch.nn.Parameter(torch.zeros(vocab_size, 1))
             text = SimpleNamespace(model_type="gemma4_text", attention_dropout=0,
                                    layer_types=["full_attention"], _attn_implementation="flex_attention")
             self.config = SimpleNamespace(get_text_config=lambda: text)
@@ -433,26 +508,49 @@ def fake_model():
     return Tiny()
 
 
+def fake_scoring_examples(examples):
+    """Bijectively compact real IDs for the tiny model, after production encoding.
+
+    Lengths, masks, boundaries and all token distinctions are preserved. The
+    original encoding is hashed separately; this synthetic vocabulary is never
+    used for production training or token-length validation.
+    """
+    vocabulary = sorted({token for example in examples for turn in sequence_rows(example)
+                         for token in turn["input_ids"]})
+    mapping = {token: index for index, token in enumerate(vocabulary)}
+    result = deepcopy(examples)
+    for example in result:
+        for turn in sequence_rows(example):
+            turn["input_ids"] = [mapping[token] for token in turn["input_ids"]]
+            turn["labels"] = [-100 if token == -100 else mapping[token] for token in turn["labels"]]
+    return result, vocabulary
+
+
 def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_examples,
-            replay_ratio, checkpoints, seed=1, gpus=1, dry_run=False, splits=None, inputs=(), relocate=()):
+            replay_ratio, checkpoints, seed=1, gpus=1, dry_run=False, splits=None,
+            repair_splits=None, dev140=None, inputs=(), relocate=(), dry_run_tokenizer="bytes"):
     """Continuation on 1 GPU or the existing torchrun replicated-LoRA route."""
     require(gpus in (1, 2), "gpus must be 1 or 2")
+    require(dry_run_tokenizer in ("bytes", "snapshot"), "Unknown dry-run tokenizer")
     require(type(updates) is int and updates > 0, "Positive integer updates required")
     require(all(type(n) is int for n in checkpoints), "Checkpoints must be integer update counts")
     checkpoints = sorted(set([0, *checkpoints]))
     require(all(type(n) is int and 0 <= n <= updates for n in checkpoints), "Checkpoint outside update range")
     inspection = inspect_inputs(dataset, theta0=theta0, snapshot=snapshot, config=config,
-                                splits=splits, inputs=inputs, relocate=relocate)
+        splits=splits, repair_splits=repair_splits, dev140=dev140, inputs=inputs, relocate=relocate)
     theta0, snapshot, config = (inspection[k] for k in ("theta0", "snapshot", "config"))
     dataset = inspection["files"].relocation.dataset
     data = read_dataset(dataset, theta0=theta0, config=config, _inspection=inspection)
     inherited = continuation_recipe(theta0, config, snapshot, updates)
     require(inherited["identity"]["adapter_weights_sha256"] == data["theta0_sha256"], "theta0 changed during validation")
     from train.dataset import load_tokenizer
-    tokenizer = FakeTokenizer() if dry_run else load_tokenizer(snapshot)
+    byte_tokenizer = dry_run and dry_run_tokenizer == "bytes"
+    tokenizer = FakeTokenizer() if byte_tokenizer else load_tokenizer(snapshot)
     examples = [encode_example(row, tokenizer, max_length=inherited["recipe"]["max_length"]) for row in data["rows"]]
     batches = batch_schedule(data["rows"], updates=updates, batch_examples=batch_examples,
-                             replay_ratio=replay_ratio, seed=seed, arm=data["arm"])
+                             replay_ratio=replay_ratio, seed=seed, arm=data["arm"], pools=data["pools"])
+    scoring_examples, fake_vocabulary = (fake_scoring_examples(examples)
+        if dry_run and not byte_tokenizer else (examples, None))
     rank, world, local = (int(os.environ.get(k, default)) for k, default in
                          (("RANK", "0"), ("WORLD_SIZE", "1"), ("LOCAL_RANK", "0")))
     require(world == (1 if dry_run else gpus), "Launch with the requested GPU rank count")
@@ -477,7 +575,8 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
         if world > 1:
             group = dist.new_group(backend="gloo", timeout=timedelta(hours=4))
         set_seed(seed + rank)
-        model = fake_model() if dry_run else load_existing_adapter(snapshot, theta0, device, inherited["recipe"])
+        model = (fake_model(len(fake_vocabulary) if fake_vocabulary is not None else 512) if dry_run
+                 else load_existing_adapter(snapshot, theta0, device, inherited["recipe"]))
         actual = {n: p.numel() for n, p in model.named_parameters() if p.requires_grad}
         real_inherited = deepcopy(inherited)
         if dry_run:
@@ -504,7 +603,8 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
             effective["sft"] = deepcopy(inherited["sft"])
             effective["v2_training"] = {"arm": data["arm"], "updates": updates, "batch_examples": batch_examples,
                 "replay_ratio": replay_ratio, "seed": seed, "requested_gpus": gpus, "world_size": world,
-                "dry_run": dry_run, "inherited": real_inherited, "schedule_sha256": digest(batches),
+                "dry_run": dry_run, "dry_run_tokenizer": dry_run_tokenizer if dry_run else None,
+                "inherited": real_inherited, "schedule_sha256": digest(batches),
                 "loss_normalization": "per_example_mean_then_global_batch_mean",
                 "data_parallel": "replicated_lora_gradient_mean_before_clip"}
             if dry_run:
@@ -521,13 +621,16 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
             zero = {"update": 0, "status": "theta0_reference", "path": str(Path(theta0).resolve()),
                     "sha256": inherited["files"], **counts[0]}
             manifest = {"schema": "v2-training-run/1", "status": "running", "dry_run": dry_run,
+                "dry_run_tokenizer": dry_run_tokenizer if dry_run else None,
                 "arm": data["arm"], "theta0": real_inherited["identity"], "provenance_sha256": digest(prov),
                 "input_manifests": data["manifests"], "schedule_sha256": digest(batches),
                 "relocation": data["relocation"],
                 "trajectory_diagnostics": data["trajectory_diagnostics"],
                 "encoded_examples_sha256": digest(examples), "tokenizer":
-                    {"synthetic": True, "chat_template_sha256": digest(tokenizer.chat_template)} if dry_run
-                    else tokenizer_identity(snapshot, tokenizer),
+                    {"synthetic": True, "chat_template_sha256": digest(tokenizer.chat_template)} if byte_tokenizer
+                    else {"synthetic": False, **tokenizer_identity(snapshot, tokenizer)},
+                "fake_scoring_vocabulary": fake_vocabulary,
+                "scoring_examples_sha256": digest(scoring_examples),
                 "optimizer_state": opt, "scheduler_policy": inherited["scheduler_policy"],
                 "trainable_parameter_count": sum(actual.values()), "actual_trainable_parameter_names": sorted(actual),
                 "actual_trainable_module_names": inherited["trainable_modules"],
@@ -539,8 +642,8 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
                     "episode_references": len({r["evidence"]["episode_ref"] for r in pool}),
                     "by_source": dict(Counter(r["source"] for r in pool)),
                     "by_kind": dict(Counter(r["kind"] for r in pool))}
-                    for name, pool in (("new", [r for r in data["rows"] if r["source"] != "k20_replay"]),
-                                       ("replay", [r for r in data["rows"] if r["source"] == "k20_replay"]))},
+                    for name, indices in data["pools"].items()
+                    for pool in [[data["rows"][i] for i in indices]]},
                 "K_trusted_seed_trajectories": 20, "training_exposure": 0,
                 "teacher_calls_this_run": 0, "environment_transitions_this_run": 0,
                 "checkpoints": [zero], "planned_accounting": counts,
@@ -571,7 +674,7 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
 
         recipe = inherited["recipe"]
         with nullcontext() if dry_run else torch.autocast("cuda", dtype=torch.bfloat16):
-            state = train_loop(model, examples, output, objective="sft", learning_rate=recipe["learning_rate"],
+            state = train_loop(model, scoring_examples, output, objective="sft", learning_rate=recipe["learning_rate"],
                 scheduler=recipe["scheduler"], warmup_ratio=recipe["warmup_ratio"], warmup_steps=recipe["warmup_steps"],
                 original_batch=batch_examples, seed=seed, weight_decay=recipe["weight_decay"],
                 packing=recipe["packing"], scoring=recipe["scoring"], flex_kernel_options=recipe.get("flex_kernel_options"),
