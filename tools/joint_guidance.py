@@ -22,7 +22,7 @@ from tools.teacher_takeover import load_spec, _reconcile
 
 
 def _job(job):
-    case, config, spec, output, identity, mode, decoding, seed, dry, caps, ledger_path, from_start = job
+    case, config, spec, output, identity, mode, decoding, seed, dry, caps, ledger_path, from_start, review_template = job
     budget = SharedTeacherBudget(ledger_path, **caps)
     original = TrajectoryRecord.from_json(case['original'])
     n = 0 if from_start else case['spec']['branch_index']
@@ -37,11 +37,13 @@ def _job(job):
         student_factory = partial(_student, spec=spec, decoding=decoding, seed=seed, task_id=original.task_id)
     return execute_joint(case['spec'], original, mode=mode, decoding=decoding, seed=seed,
         env_factory=env_factory, student_factory=student_factory,
-        reviewer_factory=partial(make_reviewer, config, case['task'], output=output, budget=budget, dry_run=dry),
-        output=output, run_sha256=identity, budget=budget, from_start=from_start)
+        reviewer_factory=partial(make_reviewer, config, case['task'], output=output, budget=budget, dry_run=dry,
+                                 review_template=review_template),
+        output=output, run_sha256=identity, budget=budget, from_start=from_start, review_template=review_template)
 
 
 def run(args):
+    prompt = JointPrompt({}, template_version=args.review_template)
     if args.workers < 1 or len(set(args.seeds)) != len(args.seeds) or len(set(args.modes)) != len(args.modes):
         raise ValueError('Positive workers and unique modes/seeds required')
     config = load_config(args.config)
@@ -63,7 +65,7 @@ def run(args):
         code_sha256={**code_hashes(root), **{str(p.relative_to(root)): file_hash(p) for p in (root / 'repair').glob('*.py')}},
         dependencies=versions(), dry_run=args.dry_run, from_start=args.from_start, modes=args.modes, seeds=args.seeds,
         caps=caps, budget_ledger=str(Path(args.budget_ledger).resolve()),
-        template_version=TEMPLATE_VERSION, template_sha256=JointPrompt({}).template_sha256,
+        template_version=prompt.template_version, template_sha256=prompt.template_sha256,
         output_cap_including_reasoning=OUTPUT_CAP, H=40,
         student_sampling={'temperature': .7, 'top_p': .95,
                           'seed_rule': 'sha256([sampling_seed, task_id, zero_based_turn])[:8]; regeneration uses same turn'})
@@ -71,7 +73,10 @@ def run(args):
     # Check the external shared caps before creating a new output directory.
     budget = SharedTeacherBudget(identity['budget_ledger'], **caps)
     if args.resume:
-        if read_json(output / 'plan.json')['identity'] != identity:
+        previous = read_json(output / 'plan.json')['identity']
+        if previous['template_version'] != args.review_template:
+            raise ValueError('A joint run directory cannot mix review template versions')
+        if previous != identity:
             raise ValueError('Resume requires identical evidence, config, code, dependencies, seeds and caps')
     else:
         output.mkdir(parents=True, exist_ok=False)
@@ -82,12 +87,12 @@ def run(args):
             tasks=[c['task'] for c in cases], seeds={'environment': config['environment']['seed'], 'sampling': args.seeds},
             run_sha256=run_sha, teacher_alias=config['models']['teacher']['provider_model_id'],
             evaluation_only=True, dry_run=args.dry_run, training_exposure=0,
-            source_evidence=[c['source'] for c in cases], template_version=TEMPLATE_VERSION,
-            template_sha256=JointPrompt({}).template_sha256), exclusive=True)
+            source_evidence=[c['source'] for c in cases], template_version=prompt.template_version,
+            template_sha256=prompt.template_sha256), exclusive=True)
     with locked(output / 'run.lock'):
         _reconcile(output, budget)
         jobs = [({**c, 'original': c['original'].to_json()}, config, spec, str(output), run_sha,
-                 mode, decoding, seed, args.dry_run, caps, identity['budget_ledger'], args.from_start)
+                 mode, decoding, seed, args.dry_run, caps, identity['budget_ledger'], args.from_start, args.review_template)
                 for c in cases for mode in args.modes
                 for decoding, seed in [('greedy', None), *[('sampled', s) for s in args.seeds]]]
         if args.workers == 1:
@@ -230,6 +235,7 @@ def main(argv=None):
     r = sub.add_parser('run')
     r.add_argument('--spec', required=True)
     r.add_argument('--from-start', action='store_true', help='Use the spec task identities but reset to turn zero')
+    r.add_argument('--review-template', choices=['joint-review/1', 'joint-review/2'], default=TEMPLATE_VERSION)
     r.add_argument('--modes', nargs='+', choices=['U', 'G', 'G1'], default=['U', 'G', 'G1'])
     r.add_argument('--seeds', nargs='*', type=int, default=list(range(8)), help='Sampled seeds; greedy always runs')
     r.add_argument('--workers', type=int, default=1)

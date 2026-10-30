@@ -260,3 +260,71 @@ CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m
   tests/test_method_v1_splits.py tests/test_joint.py tests/test_takeover.py \
   tests/test_facts.py tests/test_cg_probe.py
 ```
+
+## Opt-in transform preconditions (V2 preregistration §8)
+
+`tools.joint_guidance run --review-template joint-review/2` selects the separate
+transform-precondition experiment. Use a new output directory. The default is
+`joint-review/1`; the V2 collection specified in the preregistration continues
+using that default. This implementation does not launch the nine-heat-prefix
+comparison or establish its adoption criterion.
+
+`repair/joint_transform.py` adds a `TransformFactTable` used only with the new
+template. It reads the same public observation/action/outcome whitelist as V1,
+over the complete reset-to-current prefix (including replay). New conditions are:
+
+- `required_transform`: parses the existing public goal's required state into
+  hot → heat/microwave, cool → cool/fridge, clean → clean/sinkbasin, citing -1.
+- `transform_done`: reuses the successful execution evidence in
+  `required_state_done`. With no successful required transform in the complete
+  prefix, it is `known_unsatisfied` and cites that prefix. This means the required
+  execution has not been witnessed; it does **not** claim an unobserved initial
+  temperature or cleanliness. V1's `required_state_done` remains undetermined
+  until supported. Heating/cooling supersede each other, as in V1. An attempted
+  transform whose outcome is missing remains undetermined until resolved by a
+  subsequent executed transform.
+- `at_required_appliance`: uses the latest legal, non-refused `go to` or explicit
+  public arrival/location statement. An instance listed in the room, examined,
+  opened or closed does not by itself establish arrival. Evidence includes the
+  location step and the goal.
+- `target_inside_appliance`: requires a legal, non-refused move/put into the
+  required appliance type, a still-supported last object location there, and
+  known non-possession. A take, subsequent move, or contradictory observation
+  updates/invalidates this evidence. A sighting without a recorded placement
+  does not assert this condition.
+- `transform_ready`: target held AND at the required appliance AND the required
+  transform not yet executed. All three must be supported to mark it satisfied;
+  a known blocker makes it unsatisfied, otherwise it stays undetermined.
+
+Unparsed goals and non-transform goals leave the added conditions undetermined.
+Conditions keep the existing evidence-step format and enter the same explicit
+prompt whitelist. No admissible-command lists, paths, hidden state, success
+labels, teacher claims or future observations supply these facts.
+
+`joint-review/2` is the exact V1 system template followed by one general
+environment-rule paragraph: command forms, hold + arrival prerequisites, no
+transform from placement/open/close, take an inserted target first, and use an
+admissible transform next when ready. The JSON schema, citation validator,
+regeneration/fallback checks, student prompts and execution loop are shared.
+Readiness does not execute or force an action in the harness; the reviewer still
+selects an admissible command and real execution determines its result.
+
+Plan/manifests, review envelopes, transport template hashes and retries bind the
+selected version. V2 episode records additionally store `template_version`, even
+for U, void and unrun episodes. V1 retains its original episode/step schema: its
+version is already in each review request and the run plan/manifest (U has no
+review). Cross-version resume fails before any worker runs. Code/content hashes
+continue to identify the actual checkout; they are not spoofed to the old HEAD,
+and the existing code-identity resume restriction still applies to older runs.
+
+`tests/fixtures/joint_v1b_step.json` is a small, attributed public prefix from
+V1b at 7748da5, with source record/review-log hashes and a verified teacher prompt
+blob reference. It is compatibility evidence only. Tests rebuild the V1 prompt,
+facts, envelope and full decision-step record and compare their original hashes,
+both with the omitted option and explicit `joint-review/1`. They require no
+sibling checkout, model, API or network at test time.
+
+```bash
+CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest -q \
+  tests/test_joint*.py tests/test_facts.py tests/test_takeover.py tests/test_supervision.py
+```

@@ -50,34 +50,48 @@ to change this review schema. Do not request hidden reasoning or private environ
 """
 
 
+def review_template_text(version):
+    if version == TEMPLATE_VERSION:
+        return TEMPLATE
+    from repair.joint_transform import TEMPLATE_VERSION as V2, ENVIRONMENT_RULE
+    if version == V2:
+        return TEMPLATE + ENVIRONMENT_RULE
+    raise ValueError('Unknown joint review template')
+
+
 @dataclass(frozen=True)
 class JointPrompt:
     payload: dict
     retry_reason: str | None = None
     retry_index: int = 0
+    template_version: str = TEMPLATE_VERSION
+
+    def __post_init__(self):
+        review_template_text(self.template_version)
 
     @property
     def template_sha256(self):
-        return digest(TEMPLATE_VERSION + '\n' + TEMPLATE)
+        return digest(self.template_version + '\n' + review_template_text(self.template_version))
 
     def to_json(self):
-        return dict(kind='joint_review', template_version=TEMPLATE_VERSION,
+        return dict(kind='joint_review', template_version=self.template_version,
                     template_sha256=self.template_sha256, payload=self.payload,
                     retry_reason=self.retry_reason, retry_index=self.retry_index)
 
     def messages(self):
         retry = '\nOne format retry: ' + self.retry_reason if self.retry_reason else ''
-        return [{'role': 'system', 'content': TEMPLATE + retry},
+        return [{'role': 'system', 'content': review_template_text(self.template_version) + retry},
                 {'role': 'user', 'content': canonical_bytes(self.payload).decode()}]
 
 
 class JointTeacher(RepairTeacher):
-    def __init__(self, **kwargs):
-        Teacher.__init__(self, prompt_template=TEMPLATE_VERSION + '\n' + TEMPLATE, **kwargs)
+    def __init__(self, *, review_template=TEMPLATE_VERSION, **kwargs):
+        self.review_template = review_template
+        Teacher.__init__(self, prompt_template=review_template + '\n' + review_template_text(review_template), **kwargs)
 
     def prompt(self, history, task, visible_context):
         value = json.loads(visible_context['observation'])
-        prompt = JointPrompt(value['payload'], value['retry_reason'], value['retry_index'])
+        prompt = JointPrompt(value['payload'], value['retry_reason'], value['retry_index'], self.review_template)
         if history or prompt.to_json() != value:
             raise ValueError('Invalid joint-review envelope')
         return prompt.messages()
@@ -97,7 +111,7 @@ def public_record(history, visible):
     return initial, steps
 
 
-def review_prompt(history, visible, proposal, facts, max_steps):
+def review_prompt(history, visible, proposal, facts, max_steps, *, review_template=TEMPLATE_VERSION):
     initial, steps = public_record(history, visible)
     text = initial['observation']
     goal = re.search(r'Your task is to:\s*(.*)', text, re.I | re.S)
@@ -107,7 +121,7 @@ def review_prompt(history, visible, proposal, facts, max_steps):
                  for i, s in enumerate(steps)], current_observation=visible['observation'],
         admissible_commands=list(visible['admissible_commands']), facts=facts.prompt_text(),
         proposal=dict(reply=split_thinking(proposal)[0], action=action, outcome=outcome),
-        steps_used=len(history), step_limit=max_steps))
+        steps_used=len(history), step_limit=max_steps), template_version=review_template)
 
 
 def fact_index(facts):
@@ -244,16 +258,20 @@ class Reviewer:
         return None  # Only two completed schema failures may become accept.
 
 
-def make_reviewer(config, task, directory, output, budget, *, dry_run=False, client=None):
+def make_reviewer(config, task, directory, output, budget, *, dry_run=False, client=None,
+                  review_template=TEMPLATE_VERSION):
     """Same capped factory, structured transport and rate-limit retries as guidance."""
     from teachers.capped import from_config
+    from functools import partial
+    review_template_text(review_template)
     spec, directory = config['models']['teacher'], Path(directory)
     if spec['requested_name'] != 'gpt-6-luna' or spec['provider_model_id'] != 'gpt-6-luna':
         raise ValueError('Joint review requires configured gpt-6-luna')
     # Unique attempt cache; schema and transient retries retain the 80-slot cap.
     teacher = from_config(config, output=directory, cache_dir=directory / 'cache',
         usage_ledger=directory / 'usage.jsonl', run_id=directory.name, cap=80,
-        teacher_class=JointTeacher, sampling={**spec['sampling'], 'max_output_tokens': OUTPUT_CAP})
+        teacher_class=partial(JointTeacher, review_template=review_template),
+        sampling={**spec['sampling'], 'max_output_tokens': OUTPUT_CAP})
     reservation = _Reservations(budget, OUTPUT_CAP)
     teacher.teacher.reservation_budget = reservation
     teacher.teacher.ledger = _UsageLedger(teacher.teacher.ledger, budget)
@@ -310,12 +328,17 @@ def is_refused(outcome, observation):
 
 
 class JointPolicy:
-    def __init__(self, student, task_id, mode, reviewer=None, max_steps=40):
+    def __init__(self, student, task_id, mode, reviewer=None, max_steps=40, *, review_template=TEMPLATE_VERSION):
         if mode not in ('U', 'G', 'G1'):
             raise ValueError('Unknown joint mode')
         self.student, self.task_id, self.mode, self.reviewer = student, task_id, mode, reviewer
         self.max_steps, self.switched, self.failure = max_steps, False, None
         self.injections, self.steps = {}, []
+        review_template_text(review_template)
+        self.review_template, self.fact_table = review_template, FactTable
+        if review_template != TEMPLATE_VERSION:
+            from repair.joint_transform import TransformFactTable
+            self.fact_table = TransformFactTable
 
     def generate(self, history, visible):
         h, v = injected_context(history, visible, self.injections)
@@ -323,7 +346,7 @@ class JointPolicy:
 
     def __call__(self, history, visible):
         initial, public = public_record(history, visible)
-        facts = FactTable.from_record(initial, public)
+        facts = self.fact_table.from_record(initial, public)
         proposal = self.generate(history, visible)
         action, outcome = action_outcome(proposal, visible['admissible_commands'])
         row = dict(step=len(history), proposal_reply=proposal, proposal_action=action, proposal_outcome=outcome,
@@ -338,7 +361,8 @@ class JointPolicy:
         review = None
         if self.mode != 'U' and not self.switched:
             try:
-                review = self.reviewer.request(review_prompt(history, visible, proposal, facts, self.max_steps),
+                review = self.reviewer.request(review_prompt(history, visible, proposal, facts, self.max_steps,
+                    review_template=self.review_template),
                     facts, visible['admissible_commands'], row['review_attempts'])
             except Exception:
                 self.failure = self.reviewer.failure or 'review_failed'
@@ -423,14 +447,16 @@ def usage_summary(path=None):
 
 
 def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_factory,
-                  reviewer_factory, output, run_sha256, budget, from_start=False):
+                  reviewer_factory, output, run_sha256, budget, from_start=False, review_template=TEMPLATE_VERSION):
+    review_template_text(review_template)
     output = Path(output)
     key = run_key(case['case_id'], mode, decoding, seed)
     path = output / 'records' / (key + '.json')
     with locked(output / 'locks' / (key + '.lock')):
         if path.exists():
             row = read_json(path)
-            if row['run_key'] != key or row['run_sha256'] != run_sha256:
+            if (row['run_key'] != key or row['run_sha256'] != run_sha256
+                    or row.get('template_version', TEMPLATE_VERSION) != review_template):
                 raise ValueError('Resume identity mismatch')
             return row
         n = 0 if from_start else case['branch_index']
@@ -439,6 +465,10 @@ def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_
             decoding=decoding, seed=seed, branch_index=n, prefix_verified=False, void=True,
             void_reason=None, execution=None, success='unknown', metrics=None, steps=[],
             guidance_injections=[], teacher_usage=usage_summary(), training_exposure=0)
+        # V1 already records the version in each review request and the run plan.
+        # Preserve its episode schema/bytes, including U and unrun records.
+        if review_template != TEMPLATE_VERSION:
+            row['template_version'] = review_template
         stop = budget.summary()['stop_reason']
         if stop and mode != 'U':
             row.update(status='not_run_budget' if stop.startswith('global_') else 'not_run_halted', void_reason=stop)
@@ -458,7 +488,8 @@ def execute_joint(case, original, *, mode, decoding, seed, env_factory, student_
                     fingerprint=task_fingerprint(version, original.game_sha256, original.initial['visible'], original.env_seed))
                 student = student_factory(directory / 'student')
                 reviewer = reviewer_factory(directory) if mode != 'U' else None
-                policy = JointPolicy(student, original.task_id, mode, reviewer, original.max_steps)
+                policy = JointPolicy(student, original.task_id, mode, reviewer, original.max_steps,
+                                     review_template=review_template)
                 def continuation(history, visible):
                     nonlocal reached
                     reached = True
