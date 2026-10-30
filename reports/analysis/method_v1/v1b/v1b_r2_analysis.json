@@ -1,0 +1,792 @@
+{
+ "primary_G_vs_U": {
+  "a": "G",
+  "b": "U",
+  "n": 38,
+  "a_mean": 0.6583646616541353,
+  "b_mean": 0.2532894736842105,
+  "diff": 0.4050751879699248,
+  "ci95": [
+   0.2894736842105263,
+   0.5197368421052632
+  ],
+  "up": 29,
+  "down": 4,
+  "tie": 5,
+  "pass": true
+ },
+ "void_bounds_G_vs_U": {
+  "void_fail": {
+   "a": "G",
+   "b": "U",
+   "n": 38,
+   "a_mean": 0.6578947368421053,
+   "b_mean": 0.2532894736842105,
+   "diff": 0.4046052631578948,
+   "ci95": [
+    0.28947368421052627,
+    0.5197368421052632
+   ],
+   "up": 29,
+   "down": 4,
+   "tie": 5,
+   "pass": true
+  },
+  "void_success": {
+   "a": "G",
+   "b": "U",
+   "n": 38,
+   "a_mean": 0.6611842105263158,
+   "b_mean": 0.2532894736842105,
+   "diff": 0.4078947368421053,
+   "ci95": [
+    0.29276315789473684,
+    0.5230263157894737
+   ],
+   "up": 29,
+   "down": 3,
+   "tie": 6,
+   "pass": true
+  }
+ },
+ "G_vs_G1": {
+  "a": "G",
+  "b": "G1",
+  "n": 38,
+  "a_mean": 0.6583646616541353,
+  "b_mean": 0.45394736842105265,
+  "diff": 0.20441729323308266,
+  "ci95": [
+   0.11372180451127817,
+   0.2993421052631579
+  ],
+  "up": 26,
+  "down": 4,
+  "tie": 8,
+  "pass": true
+ },
+ "G1_vs_U": {
+  "a": "G1",
+  "b": "U",
+  "n": 38,
+  "a_mean": 0.45394736842105265,
+  "b_mean": 0.2532894736842105,
+  "diff": 0.20065789473684215,
+  "ci95": [
+   0.11513157894736845,
+   0.2861842105263158
+  ],
+  "up": 24,
+  "down": 4,
+  "tie": 10,
+  "pass": true
+ },
+ "teacher_step_share": {
+  "G-sampled": {
+   "pooled": 0.03418650438517988,
+   "teacher_steps": 191,
+   "executed_steps": 5587,
+   "episode_mean": 0.035758742738948225,
+   "episodes_gt_50pct": 0,
+   "episodes": 303
+  },
+  "G1-sampled": {
+   "pooled": 0.00430173605776617,
+   "teacher_steps": 28,
+   "executed_steps": 6509,
+   "episode_mean": 0.007589648327036353,
+   "episodes_gt_50pct": 0,
+   "episodes": 304
+  },
+  "G-greedy": {
+   "pooled": 0.031704095112285335,
+   "teacher_steps": 24,
+   "executed_steps": 757,
+   "episode_mean": 0.03021094900066711,
+   "episodes_gt_50pct": 0,
+   "episodes": 38
+  },
+  "G1-greedy": {
+   "pooled": 0.005412719891745603,
+   "teacher_steps": 4,
+   "executed_steps": 739,
+   "episode_mean": 0.019473684210526317,
+   "episodes_gt_50pct": 0,
+   "episodes": 38
+  }
+ },
+ "takeover_limit_ok": true,
+ "sensitivity_drop_gt50": {
+  "a": "G",
+  "b": "U",
+  "n": 38,
+  "a_mean": 0.6583646616541353,
+  "b_mean": 0.2532894736842105,
+  "diff": 0.4050751879699248,
+  "ci95": [
+   0.2894736842105263,
+   0.5197368421052632
+  ],
+  "up": 29,
+  "down": 4,
+  "tie": 5,
+  "pass": true
+ },
+ "greedy": {
+  "U": 9,
+  "G": 22,
+  "G1": 21
+ },
+ "strata": {
+  "CG": {
+   "n": 4,
+   "U": 0.25,
+   "G": 0.4375,
+   "G1": 0.21875,
+   "G>U": 2,
+   "G<U": 0,
+   "T": 0.8125
+  },
+  "search-floor": {
+   "n": 4,
+   "U": 0.1875,
+   "G": 0.09375,
+   "G1": 0.09375,
+   "G>U": 0,
+   "G<U": 2,
+   "T": 0.625
+  },
+  "search-middle": {
+   "n": 6,
+   "U": 0.125,
+   "G": 0.7916666666666666,
+   "G1": 0.3958333333333333,
+   "G>U": 6,
+   "G<U": 0,
+   "T": 0.9166666666666666
+  },
+  "seen-floor": {
+   "n": 4,
+   "U": 0.1875,
+   "G": 0.75,
+   "G1": 0.3125,
+   "G>U": 4,
+   "G<U": 0,
+   "T": 0.9375
+  },
+  "seen-middle": {
+   "n": 20,
+   "U": 0.31875,
+   "G": 0.7571428571428571,
+   "G1": 0.61875,
+   "G>U": 17,
+   "G<U": 2,
+   "T": 0.975
+  }
+ },
+ "secondary": {
+  "found": {
+   "U": 0.7401315789473685,
+   "G": 0.8651315789473685,
+   "G1": 0.8289473684210527
+  },
+  "picked": {
+   "U": 0.6381578947368421,
+   "G": 0.8651315789473685,
+   "G1": 0.7796052631578947
+  },
+  "transform_done": {
+   "U": 0.17105263157894737,
+   "G": 0.3233082706766917,
+   "G1": 0.26644736842105265
+  }
+ },
+ "steps_to_find": {
+  "U": {
+   "found": 225,
+   "not_found": 79,
+   "median": 1
+  },
+  "G": {
+   "found": 262,
+   "not_found": 41,
+   "median": 1
+  },
+  "G1": {
+   "found": 252,
+   "not_found": 52,
+   "median": 1
+  }
+ },
+ "mechanism": {
+  "U": {
+   "accepts": 8141,
+   "guides": 0,
+   "demonstrates": 0,
+   "guided_steps_followed": 0,
+   "refused_actions": 688,
+   "repeated_refused_actions": 294,
+   "inadmissible_count": 688,
+   "steps_used_after_branch": 8141,
+   "teacher_executed_steps": 0,
+   "review_calls": 0,
+   "revisits_of_cleared": 711,
+   "episodes": 304,
+   "refused_per_episode": 2.263157894736842,
+   "repeated_refused_per_episode": 0.9671052631578947,
+   "steps_per_episode": 26.779605263157894
+  },
+  "G": {
+   "accepts": 4057,
+   "guides": 1391,
+   "demonstrates": 191,
+   "guided_steps_followed": 1228,
+   "refused_actions": 40,
+   "repeated_refused_actions": 11,
+   "inadmissible_count": 40,
+   "steps_used_after_branch": 5587,
+   "teacher_executed_steps": 191,
+   "review_calls": 6094,
+   "revisits_of_cleared": 277,
+   "episodes": 303,
+   "first_step_changed_vs_U": 0.14521452145214522,
+   "decision_dist": {
+    "accepts": 0.7194538038659337,
+    "guides": 0.24667494236566767,
+    "demonstrates": 0.033871253768398654
+   },
+   "follow_rate": 0.8828181164629763,
+   "refused_per_episode": 0.132013201320132,
+   "repeated_refused_per_episode": 0.036303630363036306,
+   "steps_per_episode": 18.43894389438944
+  },
+  "G1": {
+   "accepts": 6219,
+   "guides": 270,
+   "demonstrates": 28,
+   "guided_steps_followed": 238,
+   "refused_actions": 420,
+   "repeated_refused_actions": 143,
+   "inadmissible_count": 420,
+   "steps_used_after_branch": 6509,
+   "teacher_executed_steps": 28,
+   "review_calls": 1544,
+   "revisits_of_cleared": 463,
+   "episodes": 304,
+   "first_step_changed_vs_U": 0.1513157894736842,
+   "decision_dist": {
+    "accepts": 0.9542734386987878,
+    "guides": 0.04143010587693724,
+    "demonstrates": 0.004296455424274973
+   },
+   "follow_rate": 0.8814814814814815,
+   "refused_per_episode": 1.381578947368421,
+   "repeated_refused_per_episode": 0.47039473684210525,
+   "steps_per_episode": 21.411184210526315
+  }
+ },
+ "per_prefix": [
+  {
+   "case": "train/look_at_obj_in_light-Newspaper-None-DeskLamp-224/trial_T20190909_091628_986448",
+   "short": "look_at_obj_in_light-Newspaper-None-DeskLamp-224",
+   "stratum": "CG",
+   "T_v1a": "3/4",
+   "U": 0.0,
+   "G": 0.25,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "train/pick_and_place_simple-Kettle-None-Shelf-1/trial_T20190907_011745_444370",
+   "short": "pick_and_place_simple-Kettle-None-Shelf-1",
+   "stratum": "CG",
+   "T_v1a": "2/4",
+   "U": 0.0,
+   "G": 0.0,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "train/pick_cool_then_place_in_recep-Potato-None-SideTable-21/trial_T20190907_040257_213566",
+   "short": "pick_cool_then_place_in_recep-Potato-None-SideTable-21",
+   "stratum": "CG",
+   "T_v1a": "4/4",
+   "U": 1.0,
+   "G": 1.0,
+   "G1": 0.875,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "train/pick_cool_then_place_in_recep-Apple-None-Microwave-19/trial_T20190906_210908_217201",
+   "short": "pick_cool_then_place_in_recep-Apple-None-Microwave-19",
+   "stratum": "CG",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.5,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Tomato-None-CounterTop-2/dp/1",
+   "short": "pick_heat_then_place_in_recep-Tomato-None-CounterTop-2",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.125,
+   "G": 0.75,
+   "G1": 0.5,
+   "U_greedy": true,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Cup-None-Cabinet-23/dp/1",
+   "short": "pick_cool_then_place_in_recep-Cup-None-Cabinet-23",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.625,
+   "G": 0.875,
+   "G1": 0.75,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_two_obj_and_place-Candle-None-Drawer-409/dp/1",
+   "short": "pick_two_obj_and_place-Candle-None-Drawer-409",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 0.875,
+   "G1": 0.375,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Egg-None-Fridge-17/dp/1",
+   "short": "pick_heat_then_place_in_recep-Egg-None-Fridge-17",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.125,
+   "G": 0.25,
+   "G1": 0.375,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Apple-None-Microwave-6/dp/1",
+   "short": "pick_cool_then_place_in_recep-Apple-None-Microwave-6",
+   "stratum": "search-floor",
+   "T_v1a": "3/4",
+   "U": 0.125,
+   "G": 0.125,
+   "G1": 0.25,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-13/dp/1",
+   "short": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-13",
+   "stratum": "seen-floor",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 1.0,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_clean_then_place_in_recep-SoapBar-None-Cabinet-408/dp/1",
+   "short": "pick_clean_then_place_in_recep-SoapBar-None-Cabinet-408",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 1.0,
+   "G1": 0.875,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Apple-None-CounterTop-5/dp/1",
+   "short": "pick_heat_then_place_in_recep-Apple-None-CounterTop-5",
+   "stratum": "search-floor",
+   "T_v1a": "1/4",
+   "U": 0.375,
+   "G": 0.125,
+   "G1": 0.125,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Cup-None-DiningTable-23/dp/1",
+   "short": "pick_heat_then_place_in_recep-Cup-None-DiningTable-23",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 0.14285714285714285,
+   "G1": 0.75,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 7
+  },
+  {
+   "case": "pick_two_obj_and_place-Candle-None-Cabinet-428/dp/1",
+   "short": "pick_two_obj_and_place-Candle-None-Cabinet-428",
+   "stratum": "seen-floor",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 0.75,
+   "G1": 0.25,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_and_place_simple-DishSponge-None-Cabinet-5/dp/1",
+   "short": "pick_and_place_simple-DishSponge-None-Cabinet-5",
+   "stratum": "search-floor",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.0,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_two_obj_and_place-ToiletPaper-None-SideTable-420/dp/1",
+   "short": "pick_two_obj_and_place-ToiletPaper-None-SideTable-420",
+   "stratum": "seen-floor",
+   "T_v1a": "4/4",
+   "U": 0.375,
+   "G": 1.0,
+   "G1": 0.875,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_two_obj_and_place-AlarmClock-None-Dresser-318/dp/1",
+   "short": "pick_two_obj_and_place-AlarmClock-None-Dresser-318",
+   "stratum": "seen-middle",
+   "T_v1a": "3/4",
+   "U": 0.25,
+   "G": 1.0,
+   "G1": 0.875,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_two_obj_and_place-SoapBottle-None-Drawer-423/dp/1",
+   "short": "pick_two_obj_and_place-SoapBottle-None-Drawer-423",
+   "stratum": "search-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 0.625,
+   "G1": 0.5,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_two_obj_and_place-Newspaper-None-Sofa-201/dp/1",
+   "short": "pick_two_obj_and_place-Newspaper-None-Sofa-201",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.75,
+   "G": 1.0,
+   "G1": 0.75,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_and_place_simple-Pen-None-Shelf-319/dp/1",
+   "short": "pick_and_place_simple-Pen-None-Shelf-319",
+   "stratum": "search-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.875,
+   "G1": 0.25,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Lettuce-None-CounterTop-22/dp/1",
+   "short": "pick_cool_then_place_in_recep-Lettuce-None-CounterTop-22",
+   "stratum": "search-floor",
+   "T_v1a": "2/4",
+   "U": 0.25,
+   "G": 0.125,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Potato-None-GarbageCan-5/dp/1",
+   "short": "pick_heat_then_place_in_recep-Potato-None-GarbageCan-5",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.375,
+   "G1": 0.125,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_clean_then_place_in_recep-Kettle-None-StoveBurner-2/dp/1",
+   "short": "pick_clean_then_place_in_recep-Kettle-None-StoveBurner-2",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.875,
+   "G": 1.0,
+   "G1": 1.0,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Pillow-None-DeskLamp-324/dp/1",
+   "short": "look_at_obj_in_light-Pillow-None-DeskLamp-324",
+   "stratum": "seen-middle",
+   "T_v1a": "3/4",
+   "U": 0.375,
+   "G": 1.0,
+   "G1": 0.5,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-20/dp/1",
+   "short": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-20",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.375,
+   "G": 0.25,
+   "G1": 0.25,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Plate-None-CounterTop-7/dp/1",
+   "short": "pick_heat_then_place_in_recep-Plate-None-CounterTop-7",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.375,
+   "G1": 0.0,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_clean_then_place_in_recep-Spoon-None-DiningTable-21/dp/1",
+   "short": "pick_clean_then_place_in_recep-Spoon-None-DiningTable-21",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 1.0,
+   "G1": 0.75,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-14/dp/1",
+   "short": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-14",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 0.625,
+   "G1": 0.625,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_cool_then_place_in_recep-Tomato-None-Microwave-6/dp/1",
+   "short": "pick_cool_then_place_in_recep-Tomato-None-Microwave-6",
+   "stratum": "search-middle",
+   "T_v1a": "2/4",
+   "U": 0.0,
+   "G": 0.25,
+   "G1": 0.125,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_clean_then_place_in_recep-Kettle-None-StoveBurner-3/dp/1",
+   "short": "pick_clean_then_place_in_recep-Kettle-None-StoveBurner-3",
+   "stratum": "search-middle",
+   "T_v1a": "4/4",
+   "U": 0.125,
+   "G": 1.0,
+   "G1": 0.125,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Book-None-DeskLamp-320/dp/1",
+   "short": "look_at_obj_in_light-Book-None-DeskLamp-320",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.125,
+   "G": 1.0,
+   "G1": 0.5,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-22/dp/1",
+   "short": "pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-22",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.625,
+   "G": 0.625,
+   "G1": 0.75,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "pick_heat_then_place_in_recep-Cup-None-Fridge-23/dp/1",
+   "short": "pick_heat_then_place_in_recep-Cup-None-Fridge-23",
+   "stratum": "seen-floor",
+   "T_v1a": "3/4",
+   "U": 0.125,
+   "G": 0.25,
+   "G1": 0.125,
+   "U_greedy": false,
+   "G_greedy": false,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Pillow-None-DeskLamp-328/dp/1",
+   "short": "look_at_obj_in_light-Pillow-None-DeskLamp-328",
+   "stratum": "search-middle",
+   "T_v1a": "4/4",
+   "U": 0.375,
+   "G": 1.0,
+   "G1": 1.0,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Pillow-None-DeskLamp-306/dp/1",
+   "short": "look_at_obj_in_light-Pillow-None-DeskLamp-306",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.875,
+   "G": 1.0,
+   "G1": 1.0,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Laptop-None-DeskLamp-317/dp/1",
+   "short": "look_at_obj_in_light-Laptop-None-DeskLamp-317",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 1.0,
+   "G1": 0.875,
+   "U_greedy": true,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Mug-None-DeskLamp-301/dp/1",
+   "short": "look_at_obj_in_light-Mug-None-DeskLamp-301",
+   "stratum": "seen-middle",
+   "T_v1a": "4/4",
+   "U": 0.25,
+   "G": 1.0,
+   "G1": 0.75,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": false,
+   "G_valid": 8
+  },
+  {
+   "case": "look_at_obj_in_light-Pencil-None-DeskLamp-306/dp/1",
+   "short": "look_at_obj_in_light-Pencil-None-DeskLamp-306",
+   "stratum": "search-middle",
+   "T_v1a": "4/4",
+   "U": 0.0,
+   "G": 1.0,
+   "G1": 0.375,
+   "U_greedy": false,
+   "G_greedy": true,
+   "G1_greedy": true,
+   "G_valid": 8
+  }
+ ],
+ "void": [
+  {
+   "case": "pick_heat_then_place_in_recep-Cup-None-DiningTable-23/dp/1",
+   "mode": "G",
+   "seed": 4,
+   "reason": "handback_policy:StudentCallError"
+  }
+ ]
+}

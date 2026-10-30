@@ -17,6 +17,18 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:0x CDT 10-29 — V1b r2 DONE: G > U by the preregistered rule -> V2
+- v1b_r2 finished 22:55 CDT: 1,026/1,026 recorded, 1 void (G Cup-DiningTable-23 seed 4, StudentCallError). Launcher 52796 exited.
+- Sampled success (mean over 38 prefixes): U 0.253, G1 0.454, G 0.658. G-U +0.405 [0.289, 0.520], prefixes 29 up / 4 down
+  -> PASS (>=0.15 and +4). G-G1 +0.204 [0.114, 0.299], 26/4. Teacher-step share in G 3.4% (<=30%), 0 episodes >50%.
+  Greedy successes U 9 / G1 21 / G 22 of 38. T (V1a takeover) mean 0.908 -> G closes ~62% of the U->T gap.
+- Weak spots: heat 0.22 -> 0.35 (40/71 G heat samples took the target but never heated; 3/535 guidances suggested a heat
+  command, 242 open/close microwave, 63 `help`) -> R/facts lack the transform precondition; search-floor 0.19 -> 0.09 (T 0.63).
+- Report reports/analysis/method_v1/V1b_joint_guidance_ZH.md; analysis v1b/analyze_v1b.py, v1b_r2_analysis.json, v1b_r2.png.
+- Teacher usage V1a+V1b total 59.84M in / 4.69M out (v1b_r2 29.77M / 3.88M; void run 1 3.79M / 0.47M).
+- Next: V2 prereg (V2_pool collection U/G/PREFIX-EXPERT -> E0.4 datasets -> E0.5 training from theta0 -> no-hint eval on
+  D_probe + original hard histories); in parallel a transform-precondition fix to facts/R retested on heat prefixes only.
+
 ### 19:3x CDT 10-29 — E4B main grid COMPLETE (all seeds); V1b r2 running
 - During the pause the keeper finished every E4B cell (jobs=0): tsft K10 72/69/62, K20 78/78/90, K30 86/79/96, K100 107/102/119;
   AD 85/83/83, 104/95/97, 112/104/110, 102/107/108; SmartAD 76/86/79, 84/90/98, 91/96/94, 118/118/111; SAD (rule A)
