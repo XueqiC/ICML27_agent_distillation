@@ -40,6 +40,63 @@ Outputs must be new directories outside the sealed dataset, theta0 and base
 snapshot. Existing outputs and symlinks are refused.
 No teacher, environment rollout, evaluation or checkpoint selection runs here.
 
+## Running on another host
+
+Relocation is opt-in on `run` and `inputs`. For example, append these flags
+to the invocation above after copying the sealed bundle and its dependencies:
+
+```bash
+  --relocate /home/xueqi/hq/projects/ICML27_agent_distillation=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation \
+  --relocate /home/xueqi/.cache/huggingface=/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache
+```
+
+Each rule replaces one absolute directory prefix, preserving the relative tail.
+Matching uses whole components, ordered longest first; duplicate/overlapping
+OLD prefixes, relative prefixes, `..` tails, file prefixes and NEW inside the
+sealed dataset are refused. Symlinks may point elsewhere within resolved NEW
+(as HF snapshot links do), but cannot escape it. There is no fallback to OLD
+when a mapped file is absent or has different bytes. Add rules for **every**
+other unavailable input prefix too: the real OFFLINE seal also references
+`/home/xueqi/hq/projects/ICML27_run_repair_eval_7748da5`.
+
+On the source host, create an inventory before copying:
+
+```bash
+CUDA_VISIBLE_DEVICES='' python tools/train_v2_arm.py inputs \
+  --dataset /path/to/OFFLINE --config configs/base_e4b.yaml \
+  --snapshot /path/to/pinned/E4B --list --output /tmp/v2-inputs.json
+```
+
+The JSON contains de-duplicated local filenames, source references, prefix-relative
+names, byte sizes and recorded SHA256 seals, grouped by destination prefix
+(unmapped paths use the dataset root or `/`). Use the relative names as rsync
+file lists for each prefix; preserve HF symlink targets or copy with `rsync -L`.
+`--output` exclusively creates a new file. Listing does not certify hashes;
+theta0 metadata must be local, so list on the source host before transfer.
+Theta0 defaults to the sealed `adapter_path`. Snapshot defaults to the sealed
+tokenizer path, then theta0's recorded base path. Config defaults to the same
+`configs/base_e4b.yaml` as `run`; supply the run's exact overrides for a matching
+inventory. `--theta0`, `--snapshot`, `--config`, and `--splits` accept relocation.
+
+On the destination, use `inputs --dataset /local/OFFLINE --check` with the same
+config/snapshot overrides and relocation flags. This reads all recorded file
+hashes in both bundles and theta0/base artifacts on CPU, without importing the
+model runtime. Missing files and hash failures report a count and the first
+five paths. Verification streams SHA256 over the bytes, without size/mtime
+receipts. `run` performs the same check before loading its tokenizer or model.
+This check validates file availability and hashes only; the training reader's
+schema, split, evidence and recipe checks still apply separately.
+
+Sealed manifests/examples and original hash keys remain unchanged. Evidence
+episode references remain audit strings, not filesystem reads or model inputs.
+When the reader needs theta0's original K20 training view, its `verified` path
+is relocated and checked against the hash under the original provenance key.
+Historical training paths that are not opened remain historical metadata.
+Run `manifest.json` records `relocation`; `provenance.json` records the same
+object in `details.relocation`: rules, distinct relocated-reference counts per
+OLD prefix (including directories, counted once across bundles), verified-file
+count, and `all_hashes_verified`. Checkpoint manifest structure is unchanged.
+
 ## Input checks and replay layout
 
 Each bundle has the contract's `examples.jsonl`, `examples.sha256`, and
@@ -215,6 +272,23 @@ Final required command:
 CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python \
   -m pytest -q tests/test_v2_train.py tests/test_repair_*.py
 ```
+
+Relocation verification: **501 passed** in the combined suite, with the same
+four existing PEFT warnings. The final targeted invocation of
+`CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python
+-m pytest -q tests/test_v2_train.py` passed **95 tests**. This includes 20 new
+cases for prefix rules, same-size/same-mtime hash tampering, missing files,
+symlink confinement, replay/theta0/training-view relocation, CPU inventory
+commands, exclusive output and provenance. The original 75 tests are unchanged.
+
+The no-relocation `inputs --check` on
+`/home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/method_v1/v2_data/OFFLINE`
+passed: **18,212 file paths present; 18,196 distinct files verified against
+recorded SHA256 seals**, including replay and the default run config inputs.
+This is a file-integrity check, not training-schema acceptance: that producer
+bundle has extra count fields and lacks the training reader's required split
+sets, and some evidence steps are null. Those existing protocol checks remain
+unchanged. No real training, API calls, commits or pushes were performed.
 
 Rules 2/4/5 revision verification: **481 passed**, including 75 V2 tests;
 four existing PEFT warnings concern missing base-config paths for synthetic

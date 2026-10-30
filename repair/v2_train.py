@@ -20,6 +20,7 @@ from baselines.common.shared_history import pack_shared_history
 from repair.artifacts import checkpoint_files, provenance, read_json, tokenizer_identity
 from repair.labels import instance_ids
 from repair.train_arms import inherited_recipe, load_existing_adapter
+from repair.v2_inputs import ValidationError, require, inspect_inputs, training_view_inputs, FORBIDDEN_SETS
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.react import build_messages, parse_action
 from sed.storage import digest, file_hash, write_json
@@ -37,16 +38,6 @@ EXAMPLE_FIELDS = {"example_id", "arm", "source", "kind", "task_id", "group_id",
                   "task_type", "messages", "supervised_assistant_indices", "weight", "evidence"}
 EVIDENCE_FIELDS = {"episode_ref", "step", "executor", "local_event", "episode_success",
                    "label_source", "label_check"}
-FORBIDDEN_SETS = ("U_dev", "U_mech", "D_probe", "D_unseen_quick", "dev140")
-
-
-class ValidationError(ValueError):
-    """Only fixed, safe validation messages may be displayed by the CLI."""
-
-
-def require(ok, message):
-    if not ok:
-        raise ValidationError(message)
 
 
 def _json(text):
@@ -65,15 +56,9 @@ def _sha(value):
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
-def _input_path(root, name):
-    path = Path(name)
-    return path if path.is_absolute() else root / path
-
-
-def _read_bundle(root, theta0):
+def _read_bundle(bundle, theta0, files):
     """Validate byte seals and summaries before any tokenizer/model allocation."""
-    root = Path(root).resolve()
-    manifest = read_json(root / "manifest.json")
+    root, manifest = bundle["root"], bundle["manifest"]
     fields = {"schema", "arm", "created", "code_revision", "inputs", "counts", "supervised_turns",
               "example_ids_sha256", "splits_sha256", "theta0", "training_exposure_tasks", "excluded"}
     require(isinstance(manifest, dict) and fields <= manifest.keys(), "Incomplete interchange manifest")
@@ -86,10 +71,7 @@ def _read_bundle(root, theta0):
             "Invalid theta0 identity")
     require(file_hash(Path(theta0) / "adapter_model.safetensors") == identity["adapter_weights_sha256"],
             "theta0 adapter hash differs from dataset manifest")
-    seal = (root / "examples.sha256").read_text().strip().split()
-    require(len(seal) in (1, 2) and _sha(seal[0])
-            and (len(seal) == 1 or seal[1] in ("examples.jsonl", "*examples.jsonl"))
-            and file_hash(root / "examples.jsonl") == seal[0], "examples.jsonl sha256 mismatch")
+    require(file_hash(root / "examples.jsonl") == bundle["examples_sha256"], "examples.jsonl sha256 mismatch")
     rows = [_json(line) for line in (root / "examples.jsonl").read_text().splitlines()]
     require(all(isinstance(row, dict) and set(row) == EXAMPLE_FIELDS for row in rows),
             "Example schema must exactly match the interchange whitelist")
@@ -111,9 +93,9 @@ def _read_bundle(root, theta0):
     inputs = manifest["inputs"]
     require(isinstance(inputs, dict) and inputs, "Missing hashed interchange inputs")
     paths = []
-    for name, sha in inputs.items():
-        path = _input_path(root, name)
-        require(_sha(sha) and path.is_file() and file_hash(path) == sha, "Interchange input sha256 mismatch")
+    for name in inputs:
+        # The shared preflight already hashed every input in both bundles.
+        path = files.relocation.path(name, root=root)
         paths.append(path.resolve())
     return {"root": root, "manifest": manifest, "rows": rows,
             "inputs": [root / "manifest.json", root / "examples.sha256", root / "examples.jsonl", *paths]}
@@ -192,13 +174,17 @@ def validate_example(row, arm, task, allowed, forbidden):
     return diagnostics
 
 
-def read_dataset(directory, *, theta0, config, splits=None):
+def read_dataset(directory, *, theta0, config, splits=None, relocate=(), _inspection=None):
     """No eval-side imports. Both inline replay and a sealed replay/ bundle work."""
-    main = _read_bundle(directory, theta0)
+    inspection = _inspection or inspect_inputs(directory, theta0=theta0, config=config,
+                                               splits=splits, relocate=relocate, runtime=False)
+    files = inspection["files"]
+    require(files.all_hashes_verified, "Dataset requires a completed input hash verification")
+    theta0, config, splits = (inspection[k] for k in ("theta0", "config", "splits"))
+    main = _read_bundle(inspection["bundles"][0], theta0, files)
     bundles = [main]
-    replay_dir = main["root"] / "replay"
-    if replay_dir.exists():
-        bundles.append(_read_bundle(replay_dir, theta0))
+    if len(inspection["bundles"]) > 1:
+        bundles.append(_read_bundle(inspection["bundles"][1], theta0, files))
         require(all(row["source"] == "k20_replay" for row in bundles[1]["rows"]),
                 "replay/ must contain only k20_replay examples")
         require(not any(row["source"] == "k20_replay" for row in main["rows"]),
@@ -231,9 +217,8 @@ def read_dataset(directory, *, theta0, config, splits=None):
         # The contract permits the original K20 view instead of a split entry.
         from sed.seed_evidence import load_verified_collection
         source = read_json(Path(theta0).parent / "provenance.json")
-        view = Path(source["config"]["baseline_training"]["verified"])
-        require(source["inputs"].get(str(view / "manifest.json")) == file_hash(view / "manifest.json"),
-                "K20 view differs from theta0's original support manifest")
+        view = training_view_inputs(files, source)
+        files.verify()
         collection, _, _ = load_verified_collection(view, frozen, freeze)
         require(collection["K"] == 20, "Expected original K20 view")
         replay = ({r["task_id"] for r in collection["verified"]}, {r["group_id"] for r in collection["verified"]})
@@ -255,6 +240,7 @@ def read_dataset(directory, *, theta0, config, splits=None):
     return {"arm": main["manifest"]["arm"], "rows": rows, "origins": origins,
             "trajectory_diagnostics": trajectory_diagnostics,
             "manifests": [b["manifest"] for b in bundles],
+            "relocation": files.report(),
             "inputs": sorted(set([*inputs, splits, Path(config["paths"]["manifest"]),
                                   Path(config["paths"]["split_freeze"])])),
             "theta0_sha256": main["manifest"]["theta0"]["adapter_weights_sha256"]}
@@ -448,14 +434,18 @@ def fake_model():
 
 
 def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_examples,
-            replay_ratio, checkpoints, seed=1, gpus=1, dry_run=False, splits=None, inputs=()):
+            replay_ratio, checkpoints, seed=1, gpus=1, dry_run=False, splits=None, inputs=(), relocate=()):
     """Continuation on 1 GPU or the existing torchrun replicated-LoRA route."""
     require(gpus in (1, 2), "gpus must be 1 or 2")
     require(type(updates) is int and updates > 0, "Positive integer updates required")
     require(all(type(n) is int for n in checkpoints), "Checkpoints must be integer update counts")
     checkpoints = sorted(set([0, *checkpoints]))
     require(all(type(n) is int and 0 <= n <= updates for n in checkpoints), "Checkpoint outside update range")
-    data = read_dataset(dataset, theta0=theta0, config=config, splits=splits)
+    inspection = inspect_inputs(dataset, theta0=theta0, snapshot=snapshot, config=config,
+                                splits=splits, inputs=inputs, relocate=relocate)
+    theta0, snapshot, config = (inspection[k] for k in ("theta0", "snapshot", "config"))
+    dataset = inspection["files"].relocation.dataset
+    data = read_dataset(dataset, theta0=theta0, config=config, _inspection=inspection)
     inherited = continuation_recipe(theta0, config, snapshot, updates)
     require(inherited["identity"]["adapter_weights_sha256"] == data["theta0_sha256"], "theta0 changed during validation")
     from train.dataset import load_tokenizer
@@ -525,13 +515,15 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
                 effective["sft"] = {"rank": 1, "alpha": 1, "dropout": 0, "targets": ["fake_projection"],
                     "packing": "turn", "base_snapshot": {"path": str(fake_base.resolve()),
                     "metadata_sha256": {"config.json": file_hash(fake_base / "config.json")}}}
-            prov = provenance(output, effective, command="v2_train", inputs=[*inputs, *data["inputs"],
-                Path(theta0).parent / "provenance.json", Path(__file__), Path("tools/train_v2_arm.py")])
+            prov = provenance(output, effective, command="v2_train", inputs=sorted(set([
+                *inspection["files"].files, *data["inputs"], Path(__file__), Path("tools/train_v2_arm.py")])),
+                details={"relocation": data["relocation"]})
             zero = {"update": 0, "status": "theta0_reference", "path": str(Path(theta0).resolve()),
                     "sha256": inherited["files"], **counts[0]}
             manifest = {"schema": "v2-training-run/1", "status": "running", "dry_run": dry_run,
                 "arm": data["arm"], "theta0": real_inherited["identity"], "provenance_sha256": digest(prov),
                 "input_manifests": data["manifests"], "schedule_sha256": digest(batches),
+                "relocation": data["relocation"],
                 "trajectory_diagnostics": data["trajectory_diagnostics"],
                 "encoded_examples_sha256": digest(examples), "tokenizer":
                     {"synthetic": True, "chat_template_sha256": digest(tokenizer.chat_template)} if dry_run

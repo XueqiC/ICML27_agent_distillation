@@ -510,3 +510,238 @@ def test_cli_dry_run_and_two_gpu_launcher(corpus, tmp_path, monkeypatch):
     monkeypatch.setattr(cli.subprocess, "run", lambda command, **kw: calls.append(command) or SimpleNamespace(returncode=0))
     assert cli.main(args) == 0
     assert calls[0][1:6] == ["-m", "torch.distributed.run", "--standalone", "--nproc_per_node", "2"]
+
+
+def move_corpus(c, tmp_path_factory):
+    """Copy no seals: move their filesystem intact to a second host prefix."""
+    old = c['root'].parent
+    new = tmp_path_factory.mktemp('hpg')
+    for child in old.iterdir():
+        shutil.move(str(child), new / child.name)
+    c['root'] = new / c['root'].name
+    return old, new, [f'{old}={new}']
+
+
+def test_relocation_component_prefixes_order_and_single_substitution(tmp_path):
+    from repair.v2_inputs import Relocation
+    mapping = Relocation(tmp_path / 'sealed', ['/rai/a=/hpg/a', '/rai/b/cache=/hpg/cache'])
+    assert [str(old) for old, _ in mapping.rules] == ['/rai/b/cache', '/rai/a']
+    assert mapping.path('/rai/a/dir/file') == Path('/hpg/a/dir/file')
+    assert mapping.path('/rai/abc/file') == Path('/rai/abc/file')
+    assert mapping.path('relative/file', root=tmp_path) == tmp_path / 'relative/file'
+    assert mapping.path('/rai/a') == Path('/hpg/a')
+    assert mapping.path('/rai/a/dir/file') == Path('/hpg/a/dir/file')
+    assert mapping.report()['relocated_paths_per_prefix']['/rai/a'] == 2
+    one = Relocation(tmp_path / 'sealed', ['/rai/a=/rai/a/moved'])
+    assert one.path('/rai/a/file') == Path('/rai/a/moved/file')
+    with pytest.raises(v2.ValidationError, match='relative tail'):
+        mapping.path('/rai/a/../b/file')
+
+
+@pytest.mark.parametrize('rules,match', [
+    (['/rai/a'], 'OLD=NEW'), (['rai/a=/hpg/a'], 'absolute'),
+    (['/rai/a=hpg/a'], 'absolute'), (['/rai/a=/hpg/a', '/rai/a/=/hpg/b'], 'overlapping'),
+    (['/rai/a=/hpg/a', '/rai/a/b=/hpg/b'], 'overlapping'),
+    (['/rai/a/b=/hpg/b', '/rai/a=/hpg/a'], 'overlapping'),
+    (['/rai/a/../b=/hpg/a'], 'relative tail'), (['/rai/a=/hpg/a/../b'], 'relative tail'),
+])
+def test_relocation_rule_refusals(tmp_path, rules, match):
+    from repair.v2_inputs import Relocation
+    with pytest.raises(v2.ValidationError, match=match):
+        Relocation(tmp_path / 'sealed', rules)
+
+
+def test_relocation_rejects_files_and_destinations_inside_seal(tmp_path):
+    from repair.v2_inputs import Relocation
+    sealed = tmp_path / 'sealed'; sealed.mkdir()
+    file = tmp_path / 'file'; file.write_text('file')
+    for rule in (f'{file}=/new', f'/old={file}'):
+        with pytest.raises(v2.ValidationError, match='directory'):
+            Relocation(sealed, [rule])
+    alias = tmp_path / 'alias'; alias.symlink_to(sealed, target_is_directory=True)
+    for new in (sealed, sealed / 'child', alias / 'child'):
+        with pytest.raises(v2.ValidationError, match='outside the sealed'):
+            Relocation(sealed, [f'/old={new}'])
+
+
+def test_relocation_replay_theta0_and_default_refusal(corpus, tmp_path_factory):
+    before = read(corpus)
+    original = {p.relative_to(corpus['root']): p.read_bytes()
+                for p in corpus['root'].rglob('*') if p.is_file()}
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    after = v2.read_dataset(corpus['root'], theta0=corpus['theta'], config=corpus['config'], relocate=rules,
+                            splits=corpus['splits'])
+    assert after['rows'] == before['rows']
+    assert after['manifests'] == before['manifests']
+    assert all(p.is_file() for p in after['inputs'])
+    assert {p.relative_to(corpus['root']): p.read_bytes()
+            for p in corpus['root'].rglob('*') if p.is_file()} == original
+    assert after['relocation']['all_hashes_verified']
+    assert after['relocation']['map'] == [{'old': str(old), 'new': str(new)}]
+    with pytest.raises(v2.ValidationError, match='missing file'):
+        read(corpus)
+
+
+@pytest.mark.parametrize('fault', ['hash', 'missing', 'symlink'])
+def test_relocation_failures_precede_any_model_load(corpus, tmp_path_factory, monkeypatch, fault):
+    import os
+    def forbidden(*args, **kwargs):
+        raise AssertionError('No model/tokenizer allocation before input verification')
+    monkeypatch.setattr(v2, 'load_existing_adapter', forbidden)
+    monkeypatch.setattr('train.dataset.load_tokenizer', forbidden)
+    # Put the failing input only in replay, so root-only verification cannot pass.
+    bad = corpus['root'].parent / 'replay-only.txt'; bad.write_text('sealed')
+    manifest = corpus['root'] / 'replay/manifest.json'
+    doc = json.loads(manifest.read_text()); doc['inputs'][str(bad)] = file_hash(bad); write_json(manifest, doc)
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    target = new / bad.name
+    if fault == 'hash':
+        stat = target.stat(); target.write_text('edited')
+        os.utime(target, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        assert target.stat().st_size == stat.st_size
+        match = '1 offending paths.*sha256 mismatch'
+    elif fault == 'missing':
+        target.unlink(); match = '1 offending paths.*missing file'
+    else:
+        external = tmp_path_factory.mktemp('outside') / 'same.txt'; external.write_text('sealed')
+        target.unlink(); target.symlink_to(external); match = 'symlink escape'
+    with pytest.raises(v2.ValidationError, match=match):
+        run(corpus, new / 'run', dry_run=False, relocate=rules)
+    assert not (new / 'run').exists()
+
+
+def test_relocation_reports_first_missing_paths_and_total(corpus, tmp_path_factory):
+    from repair.v2_inputs import inspect_inputs
+    manifest = corpus['root'] / 'manifest.json'
+    doc = json.loads(manifest.read_text())
+    for i in range(7):
+        doc['inputs'][str(corpus['root'].parent / f'missing-{i}.txt')] = '0' * 64
+    write_json(manifest, doc)
+    _, new, rules = move_corpus(corpus, tmp_path_factory)
+    with pytest.raises(v2.ValidationError, match='7 offending paths') as error:
+        inspect_inputs(corpus['root'], relocate=rules)
+    assert str(new / 'missing-0.txt') in str(error.value)
+    assert str(new / 'missing-4.txt') in str(error.value)
+    assert 'missing-5.txt' not in str(error.value)
+
+
+def test_inputs_cli_list_check_exclusive_output_and_no_model_import(corpus, tmp_path_factory, monkeypatch, capsys):
+    from tools import train_v2_arm as cli
+    import builtins
+    cfg = corpus['root'].parent / 'run-config.json'; write_json(cfg, corpus['config'])
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    original_import = builtins.__import__
+    def cpu_import(name, *args, **kwargs):
+        assert name.split('.')[0] not in ('torch', 'transformers', 'peft')
+        assert name not in ('repair.v2_train', 'train.dataset')
+        return original_import(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, '__import__', cpu_import)
+    args = ['inputs', '--dataset', str(corpus['root']), '--relocate', rules[0],
+            '--config', str(cfg), '--snapshot', str(corpus['snapshot']), '--splits', str(corpus['splits'])]
+    assert cli.main([*args, '--list']) == 0
+    listing = json.loads(capsys.readouterr().out)
+    entries = [entry for group in listing['groups'] for entry in group['files']]
+    assert len(entries) == len({e['path'] for e in entries}) == listing['file_count']
+    assert all(e['size_bytes'] == Path(e['path']).stat().st_size for e in entries)
+    needed = [new / 'method_v1_splits.json', new / 'baseline/checkpoint/adapter_model.safetensors',
+              new / 'baseline/provenance.json', corpus['root'] / 'replay/manifest.json', new / cfg.name]
+    assert all(str(p) in {e['path'] for e in entries} for p in needed)
+    assert not listing['relocation']['all_hashes_verified']
+    assert cli.main([*args, '--check']) == 0
+    checked = json.loads(capsys.readouterr().out)
+    assert checked['status'] == 'verified' and checked['relocation']['all_hashes_verified']
+    assert checked['file_count'] == listing['file_count']
+    out = new / 'inventory.json'
+    assert cli.main([*args, '--list', '--output', str(out)]) == 0
+    assert json.loads(out.read_text()) == listing
+    assert cli.main([*args, '--list', '--output', str(out)]) == 1
+    assert json.loads(out.read_text()) == listing
+    capsys.readouterr()
+    assert cli.main([*args, '--list', '--output', str(corpus['root'] / 'new.json')]) == 1
+    assert not (corpus['root'] / 'new.json').exists()
+
+
+def test_relocated_run_provenance_and_cli_config(corpus, tmp_path_factory):
+    from tools import train_v2_arm as cli
+    import torch
+    torch.set_num_threads(1)
+    expected = digest(schedule(read(corpus)['rows'], updates=1))
+    cfg = corpus['root'].parent / 'run-config.json'; write_json(cfg, corpus['config'])
+    sealed = json.loads((corpus['root'] / 'manifest.json').read_text())
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    out = new / 'run'
+    args = ['run', '--dataset', str(corpus['root']), '--theta0', str(corpus['theta']),
+            '--snapshot', str(corpus['snapshot']), '--config', str(cfg), '--updates', '1',
+            '--batch-examples', '4', '--replay-ratio', '.25', '--checkpoints', '1', '--gpus', '1',
+            '--output', str(out), '--dry-run', '--relocate', rules[0]]
+    assert cli.main(args) == 0
+    manifest = json.loads((out / 'manifest.json').read_text())
+    provenance = json.loads((out / 'provenance.json').read_text())
+    assert manifest['schedule_sha256'] == expected
+    assert manifest['input_manifests'][0] == sealed
+    report = manifest['relocation']
+    assert report == provenance['details']['relocation']
+    assert report['map'] == [{'old': str(old), 'new': str(new)}]
+    assert report['all_hashes_verified'] and report['verified_hashed_files'] > 0
+    assert report['relocated_paths_per_prefix'][str(old)] == 6  # theta, snapshot, config, manifest/freeze, splits
+    assert manifest['checkpoints'][0]['path'] == str(new / 'baseline/checkpoint')
+    assert str(new / cfg.name) in provenance['inputs']
+    assert json.loads((corpus['root'] / 'manifest.json').read_text()) == sealed
+
+
+def test_theta0_training_view_reference_relocated_without_rewriting_provenance(corpus, tmp_path_factory, monkeypatch):
+    view = corpus['root'].parent / 'k20'; view.mkdir()
+    support = {'K': 20, 'verified': [{'task_id': r['task_id'], 'group_id': r['group_id']} for r in corpus['replay']]}
+    write_json(view / 'manifest.json', support)
+    write_json(view / 'selection.json', {})
+    write_json(view / 'identity.json', {})
+    provenance = corpus['theta'].parent / 'provenance.json'
+    doc = json.loads(provenance.read_text())
+    doc['config']['baseline_training']['verified'] = str(view)
+    doc['inputs'] = {str(view / 'manifest.json'): file_hash(view / 'manifest.json')}
+    write_json(provenance, doc)
+    split_doc = json.loads(corpus['splits'].read_text()); del split_doc['sets']['K20']
+    write_json(corpus['splits'], split_doc)
+    reseal(corpus)
+    seal_bundle(corpus['root'] / 'replay', corpus['replay'], corpus['theta'], corpus['splits'], 'CONTINUE')
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    calls = []
+    def fake_collection(root, *_):
+        calls.append(root)
+        return support, {}, root
+    monkeypatch.setattr('sed.seed_evidence.load_verified_collection', fake_collection)
+    result = v2.read_dataset(corpus['root'], theta0=corpus['theta'], config=corpus['config'], relocate=rules)
+    assert calls == [new / 'k20']
+    assert result['relocation']['all_hashes_verified']
+    assert json.loads((new / 'baseline/provenance.json').read_text()) == doc
+    from repair.v2_inputs import inspect_inputs
+    inventory = inspect_inputs(corpus['root'], relocate=rules)
+    assert {new / 'k20' / name for name in ('manifest.json', 'selection.json', 'identity.json')} <= inventory['files'].files.keys()
+    (new / 'k20/manifest.json').write_text('{}')
+    with pytest.raises(v2.ValidationError, match="K20 view differs"):
+        v2.read_dataset(corpus['root'], theta0=corpus['theta'], config=corpus['config'], relocate=rules)
+
+
+def test_inputs_preserve_hf_aliases_within_new_prefix(corpus, tmp_path_factory):
+    from repair.v2_inputs import inspect_inputs
+    old = corpus['root'].parent
+    blob = old / 'blobs/tokenizer'; blob.parent.mkdir(); blob.write_text('same bytes')
+    alias = corpus['snapshot'] / 'extra_tokenizer.json'
+    alias.symlink_to('../blobs/tokenizer')
+    old, new, rules = move_corpus(corpus, tmp_path_factory)
+    result = inspect_inputs(corpus['root'], relocate=rules)
+    entries = [e for group in result['files'].listing()['groups'] for e in group['files']]
+    entry = next(e for e in entries if e['path'] == str(new / 'snapshot/extra_tokenizer.json'))
+    assert str(new / 'blobs/tokenizer') in {e['path'] for e in entries}
+    assert entry['resolved_path'] == str(new / 'blobs/tokenizer')
+    assert entry['size_bytes'] == len('same bytes')
+    assert result['files'].report()['all_hashes_verified']
+
+
+def test_relocated_theta0_mismatch_in_check(corpus, tmp_path_factory, capsys):
+    from tools import train_v2_arm as cli
+    _, new, rules = move_corpus(corpus, tmp_path_factory)
+    (new / 'baseline/checkpoint/adapter_model.safetensors').write_bytes(b'wrong checkpoint')
+    assert cli.main(['inputs', '--dataset', str(corpus['root']), '--relocate', rules[0], '--check']) == 1
+    error = capsys.readouterr().err
+    assert 'theta0 adapter hash' in error and '1 offending paths' in error
