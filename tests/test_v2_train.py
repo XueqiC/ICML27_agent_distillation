@@ -120,6 +120,91 @@ def test_separate_and_inline_replay(corpus):
     assert len(read(corpus)["rows"]) == 4
 
 
+TRAJECTORY_ISSUES = [
+    ("Thought: Try apple 1 again.\nAction: eat apple 1", 1, 0, "not admissible"),
+    ("Thought: apple 99 and mug 42 are here.\nAction: look", 0, 1, "unseen instance"),
+]
+
+
+@pytest.mark.parametrize("reply,inadmissible,unseen,match", TRAJECTORY_ISSUES)
+@pytest.mark.parametrize("arm,source,layout", [
+    ("OFFLINE", "offline_teacher", "root"),
+    ("CONTINUE", "k20_replay", "root"),
+    ("JOINT", "k20_replay", "inline"),
+    ("CONTINUE", "k20_replay", "separate"),
+])
+def test_trajectory_issues_are_diagnostics_and_preserve_baseline_bytes(
+        corpus, arm, source, layout, reply, inadmissible, unseen, match):
+    from train.dataset import episode_examples
+    group = "a" if source == "offline_teacher" else "b"
+    row = example(f"train/room_{group}/trial_0", source, "trajectory", arm)
+    row["messages"][2]["content"] = reply
+    # Future observations cannot retroactively ground the first supervised turn.
+    later = {"observation": "Now apple 99 and mug 42 are visible.", "admissible_commands": ["look"]}
+    row["messages"][3]["content"] = canonical_bytes(later).decode()
+    if layout == "separate":
+        seal_bundle(corpus["root"] / "replay", [row], corpus["theta"], corpus["splits"], arm)
+    else:
+        shutil.rmtree(corpus["root"] / "replay")
+        rows = [*corpus["rows"], row] if layout == "inline" else [row]
+        seal_bundle(corpus["root"], rows, corpus["theta"], corpus["splits"], arm)
+    original = canonical_bytes(row)
+    data = read(corpus)
+    assert data["trajectory_diagnostics"] == [{"example_id": row["example_id"],
+        "inadmissible_supervised_turns": inadmissible,
+        "not_yet_seen_instance_supervised_turns": unseen}]
+    loaded = next(r for r in data["rows"] if r["example_id"] == row["example_id"])
+    tokenizer = v2.FakeTokenizer()
+    encoded = v2.encode_example(loaded, tokenizer)
+    assert canonical_bytes(loaded) == original
+    # Compare directly to the main-grid episode renderer, including both targets.
+    episode = {"schema_version": 2, "task_id": row["task_id"], "split": "train", "sealed": False,
+        "initial": {"visible": json.loads(row["messages"][1]["content"])},
+        "steps": [{"event_id": f"teacher:{i}", "action_raw": row["messages"][i]["content"],
+                   "visible": later} for i in (2, 4)]}
+    baseline = episode_examples(episode, tokenizer, packing="turn")
+    assert len(encoded["turns"]) == len(baseline) == 2
+    for actual, expected in zip(encoded["turns"], baseline):
+        assert actual["input_ids"] == expected["input_ids"]
+        assert actual["labels"] == expected["labels"]
+        assert tokenizer.decode(actual["input_ids"]).encode() == tokenizer.decode(expected["input_ids"]).encode()
+    assert tokenizer.decode([v for v in encoded["turns"][0]["labels"] if v != -100]) == reply + "<turn|>"
+
+
+@pytest.mark.parametrize("reply,inadmissible,unseen,match", TRAJECTORY_ISSUES)
+def test_decision_rejects_trajectory_issues_in_supervised_turn(corpus, reply, inadmissible, unseen, match):
+    corpus["rows"][0]["messages"][-1]["content"] = reply
+    reseal(corpus)
+    with pytest.raises(ValueError, match=match):
+        read(corpus)
+
+
+@pytest.mark.parametrize("reply,inadmissible,unseen,match", TRAJECTORY_ISSUES)
+def test_decision_context_is_not_subject_to_supervised_checks(corpus, reply, inadmissible, unseen, match):
+    corpus["rows"][0]["messages"][2]["content"] = reply
+    reseal(corpus)
+    data = read(corpus)
+    assert {d["example_id"] for d in data["trajectory_diagnostics"]} == {
+        row["example_id"] for row in corpus["replay"]}
+    assert all(d["inadmissible_supervised_turns"] == d["not_yet_seen_instance_supervised_turns"] == 0
+               for d in data["trajectory_diagnostics"])
+
+
+@pytest.mark.parametrize("mutate,match", [
+    (lambda r: r["messages"][2].update(content="Guidance: look\nAction: look"), "Guidance:"),
+    (lambda r: r["messages"][-1].update(content="Guidance: look\nAction: look"), "Guidance:"),
+    (lambda r: r["messages"][2].update(content="Unparseable"), "Action line"),
+    (lambda r: r["messages"][-1].update(content="Unparseable"), "Action line"),
+    (lambda r: r["messages"][0].update(content="Different system prompt"), "prompt contract"),
+    (lambda r: r.update(supervised_assistant_indices=[4]), "all assistant turns"),
+])
+def test_trajectory_keeps_other_validity_checks(corpus, mutate, match):
+    mutate(corpus["replay"][0])
+    seal_bundle(corpus["root"] / "replay", corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    with pytest.raises(ValueError, match=match):
+        read(corpus)
+
+
 def test_loss_uses_token_mean_per_example_then_batch_mean():
     import torch
     from baselines.common.fsdp_train import sft_objective
@@ -320,6 +405,24 @@ def run(c, out, **kwargs):
     return v2.run_arm(c["root"], c["config"], out, theta0=c["theta"], snapshot=c["snapshot"],
         **{"updates": 5, "batch_examples": 4, "replay_ratio": .25, "checkpoints": [0, 1, 5],
            "seed": 1, "gpus": 1, "dry_run": True, **kwargs})
+
+
+def test_run_manifest_records_trajectory_diagnostics_without_mutating_inputs(corpus, tmp_path):
+    import torch
+    torch.set_num_threads(1)
+    expected = []
+    for row, (reply, inadmissible, unseen, _) in zip(corpus["replay"], TRAJECTORY_ISSUES):
+        row["messages"][2]["content"] = reply
+        expected.append({"example_id": row["example_id"], "inadmissible_supervised_turns": inadmissible,
+                         "not_yet_seen_instance_supervised_turns": unseen})
+    seal_bundle(corpus["root"] / "replay", corpus["replay"], corpus["theta"], corpus["splits"], "CONTINUE")
+    before = {p: p.read_bytes() for p in corpus["root"].rglob("*") if p.is_file()}
+    output = tmp_path / "diagnostics-run"
+    result = run(corpus, output, updates=1, checkpoints=[1])
+    expected.sort(key=lambda d: d["example_id"])
+    assert result["trajectory_diagnostics"] == expected
+    assert json.loads((output / "manifest.json").read_text())["trajectory_diagnostics"] == expected
+    assert {p: p.read_bytes() for p in corpus["root"].rglob("*") if p.is_file()} == before
 
 
 def test_dry_run_real_updates_manifests_and_determinism(corpus, tmp_path, monkeypatch):

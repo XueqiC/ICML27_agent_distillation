@@ -129,6 +129,7 @@ def _members(value):
 
 
 def validate_example(row, arm, task, allowed, forbidden):
+    """Validate decisions strictly; return informational trajectory turn counts."""
     require(row["arm"] == arm and row["source"] in ARMS[arm] | {"k20_replay"}, "Arm/source mismatch")
     require(row["kind"] in {"trajectory", "decision"}, "Unknown example kind")
     require(type(row["weight"]) in (int, float) and row["weight"] == 1.0,
@@ -164,6 +165,7 @@ def validate_example(row, arm, task, allowed, forbidden):
     require(all(type(i) is int for i in indices) and indices == expected,
             "Supervised indices must be all assistant turns, or the last assistant for a decision")
     history = []
+    diagnostics = {"inadmissible_supervised_turns": 0, "not_yet_seen_instance_supervised_turns": 0}
     for i in range(2, len(messages), 2):
         require(messages[i - 1]["role"] == "user" and messages[i]["role"] == "assistant",
                 "Expected alternating user/assistant messages")
@@ -174,11 +176,20 @@ def validate_example(row, arm, task, allowed, forbidden):
                 "Messages differ from the exact student prompt contract")
         action = parse_action(messages[i]["content"])
         if i in indices:
-            require(action in visible["admissible_commands"], "Supervised action is not admissible")
+            admissible = action in visible["admissible_commands"]
             # Reuse this tree's M0c syntax check (step/turn numbers are not objects).
             prefix_refs = instance_ids("\n".join(m["content"] for m in messages[:i]))
-            require(instance_ids(messages[i]["content"]) <= prefix_refs, "Label cites an unseen instance ID")
+            grounded = instance_ids(messages[i]["content"]) <= prefix_refs
+            if row["kind"] == "decision":
+                require(admissible, "Supervised action is not admissible")
+                require(grounded, "Label cites an unseen instance ID")
+            else:
+                # Rule 5 preserves baseline trajectories, including refused actions
+                # and ungrounded Thoughts. Count turns without changing their bytes.
+                diagnostics["inadmissible_supervised_turns"] += int(not admissible)
+                diagnostics["not_yet_seen_instance_supervised_turns"] += int(not grounded)
         history.append({"visible": visible, "reply": messages[i]["content"]})
+    return diagnostics
 
 
 def read_dataset(directory, *, theta0, config, splits=None):
@@ -230,16 +241,19 @@ def read_dataset(directory, *, theta0, config, splits=None):
     require(not (pool[0] & replay[0] or pool[1] & replay[1]), "V2_pool overlaps K20")
     require(not ((pool[0] | replay[0]) & forbidden[0] or (pool[1] | replay[1]) & forbidden[1]),
             "Training split overlaps a diagnostic group")
-    rows, origins = [], []
+    rows, origins, trajectory_diagnostics = [], [], []
     for bundle in bundles:
         for row in bundle["rows"]:
             task = resolve_task(frozen, freeze, row["task_id"])
-            validate_example(row, bundle["manifest"]["arm"], task,
-                             replay if row["source"] == "k20_replay" else pool, forbidden)
+            diagnostics = validate_example(row, bundle["manifest"]["arm"], task,
+                                           replay if row["source"] == "k20_replay" else pool, forbidden)
+            if row["kind"] == "trajectory":
+                trajectory_diagnostics.append({"example_id": row["example_id"], **diagnostics})
             rows.append(row)
             origins.append(str(bundle["root"] / "examples.jsonl"))
     require(rows, "Empty training dataset")
     return {"arm": main["manifest"]["arm"], "rows": rows, "origins": origins,
+            "trajectory_diagnostics": trajectory_diagnostics,
             "manifests": [b["manifest"] for b in bundles],
             "inputs": sorted(set([*inputs, splits, Path(config["paths"]["manifest"]),
                                   Path(config["paths"]["split_freeze"])])),
@@ -518,6 +532,7 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
             manifest = {"schema": "v2-training-run/1", "status": "running", "dry_run": dry_run,
                 "arm": data["arm"], "theta0": real_inherited["identity"], "provenance_sha256": digest(prov),
                 "input_manifests": data["manifests"], "schedule_sha256": digest(batches),
+                "trajectory_diagnostics": data["trajectory_diagnostics"],
                 "encoded_examples_sha256": digest(examples), "tokenizer":
                     {"synthetic": True, "chat_template_sha256": digest(tokenizer.chat_template)} if dry_run
                     else tokenizer_identity(snapshot, tokenizer),

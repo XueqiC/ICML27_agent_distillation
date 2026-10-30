@@ -79,11 +79,20 @@ implementation does not generate or modify a split file.
 
 Messages must exactly round-trip through `sed.react.build_messages`; user
 JSON can contain only observation and admissible commands. No `Guidance:`
-text is accepted in any message. Every assistant turn must parse, and every
-supervised action must be admissible in its preceding user turn. Decision
-indices must identify exactly the last assistant message; trajectory indices
-must identify every assistant message. Label instance references must already
-occur in the prefix. Only `label_check: passed` labels are accepted.
+text is accepted in any message. Every assistant turn must parse. Decision
+indices must identify exactly the last assistant message; its action must be
+admissible in the preceding user turn, and its label instance references must
+already occur in the prefix. Only `label_check: passed` labels are accepted.
+
+Under the 2026-10-27 spec revision (rules 2, 4 and 5), trajectory indices must
+identify every assistant message, and OFFLINE, CONTINUE and K20 replay
+trajectories must reproduce the main-grid trajectory-SFT rendering byte for
+byte. Their inadmissible actions and not-yet-seen instance references are
+retained unchanged and fully supervised, as in the baselines. These two
+conditions produce informational diagnostics, not trajectory rejections.
+All other validation, including split eligibility, public-field whitelists,
+prompt equality, action parsing, guidance exclusion and evidence checks,
+still applies to both kinds.
 
 The consumer preserves evidence references and all input hashes. The contract
 does not define the referenced raw episode-record schema, so this reader does
@@ -144,6 +153,23 @@ effective config, code hashes/revision, source manifests, dependency versions,
 student identity, environment configuration, seeds, and inherited optimizer
 and scheduler decisions. Teacher/environment calls during training are zero;
 source collection provenance remains hash-referenced through the interchange.
+The run manifest's `trajectory_diagnostics` is a list of per-example records:
+
+```json
+{"example_id": "<trajectory example ID>", "inadmissible_supervised_turns": 1,
+ "not_yet_seen_instance_supervised_turns": 0}
+```
+
+Counts are recomputed from the supplied public messages for every trajectory
+in both pools, including records with zero counts. Each supervised turn counts
+at most once per condition, even if it cites multiple unseen instance IDs;
+the same turn may count under both conditions. Each prefix ends immediately
+before that assistant turn, so later observations cannot ground earlier
+references. Decision examples are excluded from these diagnostics and retain
+their rejection checks. These are dataset counts, independent of replay
+sampling or repeated training exposure. Sealed input manifests and examples
+are preserved; diagnostics never enter model inputs or affect loss masks.
+
 New/replay pool inventories distinguish example records, episode references,
 unique instances and groups. The inherited K=20 describes theta0's trusted
 seed trajectories; it is not the number of training examples or tasks.
@@ -174,6 +200,8 @@ not requested as a checkpoint. No optimizer-export hook is added.
 ## Verification
 
 CPU tests cover token-level masks and native turn end, strict input validation,
+decision rejection versus trajectory diagnostics, byte-identical main-grid
+rendering for OFFLINE/CONTINUE/inline/separate replay, manifest persistence,
 theta0 mismatch refusal, replay composition/epochs/common draws, deterministic
 schedules, padding-aware accounting, inherited recipe, synthetic backward and
 checkpoint hashes, serving identity structure, and CLI launcher routing.
@@ -188,8 +216,13 @@ CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python \
   -m pytest -q tests/test_v2_train.py tests/test_repair_*.py
 ```
 
-Result: **462 passed**, including 56 V2 tests; four existing PEFT warnings
-concern missing base-config paths for synthetic tiny models.
+Rules 2/4/5 revision verification: **481 passed**, including 75 V2 tests;
+four existing PEFT warnings concern missing base-config paths for synthetic
+tiny models. Only `repair/v2_train.py`, `tests/test_v2_train.py`, and this
+document were changed. No commit was made.
+
+Before this revision, the same command passed **462 tests**, including 56 V2
+tests, with the same four warnings.
 
 The broader run also included `test_stage2b_torch.py`,
 `test_stage3a_torch.py`, `test_baseline_packing.py`,
@@ -197,7 +230,7 @@ The broader run also included `test_stage2b_torch.py`,
 `test_shared_history_torch.py`, `test_continue_from_state.py`,
 `test_lora_adapters.py`, `test_lora_serving.py`, and
 `test_lora_serving_torch.py`: **860 passed, 1 skipped, 2 failed**.
-That run preceded the last six V2 test additions, which passed in the final
+That earlier run preceded six V2 test additions, which passed in the then-final
 required run. The failures are existing tests with unavailable prerequisites:
 
 - `test_official_loss_verbatim_and_random_formula_equivalence` requires absent
@@ -207,5 +240,4 @@ required run. The failures are existing tests with unavailable prerequisites:
 
 The skip requires a real seed collection absent here. No existing test or
 module was changed to bypass these failures. No real GPU run, live API call,
-commit or push was performed. The four new files have no trailing whitespace;
-tracked-file and staged diffs are empty, and HEAD remains `425945c`.
+commit or push was performed.
