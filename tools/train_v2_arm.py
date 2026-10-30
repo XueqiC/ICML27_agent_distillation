@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 # Also support `python tools/train_v2_arm.py` from an uninstalled worktree.
 if __package__ in (None, ""):
@@ -13,6 +14,7 @@ if __package__ in (None, ""):
 
 
 def main(argv=None):
+    started = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run")
@@ -29,21 +31,25 @@ def main(argv=None):
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--dry-run-tokenizer", choices=("bytes", "snapshot"), default="bytes",
                      help="Dry-run tokenizer: synthetic bytes (default), or offline snapshot tokenizer with the tiny fake model")
-    inventory = sub.add_parser("inputs", help="List local dependencies or verify their byte hashes on CPU")
+    inventory = sub.add_parser("inputs", help="List local dependencies or verify inputs on CPU")
     inventory.add_argument("--dataset", required=True)
     for name in ("theta0", "snapshot", "splits", "output"):
         inventory.add_argument("--" + name)
     inventory.add_argument("--config", default="configs/base_e4b.yaml")
     mode = inventory.add_mutually_exclusive_group(required=True)
     mode.add_argument("--list", action="store_true", help="Print a grouped JSON file inventory with byte sizes")
-    mode.add_argument("--check", action="store_true", help="Verify presence and SHA256 only; never load a model")
+    mode.add_argument("--check", action="store_true", help="Verify inputs and collection evidence; never load a model")
     for command in (run, inventory):
+        command.add_argument("--full-rehash", action="store_true",
+                             help="Audit: disable collection hash receipts and byte-hash every input")
         command.add_argument("--repair-splits", help="Diagnostic repair split source; still checked against the method freeze hash")
         command.add_argument("--dev140", help="dev140 source; still checked against the method freeze hash")
         command.add_argument("--relocate", action="append", default=[], metavar="OLD=NEW",
                              help="Explicit absolute directory-prefix relocation (repeatable)")
     values = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(values)
+    if args.command == "inputs" and args.full_rehash and not args.check:
+        parser.error("--full-rehash requires inputs --check")
     # Match the main grid's torch.distributed.run launcher. Already-launched
     # workers must not recursively spawn; dry-run always stays on one CPU.
     if args.command == "run" and not args.dry_run and args.gpus == 2 and "RANK" not in os.environ:
@@ -61,10 +67,11 @@ def main(argv=None):
             inspected = inspect_inputs(args.dataset, theta0=args.theta0, relocate=relocation,
                 snapshot=args.snapshot, config=config, splits=args.splits,
                 repair_splits=args.repair_splits, dev140=args.dev140,
-                inputs=[args.config] if args.config else [], check=args.check)
+                inputs=[args.config] if args.config else [], check=args.check, full_rehash=args.full_rehash)
             files = inspected["files"]
             result = files.listing() if args.list else {"schema": "v2-training-inputs/1", "status": "verified",
-                "file_count": len(files.files), "relocation": files.report()}
+                "file_count": len(files.files), "relocation": files.report(),
+                "prep_seconds": time.monotonic() - started}
             encoded = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
             if args.output:
                 output = Path(args.output)
@@ -82,7 +89,7 @@ def main(argv=None):
             checkpoints=args.checkpoints, seed=args.seed, gpus=args.gpus, dry_run=args.dry_run,
             dry_run_tokenizer=args.dry_run_tokenizer,
             splits=args.splits, repair_splits=args.repair_splits, dev140=args.dev140,
-            inputs=[args.config], relocate=relocation)
+            inputs=[args.config], relocate=relocation, full_rehash=args.full_rehash)
     except ValidationError as exc:
         print(f"V2 training refused: {exc}", file=sys.stderr)
         return 1

@@ -93,13 +93,50 @@ and `--dev140` accept relocation. Diagnostic split sources are included in the
 inventory with their method-freeze SHA256 seals.
 
 On the destination, use `inputs --dataset /local/OFFLINE --check` with the same
-config/snapshot overrides and relocation flags. This reads all recorded file
-hashes in both bundles and theta0/base artifacts on CPU, without importing the
-model runtime. Missing files and hash failures report a count and the first
-five paths. Verification streams SHA256 over the bytes, without size/mtime
-receipts. `run` performs the same check before loading its tokenizer or model.
-This check validates file availability and hashes only; the training reader's
-schema, split, evidence and recipe checks still apply separately.
+config/snapshot overrides and relocation flags. Both interchange bundles,
+theta0's adapter directory, every snapshot file, configs, frozen manifests and
+repair/dev140 split sources are fully byte-hashed on CPU. `run` performs the
+same check before loading its tokenizer or model. The training reader's schema,
+split, example-evidence and recipe checks still apply separately.
+
+When theta0's original K20 view supplies replay membership, the view's manifest
+must first match theta0's recorded byte hash. The unchanged
+`sed.seed_evidence.load_verified_collection` then validates that view and its
+parent collection, including failed attempts and trajectories outside K20.
+Its semantic checks and comparisons with the collection's own recorded hashes
+always run. Only dependencies covered by successful collection validation skip
+the second byte-hash pass in `v2_inputs` and the run's provenance writer.
+Unrelated files under a collection directory still receive byte hashing.
+Collection metadata with explicit raw-byte seals retains those checks,
+including theta0's view-manifest binding; semantic hashes cannot replace a
+recorded raw-byte seal.
+Missing files, altered recorded hashes and relocation escapes remain refusals;
+sealed internal collection paths must resolve to the files the loader validates.
+
+This uses the main grid's `sed.hash_receipts` implementation and honours
+`SED_HASH_CACHE` and `SED_HASH_CACHE_DIR`. Receipts match size, `mtime_ns` and
+inode, and are disposable accelerators rather than evidence. As on the main
+grid, a same-size edit with a deliberately restored timestamp and unchanged
+inode requires full rehashing to detect. Add `--full-rehash` to `run` or
+`inputs --check` for an audit: it applies `SED_HASH_CACHE=0` throughout validation
+and provenance, bypasses both receipt caches, and byte-hashes every input.
+Setting `SED_HASH_CACHE=0` directly has the same effect. The flag is invalid
+with `inputs --list`.
+
+On HiPerGator, set an explicit persistent **/blue** cache path, never `$HOME`
+or `/tmp`, and warm it with the CPU check before allocating a GPU:
+
+```bash
+export SED_HASH_CACHE_DIR=/blue/fsu-compsci-dept/xc25.fsu/hq/cache/sed-hash-receipts
+CUDA_VISIBLE_DEVICES='' python tools/train_v2_arm.py inputs \
+  --dataset /local/OFFLINE --check \
+  --config configs/base_e4b.yaml --theta0 /local/tsft/checkpoint \
+  --snapshot /local/pinned/E4B
+```
+
+Supply the same relocation flags as the training run. Cold means no receipts;
+warm checks still enumerate/stat evidence and validate collection semantics.
+`inputs --check` reports end-to-end `prep_seconds` without loading a model.
 
 Sealed manifests/examples and original hash keys remain unchanged. Evidence
 episode references remain audit strings, not filesystem reads or model inputs.
@@ -109,7 +146,16 @@ Historical training paths that are not opened remain historical metadata.
 Run `manifest.json` records `relocation`; `provenance.json` records the same
 object in `details.relocation`: rules, distinct relocated-reference counts per
 OLD prefix (including directories, counted once across bundles), verified-file
-count, and `all_hashes_verified`. Checkpoint manifest structure is unchanged.
+count, and `all_hashes_verified`. It also records `byte_hashed_files`
+(`verified_hashed_files` is its compatibility alias), `collection_covered_files`,
+`collection_validation_roots`, and canonical JSON SHA256 anchors for each
+validated collection in `collection_validation_anchors`. File counts use
+distinct resolved paths and exclude byte-hashed files from collection coverage.
+`full_rehash` and `hash_cache` record the effective policy and
+`hash_receipts.cache_provenance()`; run provenance also retains its top-level
+`hash_cache`. Collection evidence remains hash-bound through theta0's view
+manifest and the validated collection anchors. Checkpoint manifest structure
+is unchanged.
 
 ## Input checks and replay layout
 
@@ -353,7 +399,7 @@ change. Theta0's original K20 view needs
 the explicit local mapping
 `--relocate /ddnB/work/xueqic/hq/ICML27_data=/home/xueqi/hq/projects/ICML27_agent_distillation/data`.
 
-Current targeted verification: **226 passed** with the same CUDA-disabled
+Earlier targeted verification: **226 passed** with the same CUDA-disabled
 pytest command above. New cases cover every plural event (including repeats),
 singular fallback, empty lists, CONTINUE root/replay origins and shared seeded
 draws, overlap refusal in all other arms, every optional evidence field's type,
@@ -385,6 +431,67 @@ uses 12 root selections plus 4 `replay/` selections per batch. The report
 records commands, byte hashes, update logs, checkpoint checks and provenance;
 these remain synthetic smoke results, with no pretrained model weights loaded.
 Nothing was committed.
+
+The E0.5 receipt-verification revision passes **239 tests** with:
+
+```bash
+CUDA_VISIBLE_DEVICES='' /home/xueqi/hq/projects/tc-alignment/.venv/bin/python \
+  -m pytest -q tests/test_v2_train.py
+```
+
+The added tests use the real collection validator on fake execution receipts.
+They cover cold and disk-warm reuse, direct interchange references to collection
+files, changed/missing evidence outside the selected K20 view, teacher and
+receipt tampering, selection semantics, conflicting interchange seals, ordinary
+input byte hashes, full-rehash cache bypass and same-metadata tampering,
+environment restoration, CLI flags, and persisted run/provenance coverage.
+All existing relocation and refusal tests remain enabled.
+
+Real OFFLINE input-check measurements on 2026-10-30 used the requested theta0,
+relocation and receipt directory. The execution shell reports hostname
+`sn4622122543`; `rai` does not resolve here and no rai SSH alias is configured.
+Its rai identity could not be confirmed, so these are measurements from the
+available execution environment, not confirmed bare-host rai or HiPerGator
+timings.
+
+| Receipt state | CLI `prep_seconds` | Whole process wall seconds |
+|---|---:|---:|
+| Cold | 587.794 (9m48s) | 590.713 |
+| Warm | 477.084 (7m57s) | 480.039 |
+
+Both checks passed with **899,316 listed paths**, **899,276 distinct files
+covered by collection validation**, and **31 distinct byte-hashed files**.
+The latter include four collection metadata anchors with explicit raw-byte
+seals and 27 other inputs; nine alias paths explain the difference between
+listed-path and distinct-file totals. Both the K20 view and
+`seeds_full_train_r2` appear in `collection_validation_roots`.
+
+Cold means an empty receipt directory and a fresh process; OS page caches were
+not flushed. Warm uses a second fresh process with those disk receipts, so it
+cannot inherit the first process's memo. Tests did not overlap this final pair.
+Metadata inventory and semantic validation still leave substantial prep time;
+these results do not establish HiPerGator idle-GPU acceptance. Warm the cache on
+CPU before allocation using the `/blue` setting above.
+
+The command for each pass was:
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+SED_HASH_CACHE=1 \
+SED_HASH_CACHE_DIR=/tmp/claude-1010/-home-xueqi-hq-projects-tc-alignment/035c9823-fbb5-436e-b37c-069b2060bb62/scratchpad/hashcache_e05 \
+/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/train_v2_arm.py inputs --check \
+  --dataset /home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/method_v1/v2_data/OFFLINE \
+  --theta0 /home/xueqi/hq/projects/ICML27_agent_distillation/reports/runs/baselines_loni/e4b-tsft-k20-e32-lr5e-5/stages/train-sft/attempt-000/output/checkpoint \
+  --relocate /ddnB/work/xueqic/hq/ICML27_data=/home/xueqi/hq/projects/ICML27_agent_distillation/data \
+  --output /tmp/e05-input-verification-final-20261030/cold.json
+```
+
+The warm pass used `warm.json` as its exclusive output. Reports, commands,
+settings and code hashes are preserved under
+[`reports/runs/e05_input_verification_20261030/`](../reports/runs/e05_input_verification_20261030/)
+in this worktree (`reports/runs/` is git-ignored). The requested `/tmp` cache
+applies only to this measurement; use `/blue` on HiPerGator. No model was loaded
+and nothing was committed.
 
 Rules 2/4/5 revision verification: **481 passed**, including 75 V2 tests;
 four existing PEFT warnings concern missing base-config paths for synthetic

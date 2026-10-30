@@ -20,7 +20,7 @@ from baselines.common.shared_history import pack_shared_history
 from repair.artifacts import checkpoint_files, provenance, read_json, tokenizer_identity
 from repair.labels import instance_ids
 from repair.train_arms import inherited_recipe, load_existing_adapter
-from repair.v2_inputs import ValidationError, require, inspect_inputs, training_view_inputs, FORBIDDEN_SETS
+from repair.v2_inputs import ValidationError, require, inspect_inputs, input_hash_policy, FORBIDDEN_SETS
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.react import build_messages, parse_action
 from sed.storage import digest, file_hash, write_json
@@ -146,7 +146,7 @@ def _read_bundle(bundle, theta0, files):
     require(isinstance(inputs, dict) and inputs, "Missing hashed interchange inputs")
     paths = []
     for name in inputs:
-        # The shared preflight already hashed every input in both bundles.
+        # The shared preflight already verified every input in both bundles.
         path = files.relocation.path(name, root=root)
         paths.append(path.resolve())
     return {"root": root, "manifest": manifest, "rows": rows,
@@ -278,11 +278,7 @@ def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, 
         replay = _members(sets["K20"])
     else:
         # The contract permits the original K20 view instead of a split entry.
-        from sed.seed_evidence import load_verified_collection
-        source = read_json(Path(theta0).parent / "provenance.json")
-        view = training_view_inputs(files, source)
-        files.verify()
-        collection, _, _ = load_verified_collection(view, frozen, freeze)
+        view, collection = (inspection[k] for k in ("training_view", "training_collection"))
         require(collection["K"] == 20, "Expected original K20 view")
         replay = ({r["task_id"] for r in collection["verified"]}, {r["group_id"] for r in collection["verified"]})
         inputs.append(view / "manifest.json")
@@ -526,9 +522,11 @@ def fake_scoring_examples(examples):
     return result, vocabulary
 
 
+@input_hash_policy
 def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_examples,
             replay_ratio, checkpoints, seed=1, gpus=1, dry_run=False, splits=None,
-            repair_splits=None, dev140=None, inputs=(), relocate=(), dry_run_tokenizer="bytes"):
+            repair_splits=None, dev140=None, inputs=(), relocate=(), dry_run_tokenizer="bytes",
+            full_rehash=False):
     """Continuation on 1 GPU or the existing torchrun replicated-LoRA route."""
     require(gpus in (1, 2), "gpus must be 1 or 2")
     require(dry_run_tokenizer in ("bytes", "snapshot"), "Unknown dry-run tokenizer")
@@ -537,7 +535,8 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
     checkpoints = sorted(set([0, *checkpoints]))
     require(all(type(n) is int and 0 <= n <= updates for n in checkpoints), "Checkpoint outside update range")
     inspection = inspect_inputs(dataset, theta0=theta0, snapshot=snapshot, config=config,
-        splits=splits, repair_splits=repair_splits, dev140=dev140, inputs=inputs, relocate=relocate)
+        splits=splits, repair_splits=repair_splits, dev140=dev140, inputs=inputs, relocate=relocate,
+        full_rehash=full_rehash)
     theta0, snapshot, config = (inspection[k] for k in ("theta0", "snapshot", "config"))
     dataset = inspection["files"].relocation.dataset
     data = read_dataset(dataset, theta0=theta0, config=config, _inspection=inspection)
@@ -604,6 +603,7 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
             effective["v2_training"] = {"arm": data["arm"], "updates": updates, "batch_examples": batch_examples,
                 "replay_ratio": replay_ratio, "seed": seed, "requested_gpus": gpus, "world_size": world,
                 "dry_run": dry_run, "dry_run_tokenizer": dry_run_tokenizer if dry_run else None,
+                "full_rehash": inspection["files"].full_rehash,
                 "inherited": real_inherited, "schedule_sha256": digest(batches),
                 "loss_normalization": "per_example_mean_then_global_batch_mean",
                 "data_parallel": "replicated_lora_gradient_mean_before_clip"}
@@ -615,8 +615,8 @@ def run_arm(dataset, config, output, *, theta0, snapshot, updates, batch_example
                 effective["sft"] = {"rank": 1, "alpha": 1, "dropout": 0, "targets": ["fake_projection"],
                     "packing": "turn", "base_snapshot": {"path": str(fake_base.resolve()),
                     "metadata_sha256": {"config.json": file_hash(fake_base / "config.json")}}}
-            prov = provenance(output, effective, command="v2_train", inputs=sorted(set([
-                *inspection["files"].files, *data["inputs"], Path(__file__), Path("tools/train_v2_arm.py")])),
+            prov = provenance(output, effective, command="v2_train", inputs=inspection["files"].provenance_inputs([
+                *data["inputs"], Path(__file__), Path("tools/train_v2_arm.py")]),
                 details={"relocation": data["relocation"]})
             zero = {"update": 0, "status": "theta0_reference", "path": str(Path(theta0).resolve()),
                     "sha256": inherited["files"], **counts[0]}

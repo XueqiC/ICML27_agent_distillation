@@ -1,16 +1,19 @@
-"""Read-only path relocation and byte verification for the V2 training reader.
+"""Read-only relocation and main-grid collection verification for V2 inputs.
 
 Only filesystem references are relocated. Sealed JSON, evidence and hashes are
 never edited, and historical provenance is not recursively interpreted as paths.
 """
 from collections import defaultdict
 from copy import deepcopy
+from functools import wraps
 import json
+import os
 from pathlib import Path
 import re
 
 from repair.artifacts import read_json
-from sed.storage import file_hash
+from sed import hash_receipts
+from sed.storage import digest, file_hash
 
 FORBIDDEN_SETS = ("U_dev", "U_mech", "D_probe", "D_unseen_quick", "dev140")
 
@@ -26,6 +29,25 @@ def require(ok, message):
 
 def _sha(value):
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def input_hash_policy(function):
+    """Keep audit mode active through validation AND run provenance, then restore it."""
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        previous = os.environ.get("SED_HASH_CACHE")
+        full = kwargs.get("full_rehash", False)
+        if full:
+            os.environ["SED_HASH_CACHE"] = "0"
+        try:
+            return function(*args, **kwargs)
+        finally:
+            if full:
+                if previous is None:
+                    os.environ.pop("SED_HASH_CACHE", None)
+                else:
+                    os.environ["SED_HASH_CACHE"] = previous
+    return wrapped
 
 
 class Relocation:
@@ -50,11 +72,14 @@ class Relocation:
                     "Duplicate or overlapping OLD relocation prefixes")
             self.rules.append((old, new))
         self.rules.sort(key=lambda pair: (-len(pair[0].parts), str(pair[0])))
+        # Fix each destination boundary for this inspection. Individual inputs
+        # still resolve afresh, so retargeted links cannot escape that boundary.
+        self.destinations = {new: new.resolve() for _, new in self.rules}
         original = Path(dataset).absolute()
         self.dataset = self.path(original)
         for _, new in self.rules:
             require(not new.absolute().is_relative_to(original) and
-                    not new.resolve().is_relative_to(self.dataset),
+                    not self.destinations[new].is_relative_to(self.dataset),
                     "NEW must be outside the sealed dataset")
 
     def path(self, value, *, root=None):
@@ -69,7 +94,7 @@ class Relocation:
                     require(target.relative_to(new) == tail, "Relocation changed a path's relative tail")
                     self.seen[str(old)].add(str(path))
                     resolved = self.local(target)
-                    require(resolved.is_relative_to(new.resolve()),
+                    require(resolved.is_relative_to(self.destinations[new]),
                             f"Relocation symlink escape: {json.dumps(str(path))}")
                     return resolved
         return self.local(path if path.is_absolute() or root is None else Path(root) / path)
@@ -82,8 +107,9 @@ class Relocation:
         except (OSError, RuntimeError):
             raise ValidationError(f"Cannot resolve input path: {json.dumps(str(path))}") from None
         for _, new in self.rules:
-            if path.is_relative_to(new) or path.is_relative_to(new.resolve()):
-                require(resolved.is_relative_to(new.resolve()),
+            boundary = self.destinations[new]
+            if path.is_relative_to(new) or path.is_relative_to(boundary):
+                require(resolved.is_relative_to(boundary),
                         f"Relocation symlink escape: {json.dumps(str(path))}")
         return resolved
 
@@ -94,64 +120,98 @@ class Relocation:
 
 
 class InputFiles:
-    """De-duplicated file requirements, with no persistent/stat-based hash cache."""
+    """Byte-hash inputs except evidence covered by successful collection validation."""
     def __init__(self, relocation):
         self.relocation = relocation
         self.files = {}
         self.hashes = {}
+        self.collection_roots = set()
+        self.collection_files = set()
+        self.collection_anchors = {}
+        self.collection_seals = {}
+        self.collection_covered = set()
+        self.full_rehash = not hash_receipts.cache_enabled()
+        self.hash_cache = hash_receipts.cache_provenance()
         self.all_hashes_verified = False
 
-    def add(self, path, sha=None, *, original=None, reason="Interchange input sha256 mismatch"):
+    def add(self, path, sha=None, *, original=None, reason="Interchange input sha256 mismatch", _resolved=None):
         # Keep local aliases in the transfer list: HF snapshot symlinks and
         # their blobs are both needed. Resolve every one before reading bytes.
         path = Path(path).absolute()
-        resolved = self.relocation.local(path)
+        resolved = self.relocation.local(path) if _resolved is None else _resolved
         entry = self.files.setdefault(path, {"sources": set(), "seals": {}})
         entry["sources"].add(str(original if original is not None else path))
         if sha is not None:
             require(_sha(sha), f"Invalid input sha256: {json.dumps(str(path))}")
-            entry["seals"][sha] = reason
+            entry["seals"].setdefault(sha, set()).add(reason)
         if resolved != path:
             target = self.files.setdefault(resolved, {"sources": set(), "seals": {}})
             target["sources"].update(entry["sources"])
-            target["seals"].update(entry["seals"])
+            for expected, reasons in entry["seals"].items():
+                target["seals"].setdefault(expected, set()).update(reasons)
         self.all_hashes_verified = False
         return path
 
     def reference(self, value, sha=None, *, root=None, reason="Interchange input sha256 mismatch"):
-        return self.add(self.relocation.path(value, root=root), sha, original=value, reason=reason)
+        resolved = self.relocation.path(value, root=root)
+        return self.add(resolved, sha, original=value, reason=reason, _resolved=resolved)
 
-    def verify(self):
+    def verify(self, paths=None):
+        """Verify all requirements, or only metadata needed for safe discovery."""
         self.all_hashes_verified = False
         failures = []
-        for path, entry in sorted(self.files.items()):
+        entries = self.files.items() if paths is None else ((p, self.files[p]) for p in paths)
+        for path, entry in entries:
             try:
                 resolved = self.relocation.local(path)
                 if not resolved.is_file():
                     failures.append((path, "missing file"))
                     continue
-                if entry["seals"]:
+                covered = (not self.full_rehash and resolved not in self.hashes
+                    and resolved in self.collection_files
+                    and (not entry["seals"] or resolved in self.collection_seals))
+                if covered:
+                    self.collection_covered.add(resolved)
+                    sha = self.collection_seals.get(resolved)
+                else:
+                    self.collection_covered.discard(resolved)
                     if resolved not in self.hashes:
                         self.hashes[resolved] = file_hash(resolved)
-                    if self.hashes[resolved] not in entry["seals"] or len(entry["seals"]) != 1:
-                        failures.append((path, "; ".join(sorted(set(entry["seals"].values())))))
+                    sha = self.hashes[resolved]
+                if entry["seals"]:
+                    if sha not in entry["seals"] or len(entry["seals"]) != 1:
+                        reasons = {why for values in entry["seals"].values() for why in values}
+                        failures.append((path, "; ".join(sorted(reasons))))
             except (OSError, RuntimeError):
                 failures.append((path, "unreadable file"))
         if failures:
-            first = "; ".join(f"{json.dumps(str(p))} ({why})" for p, why in failures[:5])
+            first = "; ".join(f"{json.dumps(str(p))} ({why})" for p, why in sorted(failures)[:5])
             raise ValidationError(f"Input verification failed: {len(failures)} offending paths; first paths: {first}")
-        self.all_hashes_verified = True
+        self.all_hashes_verified = paths is None
+        self.hash_cache = hash_receipts.cache_provenance()
 
     def report(self):
         return {**self.relocation.report(), "all_hashes_verified": self.all_hashes_verified,
-                "verified_hashed_files": len({self.relocation.local(p) for p, e in self.files.items()
-                                               if e["seals"]}) if self.all_hashes_verified else 0}
+                "verified_hashed_files": len(self.hashes) if self.all_hashes_verified else 0,
+                "byte_hashed_files": len(self.hashes) if self.all_hashes_verified else 0,
+                "collection_covered_files": len(self.collection_covered) if self.all_hashes_verified else 0,
+                "collection_validation_roots": sorted(map(str, self.collection_roots)),
+                "collection_validation_anchors": self.collection_anchors,
+                "full_rehash": self.full_rehash, "hash_cache": self.hash_cache,
+                "counting_files": "distinct resolved files; collection coverage excludes byte-hashed files"}
+
+    def provenance_inputs(self, extra=()):
+        """Retain byte-hashed inputs/anchors without rehashing the evidence bank."""
+        require(self.all_hashes_verified, "Provenance requires completed input verification")
+        return sorted(p for p in set(self.files) | {Path(p).absolute() for p in extra}
+                      if p not in self.collection_covered
+                      and self.relocation.local(p) not in self.collection_covered)
 
     def listing(self):
         groups = defaultdict(list)
         for path, entry in sorted(self.files.items()):
-            prefix = next((new.resolve() for _, new in self.relocation.rules
-                           if path.is_relative_to(new.resolve())), None)
+            prefix = next((boundary for boundary in self.relocation.destinations.values()
+                           if path.is_relative_to(boundary)), None)
             if prefix is None:
                 prefix = self.relocation.dataset if path.is_relative_to(self.relocation.dataset) else Path(path.anchor)
             groups[str(prefix)].append({"path": str(path), "relative_path": str(path.relative_to(prefix)),
@@ -163,53 +223,102 @@ class InputFiles:
                 "groups": [{"prefix": prefix, "files": files} for prefix, files in sorted(groups.items())]}
 
 
-def training_view_inputs(files, source):
+def training_view_inputs(files, source, *, validate=False, config=None):
     """Inventory the original K20 view when membership must be read from it.
 
-    Follow only the evidence reader's explicit filesystem fields. This performs
-    no rollout, label interpretation, or scientific validation of receipts.
+    Follow only the evidence reader's explicit filesystem fields. In check mode,
+    use its unchanged recursive hash and semantic validation before covering any
+    evidence files. No rollout or model runtime is involved.
     """
+    from sed.seed_selection import is_stratified_nested
     original = Path(source["config"]["baseline_training"]["verified"])
     sha = source.get("inputs", {}).get(str(original / "manifest.json"))
     require(_sha(sha), "K20 view differs from theta0's original support manifest")
-    files.reference(original / "manifest.json", sha,
-                    reason="K20 view differs from theta0's original support manifest")
+    view_manifest = files.reference(original / "manifest.json", sha,
+        reason="K20 view differs from theta0's original support manifest")
     view = files.relocation.path(original)
-    pending, seen = [view], set()
+    if validate:
+        # The original byte seal binds theta0 to this view before its recursive
+        # collection/semantic checks are allowed to cover any dependencies.
+        files.verify(paths=[view_manifest])
+    pending, seen, covered, anchors = [view], set(), set(), {}
+    def dependency(value, root):
+        path = files.relocation.path(value, root=root)
+        # The collection reader consumes sealed internal paths unchanged. Never
+        # grant coverage to a relocated file when it validated a different one.
+        require(not Path(value).is_absolute() or path == files.relocation.local(root / value),
+                "Collection internal reference differs after relocation")
+        return path
+
     while pending:
         root = pending.pop()
         if root in seen:
             continue
         seen.add(root)
         for name in ("manifest.json", "selection.json", "identity.json"):
-            files.add(root / name)
+            covered.add(files.add(root / name))
         # Reading these documents requires their presence even in list mode.
-        missing = [p for p in (root / "manifest.json", root / "identity.json") if not p.is_file()]
+        missing = [root / name for name in ("manifest.json", "selection.json", "identity.json")
+                   if not (root / name).is_file()]
         require(not missing, f"Missing K20 metadata: {len(missing)} offending paths: "
                 + ", ".join(json.dumps(str(p)) for p in missing[:5]))
         collection, identity = read_json(root / "manifest.json"), read_json(root / "identity.json")
+        selection = read_json(root / "selection.json")
+        anchors[str(root)] = {"semantic_sha256": {name: digest(value) for name, value in
+            (("manifest.json", collection), ("selection.json", selection), ("identity.json", identity))}}
         evidence_root = root.parent.parent if "source_collection" in collection else root
         if evidence_root != root:
             pending.append(evidence_root)
+            # The subset validator recomputes these byte seals as part of its
+            # comparison with the expected view, including receipt whitespace.
+            for reference in collection.get("receipt_refs", []):
+                require(_sha(reference["sha256"]), "Invalid K20 receipt sha256")
+                path = dependency(reference["path"], root)
+                files.collection_seals[path] = reference["sha256"]
         for field in ("support_view", "extension_source"):
-            if field in identity:
-                parent = files.relocation.path(identity[field]["path"], root=root)
+            # Mirror the loader's actual recursion, not arbitrary identity keys.
+            if (evidence_root == root and field in identity
+                    and (field == "extension_source" or is_stratified_nested(selection))):
+                parent = dependency(identity[field]["path"], root)
                 pending.append(parent)
                 if field == "extension_source":
                     # Its recorded tree seal makes every original source file a
                     # dependency, including inherited smaller-K view anchors.
                     for path in sorted(parent.rglob("*")):
                         if (path.is_file() or path.is_symlink()) and not path.name.endswith(".lock"):
-                            files.add(path)
+                            covered.add(files.add(path))
         for receipt in collection.get("attempts", []):
-            episode = files.relocation.path(receipt["episode_dir"], root=evidence_root)
+            episode = dependency(receipt["episode_dir"], evidence_root)
             require(episode.is_relative_to(evidence_root), "Episode path escapes collection")
-            files.add(episode.parent / "receipt.json")
+            covered.add(files.add(episode.parent / "receipt.json"))
             for directory, key in ((episode, "episode_hashes"), (episode.parent / "teacher", "teacher_hashes")):
                 for name, sha in receipt[key].items():
                     require(_sha(sha), "Invalid K20 evidence sha256")
-                    files.reference(name, sha, root=directory)
-    return view
+                    path = dependency(name, directory)
+                    files.add(path, sha, original=name, _resolved=path)
+                    covered.add(path)
+                    files.collection_seals[path] = sha
+    collection = None
+    if validate:
+        from sed.manifest import load_frozen
+        from sed.seed_evidence import load_verified_collection
+        effective = config if config is not None else source["config"]
+        frozen, freeze = load_frozen(*(files.relocation.path(effective["paths"][key])
+                                       if config is None else effective["paths"][key]
+                                       for key in ("manifest", "split_freeze")))
+        try:
+            collection, _, _ = load_verified_collection(view, frozen, freeze)
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError):
+            raise ValidationError(f"K20 collection validation failed: {json.dumps(str(view))}") from None
+        # The loader recursively checks the source, support and extension roots
+        # followed above. Register coverage only after all of it succeeds.
+        files.collection_roots.update(seen)
+        # Only dependencies actually checked by the loader are covered. An
+        # unrelated config or interchange file placed under a root still hashes.
+        files.collection_files.update(p for p in covered
+            if any(p.is_relative_to(root) for root in seen))
+        files.collection_anchors.update(anchors)
+    return view, collection
 
 
 def split_source_inputs(files, splits, split_doc, *, repair_splits=None, dev140=None):
@@ -261,9 +370,11 @@ def split_source_inputs(files, splits, split_doc, *, repair_splits=None, dev140=
     return result
 
 
+@input_hash_policy
 def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=None,
-                   splits=None, repair_splits=None, dev140=None, inputs=(), check=True, runtime=True):
-    """Inventory and verify bytes only; no tokenizer, model or training imports.
+                   splits=None, repair_splits=None, dev140=None, inputs=(), check=True, runtime=True,
+                   full_rehash=False):
+    """Inventory and verify inputs; no tokenizer, model or training imports.
 
     Snapshot defaults to the sealed tokenizer location, then theta0's recorded
     base. Callers can supply the same explicit snapshot/config as a run.
@@ -316,21 +427,22 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
                 "Split freeze must be an interchange input")
         files.add(splits, bundle["manifest"]["splits_sha256"], reason="Split freeze sha256 mismatch")
     if check:
-        files.verify()
+        files.verify(paths=[splits])
     require(splits.is_file(), "Input listing requires local method split metadata")
     split_doc = read_json(splits)
     split_sources = split_source_inputs(files, splits, split_doc, repair_splits=repair_splits, dev140=dev140)
     result = {"files": files, "bundles": bundles, "theta0": theta0,
               "config": local_config, "splits": splits, "split_sources": split_sources}
-    if not runtime:
+    if not runtime and "K20" in split_doc["sets"]:
         if check:
             files.verify()
         return result
-    for path in (theta0 / "adapter_config.json", theta0 / "training_state.json", theta0.parent / "provenance.json"):
+    metadata_paths = (theta0 / "adapter_config.json", theta0 / "training_state.json", theta0.parent / "provenance.json")
+    for path in metadata_paths:
         files.add(path)
     # Validate sealed files before trusting the dependency metadata they contain.
     if check:
-        files.verify()
+        files.verify(paths=metadata_paths)
     else:
         missing = [p for p in (theta0 / "training_state.json", theta0.parent / "provenance.json") if not p.is_file()]
         require(not missing, "Input listing requires local theta0 metadata; list on the source host before copying")
@@ -357,7 +469,8 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
         if path.is_file() or path.is_symlink():
             files.add(path)
     if "K20" not in split_doc["sets"]:
-        training_view_inputs(files, source)
+        view, collection = training_view_inputs(files, source, validate=check, config=local_config)
+        result.update(training_view=view, training_collection=collection)
     if check:
         files.verify()
     return {**result, "snapshot": snapshot, "theta0_provenance": source}

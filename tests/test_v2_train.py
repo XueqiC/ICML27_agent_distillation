@@ -2,6 +2,7 @@
 from collections import Counter
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import shutil
 
@@ -1149,6 +1150,215 @@ def test_inputs_preserve_hf_aliases_within_new_prefix(corpus, tmp_path_factory):
     assert entry['resolved_path'] == str(new / 'blobs/tokenizer')
     assert entry['size_bytes'] == len('same bytes')
     assert result['files'].report()['all_hashes_verified']
+
+
+@pytest.fixture
+def collection_corpus(tmp_path, monkeypatch):
+    """Real collection validator, 24 fake executions, hash-bound K20 view."""
+    from test_repair_e2_reader import build_corpus
+    from sed import hash_receipts
+    c = build_corpus(tmp_path)
+    support = json.loads((c.support / 'manifest.json').read_text())
+    view = json.loads((c.view / 'manifest.json').read_text())
+    replay_ids = {r['task_id'] for r in view['verified']}
+    new = [r for r in support['verified'] if r['task_id'] not in replay_ids]
+    splits = tmp_path / 'method_v1_splits.json'
+    sets = {name: {'task_ids': [], 'group_ids': []} for name in v2.FORBIDDEN_SETS}
+    sets['V2_pool'] = {key: sorted({r[key[:-1]] for r in new}) for key in ('task_ids', 'group_ids')}
+    write_json(splits, {'sets': sets})
+    rows = [example(r['task_id'], 'offline_teacher', 'trajectory', 'OFFLINE') for r in new]
+    replay = [example(r['task_id'], 'k20_replay', 'trajectory', 'CONTINUE') for r in view['verified']]
+    root = tmp_path / 'interchange'
+    seal_bundle(root, rows, c.theta, splits, 'OFFLINE')
+    seal_bundle(root / 'replay', replay, c.theta, splits, 'CONTINUE')
+    # The real bundles also reference selected evidence directly. These seals
+    # must compare with collection hashes without an early second byte pass.
+    evidence = {}
+    for receipt in view['attempts']:
+        episode = c.support / receipt['episode_dir']
+        for directory, key in ((episode, 'episode_hashes'), (episode.parent / 'teacher', 'teacher_hashes')):
+            evidence.update({str(directory / name): sha for name, sha in receipt[key].items()})
+        evidence[str(episode.parent / 'receipt.json')] = file_hash(episode.parent / 'receipt.json')
+    for directory in (root, root / 'replay'):
+        doc = json.loads((directory / 'manifest.json').read_text())
+        doc['inputs'].update(evidence)
+        write_json(directory / 'manifest.json', doc)
+    # Start with no receipts from fixture construction; never touch a real bank.
+    monkeypatch.setenv('SED_HASH_CACHE', '1')
+    monkeypatch.setenv('SED_HASH_CACHE_DIR', str(tmp_path / 'verification-cache'))
+    hash_receipts._MEMO.clear()
+    hash_receipts._MODES.clear()
+    return dict(root=root, theta=c.theta, snapshot=c.snapshot, config=c.config, splits=splits,
+                support=c.support, view=c.view, collection=support, replay_ids=replay_ids)
+
+
+def inspect_collection(c, **kwargs):
+    from repair.v2_inputs import inspect_inputs
+    return inspect_inputs(c['root'], theta0=c['theta'], config=c['config'], **kwargs)['files']
+
+
+def test_collection_coverage_cold_warm_and_noncollection_bytes(collection_corpus, monkeypatch):
+    from repair import v2_inputs
+    from sed import hash_receipts, seed_evidence
+    c = collection_corpus
+    extra = c['support'] / 'unrelated-config.json'
+    extra.write_text('{}')
+    optimizer = c['theta'] / 'optimizer.pt'
+    optimizer.write_bytes(b'unsealed optimizer input')
+    snapshot = c['snapshot'] / 'extra-model-file'
+    snapshot.write_bytes(b'unsealed snapshot input')
+    byte_calls, evidence_calls = [], []
+    def byte_hash(path):
+        byte_calls.append(Path(path))
+        return file_hash(path)
+    def evidence_hash(path):
+        evidence_calls.append(Path(path))
+        return file_hash(path)
+    monkeypatch.setattr(v2_inputs, 'file_hash', byte_hash)
+    monkeypatch.setattr(seed_evidence, 'file_hash', evidence_hash)
+    for warm in (False, True):
+        byte_calls.clear(); evidence_calls.clear()
+        hash_receipts._MEMO.clear()  # Warm pass must reuse disk receipts.
+        files = inspect_collection(c, inputs=[extra])
+        report = files.report()
+        assert files.collection_covered and not files.collection_covered.intersection(byte_calls)
+        assert set(byte_calls) == set(files.hashes)
+        assert {extra, optimizer, snapshot, c['splits']} <= set(byte_calls)
+        assert all(p in byte_calls for root in (c['root'], c['root'] / 'replay')
+                   for p in root.iterdir() if p.is_file())
+        assert report['collection_validation_roots'] == sorted(map(str, (c['support'], c['view'])))
+        assert report['collection_covered_files'] + report['byte_hashed_files'] == len(files.files)
+        assert report['hash_cache'] == hash_receipts.cache_provenance()
+        assert report['collection_validation_anchors'][str(c['support'])]['semantic_sha256']['manifest.json'] == digest(c['collection'])
+        assert not report['full_rehash']
+        # Subset receipt references always hash; warm episode/teacher trees don't.
+        assert bool([p for p in evidence_calls if p.name != 'receipt.json']) is (not warm)
+        evidence = next(p for p in files.collection_covered if p.name == 'episode.json')
+        alias = c['root'].parent / 'evidence-alias'
+        if not alias.exists():
+            alias.symlink_to(evidence)
+        assert alias not in files.provenance_inputs([alias])
+        assert not set(files.provenance_inputs()).intersection(files.collection_covered)
+
+
+@pytest.mark.parametrize('fault', ['episode', 'teacher', 'receipt', 'missing', 'selection'])
+def test_collection_tampering_refused_by_real_loader(collection_corpus, monkeypatch, fault):
+    from repair import v2_inputs
+    c = collection_corpus
+    inspect_collection(c)  # Prime receipts before tampering with an unselected task.
+    receipt = next(r for r in c['collection']['attempts'] if r['task_id'] not in c['replay_ids'])
+    episode = c['support'] / receipt['episode_dir']
+    target = {'episode': episode / 'episode.json', 'missing': episode / 'episode.json',
+              'teacher': episode.parent / 'teacher' / next(iter(receipt['teacher_hashes'])),
+              'receipt': episode.parent / 'receipt.json', 'selection': c['support'] / 'selection.json'}[fault]
+    if fault == 'missing':
+        target.unlink()
+    else:
+        if fault in ('selection', 'receipt'):
+            doc = json.loads(target.read_text()); doc['tampered'] = True
+            write_json(target, doc)
+        else:
+            target.write_bytes(target.read_bytes() + b' ')
+    def no_second_hash(path):
+        assert not Path(path).is_relative_to(c['support'] / 'attempts')
+        return file_hash(path)
+    monkeypatch.setattr(v2_inputs, 'file_hash', no_second_hash)
+    with pytest.raises(v2.ValidationError, match='collection validation failed'):
+        inspect_collection(c)
+
+
+@pytest.mark.parametrize('mode', ['flag', 'environment'])
+def test_full_rehash_covers_all_and_disables_receipts(collection_corpus, monkeypatch, mode):
+    from repair import v2_inputs
+    from sed import hash_receipts
+    c = collection_corpus
+    inspect_collection(c)
+    if mode == 'environment':
+        monkeypatch.setenv('SED_HASH_CACHE', '0')
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Full rehash must bypass memory and disk receipts')
+    monkeypatch.setattr(hash_receipts.HashReceipts, 'hashes', forbidden)
+    calls = []
+    def counted(path):
+        calls.append(Path(path))
+        return file_hash(path)
+    monkeypatch.setattr(v2_inputs, 'file_hash', counted)
+    files = inspect_collection(c, full_rehash=(mode == 'flag'))
+    assert set(calls) == set(files.files) == set(files.provenance_inputs())
+    report = files.report()
+    assert report['collection_covered_files'] == 0
+    assert report['byte_hashed_files'] == len(files.files)
+    assert report['full_rehash'] and report['hash_cache']['mode'] == 'full_rehash'
+    assert os.environ['SED_HASH_CACHE'] == ('1' if mode == 'flag' else '0')
+
+
+def test_full_rehash_refuses_same_metadata_tamper_and_restores_policy(collection_corpus):
+    c = collection_corpus
+    inspect_collection(c)
+    receipt = c['collection']['attempts'][0]
+    path = c['support'] / receipt['episode_dir']
+    target = path.parent / 'teacher' / next(iter(receipt['teacher_hashes']))
+    before = target.stat()
+    target.write_bytes(b'x' * before.st_size)
+    os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns))
+    with pytest.raises(v2.ValidationError, match='collection validation failed'):
+        inspect_collection(c, full_rehash=True)
+    assert os.environ['SED_HASH_CACHE'] == '1'
+
+
+def test_collection_coverage_still_checks_interchange_seals(collection_corpus):
+    c = collection_corpus
+    manifest = c['root'] / 'manifest.json'
+    doc = json.loads(manifest.read_text())
+    evidence = next(p for p in doc['inputs'] if '/episode/' in p)
+    doc['inputs'][evidence] = '0' * 64
+    write_json(manifest, doc)
+    with pytest.raises(v2.ValidationError, match='Interchange input sha256 mismatch'):
+        inspect_collection(c)
+
+
+@pytest.mark.parametrize('full', [False, True])
+def test_collection_cli_check_run_and_provenance(collection_corpus, monkeypatch, capsys, full):
+    import torch
+    from tools import train_v2_arm as cli
+    from sed import provenance as sed_provenance
+    c = collection_corpus
+    torch.set_num_threads(1)
+    cfg = c['root'].parent / 'config.json'
+    write_json(cfg, c['config'])
+    args = ['--dataset', str(c['root']), '--theta0', str(c['theta']), '--config', str(cfg)]
+    if full:
+        args.append('--full-rehash')
+    assert cli.main(['inputs', '--check', *args]) == 0
+    checked = json.loads(capsys.readouterr().out)
+    assert checked['prep_seconds'] > 0 and checked['relocation']['full_rehash'] is full
+    provenance_calls = []
+    def counted(path):
+        provenance_calls.append(Path(path).resolve())
+        return file_hash(path)
+    monkeypatch.setattr(sed_provenance, 'file_hash', counted)
+    output = c['root'].parent / 'run'
+    assert cli.main(['run', *args, '--snapshot', str(c['snapshot']), '--output', str(output),
+                     '--updates', '1', '--batch-examples', '4', '--replay-ratio', '.25',
+                     '--checkpoints', '1', '--gpus', '1', '--dry-run']) == 0
+    prov = json.loads((output / 'provenance.json').read_text())
+    manifest = json.loads((output / 'manifest.json').read_text())
+    report = prov['details']['relocation']
+    assert report == manifest['relocation']
+    assert report['hash_cache'] == prov['hash_cache']
+    assert report['full_rehash'] is prov['config']['v2_training']['full_rehash'] is full
+    assert bool(report['collection_covered_files']) is (not full)
+    assert bool([p for p in provenance_calls if p.is_relative_to(c['support'] / 'attempts')]) is full
+    assert prov['inputs'][str(cfg)] == file_hash(cfg)
+    assert os.environ['SED_HASH_CACHE'] == '1'
+
+
+def test_inputs_list_refuses_full_rehash(capsys):
+    from tools import train_v2_arm as cli
+    with pytest.raises(SystemExit) as exc:
+        cli.main(['inputs', '--dataset', 'unused', '--list', '--full-rehash'])
+    assert exc.value.code == 2
+    assert '--full-rehash requires inputs --check' in capsys.readouterr().err
 
 
 def test_relocated_theta0_mismatch_in_check(corpus, tmp_path_factory, capsys):
