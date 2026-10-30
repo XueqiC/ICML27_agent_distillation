@@ -17,6 +17,21 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 23:2x CDT 10-29 — V2 preregistered (9709e3c); C1 coverage running; two Codex tasks
+- V2 prereg docs/direction/2026-10-29_V2_learning_prereg_ZH.md: V2_pool 200; C1 theta0 greedy+3 sampled; C2 dp/1 prefixes;
+  C3 two starts (dp, start) per failed task; C4 G greedy+4 sampled per start; C5 takeover 5 runs per start; arms CONTINUE /
+  OFFLINE / PREFIX_EXPERT / JOINT / JOINT_COMPLETE_ONLY; train B16 (replay 0.25) x 500 updates, ckpts 1,5,20,50,100,200,300,500
+  on hpg B200 x2; select on D_unseen_quick 24; main eval (a) 38 V1b prefixes U x9, (b) same tasks from start x9, (c) D_probe
+  non-quick 36 (primary) / 60; rule (a) >=0.10 & +4, (c) >=0.05 & +3, vs OFFLINE and PREFIX_EXPERT. Ledger
+  reports/runs/method_v1/v2_global_teacher_budget.jsonl, runaway cap 800M/100M.
+- RUNNING C1: reports/runs/repair_pilot/cov_theta0_v2pool (tree 7748da5, rai GPU 1, launcher pid 376426, 23:07 CDT, 800 rollouts).
+- Built: reports/runs/method_v1/v2_data/OFFLINE (200 ex, 3,867 turns), CONTINUE (20 ex, 315 turns).
+- joint-review/2 committed 1f23a37 (eval branch; 247 tests; V1 byte-identical). RUNNING §8 heat retest: reports/runs/method_v1/
+  v2_heat_r2 (tree 1f23a37, rai GPU 3, launcher pid 432721, 23:31 CDT; 9 heat prefixes x G x (greedy + seeds 0-7), v2 ledger).
+- Training canary offline_u2 REFUSED: "Manifest counts mismatch" (E0.4 writes extra counts keys) -> spec rule 6; reader fix
+  goes to Codex after the relocation task.
+- Codex (train wt): E0.5 --relocate OLD=NEW with hash verification + `inputs --list/--check`, for training on hpg.
+
 ### 23:0x CDT 10-29 — V1b r2 DONE: G > U by the preregistered rule -> V2
 - v1b_r2 finished 22:55 CDT: 1,026/1,026 recorded, 1 void (G Cup-DiningTable-23 seed 4, StudentCallError). Launcher 52796 exited.
 - Sampled success (mean over 38 prefixes): U 0.253, G1 0.454, G 0.658. G-U +0.405 [0.289, 0.520], prefixes 29 up / 4 down

@@ -39,4 +39,12 @@ It is the only contract between data construction and training; neither side imp
 4. For `kind = decision`, rationale text in the supervised turn uses only prefix information (instance ids that appear in the prefix only).
 5. `kind = trajectory` examples (OFFLINE teacher trajectories, CONTINUE / replay K20 demonstrations) must reproduce the main-grid trajectory-SFT training data exactly (byte-equal rendering); rules 2 (admissibility) and 4 (grounding) do NOT apply to them, because the baselines were trained on these trajectories unchanged, including the teacher's own refused actions and Thoughts. Their counts of supervised turns that are inadmissible or cite not-yet-seen instance ids are recorded in the manifest (`trajectory_diagnostics`) for information only.
 
+6. `manifest.counts` must contain `by_source`, `by_kind` and `by_task_type`, each equal to the counts recomputed from `examples.jsonl`. Producers may add informational keys. A consumer accepts them and checks the ones it can recompute:
+   - `by_local_event` equals the counts of `evidence.local_event` over decision examples, with `null` omitted;
+   - `examples` equals the number of rows;
+   - `task_groups` and `unique_instances` equal the distinct `group_id` and `task_id` counts.
+
+   Any other key is refused.
+
 Revision 2026-10-27 17:5x CDT: rule 5 added and rules 2/4 restricted to decision examples, after the first build found 4/20 K20 and 62/200 V2_pool teacher trajectories that the main grid trained on but that fail admissibility/grounding.
+Revision 2026-10-29 23:2x CDT: rule 6 added after the first real E0.5 canary refused the E0.4 OFFLINE bundle ("Manifest counts mismatch": E0.4 writes the informational keys by_local_event, examples, task_groups, unique_instances).
