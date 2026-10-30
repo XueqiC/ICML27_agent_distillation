@@ -21,6 +21,7 @@ from tools.joint_guidance import main, summarize_records
 from tools.teacher_takeover import main as takeover_main
 from test_cg_probe import COMMANDS, INITIAL, GROUPS, ScriptEnvironment, original, coverage_fixture
 from test_teacher import response
+from test_takeover import HTTPFailure
 
 
 @pytest.fixture
@@ -222,6 +223,169 @@ def test_transport_retry_reservation_order_and_quota_halt(tmp_path, budget):
     assert 'SECRET' not in (tmp_path / 'quota/review/usage.jsonl').read_text()
 
 
+@pytest.mark.parametrize('failure,count,recovers,kind', [
+    (HTTPFailure(503), 1, True, 'TRANSIENT'),
+    (HTTPFailure(503), 7, False, 'TRANSIENT'),
+    (Quota429('SECRET'), 1, False, 'QUOTA'),
+    (HTTPFailure(400), 1, False, 'OTHER'),
+    (TimeoutError('SECRET'), 1, True, 'TRANSIENT'),
+    (ConnectionError('SECRET'), 1, True, 'TRANSIENT'),
+])
+def test_reviewer_outer_retries_and_fresh_reservations(tmp_path, budget, failure, count, recovers, kind):
+    client = RawClient([failure] * count + [response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    waits = []
+    r.teacher.teacher.sleep = waits.append
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    if recovers:
+        assert p([], context()) == 'Action: look'
+        assert p.steps[0]['review_validation'] == 'valid'
+        assert r.failure is None and budget.summary()['stop_reason'] is None
+        r.teacher.check_health()  # The retained failed receipt cannot re-latch the cap.
+    else:
+        with pytest.raises(TeacherCallError):
+            p([], context())
+        assert p.steps[0]['executed_reply'] is None
+        assert budget.summary()['stop_reason'] == ('teacher_quota' if kind == 'QUOTA' else 'teacher_halted')
+    calls = count + int(recovers)
+    assert len(client.requests) == calls and all(c == client.requests[0] for c in client.requests)
+    attempts = p.steps[0]['review_attempts']
+    assert [a['attempt_index'] for a in attempts] == list(range(calls))
+    assert len({a['request_id'] for a in attempts}) == calls
+    assert len({a['logical_request_id'] for a in attempts}) == 1
+    assert len({a['request_sha256'] for a in attempts}) == 1
+    assert all(a['failure_class'] == kind for a in attempts[:count])
+    reservations = [json.loads(line) for line in budget.path.read_text().splitlines()
+                    if json.loads(line)['event'] == 'reservation']
+    assert len(reservations) == calls == len({a['request_id'] for a in reservations})
+    assert {a['transport_request_id'] for a in attempts} == {a['request_id'] for a in reservations}
+    rows = [json.loads(line) for line in (r.directory / 'usage.jsonl').read_text().splitlines()]
+    failures = [row for row in rows if row['status'] == 'failed']
+    assert all(row['failure_class'] == kind and not row['transport_will_retry'] for row in failures)
+    assert [row['repair_request_id'] for row in failures] == [a['request_id'] for a in attempts[:count]]
+    expected = [5] if recovers else [5, 10, 20, 40, 80, 160] if count == 7 else []
+    assert [a['retry_wait_seconds'] for a in attempts if a.get('will_retry')] == expected
+    assert sum(waits) == sum(expected) <= 360
+    assert budget.summary()['unsettled_attempts'] == count
+    assert budget.summary()['tokens_or_unsettled_bounds']['output_tokens'] == count * OUTPUT_CAP + (17 if recovers else 0)
+    counter = json.loads((r.directory / 'counter.json').read_text())
+    assert counter['attempts'] == calls and counter['identity']['cap'] == 80
+    assert len(list((r.directory / 'recoveries').glob('*.json'))) == len(expected)
+    assert 'PRIVATE' not in json.dumps(rows) and 'SECRET' not in json.dumps(rows)
+    review_rows = [json.loads(line) for line in (r.directory / 'reviews.jsonl').read_text().splitlines()]
+    assert len([row for row in review_rows if row['status'] == 'started']) == calls
+
+
+def test_transient_retries_do_not_consume_format_retry(tmp_path, budget):
+    client = RawClient([HTTPFailure(503), response('{bad'), HTTPFailure(503),
+                        response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    assert p([], context()) == 'Action: look'
+    attempts = p.steps[0]['review_attempts']
+    assert [a['retry'] for a in attempts] == [0, 0, 1, 1]
+    assert [a['attempt_index'] for a in attempts] == [0, 1, 0, 1]
+    assert [a['status'] for a in attempts] == ['failed', 'invalid', 'failed', 'valid']
+    assert client.requests[0] == client.requests[1] and client.requests[2] == client.requests[3]
+    assert 'invalid_json' in client.requests[2]['input'][0]['content']
+    assert budget.summary()['reserved_attempts'] == 4 and budget.summary()['stop_reason'] is None
+
+
+def test_reviewer_retries_exhausted_rate_limits(tmp_path, budget):
+    client = RawClient([Limit429('SECRET')] * 20 + [response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    assert p([], context()) == 'Action: look'
+    assert len(p.steps[0]['review_attempts']) == 2 and len(client.requests) == 21
+    assert budget.summary()['reserved_attempts'] == 21 and budget.summary()['unsettled_attempts'] == 20
+    rows = [json.loads(line) for line in (r.directory / 'usage.jsonl').read_text().splitlines()]
+    failures = [row for row in rows if row['status'] == 'failed']
+    assert all(row['transport_will_retry'] and not row['repair_will_retry'] for row in failures[:-1])
+    assert not failures[-1]['transport_will_retry'] and failures[-1]['repair_will_retry']
+
+
+@pytest.mark.parametrize('stop', ['teacher_quota', 'global_output_tokens_cap'])
+def test_reviewer_retry_observes_other_worker_stop(tmp_path, budget, stop):
+    client = RawClient([HTTPFailure(503), response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    other = SharedTeacherBudget(budget.path, **budget.caps)
+    waits = []
+    def stop_during_wait(seconds):
+        waits.append(seconds)
+        other.halt(stop)
+    r.teacher.teacher.sleep = stop_during_wait
+    with pytest.raises(TeacherCallError):
+        JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)([], context())
+    assert waits == [1] and len(client.requests) == budget.summary()['reserved_attempts'] == 1
+    assert r.failure == budget.summary()['stop_reason'] == stop
+    assert not list((r.directory / 'recoveries').glob('*.json'))
+
+
+def test_reviewer_retry_cannot_exceed_budget(tmp_path):
+    budget = SharedTeacherBudget(tmp_path / 'global.jsonl', input_tokens=1_000_000, output_tokens=OUTPUT_CAP)
+    client = RawClient([HTTPFailure(503), response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    with pytest.raises(TeacherCallError):
+        JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)([], context())
+    assert len(client.requests) == budget.summary()['reserved_attempts'] == 1
+    assert r.failure == 'global_output_tokens_cap'
+
+
+def test_reviewer_does_not_recover_historical_halt(tmp_path, budget):
+    client = RawClient([HTTPFailure(503), response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    prompt = review_prompt([], context(), 'Action: look', FactTable(INITIAL), 40)
+    r.reservation.input_bound = 10000
+    with pytest.raises(TeacherCallError):
+        r.teacher.generate([], r.task, dict(observation=canonical_bytes(prompt.to_json()).decode(),
+                                           admissible_commands=[]))
+    assert budget.summary()['stop_reason'] is None  # Only the local cap is halted.
+    with pytest.raises(TeacherCallError):
+        JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)([], context())
+    assert len(client.requests) == 1 and not list((r.directory / 'recoveries').glob('*.json'))
+
+
+def test_reviewer_recovered_failure_survives_resume_reconciliation(tmp_path, budget):
+    from tools.teacher_takeover import _reconcile
+    client = RawClient([HTTPFailure(503), response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path / 'calls/key', budget, client)
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    assert p([], context()) == 'Action: look'
+    before = budget.summary()
+    _reconcile(tmp_path, budget)
+    assert budget.summary() == before and before['stop_reason'] is None
+
+
+def test_reviewer_cache_hit_is_other_and_never_retried(tmp_path, budget):
+    client = RawClient([response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    assert p([], context()) == 'Action: look'
+    with pytest.raises(TeacherCallError):
+        p([], context())
+    assert len(client.requests) == budget.summary()['reserved_attempts'] == 1
+    attempts = p.steps[-1]['review_attempts']
+    assert len(attempts) == 1 and attempts[0]['failure_class'] == 'OTHER'
+    assert not attempts[0]['will_retry'] and budget.summary()['stop_reason'] == 'teacher_halted'
+
+
+def test_reviewer_retries_connection_failure_before_transport_start(tmp_path, budget):
+    client = RawClient([response(json.dumps(review('accept')))], budget)
+    r = reviewer(tmp_path, budget, client)
+    native_client = r.teacher.teacher._client
+    failures = [ConnectionError('SECRET')]
+    def connect():
+        if failures:
+            raise failures.pop()
+        return native_client()
+    r.teacher.teacher._client = connect
+    p = JointPolicy(CaptureStudent(['Action: look']), 't', 'G', r)
+    assert p([], context()) == 'Action: look'
+    assert len(client.requests) == 1 and budget.summary()['reserved_attempts'] == 2
+    assert budget.summary()['stop_reason'] is None
+    assert [a['failure_class'] for a in p.steps[0]['review_attempts']] == ['TRANSIENT', None]
+
+
 def case(original):
     return dict(case_id='case', task_id=original.task_id, group=GROUPS[5], source={}, branch_index=10)
 
@@ -380,6 +544,8 @@ def test_failed_review_never_becomes_accept(tmp_path, budget, bad):
     assert p.steps[0]['decision'] is None and p.steps[0]['executed_reply'] is None
     assert p.steps[0]['review_validation'] == 'failed'
     assert budget.summary()['stop_reason'] is not None
+    assert len(client.requests) == 1
+    assert p.steps[0]['review_attempts'][0]['failure_class'] == 'OTHER'
 
 
 def test_case_cluster_bootstrap_and_complete_pair_denominators():

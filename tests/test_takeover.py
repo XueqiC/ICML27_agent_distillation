@@ -12,7 +12,7 @@ from repair.execute import execute_actions
 from repair.guidance import GROUPS
 from repair.runtime import CaseStopped
 from repair.takeover import (SharedTeacherBudget, execute_takeover, make_teacher_policy,
-                             usage_summary, takeover_metrics)
+                             usage_summary, takeover_metrics, _teacher_failure)
 from sed.config import load_config
 from sed.react import build_messages, PROMPT_TEMPLATE, PROMPT_VERSION
 from sed.storage import digest
@@ -79,6 +79,161 @@ class Quota429(Exception):
     body = {'error': {'code': 'insufficient_quota', 'message': 'PRIVATE'}}
 
 
+class HTTPFailure(Exception):
+    def __init__(self, status):
+        self.status_code = status
+        self.response = SimpleNamespace(headers={'x-should-retry': 'false'})
+        super().__init__('PRIVATE')
+
+
+@pytest.mark.parametrize('status,expected', [
+    (408, 'TRANSIENT'), (409, 'TRANSIENT'), (429, 'TRANSIENT'),
+    (500, 'TRANSIENT'), (501, 'TRANSIENT'), (502, 'TRANSIENT'), (503, 'TRANSIENT'),
+    (504, 'TRANSIENT'), (599, 'TRANSIENT'),
+    (400, 'OTHER'), (401, 'OTHER'), (403, 'OTHER'), (422, 'OTHER'),
+])
+def test_failure_classifier_http_receipts_and_exceptions(status, expected):
+    assert _teacher_failure(HTTPFailure(status)) == expected
+    assert _teacher_failure(TeacherCallError('sanitized'),
+        dict(status='failed', http_status=status, retryable=False, will_retry=False)) == expected
+
+
+@pytest.mark.parametrize('name', ['APIConnectionError', 'APITimeoutError', 'ReadTimeout',
+                                 'ConnectTimeout', 'WriteTimeout', 'PoolTimeout', 'ConnectError'])
+def test_failure_classifier_connection_receipts(name):
+    assert _teacher_failure(row=dict(status='failed', error_type=name)) == 'TRANSIENT'
+
+
+def test_failure_classifier_quota_and_no_stale_transport_failure():
+    assert _teacher_failure(Quota429('PRIVATE')) == 'QUOTA'
+    assert _teacher_failure(row=dict(status='failed', error_type='TeacherQuotaError')) == 'QUOTA'
+    assert _teacher_failure(ConnectionResetError('PRIVATE')) == 'TRANSIENT'
+    assert _teacher_failure(TimeoutError('PRIVATE')) == 'TRANSIENT'
+    assert _teacher_failure(TeacherCallError('empty'), dict(status='success', http_status=503)) == 'OTHER'
+
+
+@pytest.mark.parametrize('failure,count,recovers,kind', [
+    (HTTPFailure(503), 1, True, 'TRANSIENT'),
+    (HTTPFailure(503), 7, False, 'TRANSIENT'),
+    (Quota429('PRIVATE'), 1, False, 'QUOTA'),
+    (HTTPFailure(400), 1, False, 'OTHER'),
+    (TimeoutError('PRIVATE'), 1, True, 'TRANSIENT'),
+    (ConnectionError('PRIVATE'), 1, True, 'TRANSIENT'),
+])
+def test_policy_outer_retries_and_fresh_reservations(tmp_path, budget, task, visible,
+                                                    failure, count, recovers, kind):
+    client = FakeClient([failure] * count + [response()])
+    actor = policy(tmp_path, budget, task, client)
+    # Exhaust the native transport in one attempt to exercise the policy loop.
+    actor.teacher.max_attempts = 1
+    waits = []
+    actor.teacher.sleep = waits.append
+    if recovers:
+        assert actor([], visible) == 'Action: look'
+        assert actor.failure is None and budget.summary()['stop_reason'] is None
+    else:
+        with pytest.raises(TeacherCallError):
+            actor([], visible)
+        assert budget.summary()['stop_reason'] == ('teacher_quota' if kind == 'QUOTA' else 'teacher_halted')
+    calls = count + int(recovers)
+    assert len(client.requests) == calls and all(r == client.requests[0] for r in client.requests)
+    reservations = [json.loads(line) for line in budget.path.read_text().splitlines()
+                    if json.loads(line)['event'] == 'reservation']
+    assert len(reservations) == calls == len({r['request_id'] for r in reservations})
+    usage = usage_summary(tmp_path / 'call/usage.jsonl')
+    rows = usage['calls']
+    assert [r['repair_attempt_index'] for r in rows] == list(range(calls))
+    assert len({r['repair_request_id'] for r in rows}) == calls
+    assert len({r['repair_logical_request_id'] for r in rows}) == 1
+    assert {r['call_id'] for r in rows} == {r['request_id'] for r in reservations}
+    failures = [r for r in rows if r['status'] == 'failed']
+    assert all(r['failure_class'] == kind and not r['transport_will_retry'] for r in failures)
+    delays = [r['repair_retry_wait_seconds'] for r in failures if r['repair_will_retry']]
+    expected = [5] if recovers else [5, 10, 20, 40, 80, 160] if count == 7 else []
+    assert delays == expected and sum(waits) == sum(expected) <= 360
+    assert usage['unknown_usage_attempts'] == budget.summary()['unsettled_attempts'] == count
+    assert budget.summary()['tokens_or_unsettled_bounds']['output_tokens'] == count * 2048 + (17 if recovers else 0)
+    assert 'PRIVATE' not in (tmp_path / 'call/usage.jsonl').read_text()
+
+
+def test_policy_retries_after_rate_limit_transport_exhaustion(tmp_path, budget, task, visible):
+    client = FakeClient([Limit429('PRIVATE'), Limit429('PRIVATE'), response()])
+    actor = policy(tmp_path, budget, task, client)
+    actor.teacher.max_attempts = 2
+    assert actor([], visible) == 'Action: look'
+    rows = usage_summary(tmp_path / 'call/usage.jsonl')['calls']
+    assert [r['repair_attempt_index'] for r in rows] == [0, 0, 1]
+    assert [r['transport_will_retry'] for r in rows[:2]] == [True, False]
+    assert [r['repair_will_retry'] for r in rows[:2]] == [False, True]
+    assert budget.summary()['reserved_attempts'] == 3 and budget.summary()['stop_reason'] is None
+
+
+def test_policy_recovered_failure_survives_resume_reconciliation(tmp_path, budget, task, visible):
+    from tools.teacher_takeover import _reconcile
+    actor = policy(tmp_path / 'calls/key', budget, task, FakeClient([HTTPFailure(503), response()]))
+    actor.teacher.max_attempts = 1
+    assert actor([], visible) == 'Action: look'
+    before = budget.summary()
+    _reconcile(tmp_path, budget)
+    assert budget.summary() == before and before['stop_reason'] is None
+
+
+def test_policy_cache_hit_is_other_and_never_retried(tmp_path, budget, task, visible):
+    client = FakeClient([response()])
+    actor = policy(tmp_path, budget, task, client)
+    assert actor([], visible) == 'Action: look'
+    with pytest.raises(TeacherCallError):
+        actor([], visible)
+    assert len(client.requests) == budget.summary()['reserved_attempts'] == 1
+    rows = [json.loads(line) for line in (tmp_path / 'call/usage.jsonl').read_text().splitlines()]
+    assert rows[-1]['status'] == 'repair_outcome' and rows[-1]['failure_class'] == 'OTHER'
+    assert rows[-1]['repair_attempt_index'] == 0 and not rows[-1]['will_retry']
+    assert budget.summary()['stop_reason'] == 'teacher_halted'
+
+
+@pytest.mark.parametrize('stop', ['teacher_quota', 'global_output_tokens_cap'])
+def test_policy_retry_observes_other_worker_stop(tmp_path, budget, task, visible, stop):
+    client = FakeClient([HTTPFailure(503), response()])
+    actor = policy(tmp_path, budget, task, client)
+    actor.teacher.max_attempts = 1
+    other = SharedTeacherBudget(budget.path, **budget.caps)
+    waits = []
+    def stop_during_wait(seconds):
+        waits.append(seconds)
+        other.halt(stop)
+    actor.teacher.sleep = stop_during_wait
+    with pytest.raises(CaseStopped):
+        actor([], visible)
+    assert waits == [1] and len(client.requests) == 1
+    assert budget.summary()['reserved_attempts'] == 1 and actor.failure == stop
+
+
+def test_policy_retry_cannot_exceed_budget(tmp_path, task, visible):
+    budget = SharedTeacherBudget(tmp_path / 'global.jsonl', input_tokens=1_000_000, output_tokens=2048)
+    client = FakeClient([HTTPFailure(503), response()])
+    actor = policy(tmp_path, budget, task, client)
+    actor.teacher.max_attempts = 1
+    with pytest.raises(CaseStopped):
+        actor([], visible)
+    assert len(client.requests) == budget.summary()['reserved_attempts'] == 1
+    assert actor.failure == 'global_output_tokens_cap'
+
+
+@pytest.mark.parametrize('jitter_fraction', [0, .5, 1])
+def test_policy_backoff_jitter_is_bounded(tmp_path, budget, task, visible, jitter_fraction):
+    actor = policy(tmp_path, budget, task, FakeClient([HTTPFailure(503)] * 7))
+    actor.teacher.max_attempts = 1
+    actor.teacher.jitter = lambda low, high: low + (high - low) * jitter_fraction
+    waits = []
+    actor.teacher.sleep = waits.append
+    with pytest.raises(TeacherCallError):
+        actor([], visible)
+    calls = usage_summary(tmp_path / 'call/usage.jsonl')['calls']
+    delays = [r['repair_retry_wait_seconds'] for r in calls[:-1]]
+    assert delays == pytest.approx([base * (1 + .1 * jitter_fraction) for base in (5, 10, 20, 40, 80, 160)])
+    assert sum(waits) == pytest.approx(sum(delays)) and sum(waits) <= 360
+
+
 def test_rate_limit_retries_reserved_before_every_request(tmp_path, budget, task, visible):
     client = FakeClient([Limit429('PRIVATE'), response()])
     actor = policy(tmp_path, budget, task, client)
@@ -127,10 +282,14 @@ def test_invalid_teacher_completion_is_never_an_action(tmp_path, budget, task, v
         result.incomplete_details = {'reason': 'max_output_tokens'}
     if bad == 'unknown_usage':
         result.usage = None
-    actor = policy(tmp_path, budget, task, FakeClient([result]))
+    client = FakeClient([result])
+    actor = policy(tmp_path, budget, task, client)
     with pytest.raises(TeacherCallError):
         actor([], visible)
     assert budget.summary()['stop_reason'] == 'teacher_halted'
+    assert len(client.requests) == 1
+    row = json.loads((tmp_path / 'call/usage.jsonl').read_text().splitlines()[-1])
+    assert row['failure_class'] == 'OTHER' and not row['will_retry']
 
 
 def test_budget_resume_idempotent_settlement_and_unknown_reservations(tmp_path):

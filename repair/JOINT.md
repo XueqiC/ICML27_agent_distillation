@@ -106,8 +106,9 @@ recorded evidence). Guide/demonstrate require citations, need, one exact admissi
 command, check and guidance. Guidance is at most 60 whitespace-delimited words;
 check is at most 30. A completed invalid response gets one format retry with the
 validator reason. Two completed schema failures become accept with
-`review_invalid`; transport failures, quota failures, empty/incomplete responses,
-unknown usage and budget stops void the episode and halt further reviews.
+`review_invalid`. Transient transport failures receive the bounded retries below;
+exhausted retries, quota failures, other teacher failures, empty/incomplete
+responses, unknown usage and budget stops void the episode and halt further reviews.
 
 Guide copies the public history/current observation and appends exactly
 `\n\nGuidance: ` plus guidance to the current observation. Later student prompts
@@ -162,11 +163,30 @@ JOINT_BUDGET, before sourcing. This documentation does not launch serving.
 
 `SharedTeacherBudget` uses the explicitly supplied ledger across all workers and
 separate CLI invocations. Caps must match when reopening it. Every HTTP attempt,
-including rate-limit retries and the format retry, reserves before transport.
+including transport retries, repair retries and the format retry, reserves before transport.
 Known usage settles idempotently; unknown/interrupted attempts keep their full
-bounds. Quota 429 halts immediately; ordinary rate-limit 429 uses the existing
-transport retries. The capped factory retains its 20-attempt rate-limit policy.
-A worker's logical review cap is 80 (two per policy turn), in addition to the
+bounds. The capped factory retains its 20-attempt rate-limit policy. After that
+transport returns a failed call, the reviewer classifies its sanitized receipt
+or exception as `TRANSIENT` (HTTP 5xx including 500/502/503/504, 408, 409, exhausted rate-limit
+429, connection or timeout error), `QUOTA` (the existing quota guard's 429
+classification), or `OTHER`. Quota and other failures halt immediately; this
+includes authentication/schema HTTP errors, empty output, truncation and cache
+hits. Completed review-schema failures retain the separate format retry above.
+
+Each transient logical request gets at most six repair retries with identical
+messages, fresh request IDs and fresh transport reservations. Base waits are
+5, 10, 20, 40, 80 and 160 seconds plus uniform jitter of 0–10% per wait: total
+added wait is at most 346.5 seconds (under six minutes). This bound excludes
+the unchanged transport's own retry/rate-limiter waits and request duration.
+Budget checks run before each retry and every second during backoff; another
+worker's global stop ends the loop. A successful retry does not halt the budget.
+
+The local capped counter otherwise latches terminal failures. Only a fully
+receipted transient failure from the current live request is acknowledged using
+its existing hashed recovery boundary. `recoveries/<request_id>.json` retains
+the prior counter and ledger hash; no reservation or consumed call slot is
+refunded. Historical halts, interrupted calls and global stops are not recovered.
+The worker cap remains 80 call slots, now including repair retries, alongside the
 shared token caps. The limiter is shared beside the budget ledger (or through
 the existing TEACHER_RATE_LIMIT_DIR override).
 
@@ -190,6 +210,14 @@ and have no executed reply. `guidance_injections` identifies only appended
 student-prompt suffixes; demonstration guidance is also retained in its step.
 Usage includes retries and independent model ID/timestamp receipts. Capped
 transport bookkeeping rows are not counted as unknown API attempts.
+`reviews.jsonl` records each fresh request, its logical request ID, zero-based
+`attempt_index`, `failure_class`, retry decision and delay; `retry` still denotes
+the separate format retry. Usage rows carry `repair_request_id`,
+`repair_logical_request_id`, `repair_attempt_index` and `failure_class` alongside
+the native transport IDs/index. `transport_will_retry` preserves the transport's
+original decision, `repair_will_retry` records the added retry, and `will_retry`
+covers either so resume reconciliation accepts recovered failures. Append-only
+`repair_outcome` rows retain policy-level rejections without duplicating usage.
 
 `plan.json`, `provenance.json` and `run_manifest.json` bind effective config,
 code/input hashes, dependencies, student revision/serving identity, teacher alias,

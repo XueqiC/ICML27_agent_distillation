@@ -121,11 +121,113 @@ class _Reservations:
 class _UsageLedger:
     def __init__(self, ledger, budget):
         self.ledger, self.path, self.budget = ledger, ledger.path, budget
+        self.retry = None
 
     def append(self, row, **kwargs):
+        if self.retry is not None:
+            row = self.retry.annotate(row)
         self.ledger.append(row, **kwargs)
         if row['status'] != 'started' and row['status'] != 'cache_hit':
             self.budget.settle(row['call_id'], row.get('usage'))
+
+
+_TRANSIENT_HTTP = {408, 409, 429}
+_CONNECTION_ERRORS = {
+    'APIConnectionError', 'APITimeoutError', 'ConnectionError', 'TimeoutError',
+    'ConnectionResetError', 'ConnectionAbortedError', 'ConnectionRefusedError',
+    'BrokenPipeError', 'TimeoutException', 'ReadTimeout', 'ConnectTimeout',
+    'WriteTimeout', 'PoolTimeout', 'NetworkError', 'ConnectError', 'ReadError',
+    'WriteError', 'CloseError', 'ProxyError', 'RemoteProtocolError',
+}
+_RETRY_DELAYS = (5, 10, 20, 40, 80, 160)
+
+
+def _teacher_failure(exc=None, row=None):
+    """Classify sanitized receipts; inspect quota bodies only in memory."""
+    row = row or {}
+    if isinstance(exc, TeacherQuotaError) or row.get('error_type') == 'TeacherQuotaError':
+        return 'QUOTA'
+    status = getattr(exc, 'status_code', None)
+    if status == 429:
+        return 'TRANSIENT' if _is_rate_limit_429(exc) else 'QUOTA'
+    # Completed/invalid responses must not inherit an earlier transport failure.
+    if row.get('status') not in ('failed', 'incomplete'):
+        row = {}
+    status = status if status is not None else row.get('http_status')
+    if status is not None:
+        return 'TRANSIENT' if (status in _TRANSIENT_HTTP
+                               or isinstance(status, int) and 500 <= status < 600) else 'OTHER'
+    if (isinstance(exc, (ConnectionError, TimeoutError))
+            or type(exc).__name__ in _CONNECTION_ERRORS
+            or row.get('error_type') in _CONNECTION_ERRORS
+            or type(exc).__name__ == 'TeacherRateLimitError'):
+        return 'TRANSIENT'
+    return 'OTHER'
+
+
+class _TeacherRetry:
+    """Opt-in repair retries, separate from the unchanged transport attempts."""
+    def __init__(self, teacher, budget):
+        self.teacher, self.budget = teacher, budget
+        self.logical_id = str(uuid.uuid4())
+        self.last = None
+
+    def begin(self, index):
+        self.index, self.request_id, self.last = index, str(uuid.uuid4()), None
+        self.teacher.ledger.retry = self
+
+    def failure(self, exc):
+        kind = _teacher_failure(exc, self.last)
+        retry = (kind == 'TRANSIENT' and self.index < len(_RETRY_DELAYS)
+                 and not self.budget.summary()['stop_reason'])
+        wait = 0
+        if retry:
+            if self.last and self.last.get('repair_will_retry'):
+                wait = self.last['repair_retry_wait_seconds']
+            else:
+                base = _RETRY_DELAYS[self.index]
+                # Positive jitter bounded to 10%: all six waits total <=346.5s.
+                wait = base + self.teacher.jitter(0, base * .1)
+        return dict(failure_class=kind, will_retry=retry, retry_wait_seconds=wait)
+
+    def annotate(self, row):
+        row = dict(row, repair_request_id=self.request_id,
+                   repair_logical_request_id=self.logical_id,
+                   repair_attempt_index=self.index, failure_class=None)
+        if row['status'] in ('failed', 'incomplete'):
+            self.last = row
+            info = self.failure(None)
+            transport_retry = bool(row.get('will_retry'))
+            row.update(failure_class=info['failure_class'],
+                       transport_will_retry=transport_retry,
+                       repair_will_retry=info['will_retry'] and not transport_retry,
+                       repair_retry_wait_seconds=info['retry_wait_seconds'] if not transport_retry else 0,
+                       # Resume reconciliation must recognize a scheduled repair
+                       # retry; retain the original transport decision separately.
+                       will_retry=transport_retry or info['will_retry'])
+        elif row['status'] == 'cache_hit' or row.get('truncated'):
+            row['failure_class'] = 'OTHER'
+        if row['status'] != 'state_link':
+            self.last = row
+        return row
+
+    def record_failure(self, exc, info):
+        # Policy-level rejections (e.g. empty completed output) need a receipt
+        # too. This bookkeeping row carries no second usage/settlement.
+        self.teacher.ledger.ledger.append(dict(
+            run_id=self.teacher.run_id, timestamp=utc_now(), status='repair_outcome',
+            call_id=(self.last or {}).get('call_id', self.request_id), usage=None,
+            repair_request_id=self.request_id, repair_logical_request_id=self.logical_id,
+            repair_attempt_index=self.index, error_type=type(exc).__name__, **info))
+
+    def wait(self, seconds):
+        # Short sleeps also observe another worker's stop during long backoff.
+        self.budget.check()
+        while seconds > 0:
+            interval = min(seconds, 1.0)
+            self.teacher.sleep(interval)
+            seconds -= interval
+            self.budget.check()
 
 
 class _QuotaGuard:
@@ -169,25 +271,39 @@ class TeacherPolicy:
         self.failure = None
 
     def __call__(self, history, visible):
+        retry = _TeacherRetry(self.teacher, self.budget)
         try:
-            self.budget.check()
             messages = build_messages(history, self.task, visible)
             # UTF-8 bytes plus framing bound, NOT the limiter's char/4 estimate.
             self.reservation.input_bound = len(canonical_bytes(messages)) + 16 * (len(messages) + 1)
-            result = self.teacher.generate(history, self.task, visible)
-            require_completed(result, allow_truncated=False)
-            if result.metadata.get('cache_hit') or not result.raw_text.strip():
-                raise TeacherCallError('Empty reply or unexpected cache hit')
-            return result.raw_text  # Nonempty parser errors retain shared parser semantics.
+            for index in range(len(_RETRY_DELAYS) + 1):
+                self.budget.check()
+                retry.begin(index)
+                try:
+                    result = self.teacher.generate(history, self.task, visible)
+                    require_completed(result, allow_truncated=False)
+                    if result.metadata.get('cache_hit') or not result.raw_text.strip():
+                        raise TeacherCallError('Empty reply or unexpected cache hit')
+                    return result.raw_text  # Nonempty parser errors retain shared parser semantics.
+                except CaseStopped:
+                    raise
+                except Exception as exc:
+                    info = retry.failure(exc)
+                    retry.record_failure(exc, info)
+                    if not info['will_retry']:
+                        raise
+                    retry.wait(info['retry_wait_seconds'])
         except CaseStopped:
             self.failure = self.budget.summary()['stop_reason'] or 'budget_stop'
             raise
-        except Exception:
+        except Exception as exc:
             self.failure = self.budget.summary()['stop_reason']
             if not self.failure:
-                self.failure = 'teacher_halted'
+                self.failure = 'teacher_quota' if _teacher_failure(exc, retry.last) == 'QUOTA' else 'teacher_halted'
                 self.budget.halt(self.failure)
             raise TeacherCallError('Teacher halted; inspect sanitized call evidence') from None
+        finally:
+            self.teacher.ledger.retry = None
 
 
 def make_teacher_policy(config, task, directory, output, budget, *, dry_run=False, client=None):
@@ -227,13 +343,16 @@ def run_key(case_id, mode, run):
 def usage_summary(path=None):
     rows = [json.loads(line) for line in Path(path).read_text().splitlines()] if path and Path(path).exists() else []
     starts = {r['call_id'] for r in rows if r['status'] == 'started'}
-    ends = [r for r in rows if r['status'] not in ('started', 'cache_hit')]
+    ends = [r for r in rows if r['status'] not in ('started', 'cache_hit', 'repair_outcome')]
     complete = {r['call_id'] for r in ends}
     return {'totals': {k: sum((r.get('usage') or {}).get(k, 0) or 0 for r in ends)
                        for k in ('input_tokens', 'output_tokens', 'reasoning_tokens')},
             'unknown_usage_attempts': sum(not has_known_usage(r.get('usage')) for r in ends) + len(starts - complete),
             'calls': [{k: r.get(k) for k in ('call_id', 'logical_call_id', 'timestamp', 'status', 'usage',
-                       'returned_model_id', 'attempt', 'error_type', 'will_retry')} for r in ends],
+                       'returned_model_id', 'attempt', 'error_type', 'http_status', 'will_retry',
+                       'repair_request_id', 'repair_logical_request_id', 'repair_attempt_index',
+                       'failure_class', 'transport_will_retry', 'repair_will_retry',
+                       'repair_retry_wait_seconds')} for r in ends],
             'interrupted_requests': len(starts - complete)}
 
 

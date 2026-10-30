@@ -13,13 +13,14 @@ from repair.facts import FactTable
 from repair.guidance import derive_metrics
 from repair.ledger import BudgetLedger
 from repair.runtime import RepairTeacher, CaseStopped
-from repair.takeover import (_Reservations, _UsageLedger, _QuotaGuard, RecordedEnvironment,
+from repair.takeover import (_Reservations, _UsageLedger, _QuotaGuard, _TeacherRetry,
+                             _RETRY_DELAYS, _teacher_failure, RecordedEnvironment,
                              takeover_metrics, usage_summary as _takeover_usage_summary)
 from sed.react import action_outcome, build_messages
 from sed.storage import canonical_bytes, digest, locked, write_json, JsonlLedger
 from sed.thinking import split_thinking
 from sed.visibility import visible_history, visible_observation
-from teachers.openai_teacher import Teacher, TeacherCallError, TeacherQuotaError
+from teachers.openai_teacher import Teacher, TeacherCallError
 from teachers.stage import require_completed
 
 TEMPLATE_VERSION = 'joint-review/1'
@@ -158,32 +159,79 @@ class Reviewer:
         self.teacher, self.task, self.budget = teacher, task, budget
         self.reservation, self.directory, self.failure = reservation, Path(directory), None
 
+    def _recover_transient(self, retry):
+        """Acknowledge only this live, fully receipted transient call in the cap.
+
+        CappedTeacher otherwise latches every terminal failure. Its existing
+        hashed recovery boundary preserves all receipts and consumed slots.
+        Never recover a previous invocation, an interruption, or a global halt.
+        """
+        self.budget.check()
+        with locked(str(self.teacher.counter_path) + '.lock'):
+            counter = self.teacher._read_counter()
+            rows = [json.loads(line) for line in self.teacher.teacher.ledger.path.read_text().splitlines()]
+            rows = [r for r in rows if r.get('run_id') == self.teacher.run_id]
+            current = [r for r in rows if r.get('repair_request_id') == retry.request_id]
+            starts = {r['call_id'] for r in current if r['status'] == 'started'}
+            ends = [r for r in current if r['status'] in ('failed', 'incomplete', 'success', 'rejected')]
+            if (not ends or starts != {r['call_id'] for r in ends if r.get('request_started') is not False}
+                    or any(r['status'] != 'failed' or _teacher_failure(row=r) != 'TRANSIENT' for r in ends)
+                    or ends[-1]['call_id'] != retry.last['call_id']
+                    or not ends[-1].get('repair_will_retry') or counter['pending']):
+                raise TeacherCallError('Transient retry evidence is incomplete')
+            recovery = dict(through_rows=len(rows), ledger_prefix_sha256=digest(rows))
+            write_json(self.directory / 'recoveries' / (retry.request_id + '.json'),
+                dict(recovery, reason='repair_transient_retry', previous_counter=counter,
+                     repair_request_id=retry.request_id), exclusive=True)
+            self.budget.check()
+            write_json(self.teacher.counter_path, dict(counter, halted=False, recovery=recovery))
+
     def request(self, prompt, facts, commands, attempts):
-        for retry in range(2):
-            row = dict(request_id=str(uuid.uuid4()), retry=retry, request=prompt.to_json(),
-                       request_sha256=digest(prompt.messages()), status='started')
-            attempts.append(row)
-            ledger = JsonlLedger(self.directory / 'reviews.jsonl')
-            ledger.append(row)
+        for format_retry in range(2):
+            retry = _TeacherRetry(self.teacher.teacher, self.budget)
+            ledger, row = JsonlLedger(self.directory / 'reviews.jsonl'), None
             try:
-                self.budget.check()
                 self.reservation.input_bound = len(canonical_bytes(prompt.messages())) + 16 * (len(prompt.messages()) + 1)
-                result = self.teacher.generate([], self.task, {
-                    'observation': canonical_bytes(prompt.to_json()).decode(), 'admissible_commands': []})
-                row.update(raw_output=result.raw_text, metadata=result.metadata,
-                           transport_request_id=result.metadata.get('call_id'))
-                require_completed(result, allow_truncated=False)
-                if (result.metadata.get('cache_hit') or not result.raw_text.strip()
-                        or result.metadata['usage']['output_tokens'] > OUTPUT_CAP):
-                    raise TeacherCallError('Unexpected cache or empty review')
+                for index in range(len(_RETRY_DELAYS) + 1):
+                    retry.begin(index)
+                    row = dict(request_id=retry.request_id, logical_request_id=retry.logical_id,
+                               attempt_index=index, retry=format_retry, request=prompt.to_json(),
+                               request_sha256=digest(prompt.messages()), status='started', failure_class=None)
+                    attempts.append(row)
+                    ledger.append(row)
+                    try:
+                        self.budget.check()
+                        result = self.teacher.generate([], self.task, {
+                            'observation': canonical_bytes(prompt.to_json()).decode(), 'admissible_commands': []})
+                        row.update(raw_output=result.raw_text, metadata=result.metadata,
+                                   transport_request_id=result.metadata.get('call_id'))
+                        require_completed(result, allow_truncated=False)
+                        if (result.metadata.get('cache_hit') or not result.raw_text.strip()
+                                or result.metadata['usage']['output_tokens'] > OUTPUT_CAP):
+                            raise TeacherCallError('Unexpected cache or empty review')
+                        break
+                    except Exception as exc:
+                        info = retry.failure(exc)
+                        retry.record_failure(exc, info)
+                        row.update(info, status='failed', error_type=type(exc).__name__,
+                                   transport_request_id=(retry.last or {}).get('call_id'))
+                        if not info['will_retry']:
+                            raise
+                        row['reason'] = 'teacher_transient'
+                        ledger.append(row)
+                        retry.wait(info['retry_wait_seconds'])
+                        self._recover_transient(retry)
             except Exception as exc:
                 self.failure = self.budget.summary()['stop_reason']
                 if not self.failure:
-                    self.failure = 'teacher_quota' if isinstance(exc, TeacherQuotaError) else 'teacher_halted'
+                    self.failure = 'teacher_quota' if _teacher_failure(exc, retry.last) == 'QUOTA' else 'teacher_halted'
                     self.budget.halt(self.failure)
-                row.update(status='failed', reason=self.failure, error_type=type(exc).__name__)
-                ledger.append(row)
+                if row is not None:
+                    row.update(status='failed', reason=self.failure, error_type=type(exc).__name__, will_retry=False)
+                    ledger.append(row)
                 raise TeacherCallError('Joint reviewer halted; see sanitized evidence') from None
+            finally:
+                self.teacher.teacher.ledger.retry = None
             try:
                 value = validate_review(result.raw_text, facts, commands)
                 row.update(status='valid', parsed_review=value)
@@ -202,7 +250,7 @@ def make_reviewer(config, task, directory, output, budget, *, dry_run=False, cli
     spec, directory = config['models']['teacher'], Path(directory)
     if spec['requested_name'] != 'gpt-6-luna' or spec['provider_model_id'] != 'gpt-6-luna':
         raise ValueError('Joint review requires configured gpt-6-luna')
-    # Unique attempt cache; at most two logical reviews per policy turn.
+    # Unique attempt cache; schema and transient retries retain the 80-slot cap.
     teacher = from_config(config, output=directory, cache_dir=directory / 'cache',
         usage_ledger=directory / 'usage.jsonl', run_id=directory.name, cap=80,
         teacher_class=JointTeacher, sampling={**spec['sampling'], 'max_output_tokens': OUTPUT_CAP})

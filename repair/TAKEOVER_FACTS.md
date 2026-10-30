@@ -95,9 +95,21 @@ process workers use `output/data/teacher_rate_limit` (or the collection transpor
 `TEACHER_RATE_LIMIT_DIR` override). Each process owns its environment. A narrow
 client guard prevents quota 429 retries, which the default collection transport
 would otherwise retry. Ordinary rate-limit 429s retain the existing transport's
-backoff and configured maximum attempts. Exhausted retries, quota, unknown usage,
-truncated responses, empty responses and other teacher failures halt the invocation
-with nonzero exit status. No failed/empty response becomes an environment action.
+backoff and configured maximum attempts. After transport retries end, the policy
+classifies the sanitized usage receipt or exception as `TRANSIENT` (HTTP
+5xx including 500/502/503/504, 408, 409, exhausted rate-limit 429, connection or timeout error),
+`QUOTA` (429 rejected by the existing `_is_rate_limit_429` classifier), or `OTHER`.
+Quota, other HTTP failures (including schema/authentication errors), unknown
+usage, truncation, empty responses and unexpected cache hits halt immediately.
+
+Transient failures get at most six additional attempts at the same logical
+request with identical messages and fresh request/reservation IDs. The base
+waits are 5, 10, 20, 40, 80 and 160 seconds, each with uniform 0–10% jitter;
+their total is at most 346.5 seconds (under six minutes). This bounds the added
+backoff, excluding the unchanged transport/rate-limiter waits and request time.
+Budget checks precede retries and run every second during backoff, so a halt or
+global stop from another worker ends the loop. Only exhausted transient retries
+halt the invocation with nonzero exit status. No failed/empty response becomes an environment action.
 Nonempty completed parser errors use the unchanged shared parser and turn cap.
 
 ### Global caps, interruption and resume
@@ -170,6 +182,15 @@ turns to success and budget remaining at discovery. Transform/placement are
 local progress; only environment execution success establishes task completion.
 Summary distinguishes per-record usage from all-attempt usage (including orphan
 attempts), conservative outstanding bounds and unknown quantities.
+
+Usage rows include `repair_request_id`, `repair_logical_request_id`, zero-based
+`repair_attempt_index`, and `failure_class` alongside the transport's original
+IDs and attempt index. `transport_will_retry` preserves the original transport
+decision; `repair_will_retry` and `repair_retry_wait_seconds` disclose the added
+retry. `will_retry` covers either layer for existing resume reconciliation.
+Append-only `repair_outcome` rows record failed policy attempts (including empty
+completed replies) without adding usage or settlements; usage summaries exclude
+those bookkeeping rows. Unknown failed attempts retain their full reservations.
 
 ## Harness fact table
 
