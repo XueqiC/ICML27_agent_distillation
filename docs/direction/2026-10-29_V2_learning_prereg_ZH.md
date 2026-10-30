@@ -143,3 +143,20 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - 不用评测结果调提示、调数据或调训练设置；
 - teacher 只看公开历史和事实表，不读任务文件、游戏文件或这些任务的 teacher 示范；
 - 第一轮只用一个训练 seed，有正向结果后再换 seed 复核。
+
+## 修订
+
+### 修订 1（2026-10-29 23:5x CDT；C4/C5 采集开始之前，非 heat 前缀的 joint-review/2 结果出来之前）
+
+**§8 的结果**
+- 运行 `reports/runs/method_v1/v2_heat_r2`：代码 1f23a37，rai GPU 3，81 次，0 作废，2.33M input / 0.18M output。
+- 9 个 heat 前缀，采样成功率：U 0.222（V1b）；G（joint-review/1，V1b）0.349；G（joint-review/2）0.931。
+- 差 +0.581，95% CI [0.431, 0.718]，前缀 9 / 0 / 0。按 §8 规则通过。
+- 完成加热的比例从 0.37 升到 0.94。teacher 示范步数占 12.4%，仍低于 30%。
+
+**改动**
+- 预注册原文写的是新版 R "只用于以后的采集"。但 V2 的 G 采集（C4）还没有开始，这里改为：先检查新版 R 在其余任务类型上不变差，再决定 C4 用哪一版。
+- **检查**：在 V1b 其余 29 个非 heat 前缀上，用 joint-review/2 跑 G，1 次 greedy 加 8 次采样（`reports/runs/method_v1/v2_nonheat_r2`）。
+- **规则**：如果 29 个非 heat 前缀上 joint-review/2 的 G 成功率不低于 V1b G（joint-review/1）减 0.05，并且 38 个前缀合计的 teacher 示范步数占比 ≤ 30%，C4 就用 joint-review/2；否则 C4 用 joint-review/1，与原文一致。
+- C5（teacher 接管）不涉及 R，不受影响。
+- 训练组、评测和判定规则都不变。数据集清单记录 JOINT 用的是哪个 R 版本。
