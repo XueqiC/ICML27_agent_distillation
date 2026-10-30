@@ -17,6 +17,16 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### 19:2x CDT 10-29 — resumed after a usage-limit pause (10-27 ~18:00 to 10-29 19:00 CDT)
+- User 10-27 19:28 CDT: "没有预算限制，我们整个研究都没有预算限制" (memory feedback-no-budget-limit-1027); 10-27 23:46 and
+  10-28 18:32 CDT progress questions went unanswered during the pause; replied 19:0x/19:2x CDT 10-29.
+- V1b run 1 (v1b_main): halted 10-27 18:06 CDT by ONE unretried HTTP 503 on a joint review -> U 190/190 valid, G 30, G1 31,
+  319 void. Not analysed (G vs U not looked at). Prereg rev2 3de2765: rerun all arms in v1b_r2 with 8 sampled seeds,
+  new ledger cap 300M/40M (safety only). Codex fixing transient-error retries in repair/joint.py + takeover.py.
+- E0.4 supervision builder committed 649d9f1 (K20 20/20, OFFLINE 200/200 byte-equal to main grid); E0.5 fix 2050d69.
+- hpg ControlMaster down since 10-29 06:34 CDT (keeper SSH_FAIL Duo); user asked to run `ssh -fN -M hpg`.
+- rai / at 713G free (<1T): our dirs small (method_v1 574M, repair_pilot 3.3G, /home/xueqi 1.9T); flagged for control plane.
+
 ### 17:3x CDT 10-27 — V1b main running; E0.4/E0.5 with Codex
 - V1b cost canary (2 prefixes, G greedy): ~110k in / 17k out per G episode -> prereg rule: sampled seeds 8 -> 4 (rev1 fc82998).
 - V1b main launched 17:3x CDT: 38 prefixes x U/G/G1 x (greedy + seeds 0-3) = 570 rollouts, rai GPU 1, tree 43d01a7,
