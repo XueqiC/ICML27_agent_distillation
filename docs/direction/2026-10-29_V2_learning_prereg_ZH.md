@@ -187,3 +187,25 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - 这条做法对所有组相同。
 
 **并行训练**：为节省时间，CONTINUE 的 1,000 次 run 现在就和 OFFLINE 的一起训练。只有当 CONTINUE 在 500 次 run 上的 E-sel 选中第 500 次时，才评测它；否则不评测，只保留记录。之后的组也照此处理。
+
+### 修订 4（2026-10-31 15:0x CDT；C4 已完成，C5 基本完成，JOINT / JOINT_COMPLETE_ONLY / PREFIX-EXPERT 的数据集都还没有建成，这三组都没有训练）
+
+**C5 的作废补跑**
+- 14:54 CDT teacher 额度再次用完（429 insufficient_quota）。C5 从起点的 640 次中有 36 次作废（24 次 not_run_halted，12 次 void），全部落在 8 个前缀上：6 个 look 前缀 5 次全部作废，heat Apple-GarbageCan-2 作废 4 次，look Pillow-307 作废 2 次。C5 的 dp 起点 640 次，0 作废。
+- `teacher_takeover --resume` 会原样返回已有的记录（包括作废的），不能补跑。
+- **规则**：充值后，用同一代码树（7748da5）和同样设置，对这 8 个前缀从起点各跑 5 次接管，放进新目录 `reports/runs/method_v1/v2_c5_start_fill`。PREFIX-EXPERT 的输入 = `v2_c5_dp` + `v2_c5_start` + `v2_c5_start_fill`，作废的记录照常排除。
+- 后果：6 个全作废的前缀各有 5 次（全部来自补跑）；2 个部分作废的前缀会分别有 6 次和 8 次有效接管。不从已完成的运行目录里删除记录，多出的这 6 次在数据集清单里如实报告。
+
+**teacher 用量的计数方式**
+- §3、§4 原文要求所有 teacher 调用走同一个全局计数器（`v2_global_teacher_budget.jsonl`）。这个账本每追加一行都要重读、重写整个文件，并且全程持有同一把锁，所以到 1.8 万行时，并发的采集会卡在锁上（C4 实测每次调用约 6 s）。
+- **改动**：C4 的 16 个分片、C5 的两次运行（以及补跑）、JOINT 和 JOINT_COMPLETE_ONLY 的 L 标签，各用自己的账本。每个账本有自己的失控上限；V2 的总用量由我把所有账本相加后报告。
+
+**L 标签**
+- 用 `--label-workers 16` 并发打标签。代码树是 568f99d，相对于 7748da5 只加了这一个选项。我在一个真实分片上做过 dry-run 核对：并发和顺序得到的 examples.jsonl 逐字节相同。
+- JOINT 和 JOINT_COMPLETE_ONLY 各自独立调用 L。所以两组都含有的同一个决策，标签可能不同（teacher 采样）。这一点在两组的比较里注明。
+
+**监督量归因（§7）的目标 turn 数**
+- 原文只写"等监督 turn 数"，没有说 OFFLINE 和 PREFIX-EXPERT 的 turn 数不同时，以哪个为准。
+- **规则**：只要 JOINT 的监督 turn 数超过 OFFLINE 或 PREFIX-EXPERT 的 2 倍，目标 T 就取 OFFLINE 和 PREFIX-EXPERT 两者 turn 数中较小的一个。这样子集 JOINT_EQ 的监督量不超过任何一个对照组。
+- **抽样**：按 task_id 分层，用最大余数法把 T 分配到各任务（按该任务在 JOINT 中的 turn 数成比例），seed 0。工具为 `tools/subset_v2_dataset.py`。
+- **训练与评测**：JOINT_EQ 和其他组的训练设置完全相同（包括修订 3 中并行训练的 1,000 次 run），按修订 2/3 做 E-sel，评测 (a) 和 (c)。结论里同时报告全量和等量两种结果。
