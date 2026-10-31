@@ -3,6 +3,7 @@ import argparse
 from copy import deepcopy
 import json
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 from eval.run_suite import run_suite, task_result
@@ -13,6 +14,7 @@ from sed.config import load_config
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.provenance import code_hashes, safe_config, versions
 from sed.storage import canonical_bytes, digest, file_hash, locked, write_json
+from students.vllm_student import context_options
 from tools.repair_coverage import checked_repair_splits
 
 SETS = {'D_unseen_quick': 24, 'D_probe': 60}
@@ -151,6 +153,8 @@ def run(args, *, suite_runner=None):
     manifest, freeze = load_frozen(config['paths']['manifest'], config['paths']['split_freeze'])
     splits, listing, tasks = evaluation_tasks(args.repair_splits, manifest, freeze, args.set)
     spec, adapter, adapter_inputs = serving_spec(SimpleNamespace(**vars(args), dry_run=False), config)
+    # serving_spec has now loaded provenance; match run_suite's effective spec.
+    spec = {**spec, **context_options(config)}
     theta0 = adapter['name'] == THETA0 and adapter['training'] is None
     adapter.update(arm='theta0' if theta0 else adapter['training']['arm'] if adapter['training'] else None,
                    arm_index=0 if theta0 else None, is_theta0=theta0)
@@ -258,4 +262,11 @@ if __name__ == '__main__':
         raise SystemExit(main())
     except Exception as exc:
         print(json.dumps(dict(status='error', error_type=type(exc).__name__)))
+        if isinstance(exc, (ValueError, AssertionError)):
+            origin = exc.__traceback__
+            while origin.tb_next is not None:
+                origin = origin.tb_next
+            # Only this tool's validation messages are safe to print.
+            if origin.tb_frame.f_globals is globals():
+                print(str(exc), file=sys.stderr)
         raise SystemExit(1) from None

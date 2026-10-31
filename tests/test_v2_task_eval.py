@@ -1,6 +1,9 @@
 """V2 from-start evaluation: frozen synthetic tasks, fake suites, no model calls."""
 from copy import deepcopy
+import json
 from pathlib import Path
+import runpy
+import sys
 
 import pytest
 import yaml
@@ -10,6 +13,7 @@ from repair.artifacts import checked_document, read_json, seal
 from sed.config import load_config
 from sed.manifest import freeze_splits, load_frozen, resolve_task
 from sed.storage import canonical_bytes, digest, file_hash, write_json
+from students.vllm_student import context_options
 from tools import v2_task_eval as cli
 from test_joint_adapter_eval import trained_adapter
 from test_lora_serving import adapter_bank, bound_report
@@ -70,6 +74,7 @@ class FakeSuite:
                 status=status, complete=status == 'ok'), exclusive=True)
         if self.teacher_row:
             write_json(output / 'episodes' / 'teacher' / 'teacher_usage.jsonl', self.teacher_row)
+        spec = {**spec, **context_options(config)}
         summary = dict(policy=policy, student=spec, task_list_sha256=listing['list_sha256'])
         write_json(output / 'summary.json', summary, exclusive=True)
         return summary
@@ -117,6 +122,83 @@ def test_frozen_listing_adapter_identity_and_decodings(frozen_inputs, trained_ad
     assert plan['identity']['leakage_check']['status'] == 'passed'
     assert plan['identity']['teacher_calls_allowed'] == 0 and plan['identity']['from_start']
     assert read_json(output / 'run_manifest.json')['evaluation_only']
+
+
+@pytest.mark.parametrize('context_source', ['server', 'command', 'neither'])
+def test_effective_context_matches_plan_receipts_and_summaries(
+        frozen_inputs, trained_adapter, suite, context_source):
+    args = trained_adapter[0]
+    server = read_json(args.server_provenance)
+    serving = server['config']['server']
+    if context_source == 'server':
+        serving['max_model_len'] = 32768
+    elif context_source == 'command':
+        serving['command'] = ['vllm', 'serve', '--max-model-len', '32768']
+    report = read_json(args.lora_check)
+    report['server_provenance_sha256'] = digest(server)
+    write_json(args.server_provenance, server)
+    write_json(args.lora_check, report)
+    expected = {} if context_source == 'neither' else {'max_model_len': 32768}
+    assert context_options({'server_provenance': server}) == expected
+
+    argv = arguments(frozen_inputs, args)
+    assert cli.main(argv) == 0
+    output = Path(args.output)
+    decodings = checked_document(output / 'plan.json')['identity']['decodings']
+    assert checked_document(output / 'summary.json')['decodings'] == decodings
+    assert len(suite.calls) == 4
+    for name, passed_spec in suite.calls:
+        spec = decodings[name]
+        assert {k: v for k, v in spec.items() if k == 'max_model_len'} == expected
+        assert passed_spec == spec
+        assert checked_document(output / name / cli.RECEIPT)['spec'] == spec
+        assert read_json(output / name / 'summary.json')['student'] == spec
+    assert cli.main([*argv, '--resume']) == 0 and len(suite.calls) == 4
+
+
+@pytest.mark.parametrize('change', [{'model': 'different-student'}, {'max_model_len': 16384}])
+def test_suite_student_spec_mismatch_refused(frozen_inputs, trained_adapter, suite, monkeypatch, change):
+    def mismatched_suite(**kwargs):
+        summary = suite(**kwargs)
+        summary['student'].update(change)
+        write_json(kwargs['output'] / 'summary.json', summary)
+        return summary
+    monkeypatch.setattr(cli, 'run_suite', mismatched_suite)
+    args = trained_adapter[0]
+    with pytest.raises(ValueError, match='Suite result differs from planned evaluation'):
+        cli.main(arguments(frozen_inputs, args))
+    assert len(suite.calls) == 1
+    assert not (Path(args.output) / 'greedy' / cli.RECEIPT).exists()
+    assert not (Path(args.output) / 'summary.json').exists()
+
+
+@pytest.mark.parametrize('failure,error_type,message', [
+    ('spec', ValueError, 'Suite result differs from planned evaluation'),
+    ('teacher', AssertionError, 'Teacher usage found in V2 task evaluation'),
+    ('external', ValueError, None),
+    ('external', AssertionError, None),
+    ('external', RuntimeError, None),
+])
+def test_script_error_status_and_local_message(
+        frozen_inputs, trained_adapter, suite, monkeypatch, capsys, failure, error_type, message):
+    def failing_suite(**kwargs):
+        if failure == 'external':
+            raise error_type('Synthetic external exception detail')
+        summary = suite(**kwargs)
+        if failure == 'spec':
+            summary['student']['model'] = 'different-student'
+            write_json(kwargs['output'] / 'summary.json', summary)
+        else:
+            write_json(kwargs['output'] / 'teacher_report.json', {'rejections': 1})
+        return summary
+    monkeypatch.setattr('eval.run_suite.run_suite', failing_suite)
+    monkeypatch.setattr(sys, 'argv', [cli.__file__, *arguments(frozen_inputs, trained_adapter[0])])
+    with pytest.raises(SystemExit) as error:
+        runpy.run_path(cli.__file__, run_name='__main__')
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {'status': 'error', 'error_type': error_type.__name__}
+    assert captured.err == (message + '\n' if message else '')
 
 
 @pytest.mark.parametrize('set_name', ['U_mech', 'U_dev', 'V2_pool', 'dev140', 'valid_unseen'])
