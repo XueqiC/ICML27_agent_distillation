@@ -1,10 +1,12 @@
 """Build and seal E0.4 v2-train-interchange/1 datasets and separate K20 replay."""
 import argparse
 from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import json
 from pathlib import Path
 import subprocess
 import sys
+import threading
 
 # Support both the requested script command and python -m tools.build_v2_dataset.
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +23,73 @@ from sed.seed_evidence import checked_episode
 from sed.storage import digest, file_hash, JsonlLedger, write_json
 
 THETA0_NAME = 'e4b-tsft-k20-e32-lr5e-5'
+
+
+class LockedTokenizer:
+    """Serialize tokenizer calls, methods and property reads on one lock."""
+    def __init__(self, tokenizer):
+        self._tokenizer, self._lock = tokenizer, threading.Lock()
+
+    def __call__(self, *args, **kwargs):
+        with self._lock:
+            return self._tokenizer(*args, **kwargs)
+
+    def __getattr__(self, name):
+        with self._lock:
+            value = getattr(self._tokenizer, name)
+        if not callable(value):
+            return value
+        def call(*args, **kwargs):
+            with self._lock:
+                return value(*args, **kwargs)
+        return call
+
+
+def label_results(records, build_record, workers):
+    """Bound in-flight records, fail fast, and yield in original input order."""
+    if workers == 1:
+        for ref, record in records:
+            yield build_record(ref, record)
+        return
+    lock, failures = threading.Lock(), []
+    def run(ref, record):
+        try:
+            return build_record(ref, record)
+        except BaseException as exc:
+            # Coordinate with submission, including failures during initial fill.
+            with lock:
+                if not failures:
+                    failures.append(exc)
+            raise
+    results, pending = [None] * len(records), {}
+    remaining = iter(enumerate(records))
+    exhausted = False
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        try:
+            while pending or not exhausted:
+                while not exhausted and len(pending) < workers:
+                    with lock:
+                        if failures:
+                            raise failures[0]
+                        item = next(remaining, None)
+                        if item is None:
+                            exhausted = True
+                        else:
+                            index, (ref, record) = item
+                            pending[pool.submit(run, ref, record)] = index
+                if pending:
+                    done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                    with lock:
+                        if failures:
+                            raise failures[0]
+                        for future in done:
+                            results[pending.pop(future)] = future.result()
+        finally:
+            # Cancel unstarted records; the executor waits for active calls even
+            # on failure. The original exception escapes before any sealing.
+            for future in pending:
+                future.cancel()
+    yield from results
 
 
 def read_bound(path, inputs, expected=None):
@@ -164,6 +233,8 @@ def input_records(directories, inputs, *, dry_run, policy, theta0):
 
 
 def build(args):
+    if args.label_workers < 1:
+        raise ValueError('--label-workers must be >= 1')
     if args.arm in ARMS[:3] and not args.inputs:
         raise ValueError('Decision arms require --inputs run directories')
     if args.rationale_teacher and not args.dry_run and not all(
@@ -191,6 +262,8 @@ def build(args):
         if any(Path(p).resolve() not in allowed for p in args.inputs):
             raise ValueError('Trajectory --inputs must name the frozen collection, K20 view or theta0 training directory')
     tokenizer, tokenizer_info = local_tokenizer(args, training_provenance, inputs)
+    if args.label_workers > 1 and tokenizer is not None:
+        tokenizer = LockedTokenizer(tokenizer)
     # A failed build is retained with an explicit report but no sealing manifest.
     # Gather every mandatory trajectory rejection before considering L calls.
     # Admissibility/grounding are decision-only rejection criteria; trajectories
@@ -246,7 +319,7 @@ def build(args):
         budget = SharedTeacherBudget(ledger_path,
             input_tokens=args.max_teacher_input_tokens if args.max_teacher_input_tokens is not None else 10**9,
             output_tokens=args.max_teacher_output_tokens if args.max_teacher_output_tokens is not None else 10**8)
-    for ref, record in records:
+    def build_record(ref, record):
         labeler = None
         # Lazy factory: void/wrong-mode episodes cannot start a teacher client.
         def label(prompt):
@@ -255,8 +328,9 @@ def build(args):
                 labeler = RationaleLabeler(config, record['task_id'], output / 'labels' / digest(ref),
                                            budget, dry_run=args.dry_run)
             return labeler(prompt)
-        built, reasons = build_decisions(record, arm=args.arm, episode_ref=ref, policy=policy,
+        return build_decisions(record, arm=args.arm, episode_ref=ref, policy=policy,
             labeler=label if budget is not None else None, tokenizer=tokenizer, audit=label_ledger.append)
+    for built, reasons in label_results(records, build_record, args.label_workers):
         examples.extend(built)
         excluded.update(reasons)
     # Include source/code/content identities, dependencies and all L receipts.
@@ -281,7 +355,7 @@ def build(args):
         teacher_alias=config['models']['teacher']['provider_model_id'],
         global_teacher_budget=budget.summary() if budget else None, label_artifact_sha256=audit_hashes,
         effective_config=dict(student=config['models']['student'], environment=config['environment'],
-            rationale_teacher=args.rationale_teacher, dry_run=args.dry_run,
+            rationale_teacher=args.rationale_teacher, dry_run=args.dry_run, label_workers=args.label_workers,
             rationale_template='repair/prompts.py:RATIONALE', label_token_cap=64,
             label_output_cap_including_reasoning=1024,
             budget_ledger=str(budget.path.resolve()) if budget else None,
@@ -309,6 +383,7 @@ def main(argv=None):
     p.add_argument('--inputs', nargs='*', default=[])
     p.add_argument('--output', required=True)
     p.add_argument('--rationale-teacher', action='store_true')
+    p.add_argument('--label-workers', type=int, default=1, help='Concurrent record labellers (>= 1; default: 1)')
     p.add_argument('--budget-ledger')
     p.add_argument('--max-teacher-input-tokens', type=int)
     p.add_argument('--max-teacher-output-tokens', type=int)
