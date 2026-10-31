@@ -21,10 +21,51 @@ python -m tools.joint_guidance run \
 
 Greedy plus sampled seeds 0–7 is the default. Add `--from-start` and use a new
 output directory for §6(b). For E-short, pass `--seeds` with no values to run
-only greedy. These options do not alter the source case selection. The existing
-`tools.repair_coverage` task-list path serves §6(c) and E-sel; this change does
-not change coverage's protocol. Keep the preregistered quick/checkpoint-selection
-split separate from the 36 non-quick tasks used for the main §6(c) comparison.
+only greedy. These options do not alter the source case selection.
+
+For E-sel, evaluate the frozen **D_unseen_quick 24** tasks from the start:
+
+```bash
+PYTHONPATH=src:. python -m tools.v2_task_eval run \
+  --set D_unseen_quick --repair-splits data/manifest/repair_v01_splits.json \
+  --greedy --sampled-seeds 0 1 2 \
+  --config configs/base_e4b.yaml --data-root /path/to/alfworld \
+  --endpoint http://127.0.0.1:8000/v1 --model-name offline-update-100 \
+  --server-provenance /path/to/server/provenance.json \
+  --lora-check /path/to/lora-check/report.json \
+  --workers 4 --output /path/to/eval-quick
+```
+
+For §6(c), use the same command with `--set D_probe` and a new output directory
+(for example `--output /path/to/eval-probe`), keeping `--greedy --sampled-seeds 0 1 2`.
+This runs all 60 frozen tasks. **The main comparison is `subsets.non_quick_36`**
+(D_probe minus D_unseen_quick). `subsets.quick_24` is labelled as checkpoint
+selection; its totals and the full 60-task totals are descriptive.
+`tools.repair_coverage` remains a training-pool coverage tool and refuses D_probe
+groups, including the quick subset.
+
+The new tool preserves the full frozen listing in `tasks.json`, records the
+adapter and leakage check in sealed `plan.json`, and runs the shared student
+suite once in `greedy` and each `sampled-sN` directory. The sealed `summary.json`
+contains per-task successes (`true`/`false`/`null`), valid sampled seed counts,
+per-task sampled means, and aggregate counts. Its sampled success rate averages
+valid seeds within each task, then averages tasks with at least one valid seed.
+Unknown/error episodes are reported per decoding and excluded from success-rate
+denominators; they are never failures. The underlying suite's pilot summary
+retains its existing denominator convention; use the top-level V2 summary for
+E-sel and §6(c). Exit status is 1 if any episode is unknown/error, with its
+evidence and the V2 summary retained.
+
+Outputs are exclusive. `--resume` requires the same plan, adapter, manifests,
+config, code, dependencies and decodings, and only fills absent decoding
+directories. Completed decodings have sealed receipts binding their artifact
+hashes. An existing decoding directory without a completion receipt is refused;
+retain it as interrupted evidence and use a fresh output directory. A completed
+resume validates evidence and leaves the summary unchanged. Theta0 is accepted
+under its original served name `e4b-tsft-k20-e32-lr5e-5` without a V2 training
+manifest and recorded as `arm: theta0`, `arm_index: 0`. Missing exposure metadata
+retains the `no_exposure_ids_declared` disclosure described below.
+
 Use the same hardware class and serving check for every compared arm, including
 a fresh theta0 evaluation.
 

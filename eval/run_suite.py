@@ -184,8 +184,10 @@ def run_suite(*, config, tasks_path, output, policy="student", spec=None, worker
         raise ValueError("workers must be positive")
     if policy not in {"student", "teacher"}:
         raise ValueError("Unknown suite policy")
-    if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag", "wkm"}:
+    if policy == "student" and spec.get("decoding", "greedy") not in {"greedy", "sag", "wkm", "sampled"}:
         raise ValueError("Unknown student decoding")
+    if policy == "student" and spec.get("decoding") == "sampled" and type(spec.get("sampling_seed")) is not int:
+        raise ValueError("Sampled decoding requires an integer sampling_seed")
     if policy == "student":
         spec = {**spec, **context_options(config)}
     # The evaluated server is authoritative; the CPU worker's environment is not.

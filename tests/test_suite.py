@@ -102,6 +102,62 @@ def fake_teacher_worker(job):
     return suite._worker(job)
 
 
+def fake_sampled_worker(job):
+    """Exercise the actual _worker SampledStudent branch with a fake transport."""
+    import httpx
+    from students import sampled_student
+    from test_react_student import FakeChatServer
+    cls = sampled_student.SampledStudent
+    # Do not create the episode directory until run_episode has claimed it.
+    captured = {}
+    def capture(**kwargs):
+        policy = cls(**kwargs, transport=httpx.MockTransport(FakeChatServer()))
+        captured.update(sampling_seed=policy.sampling_seed, task_id=policy.task_id,
+                        request_sampling=policy.request_sampling([], job[0]))
+        return policy
+    sampled_student.SampledStudent = capture
+    try:
+        result = fake_worker(job)
+        write_json(Path(job[2]) / "sampled_identity.json", captured)
+        return result
+    finally:
+        sampled_student.SampledStudent = cls
+
+
+def test_sampled_suite_reaches_sampled_student_with_seed(data_root, tmp_path):
+    path, manifest, freeze = fixture_list(data_root, tmp_path)
+    config = load_config()
+    config['environment']['data_root'] = str(data_root)
+    for name, value in [('manifest', manifest), ('split_freeze', freeze)]:
+        destination = tmp_path / (name + '.json')
+        write_json(destination, value)
+        config['paths'][name] = str(destination)
+    student = config['models']['student']
+    spec = dict(endpoint='http://fake/v1', model=student['requested_repo'], revision=student['revision'],
+                enable_thinking=False, decoding='sampled', sampling_seed=17)
+    output = tmp_path / 'sampled'
+    result = run_suite(config=config, tasks_path=path, output=output, spec=spec,
+                       workers=1, worker_fn=fake_sampled_worker)
+    assert result['completed_episodes'] == 4
+    assert result['student']['sampling_seed'] == 17
+    records = [json.loads(p.read_text()) for p in output.glob('episodes/*/sampled_identity.json')]
+    assert len(records) == 4
+    for row in records:
+        assert row['sampling_seed'] == 17
+        assert row['request_sampling'] == dict(temperature=.7, top_p=.95, n=1,
+            seed=int(digest([17, row['task_id'], 0])[:8], 16))
+
+
+@pytest.mark.parametrize('seed', ['missing', None, True, 0.5, '0'])
+def test_sampled_suite_requires_integer_seed_before_output(tmp_path, seed):
+    spec = dict(decoding='sampled')
+    if seed != 'missing':
+        spec['sampling_seed'] = seed
+    with pytest.raises(ValueError, match='integer sampling_seed'):
+        run_suite(config=load_config(), tasks_path='missing', output=tmp_path / 'out', spec=spec)
+    assert not (tmp_path / 'out').exists()
+
+
 def test_teacher_suite_workers_share_run_limiter_and_config(data_root, tmp_path):
     path, manifest, freeze = fixture_list(data_root, tmp_path)
     config = load_config()
