@@ -58,18 +58,20 @@ def set_source(example, source):
 
 
 def conversation(episode, tokenizer, *, source, max_length=32768, packing="episode",
-                 allow_empty_visible=False):
+                 allow_empty_visible=False, turns=None):
     """One logical trajectory, regardless of the number of forward sequences.
 
     Turn rows are exactly train.dataset's turn mode. Keeping them grouped makes
     X5 sampling count trajectories, including repeated instances, never turns.
     Parser-masking methods may opt into empty history; ordinary teacher SFT
-    keeps its strict nonempty-target default.
+    keeps its strict nonempty-target default. Optional turns selects zero-based
+    steps for turn packing without removing any history or its validation.
     """
     if source not in {"trusted_teacher_seed", "student_exploration"}:
         raise ValueError("Explicit trajectory source required")
     rows = deepcopy(episode_examples(episode, tokenizer, max_length=max_length, packing=packing,
-                                    allow_empty_visible=allow_empty_visible or source == "student_exploration"))
+                                    allow_empty_visible=allow_empty_visible or source == "student_exploration",
+                                    turns=turns))
     row = group_turns(rows) if packing == "turn" else rows[0]
     set_source(row, source)
     row["messages"] = episode_messages(episode)
@@ -77,12 +79,13 @@ def conversation(episode, tokenizer, *, source, max_length=32768, packing="episo
 
 
 def encode_messages(messages, tokenizer, *, task_id, source="trusted_teacher_seed",
-                    max_length=32768, packing="episode"):
+                    max_length=32768, packing="episode", turns=None):
     """Round-trip only the visible schema, then use the existing span engine.
 
     DPO has a shared system+first-user prompt. Observation JSON is parsed and
     allowlisted; canonical build_messages equality rejects injected fields,
     changed instructions or alternate templates. Final outcome is never read.
+    Optional turns selects zero-based steps for turn packing only.
     """
     import json
     if (len(messages) < 3 or messages[0]["role"] != "system"
@@ -102,7 +105,8 @@ def encode_messages(messages, tokenizer, *, task_id, source="trusted_teacher_see
                    for i, reply in enumerate(replies)]}
     if episode_messages(episode) != messages:
         raise ValueError("Conversation differs from the allowlisted harness rendering")
-    return conversation(episode, tokenizer, source=source, max_length=max_length, packing=packing)
+    return conversation(episode, tokenizer, source=source, max_length=max_length, packing=packing,
+                        turns=turns)
 
 
 def encode_continuation(prompt, continuation, tokenizer, *, task_id, source, max_length=32768):

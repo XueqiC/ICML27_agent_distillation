@@ -126,9 +126,18 @@ def _encode_empty_history(tokenizer, messages, *, max_length):
 
 
 def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, packing="episode",
-                     allow_empty_visible=False):
+                     allow_empty_visible=False, turns=None):
+    """Encode all steps, or selected zero-based steps in ascending order.
+
+    Selection is only supported for turn packing. Every step still validates
+    and contributes to history, but only selected steps are tokenized. The
+    no-assistant/nothing-to-score checks apply to the returned rows; callers'
+    group_turns also checks these conditions when grouping the selected rows.
+    """
     if packing not in ("turn", "episode"):
         raise ValueError("Packing must be turn or episode")
+    if turns is not None and packing != "turn":
+        raise ValueError("Turn selection requires packing='turn'")
     if diagnostic:
         # Explicit report-only entry point. Sealed artifacts remain forbidden.
         authorize_task(episode, "diagnosis")
@@ -136,6 +145,11 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
         authorize_task(episode, "generation")
     if episode.get("schema_version") != 2:
         raise ValueError("Stage 2 ReAct trajectory required; no action-only relabeling")
+    if turns is not None:
+        turns = tuple(turns)
+        if any(type(index) is not int or not 0 <= index < len(episode["steps"]) for index in turns):
+            raise ValueError("Turn index out of range: expected a zero-based step index")
+        turns = set(turns)
     history, examples = [], []
     visible = visible_observation(episode["initial"]["visible"])
     for index, step in enumerate(episode["steps"]):
@@ -144,25 +158,30 @@ def episode_examples(episode, tokenizer, *, max_length=32768, diagnostic=False, 
             raise ValueError("Teacher seed contains a hidden thought channel")
         messages = build_messages(history, {}, visible)
         final = index == len(episode["steps"]) - 1
-        if allow_empty_visible and not reply.strip():
-            encoded = _encode_empty_history(tokenizer, messages, max_length=max_length)
-        else:
-            encoded = encode_turn(tokenizer, messages, reply, max_length=max_length,
-                                  as_history=packing == "episode" and not final)
-        encoded["packing"] = packing
-        encoded["turn_count"] = 1
-        encoded["assistant_spans"] = ([{"start": encoded["prompt_tokens"],
-                                       "stop": len(encoded["input_ids"]), "turn_index": index}]
-                                      if encoded["supervised_tokens"] else [])
-        encoded["estimated_forward_tokens"] = {"turn": encoded.pop("turn_forward_tokens"),
-                                                "episode": len(encoded["input_ids"]) if final else 0}
-        encoded["label_provenance"] = {"task_id": episode["task_id"], "turn_index": index,
-                "event_id": step["event_id"], "source": "teacher_visible_reply_real_environment",
-                "training_eligible": not diagnostic, "action_outcome": step.get("action_outcome"),
-                "message_sha256": digest(messages)}
-        if encoded["empty_visible_turns_masked"]:
-            encoded["label_provenance"]["empty_visible_reply_masked"] = True
-        examples.append(encoded)
+        empty_visible = not reply.strip()
+        if turns is None or index in turns:
+            if allow_empty_visible and empty_visible:
+                encoded = _encode_empty_history(tokenizer, messages, max_length=max_length)
+            else:
+                encoded = encode_turn(tokenizer, messages, reply, max_length=max_length,
+                                      as_history=packing == "episode" and not final)
+            encoded["packing"] = packing
+            encoded["turn_count"] = 1
+            encoded["assistant_spans"] = ([{"start": encoded["prompt_tokens"],
+                                           "stop": len(encoded["input_ids"]), "turn_index": index}]
+                                          if encoded["supervised_tokens"] else [])
+            encoded["estimated_forward_tokens"] = {"turn": encoded.pop("turn_forward_tokens"),
+                                                    "episode": len(encoded["input_ids"]) if final else 0}
+            encoded["label_provenance"] = {"task_id": episode["task_id"], "turn_index": index,
+                    "event_id": step["event_id"], "source": "teacher_visible_reply_real_environment",
+                    "training_eligible": not diagnostic, "action_outcome": step.get("action_outcome"),
+                    "message_sha256": digest(messages)}
+            if encoded["empty_visible_turns_masked"]:
+                encoded["label_provenance"]["empty_visible_reply_masked"] = True
+            examples.append(encoded)
+        elif empty_visible and not allow_empty_visible:
+            # Preserve encode_turn's empty-target rejection even when skipped.
+            raise ValueError("Template transformed or removed the visible teacher reply")
         history.append({"visible": visible, "reply": reply})
         visible = visible_observation(step["visible"])
     if not examples:

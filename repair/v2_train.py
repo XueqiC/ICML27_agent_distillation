@@ -309,10 +309,13 @@ def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, 
 
 
 def encode_example(row, tokenizer, *, max_length=32768):
-    # Round-trip through the unchanged public-message encoder before masking.
+    # validate_example has checked the assistant indices. Retain every public
+    # history turn, but tokenize only the requested supervision targets.
+    indices = [(i - 2) // 2 for i in row["supervised_assistant_indices"]]
     encoded = encode_messages(row["messages"], tokenizer, task_id=row["task_id"],
-                              max_length=max_length, packing="turn")
-    turns = [encoded["turns"][(i - 2) // 2] for i in row["supervised_assistant_indices"]]
+                              max_length=max_length, packing="turn", turns=set(indices))
+    by_index = {turn["label_provenance"]["turn_index"]: turn for turn in encoded["turns"]}
+    turns = [by_index[index] for index in indices]
     result = group_turns(turns)
     result["label_provenance"] = {"example_id": row["example_id"], "task_id": row["task_id"],
         "group_id": row["group_id"], "source": row["source"], "kind": row["kind"], "training_eligible": True}
