@@ -227,3 +227,4 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - **做法**：JOINT 建成并封存后，JOINT_COMPLETE_ONLY 用 `tools/build_v2_dataset.py --reuse-labels-from v2_data/JOINT` 构建：按（记录目录，请求原文）逐条取 JOINT 记录的 teacher 原始输出，再走同样的格式、label_check、grounding 和 64 token 上限检查。构建前先核对源数据集：已封存、splits/θ₀/teacher 设置/标签相关代码的哈希都一致，标签审计文件的 sha256 与 JOINT 的 manifest 一致。
 - **找不到的请求**：任何一条请求在 JOINT 中找不到，构建就中止，不会回退去调用 teacher。真出现这种情况，先补一条修订，再决定如何处理。
 - 两组的数据集 manifest 都记录复用关系（源数据集、源 manifest sha256、复用次数、未用到的源记录数）。
+- **补记（2026-10-31 23:13 CDT）**：C5 补跑在 23:06 CDT 完成（40/40，0 作废），正式 PREFIX-EXPERT 在 23:10 CDT 建成（16,824 个决策例子，125 个任务，`examples.jsonl` sha256 `b808dee5…`）。PE_PREFILL 的两个作业（48660581、48660582）一直在排队、从未开始，已取消，改为直接提交正式 PREFIX-EXPERT（48662592 u500、48662593 u1000）。PE_PREFILL 没有产生任何结果，本修订的临时组作废。
