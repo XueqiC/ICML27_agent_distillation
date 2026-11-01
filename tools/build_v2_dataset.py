@@ -1,7 +1,8 @@
 """Build and seal E0.4 v2-train-interchange/1 datasets and separate K20 replay."""
 import argparse
-from collections import Counter
+from collections import Counter, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
@@ -14,15 +15,120 @@ if __package__ in (None, ''):
     sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
 
 from repair.artifacts import checked_document, read_json
-from repair.supervision import (ARMS, InvalidExample, RationaleLabeler, SplitPolicy,
+from repair.supervision import (ARMS, SCHEMA, InvalidExample, RationaleLabeler, SplitPolicy,
     build_decisions, build_trajectory, seal_dataset)
 from repair.takeover import SharedTeacherBudget
 from sed.config import load_config
-from sed.provenance import versions, training_support_manifest
+from sed.provenance import utc_now, versions, training_support_manifest
 from sed.seed_evidence import checked_episode
-from sed.storage import digest, file_hash, JsonlLedger, write_json
+from sed.storage import canonical_bytes, digest, file_hash, JsonlLedger, write_json
 
 THETA0_NAME = 'e4b-tsft-k20-e32-lr5e-5'
+LABEL_CODE_PATHS = ('repair/supervision.py', 'repair/prompts.py', 'repair/labels.py',
+                    'repair/facts.py', 'repair/schemas.py', 'src/sed/react.py', 'src/sed/visibility.py')
+LABEL_CONFIG = dict(rationale_template='repair/prompts.py:RATIONALE', label_token_cap=64,
+                    label_output_cap_including_reasoning=1024)
+
+
+class LabelReuseError(ValueError):
+    """Sanitized reuse failures, safe to show at the CLI boundary."""
+
+
+class LabelReuseSource:
+    """Verify a sealed source before output creation and index completed calls."""
+    def __init__(self, directory, *, dry_run, splits_sha256, theta0, teacher):
+        self.directory = Path(directory).resolve()
+        manifest_path = self.directory / 'manifest.json'
+        if not manifest_path.is_file():
+            raise LabelReuseError('Label reuse requires a sealed source manifest.json')
+        try:
+            content = manifest_path.read_bytes()
+            manifest = json.loads(content)
+        except (OSError, ValueError):
+            raise LabelReuseError('Label reuse source manifest.json is unreadable or invalid') from None
+        if not isinstance(manifest, dict):
+            raise LabelReuseError('Label reuse source manifest.json must be an object')
+        self.manifest_sha256 = sha256(content).hexdigest()
+        expected = dict(schema=SCHEMA, splits_sha256=splits_sha256, theta0=theta0,
+                        teacher_alias=teacher['provider_model_id'], dry_run=dry_run)
+        for field, value in expected.items():
+            if field not in manifest or manifest[field] != value:
+                raise LabelReuseError(f'Label reuse source {field} mismatch')
+        if manifest.get('arm') not in ARMS[:2]:
+            raise LabelReuseError('Label reuse source arm must be JOINT or JOINT_COMPLETE_ONLY')
+        if not dry_run and manifest.get('training_eligible') is not True:
+            raise LabelReuseError('Real label reuse requires a training_eligible source')
+        effective = manifest.get('effective_config')
+        for field, value in dict(teacher=teacher, **LABEL_CONFIG).items():
+            if not isinstance(effective, dict) or effective.get(field) != value:
+                raise LabelReuseError(f'Label reuse source effective_config.{field} mismatch')
+        code = manifest.get('code_sha256')
+        for name in LABEL_CODE_PATHS:
+            if not isinstance(code, dict) or code.get(name) != file_hash(ROOT / name):
+                raise LabelReuseError(f'Label reuse source code_sha256 mismatch: {name}')
+        artifacts = manifest.get('label_artifact_sha256')
+        if not isinstance(artifacts, dict):
+            raise LabelReuseError('Label reuse source has no label_artifact_sha256 mapping')
+        paths = sorted((self.directory / 'labels').glob('*/requests.jsonl'))
+        names = {str(p.relative_to(self.directory)) for p in paths}
+        recorded = {name for name in artifacts if len(Path(name).parts) == 3
+                    and Path(name).parts[0] == 'labels' and Path(name).name == 'requests.jsonl'}
+        if names != recorded:
+            raise LabelReuseError('Label reuse source requests.jsonl files differ from label_artifact_sha256')
+        self.entries, self.reused_calls, self.total_calls = {}, 0, 0
+        self.lock = threading.Lock()
+        for path in paths:
+            name = str(path.relative_to(self.directory))
+            try:
+                content = path.read_bytes()
+            except OSError:
+                raise LabelReuseError(f'Label reuse source requests file is unreadable: {name}') from None
+            if sha256(content).hexdigest() != artifacts[name]:
+                raise LabelReuseError(f'Label reuse source label_artifact_sha256 mismatch: {name}')
+            for line, raw_row in enumerate(content.splitlines(), 1):
+                try:
+                    row = json.loads(raw_row)
+                    if row['status'] != 'completed':
+                        continue
+                    if not isinstance(row['request'], dict) or not isinstance(row['raw_output'], str):
+                        raise ValueError
+                    key = (path.parent.name, canonical_bytes(row['request']))
+                except (ValueError, KeyError, TypeError):
+                    raise LabelReuseError(f'Label reuse source invalid request row: {name}:{line}') from None
+                self.entries.setdefault(key, deque()).append((row['raw_output'], name, line))
+                self.total_calls += 1
+        try:
+            self.examples_sha256 = file_hash(self.directory / 'examples.jsonl')
+        except OSError:
+            raise LabelReuseError('Label reuse source examples.jsonl is missing or unreadable') from None
+
+    def summary(self):
+        with self.lock:
+            return dict(source_dataset=str(self.directory), source_manifest_sha256=self.manifest_sha256,
+                        source_examples_sha256=self.examples_sha256, reused_calls=self.reused_calls,
+                        unused_source_calls=self.total_calls - self.reused_calls)
+
+
+class ReusedLabeler:
+    """Consume each matching source completion once and retain its exact origin."""
+    def __init__(self, source, directory):
+        self.source, self.directory = source, Path(directory)
+        self.ledger = JsonlLedger(self.directory / 'requests.jsonl')
+
+    def __call__(self, prompt):
+        request = prompt.to_json()
+        key = (self.directory.name, canonical_bytes(request))
+        with self.source.lock:
+            queue = self.source.entries.get(key)
+            if not queue:
+                raise LabelReuseError('L halted: no remaining reused label for '
+                                      f'{self.directory.name}; request_sha256={digest(request)}')
+            raw_output, requests_file, line = queue.popleft()
+            self.ledger.append(dict(timestamp=utc_now(), request=request, status='reused',
+                raw_output=raw_output, source=dict(dataset=str(self.source.directory),
+                                                   requests_file=requests_file, line=line)))
+            self.source.reused_calls += 1
+            return raw_output
 
 
 class LockedTokenizer:
@@ -233,6 +339,14 @@ def input_records(directories, inputs, *, dry_run, policy, theta0):
 
 
 def build(args):
+    reuse_from = getattr(args, 'reuse_labels_from', None)
+    if reuse_from is not None:
+        if args.arm not in ARMS[:2]:
+            raise LabelReuseError('--reuse-labels-from requires --arm JOINT or JOINT_COMPLETE_ONLY')
+        if (args.rationale_teacher or args.budget_ledger is not None or
+                args.max_teacher_input_tokens is not None or args.max_teacher_output_tokens is not None):
+            raise LabelReuseError('--reuse-labels-from is mutually exclusive with --rationale-teacher, '
+                                  '--budget-ledger and --max-teacher-* caps')
     if args.label_workers < 1:
         raise ValueError('--label-workers must be >= 1')
     if args.arm in ARMS[:3] and not args.inputs:
@@ -251,6 +365,12 @@ def build(args):
     inputs[str(Path(args.config).resolve())] = file_hash(args.config)
     theta0, training_provenance = theta0_identity(root.parents[2], args.theta0_training_dir,
                                                 root / 'subsets/k20', inputs, config)
+    reuse = None
+    if reuse_from is not None:
+        reuse = LabelReuseSource(reuse_from, dry_run=args.dry_run, splits_sha256=file_hash(args.splits),
+            theta0=theta0, teacher={k: config['models']['teacher'][k]
+                                   for k in ('requested_name', 'provider_model_id', 'sampling')})
+        inputs[str(reuse.directory / 'manifest.json')] = reuse.manifest_sha256
     task_types = {r['task_id']: r['task_type'] for r in collection['verified']}
     policy = SplitPolicy(splits, selection['task_order'], task_types)
     # Resolve/authorize every input before constructing any teacher transport.
@@ -314,7 +434,7 @@ def build(args):
             inputs=inputs, new_teacher_calls=0, new_environment_steps=0), exclusive=True)
         raise InvalidExample('mandatory_trajectory_validation_failed')
     budget, label_ledger = None, JsonlLedger(output / 'labels.jsonl')
-    if args.arm in ARMS[:2] and (args.rationale_teacher or args.dry_run):
+    if reuse is None and args.arm in ARMS[:2] and (args.rationale_teacher or args.dry_run):
         ledger_path = args.budget_ledger or str(output / 'synthetic_budget.jsonl')
         budget = SharedTeacherBudget(ledger_path,
             input_tokens=args.max_teacher_input_tokens if args.max_teacher_input_tokens is not None else 10**9,
@@ -325,11 +445,13 @@ def build(args):
         def label(prompt):
             nonlocal labeler
             if labeler is None:
-                labeler = RationaleLabeler(config, record['task_id'], output / 'labels' / digest(ref),
-                                           budget, dry_run=args.dry_run)
+                directory = output / 'labels' / digest(ref)
+                labeler = (ReusedLabeler(reuse, directory) if reuse is not None else
+                           RationaleLabeler(config, record['task_id'], directory, budget, dry_run=args.dry_run))
             return labeler(prompt)
         return build_decisions(record, arm=args.arm, episode_ref=ref, policy=policy,
-            labeler=label if budget is not None else None, tokenizer=tokenizer, audit=label_ledger.append)
+            labeler=label if reuse is not None or budget is not None else None,
+            tokenizer=tokenizer, audit=label_ledger.append)
     for built, reasons in label_results(records, build_record, args.label_workers):
         examples.extend(built)
         excluded.update(reasons)
@@ -356,11 +478,13 @@ def build(args):
         global_teacher_budget=budget.summary() if budget else None, label_artifact_sha256=audit_hashes,
         effective_config=dict(student=config['models']['student'], environment=config['environment'],
             rationale_teacher=args.rationale_teacher, dry_run=args.dry_run, label_workers=args.label_workers,
-            rationale_template='repair/prompts.py:RATIONALE', label_token_cap=64,
-            label_output_cap_including_reasoning=1024,
+            **LABEL_CONFIG,
             budget_ledger=str(budget.path.resolve()) if budget else None,
             label_token_counter='local_tokenizer' if tokenizer else 'conservative_utf8_byte_bound',
             teacher={k: config['models']['teacher'][k] for k in ('requested_name', 'provider_model_id', 'sampling')}))
+    if reuse is not None:
+        metadata['label_reuse'] = reuse.summary()
+        metadata['effective_config']['label_reuse_from'] = str(reuse.directory)
     (output / 'replay').mkdir()
     # Each directory records diagnostics for its own trajectory examples,
     # including zero counts; replay diagnostics never exclude primary decisions.
@@ -383,6 +507,7 @@ def main(argv=None):
     p.add_argument('--inputs', nargs='*', default=[])
     p.add_argument('--output', required=True)
     p.add_argument('--rationale-teacher', action='store_true')
+    p.add_argument('--reuse-labels-from', metavar='DIR', help='Reuse completed L labels from a compatible sealed dataset')
     p.add_argument('--label-workers', type=int, default=1, help='Concurrent record labellers (>= 1; default: 1)')
     p.add_argument('--budget-ledger')
     p.add_argument('--max-teacher-input-tokens', type=int)
@@ -400,5 +525,6 @@ if __name__ == '__main__':
         raise SystemExit(main())
     except Exception as exc:
         # In particular, never render raw SDK errors or an entire process env.
-        print('E0.4 build failed: ' + type(exc).__name__ + '; no root manifest was sealed.', file=sys.stderr)
+        detail = ': ' + str(exc) if isinstance(exc, LabelReuseError) else ''
+        print('E0.4 build failed: ' + type(exc).__name__ + detail + '; no root manifest was sealed.', file=sys.stderr)
         raise SystemExit(1) from None
