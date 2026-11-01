@@ -3,7 +3,7 @@
 Only filesystem references are relocated. Sealed JSON, evidence and hashes are
 never edited, and historical provenance is not recursively interpreted as paths.
 """
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
 from functools import wraps
 import json
@@ -370,11 +370,23 @@ def split_source_inputs(files, splits, split_doc, *, repair_splits=None, dev140=
     return result
 
 
+def _example_summary(bundles, theta0, files):
+    """Use the run reader's sealed bundle validation without loading a model."""
+    # Local import: the bundle validator shares this module's safe errors.
+    from repair.v2_validation import _read_bundle
+    labels = Counter()
+    for bundle in bundles:
+        data = _read_bundle(bundle, theta0, files)
+        labels.update(f'{row["evidence"]["label_source"]}|{row["evidence"]["label_check"]}'
+                      for row in data["rows"])
+    return {"examples_validated": sum(labels.values()), "label_provenance": dict(sorted(labels.items()))}
+
+
 @input_hash_policy
 def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=None,
                    splits=None, repair_splits=None, dev140=None, inputs=(), check=True, runtime=True,
                    full_rehash=False):
-    """Inventory and verify inputs; no tokenizer, model or training imports.
+    """Inventory and verify inputs and examples; no tokenizer/model/training imports.
 
     Snapshot defaults to the sealed tokenizer location, then theta0's recorded
     base. Callers can supply the same explicit snapshot/config as a run.
@@ -436,6 +448,7 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
     if not runtime and "K20" in split_doc["sets"]:
         if check:
             files.verify()
+            result.update(_example_summary(bundles, theta0, files))
         return result
     metadata_paths = (theta0 / "adapter_config.json", theta0 / "training_state.json", theta0.parent / "provenance.json")
     for path in metadata_paths:
@@ -473,4 +486,5 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
         result.update(training_view=view, training_collection=collection)
     if check:
         files.verify()
+        result.update(_example_summary(bundles, theta0, files))
     return {**result, "snapshot": snapshot, "theta0_provenance": source}

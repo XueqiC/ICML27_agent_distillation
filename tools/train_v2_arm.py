@@ -71,6 +71,8 @@ def main(argv=None):
             files = inspected["files"]
             result = files.listing() if args.list else {"schema": "v2-training-inputs/1", "status": "verified",
                 "file_count": len(files.files), "relocation": files.report(),
+                "examples_validated": inspected["examples_validated"],
+                "label_provenance": inspected["label_provenance"],
                 "prep_seconds": time.monotonic() - started}
             encoded = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
             if args.output:
