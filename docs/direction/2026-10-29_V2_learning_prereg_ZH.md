@@ -209,3 +209,12 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - **规则**：只要 JOINT 的监督 turn 数超过 OFFLINE 或 PREFIX-EXPERT 的 2 倍，目标 T 就取 OFFLINE 和 PREFIX-EXPERT 两者 turn 数中较小的一个。这样子集 JOINT_EQ 的监督量不超过任何一个对照组。
 - **抽样**：按 task_id 分层，用最大余数法把 T 分配到各任务（按该任务在 JOINT 中的 turn 数成比例），seed 0。工具为 `tools/subset_v2_dataset.py`。
 - **训练与评测**：JOINT_EQ 和其他组的训练设置完全相同（包括修订 3 中并行训练的 1,000 次 run），按修订 2/3 做 E-sel，评测 (a) 和 (c)。结论里同时报告全量和等量两种结果。
+
+### 修订 5（2026-10-31 23:0x CDT；teacher 额度仍未恢复，JOINT / JOINT_COMPLETE_ONLY 的 L 标签和 C5 补跑都还没有开始；PREFIX-EXPERT、JOINT、JOINT_COMPLETE_ONLY 都没有训练，也没有任何评测结果）
+
+**临时组 PE_PREFILL（不进入 §7 判定）**
+- **数据**：PREFIX-EXPERT 的数据集只用 `v2_c5_dp` + `v2_c5_start` 建成，不含修订 4 的补跑。代码树 568f99d，与正式 PREFIX-EXPERT 的构建方式相同（36 条作废记录照常排除）。规模：16,298 个决策例子，125 个任务，监督 token 438,353，`examples.jsonl` sha256 `c5cdd06e…`（manifest sha256 `3d6b4f1e…`）。目录为 `reports/runs/method_v1/v2_data/PE_PREFILL`。
+- **训练**：与 §5 和修订 3 完全相同。500 次 run 与 1,000 次 run 并行训练，训练代码树 6016bb3（只改了编码速度，输出逐字节不变）。E-sel 按修订 2/3 进行。
+- **用途**：(1) 新训练代码树第一次在 hpg 上训练决策例子，借此提前检查内存、编码耗时，以及 GPU 是否长时间空闲；(2) 提前看到 PREFIX-EXPERT 的学习信号。
+- **限制**：§7 的所有比较只用正式的 PREFIX-EXPERT（含补跑）。PE_PREFILL 的结果一律标注为"临时、不含补跑"，不用来选择任何设置，也不改变正式组的训练或评测设置。只有在 rai GPU 空闲、且不会推迟正式组时，才对 PE_PREFILL 跑主评测 (a)(b)(c)；这些结果只作对照（正式 PREFIX-EXPERT 与 PE_PREFILL 的差异即补跑的影响）。
+- 修订 4 中 JOINT_EQ 的目标 T 仍取正式 PREFIX-EXPERT 的 turn 数，与 PE_PREFILL 无关。
