@@ -218,3 +218,12 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - **用途**：(1) 新训练代码树第一次在 hpg 上训练决策例子，借此提前检查内存、编码耗时，以及 GPU 是否长时间空闲；(2) 提前看到 PREFIX-EXPERT 的学习信号。
 - **限制**：§7 的所有比较只用正式的 PREFIX-EXPERT（含补跑）。PE_PREFILL 的结果一律标注为"临时、不含补跑"，不用来选择任何设置，也不改变正式组的训练或评测设置。只有在 rai GPU 空闲、且不会推迟正式组时，才对 PE_PREFILL 跑主评测 (a)(b)(c)；这些结果只作对照（正式 PREFIX-EXPERT 与 PE_PREFILL 的差异即补跑的影响）。
 - 修订 4 中 JOINT_EQ 的目标 T 仍取正式 PREFIX-EXPERT 的 turn 数，与 PE_PREFILL 无关。
+
+### 修订 6（2026-10-31 23:1x CDT；JOINT 的 L 标签正在跑，JOINT_COMPLETE_ONLY 还没有开始构建；两组都没有训练，也没有评测结果）
+
+**JOINT_COMPLETE_ONLY 复用 JOINT 的 L 标签（取代修订 4 中"两组各自独立调用 L"）**
+- **依据**：JOINT 与 JOINT_COMPLETE_ONLY 两次全量 dry-run 发出的 L 请求完全相同：都是 5,269 次，episode_ref、prefix_sha256 和请求内容逐条一致，没有任何一组独有的请求。两组的例子数差异（23,169 对 22,873）只来自不需要 L 的部分。
+- **原因**：(1) 独立再问一遍 teacher，只是把同一批请求重新采样一次，teacher 用量翻倍（用户 10-31 23:00 CDT 要求节省额度）；(2) 独立采样会在 JOINT 和 JOINT_COMPLETE_ONLY 的比较里引入标签采样噪声。复用之后，两组对同一个决策的标签相同，比较只反映两组在构成上的差异。
+- **做法**：JOINT 建成并封存后，JOINT_COMPLETE_ONLY 用 `tools/build_v2_dataset.py --reuse-labels-from v2_data/JOINT` 构建：按（记录目录，请求原文）逐条取 JOINT 记录的 teacher 原始输出，再走同样的格式、label_check、grounding 和 64 token 上限检查。构建前先核对源数据集：已封存、splits/θ₀/teacher 设置/标签相关代码的哈希都一致，标签审计文件的 sha256 与 JOINT 的 manifest 一致。
+- **找不到的请求**：任何一条请求在 JOINT 中找不到，构建就中止，不会回退去调用 teacher。真出现这种情况，先补一条修订，再决定如何处理。
+- 两组的数据集 manifest 都记录复用关系（源数据集、源 manifest sha256、复用次数、未用到的源记录数）。
