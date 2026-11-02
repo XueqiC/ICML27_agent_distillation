@@ -229,3 +229,13 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - 两组的数据集 manifest 都记录复用关系（源数据集、源 manifest sha256、复用次数、未用到的源记录数）。
 
 **修订 5 补记（2026-10-31 23:13 CDT）**：C5 补跑在 23:06 CDT 完成（40/40，0 作废），正式 PREFIX-EXPERT 在 23:10 CDT 建成（16,824 个决策例子，125 个任务，`examples.jsonl` sha256 `b808dee5…`）。PE_PREFILL 的两个作业（48660581、48660582）一直在排队、从未开始，已取消，改为直接提交正式 PREFIX-EXPERT（48662592 u500、48662593 u1000）。PE_PREFILL 没有产生任何结果，修订 5 的临时组作废。
+
+### 修订 7（2026-11-01 23:2x CST；六组的 500 次 run 都已训练完并拉到 rai。PREFIX-EXPERT 的 E-short 已出结果；它的 E-sel 正在 rai GPU 1 上跑，第 20 次 checkpoint 已跑完，但结果还没有看。JOINT、JOINT_COMPLETE_ONLY、JOINT_EQ 还没有任何评测结果）
+
+**JOINT、JOINT_COMPLETE_ONLY、JOINT_EQ 三组的 E-sel 改在 rai GPU 3（A100 80GB）上跑**
+- **原因**：rai 只有两张 Blackwell 卡，其中 GPU 4 被别人占着。所有评测都排在 GPU 1 上依次跑，每组约 4.5 小时，四组要到 11-02 15:30 CST 前后才能跑完。hpg 的 dept 队列里有 26 个别人的任务在排，我们的 u1000 训练已经等了 6 小时，挪过去也快不了。用户 23:09 CST 表示评测可以换地方跑。这个改动只出于吞吐考虑，与任何结果无关。
+- **做法**：这三组的 E-sel（包括修订 3 中 1,000 次 run 的重新选择）在 GPU 3 上依次跑。评测代码树（3b9c686）、服务一致性检查、D_unseen_quick 24 题、1 次 greedy 加 3 次采样、选择指标和平局规则都不变。
+- **为什么不违反 §6 的同卡规则**：E-sel 只在一组内部比较 checkpoint，不跨组比较。同一组的所有 checkpoint 都在同一张卡上跑，所以每一次选择内部仍是同一种卡。
+- **不变的部分**：跨组比较的评测，即 E-short 和 main eval (a)(b)(c)（含 θ₀），仍全部在 rai Blackwell 上跑（GPU 1；GPU 4 空出来时也可以用），与 θ₀、OFFLINE、CONTINUE、OFFLINE 1,000 次 run 的评测用同一种卡。§7 的判定只用这些评测。
+- **PREFIX-EXPERT**：它的 E-sel 已按原计划在 GPU 1 上开始，保持不变。如果它选中第 500 次，1,000 次 run 的重新选择也在 Blackwell 上做。
+- **需要说明的不对称**：OFFLINE、CONTINUE、PREFIX-EXPERT 是在 Blackwell 上选的 checkpoint，JOINT 系的三组是在 A100 上选的。卡型带来的数值差异对同一组的各个 checkpoint 作用相同。不论在哪种卡上，选择本身都有噪声（24 题 × 4 次）。结论里会写明每组的选择是在哪种卡上做的。之后如有需要，可以在 Blackwell 上把这三组的 E-sel 再跑一遍，作为稳健性检查，但不替换这里预先登记的选择。
