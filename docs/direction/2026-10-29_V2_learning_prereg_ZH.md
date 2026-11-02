@@ -239,3 +239,11 @@ V1b 发现的 heat 短板（R 不提示加热命令）**不在本轮修改**。V
 - **不变的部分**：跨组比较的评测，即 E-short 和 main eval (a)(b)(c)（含 θ₀），仍全部在 rai Blackwell 上跑（GPU 1；GPU 4 空出来时也可以用），与 θ₀、OFFLINE、CONTINUE、OFFLINE 1,000 次 run 的评测用同一种卡。§7 的判定只用这些评测。
 - **PREFIX-EXPERT**：它的 E-sel 已按原计划在 GPU 1 上开始，保持不变。如果它选中第 500 次，1,000 次 run 的重新选择也在 Blackwell 上做。
 - **需要说明的不对称**：OFFLINE、CONTINUE、PREFIX-EXPERT 是在 Blackwell 上选的 checkpoint，JOINT 系的三组是在 A100 上选的。卡型带来的数值差异对同一组的各个 checkpoint 作用相同。不论在哪种卡上，选择本身都有噪声（24 题 × 4 次）。结论里会写明每组的选择是在哪种卡上做的。之后如有需要，可以在 Blackwell 上把这三组的 E-sel 再跑一遍，作为稳健性检查，但不替换这里预先登记的选择。
+
+### 诊断 D1（2026-11-02 06:5x CST；PREFIX-EXPERT u50 和 JOINT_COMPLETE_ONLY u300 的主评测已出。JOINT、JOINT_EQ 都触发了 1,000 次延长，最终选择还没有出，主评测都没有开始）
+
+**PREFIX-EXPERT 第 500 次 checkpoint 的主评测，只作诊断**
+- **问题**：PE 的 E-sel 选中第 50 次（0.698），第 500 次几乎一样（0.688）。PE 在 (a) 上远低于 OFFLINE（0.556 对 0.780）。这个差距来自 teacher 接管数据本身，还是来自选得太早？第 50 次只用了约 5% 的数据。
+- **做法**：GPU 1 在等待 JOINT 1,000 次 run 的重新选择，这段时间空闲。用与主评测完全相同的设置评测 PREFIX_EXPERT update-500：先 (a)（树 4152854，38 个前缀，greedy 加 s0-7），再 (c)（树 3b9c686，D_probe，greedy 加 s0-2），时间够再做 (b)。
+- **不挤占正式评测**：只有在 JOINT 1,000 次 run 的 E-sel 还没开始第 500 次 checkpoint，且主评测队列还没有开始 JOINT 或 JOINT_EQ 的主评测时，才启动下一项诊断评测。
+- **限制**：结果标注为诊断，不进入 §7，不改变 PE 预先登记的选择（第 50 次），也不用来选择任何设置。
