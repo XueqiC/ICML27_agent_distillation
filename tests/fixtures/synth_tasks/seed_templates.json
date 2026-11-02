@@ -1,0 +1,41 @@
+{
+  "attribution": "Exact goal/task-rule excerpts from ALFWorld json_2.1.1 selected K20 train games. No held-out content. Full games are not copied.",
+  "templates": {
+    "pick_and_place_simple": {
+      "source_task_id": "train/pick_and_place_simple-Laptop-None-Ottoman-203/trial_T20190908_110656_971485",
+      "game_sha256": "d0ba63f1e79235ee723cf341f6d1a6e78f97a57f30b13160c5afd2facd45f586",
+      "goal": "(:goal\n            (and\n                (exists (?r - receptacle)\n                    (exists (?o - object)\n                        (and\n                            (inReceptacle ?o ?r)\n                            (objectType ?o LaptopType)\n                            (receptacleType ?r OttomanType)\n                        )\n                    )\n                )\n            )\n        )",
+      "task_text": "Your task is to: put a laptop in ottoman."
+    },
+    "pick_two_obj_and_place": {
+      "source_task_id": "train/pick_two_obj_and_place-Statue-None-CoffeeTable-223/trial_T20190907_174359_931960",
+      "game_sha256": "44c5a7407ee99cc37ca6a51ceb88e9e88a0dc9ee12201205bc3f9c817d29740a",
+      "goal": "(:goal\n                    (and\n                        (exists (?r - receptacle)\n                            (exists (?o1 - object)\n                                (and\n                                    (objectType ?o1 StatueType)\n                                    (receptacleType ?r CoffeeTableType)\n                                    (inReceptacle ?o1 ?r)\n                                    (exists (?o2 - object)\n                                        (and\n                                            (not (= ?o1 ?o2))\n                                            (objectType ?o2 StatueType)\n                                            (receptacleType ?r CoffeeTableType)\n                                            (inReceptacle ?o2 ?r)\n                                        )\n                                    )\n                                )\n                            )\n                        )\n                    )\n                )",
+      "task_text": "Your task is to: find two statue and put them in coffeetable."
+    },
+    "pick_clean_then_place_in_recep": {
+      "source_task_id": "train/pick_clean_then_place_in_recep-ButterKnife-None-Drawer-2/trial_T20190908_044255_995925",
+      "game_sha256": "f8fa36a1ee18d1300b3e70d8767905ba49c31bfcc2470e350ff53c7b6df446b0",
+      "goal": "(:goal\n            (and\n                (exists (?r - receptacle)\n                    (exists (?o - object)\n                        (and\n                            (cleanable ?o)\n                            (objectType ?o ButterKnifeType)\n                            (receptacleType ?r DrawerType)\n                            (isClean ?o)\n                            (inReceptacle ?o ?r)\n                        )\n                    )\n                )\n            )\n        )",
+      "task_text": "Your task is to: clean some butterknife and put it in drawer."
+    },
+    "pick_cool_then_place_in_recep": {
+      "source_task_id": "train/pick_cool_then_place_in_recep-Mug-None-Shelf-20/trial_T20190907_211409_905639",
+      "game_sha256": "86ed18f61c9fa4e802b63b546555900fffd3bc5b29d152ecc66cd1ab18144027",
+      "goal": "(:goal\n            (and\n                (exists (?r - receptacle)\n                    (exists (?o - object)\n                        (and\n                            (coolable ?o)\n                            (objectType ?o MugType)\n                            (receptacleType ?r ShelfType)\n                            (isCool ?o)\n                            (inReceptacle ?o ?r)\n                        )\n                    )\n                )\n            )\n        )",
+      "task_text": "Your task is to: cool some mug and put it in shelf."
+    },
+    "pick_heat_then_place_in_recep": {
+      "source_task_id": "train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-15/trial_T20190908_004914_713432",
+      "game_sha256": "ae4f41d8b21670044cdf5e926f87cb7ce5710a09a2fd6ff2906085ddfe2bf76d",
+      "goal": "(:goal\n            (and\n                (exists (?r - receptacle)\n                    (exists (?o - object)\n                        (and\n                            (heatable ?o)\n                            (objectType ?o MugType)\n                            (receptacleType ?r CoffeeMachineType)\n                            (isHot ?o)\n                            (inReceptacle ?o ?r)\n                        )\n                    )\n                )\n            )\n        )",
+      "task_text": "Your task is to: heat some mug and put it in coffeemachine."
+    },
+    "look_at_obj_in_light": {
+      "source_task_id": "train/look_at_obj_in_light-Bowl-None-DeskLamp-304/trial_T20190907_232204_574574",
+      "game_sha256": "ca883aa7743a11f3d39f4082dd17139a1fbeb087035da67bffbc2a9107b8bd13",
+      "goal": "(:goal\n             (and\n                 (exists (?ot - object\n                          ?r - receptacle\n                          ?a - agent\n                          ?l - location)\n                     (and\n                         (objectType ?ot DeskLampType)\n                         (toggleable ?ot)\n                         (isToggled ?ot)\n                         (receptacleAtLocation ?r ?l)\n                         (atLocation ?a ?l)\n                         (inReceptacle ?ot ?r)\n                     )\n                 )\n                 (exists (?o - object\n                          ?a - agent)\n                     (and\n                         (objectType ?o BowlType)\n                         (holds ?a ?o)\n                     )\n                 )\n             )\n        )",
+      "task_text": "Your task is to: examine the bowl with the desklamp."
+    }
+  }
+}
