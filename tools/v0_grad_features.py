@@ -277,6 +277,7 @@ def main(argv=None):
         prov = provenance(output, data["config"], command="v0_grad_features",
             inputs=provenance_inputs(data, [data["inspection"]["files"].relocation.path(args.config)]),
             details={"arguments": vars(args), "inherited": inherited,
+            "replay_deduplication": data["inspection"]["replay_deduplication"],
             "tokenizer": tokenizer_identity(data["snapshot"], tokenizer), "teacher_calls": 0})
         result = collect_features(model, examples, data["rows"], data["episodes"], output,
             max_episodes=args.max_episodes, buckets=args.buckets, allow_no_edit=args.allow_no_edit,

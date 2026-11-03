@@ -9,7 +9,7 @@ from repair.v2_inputs import Relocation, require, training_view_inputs
 from repair.v2_validation import EXAMPLE_FIELDS, _json, _sha, _validate_evidence
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.react import build_messages, parse_action
-from sed.storage import digest, file_hash
+from sed.storage import canonical_bytes, digest, file_hash
 from sed.visibility import visible_observation
 from repair.labels import instance_ids
 
@@ -146,15 +146,33 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     theta0, config = inspection["theta0"], inspection["config"]
     replay = v2.read_dataset(root / "replay", theta0=theta0, config=config, _inspection=inspection)
     require(all(r["source"] == "k20_replay" for r in replay["rows"]), "replay/ must contain only K seed rows")
+    # CONTINUE may store the same seeds in both its main and replay bundles.
+    # V2 uses both shares; V0's D bucket contains each example exactly once.
+    seen, replay_rows, replay_origins = {}, [], []
+    for row, origin in zip(replay["rows"], replay["origins"]):
+        ident, content = row["example_id"], canonical_bytes(row)
+        if ident in seen:
+            require(seen[ident] == content, f"Conflicting V0 replay duplicate example_id: {ident}")
+        else:
+            seen[ident] = content
+            replay_rows.append(row)
+            replay_origins.append(origin)
+    inspection["replay_deduplication"] = {"input_rows": len(replay["rows"]),
+        "unique_rows": len(replay_rows), "duplicates_removed": len(replay["rows"]) - len(replay_rows)}
     view, collection = training_view_inputs(files, inspection["theta0_provenance"], validate=True, config=config)
     seeds = {r["task_id"] for r in collection["verified"]}
     require(len(collection["verified"]) == collection["K"], "K must count verified seed trajectories")
-    require(Counter(r["task_id"] for r in replay["rows"]) == Counter(r["task_id"] for r in collection["verified"]),
+    require(Counter(r["task_id"] for r in replay_rows) == Counter(r["task_id"] for r in collection["verified"]),
             "D replay must cover exactly theta0's K seed trajectories")
     require(isinstance(manifest.get("inputs"), dict) and manifest["inputs"], "Missing hashed V0 inputs")
     main_inputs = {files.reference(name, sha, root=root) for name, sha in manifest["inputs"].items()}
+    main_hashes = set(manifest["inputs"].values())
     for path in (inspection["splits"], Path(config["paths"]["manifest"]), Path(config["paths"]["split_freeze"])):
-        require(path in main_inputs, "V0 inputs must seal the task manifest and both split freezes")
+        # Producer/consumer checkouts can contain byte-identical copies. Match
+        # raw seals, not JSON equivalence; files.verify() still checks every
+        # producer input, and provenance retains both local and sealed paths.
+        require(path in main_inputs or file_hash(path) in main_hashes,
+                "V0 inputs must seal the task manifest and both split freezes")
     files.add(root / "manifest.json")
     files.add(root / "examples.jsonl", manifest.get("examples_sha256"), reason="V0 examples hash mismatch")
     require(_sha(manifest.get("examples_sha256")), "Missing V0 examples_sha256")
@@ -212,14 +230,14 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
         require(row["group_id"] == task["group_id"] and row["task_type"] == task["task_type"], "Task identity mismatch")
         require(tid not in forbidden_tasks and row["group_id"] not in forbidden_groups, "Diagnostic task/group in training")
     origins = [str(root / "examples.jsonl")] * len(rows)
-    for row in replay["rows"]:
+    for row, origin in zip(replay_rows, replay_origins):
         row = deepcopy(row)
         row["arm"] = "V0"
         row["v0"] = {"bucket": "D", "episode_id": "seed/" + row["example_id"], "generator": "seed", "bin": "seed",
                      "edit_decision": False, "synthetic_manifest_sha256": ""}
         validate_row(row)
         rows.append(row)
-        origins.append(str(root / "replay/examples.jsonl"))
+        origins.append(origin)
     require(len({r["example_id"] for r in rows}) == len(rows), "Duplicate example id")
     grouped = episodes(rows)
     for indices in grouped.values():

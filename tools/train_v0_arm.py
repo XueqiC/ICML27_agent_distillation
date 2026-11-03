@@ -202,7 +202,8 @@ def run(args, data, inherited, weights, selected, extra):
                     "packing": "turn", "base_snapshot": {"path": str(fake_base),
                     "metadata_sha256": {"config.json": file_hash(fake_base / "config.json")}}}
             prov = provenance(output, effective, command="v0_train", inputs=provenance_inputs(data, extra),
-                details={"relocation": data["inspection"]["files"].report()})
+                details={"relocation": data["inspection"]["files"].report(),
+                         "replay_deduplication": data["inspection"]["replay_deduplication"]})
             manifest = {"schema": "v0-training-run/1", "status": "running", "dry_run": args.dry_run,
                 "dataset_sha256": data["dataset_sha256"], "adapter_sha256": data["adapter_sha256"],
                 "input_manifest": data["manifest"], "provenance_sha256": digest(prov),
@@ -301,6 +302,7 @@ def main(argv=None):
             # Also validate numeric weight values without allocating a model.
             batch_schedule(data["rows"], updates=1, seed=0, weights=weights)
             result = {"schema": "v0-training-inputs/1", "status": "verified", "rows": len(data["rows"]),
+                "replay_deduplication": data["inspection"]["replay_deduplication"],
                 "episodes": len(data["episodes"]), "dataset_sha256": data["dataset_sha256"],
                 "K_trusted_seed_trajectories": data["K"], "seed_unique_instances": len(data["seed_task_ids"]),
                 "trainable_parameter_count": sum(inherited["parameters"][n] for n in

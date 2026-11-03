@@ -400,12 +400,100 @@ def test_contract_accepts_valid_synthetic_and_preserves_replay(corpus):
     data = read(corpus)
     assert data["K"] == 20 and len(data["rows"]) == 21 and len(data["episodes"]) == 21
     assert Counter(r["v0"]["bucket"] for r in data["rows"]) == {"R": 1, "D": 20}
+    assert data["inspection"]["replay_deduplication"] == {
+        "input_rows": 20, "unique_rows": 20, "duplicates_removed": 0}
     original = [json.loads(s) for s in (corpus["root"] / "replay/examples.jsonl").read_text().splitlines()]
     for a, b in zip(data["rows"][1:], original):
         assert a["v0"]["bin"] == a["v0"]["generator"] == "seed"
         assert set(a["v0"]) == v0_data.V0_FIELDS
         assert {k: v for k, v in a.items() if k not in ("arm", "v0")} == {k: v for k, v in b.items() if k != "arm"}
     assert "evidence" not in v2.encode_example(data["rows"][0], v2.FakeTokenizer())
+
+
+@pytest.mark.parametrize("reformat", [False, True])
+def test_v0_deduplicates_identical_continue_main_and_replay(corpus, reformat):
+    root = corpus["root"] / "replay"
+    original = [json.loads(s) for s in (root / "examples.jsonl").read_text().splitlines()]
+    seal_bundle(root / "replay", original, corpus["theta"], corpus["splits"], "CONTINUE")
+    if reformat:
+        # Whitespace/key order differ on disk, but canonical JSON is identical.
+        path = root / "replay/examples.jsonl"
+        path.write_text("".join(json.dumps(dict(reversed(list(r.items())))) + "\n" for r in original))
+        (root / "replay/examples.sha256").write_text(file_hash(path) + "\n")
+    before = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    data = read(corpus)
+    assert data["K"] == 20 and Counter(r["v0"]["bucket"] for r in data["rows"]) == {"R": 1, "D": 20}
+    assert data["inspection"]["replay_deduplication"] == {
+        "input_rows": 40, "unique_rows": 20, "duplicates_removed": 20}
+    assert [r["example_id"] for r in data["rows"][1:]] == [r["example_id"] for r in original]
+    assert data["origins"][1:] == [str(root / "examples.jsonl")] * 20
+    assert all(p.read_bytes() == content for p, content in before.items())
+    # V2 still exposes both pools with their original multiplicities.
+    v2_data = v2.read_dataset(root, theta0=data["theta0"], config=data["config"], _inspection=data["inspection"])
+    assert len(v2_data["rows"]) == 40
+    assert {k: len(v) for k, v in v2_data["pools"].items()} == {"new": 20, "replay": 20}
+
+
+@pytest.mark.parametrize("key", ["manifest", "split_freeze", "splits"])
+@pytest.mark.parametrize("mutation", ["identical", "different_content", "tampered"])
+def test_v0_split_seals_allow_only_byte_identical_checkout_copies(corpus, tmp_path, key, mutation):
+    original = Path(corpus["splits"] if key == "splits" else corpus["config"]["paths"][key])
+    copied = tmp_path / "producer-checkout" / original.name
+    copied.parent.mkdir()
+    copied.write_bytes(original.read_bytes())
+    if mutation == "different_content":
+        # Even semantically equivalent JSON must match the raw-byte seal.
+        copied.write_bytes(copied.read_bytes() + b"\n")
+    path = corpus["root"] / "manifest.json"
+    manifest = read_json(path)
+    del manifest["inputs"][str(original)]
+    manifest["inputs"][str(copied)] = file_hash(copied)
+    write_json(path, manifest)
+    if mutation == "tampered":
+        copied.write_bytes(copied.read_bytes() + b"\n")
+    if mutation == "identical":
+        data = read(corpus)
+        assert data["K"] == 20
+        assert {original, copied} <= set(v0_data.provenance_inputs(data))
+    else:
+        match = "must seal the task manifest" if mutation == "different_content" else "sha256 mismatch"
+        with pytest.raises(ValueError, match=match):
+            read(corpus)
+
+
+@pytest.mark.parametrize("mutation", ["reply", "evidence", "numeric_type"])
+def test_v0_rejects_conflicting_replay_example_id(corpus, mutation):
+    root = corpus["root"] / "replay"
+    rows = [json.loads(s) for s in (root / "examples.jsonl").read_text().splitlines()]
+    if mutation == "reply":
+        rows[0]["messages"][-1]["content"] = "Thought: Check again.\nAction: look"
+    elif mutation == "evidence":
+        rows[0]["evidence"]["executor"] = "student"
+    else:
+        # Python dict equality treats 1 == 1.0; canonical bytes must not.
+        rows[0]["weight"] = 1
+    seal_bundle(root / "replay", rows, corpus["theta"], corpus["splits"], "CONTINUE")
+    with pytest.raises(ValueError, match="Conflicting V0 replay duplicate example_id"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra", "replacement"])
+def test_v0_deduplicated_replay_still_requires_exact_seed_coverage(corpus, mutation):
+    root = corpus["root"] / "replay"
+    rows = [json.loads(s) for s in (root / "examples.jsonl").read_text().splitlines()]
+    if mutation in ("missing", "replacement"):
+        rows.pop()
+    if mutation in ("extra", "replacement"):
+        extra = deepcopy(rows[0])
+        extra["evidence"]["episode_ref"] += ".another-trajectory"
+        extra["example_id"] = digest([extra["arm"], extra["source"], extra["task_id"],
+                                      extra["evidence"]["episode_ref"], extra["evidence"]["step"]])
+        rows.append(extra)
+    for directory in (root, root / "replay"):
+        seal_bundle(directory, rows, corpus["theta"], corpus["splits"], "CONTINUE")
+    seal(corpus)
+    with pytest.raises(ValueError, match="D replay must cover exactly theta0's K seed trajectories"):
+        read(corpus)
 
 
 @pytest.mark.parametrize("mutation,match", [

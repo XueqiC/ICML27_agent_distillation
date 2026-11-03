@@ -110,7 +110,12 @@ Root `manifest.json` requires:
 ```
 
 `inputs` must seal the configured task manifest, configured split freeze,
-method split freeze, and synthetic manifest when used. It must also include
+method split freeze, and synthetic manifest when used. Byte-identical producer
+copies of those task/split files are accepted when the consumer uses another
+checkout: their raw SHA256 seals establish identity across paths.
+Every listed producer copy is still verified, and provenance retains both
+the producer inputs and configured local files. Semantically equivalent JSON
+with different bytes does not satisfy this check. The inputs must also include
 the producer's collection/verification and expansion accounting artifacts:
 parent seeds, raw outputs, rejected candidates, failed attempts, tokens,
 transitions, generator/teacher actual IDs and timestamps. Additional manifest
@@ -124,8 +129,16 @@ The unchanged replay bundle has the complete existing V2 contract, including
 hashed method split inputs and exclusions. θ₀ must pass V2's registered
 E4B K20 recipe checks. The reader **always** follows θ₀'s original hashed
 `baseline_training.verified` view and validates its executed seed receipts,
-even when the method split already lists K20. Replay task multiplicities
-must match those receipts. K is the verified trajectory count; unique tasks,
+even when the method split already lists K20. A CONTINUE bundle may contain
+the same K rows in both its main and nested replay files. After validating
+both sealed bundles, the V0 reader deduplicates by `example_id`, requiring
+identical canonical JSON bytes for every duplicate (including evidence and
+supervision). Conflicting duplicates fail. The first occurrence and its
+origin are retained; the source bundles and V2 arm behavior stay unchanged.
+Inspection and feature/training provenance record `replay_deduplication`
+with `input_rows`, `unique_rows`, and `duplicates_removed`. Deduplicated replay
+task multiplicities must match the verified receipts exactly; missing or
+extra seed trajectories still fail. K is the verified trajectory count; unique tasks,
 groups, episodes, and repeated training exposure are reported separately.
 
 ## Synthetic task manifest
