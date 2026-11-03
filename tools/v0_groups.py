@@ -115,11 +115,25 @@ def run(features, output):
     require(not output.exists() and not output.is_relative_to(features), "Output must be new and outside features")
     index = read_json(features / "index.json")
     require(index.get("schema") == "v0-gradient-features/1", "Invalid feature schema")
+    buckets = index.get("bucket_filter")
+    require(isinstance(buckets, list) and buckets and all(b in ("R", "G") for b in buckets)
+            and len(set(buckets)) == len(buckets), "Features must declare a bucket_filter restricted to R/G")
     for name in ("sketch.npy", "norms.json", "modules.json"):
         require(index["artifact_sha256"].get(name) == file_hash(features / name), "Feature artifact hash mismatch")
     ids, entries = index["episode_ids"], index["episodes"]
     require(ids == sorted(set(ids)) and [e["episode_id"] for e in entries] == ids, "Feature episode order mismatch")
-    require(all(e["bucket"] in ("R", "G", "S", "D") for e in entries), "Invalid feature bucket")
+    require(all(e["bucket"] in buckets for e in entries), "Feature bucket outside R/G bucket_filter")
+    inventory = index.get("dataset_episodes")
+    require(isinstance(inventory, list) and inventory, "Missing dataset episode inventory")
+    inventory_ids = [e["episode_id"] for e in inventory]
+    require(inventory_ids == sorted(set(inventory_ids)) and len(inventory) == index["available_episodes"]
+            and all(e["bucket"] in ("R", "G", "S", "D") for e in inventory), "Invalid dataset episode inventory")
+    inventory_buckets = {e["episode_id"]: e["bucket"] for e in inventory}
+    require(all(inventory_buckets.get(e["episode_id"]) == e["bucket"] for e in entries),
+            "Feature episode inventory mismatch")
+    eligible = [e["episode_id"] for e in inventory if e["bucket"] in buckets]
+    require(index.get("eligible_episodes") == len(eligible) and ids == eligible[:index["max_episodes"]],
+            "Feature episode selection mismatch")
     sketch = np.load(features / "sketch.npy", allow_pickle=False)
     require(sketch.shape == (len(ids), 2048) and sketch.dtype == np.float32 and np.isfinite(sketch).all(),
             "Expected finite N x 2048 float32 sketch")
@@ -139,17 +153,21 @@ def run(features, output):
     groups = k_medoids(sketch[valid], [ids[i] for i in valid], [norms[ids[i]]["raw_l2_norm"] for i in valid])
     identity = {k: index[k] for k in ("dataset_sha256", "adapter_sha256", "parameter_names_sha256")}
     require(all(modules.get(k) == index[k] for k in ("dataset_sha256", "adapter_sha256")), "Module identity mismatch")
+    require(modules.get("bucket_filter") == buckets and modules.get("episode_ids") == ids
+            and all(m.get("episodes") == len(ids) for m in modules["modules"].values()),
+            "Module moments must match the R/G feature episodes and bucket_filter")
     require(sorted(modules["modules"]) == index["parameter_names"] and
             digest(index["parameter_names"]) == index["parameter_names_sha256"], "Module name hash mismatch")
     ranking = rank_modules(modules["modules"])
-    common = {**identity, "features_index_sha256": file_hash(features / "index.json"),
+    repair_ids = {e["episode_id"] for e in inventory if e["bucket"] in ("R", "G")}
+    common = {**identity, "features_index_sha256": file_hash(features / "index.json"), "bucket_filter": buckets,
               "code_sha256": file_hash(Path(__file__)), "numpy_version": np.__version__,
-              "smoke_subset": len(ids) != index["available_episodes"]}
+              "smoke_subset": set(ids) != repair_ids}
     output.mkdir(parents=True)
     write_json(output / "groups.json", {"schema": "v0-groups/1", **common, **groups, "excluded": excluded}, exclusive=True)
     write_json(output / "trainable_modules.json", {"schema": "v0-trainable-modules/1", **common, **ranking}, exclusive=True)
     try:
-        weights = episode_weights(groups, entries)
+        weights = episode_weights(groups, entries + [e for e in inventory if e["bucket"] in ("S", "D")])
     except ValidationError as exc:
         # Preserve negative results and the independently valid D-param output.
         write_json(output / "weights.json", {"schema": "v0-episode-weights/1", **common,

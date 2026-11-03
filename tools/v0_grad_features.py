@@ -19,7 +19,7 @@ from repair.artifacts import provenance, tokenizer_identity
 from repair.v2_inputs import ValidationError, require
 from sed.storage import digest, file_hash, write_json
 from tools.crn_tail import trainables, require_no_dropout
-from tools.v0_data import add_inputs, load_args, provenance_inputs, safe_output
+from tools.v0_data import BUCKETS, add_inputs, load_args, provenance_inputs, safe_output
 
 DIMENSION = 2048
 HASH_SEED = 17
@@ -143,15 +143,39 @@ def episode_backward(model, examples, *, scoring="shared_history"):
     return loss_value
 
 
-def collect_features(model, examples, rows, grouped, output, *, metadata, max_episodes=None, scoring="shared_history"):
-    """No optimizer is created. The original adapter stays loaded for all rows."""
-    import torch
+def select_episodes(rows, grouped, *, buckets=("R", "G"), max_episodes=None, allow_no_edit=False):
+    """Filter before limiting episodes or touching the model; retain the inventory."""
+    buckets = [b.strip() for b in buckets.split(",")] if isinstance(buckets, str) else list(buckets)
+    require(buckets and all(b in BUCKETS for b in buckets) and len(set(buckets)) == len(buckets),
+            "--buckets must be a nonempty comma-separated subset of R,G,S,D without duplicates")
+    buckets = [b for b in BUCKETS if b in buckets]
     require(max_episodes is None or max_episodes > 0, "max-episodes must be positive")
+    inventory = [{"episode_id": eid, "bucket": rows[grouped[eid][0]]["v0"]["bucket"]}
+                 for eid in sorted(grouped)]
+    eligible = [e["episode_id"] for e in inventory if e["bucket"] in buckets]
+    ids = eligible[:max_episodes]
+    require(ids, "No episodes in selected buckets")
+    selected = {}
+    for eid in ids:
+        indices = grouped[eid]
+        edits = [i for i in indices if rows[i]["v0"]["edit_decision"]]
+        require(edits or rows[indices[0]]["v0"]["bucket"] not in ("R", "G") or allow_no_edit,
+                f"Repair episode {eid} has no edit_decision row; use --allow-no-edit to allow whole-episode loss")
+        selected[eid] = edits or indices
+    return buckets, inventory, eligible, selected
+
+
+def collect_features(model, examples, rows, grouped, output, *, metadata, max_episodes=None,
+                     scoring="shared_history", buckets=("R", "G"), allow_no_edit=False):
+    """No optimizer is created. Only selected episodes contribute gradients/moments."""
+    import torch
+    buckets, inventory, eligible, selections = select_episodes(rows, grouped, buckets=buckets,
+        max_episodes=max_episodes, allow_no_edit=allow_no_edit)
+    ids = list(selections)
+    no_edit = [eid for eid in ids if not any(rows[i]["v0"]["edit_decision"] for i in grouped[eid])]
     parameters = lora_parameters(model)
     before = parameter_hash(parameters)
     moments = ModuleMoments(parameters)
-    ids = sorted(grouped)[:max_episodes]
-    require(ids, "No episodes")
     sketches, norms, entries = [], {}, []
     device = next(model.parameters()).device
     training = model.training
@@ -161,7 +185,7 @@ def collect_features(model, examples, rows, grouped, output, *, metadata, max_ep
         require_no_dropout(model)
         for number, eid in enumerate(ids, 1):
             indices = grouped[eid]
-            selected = [i for i in indices if rows[i]["v0"]["edit_decision"]] or indices
+            selected = selections[eid]
             with torch.autocast("cuda", dtype=torch.bfloat16) if device.type == "cuda" else nullcontext():
                 loss = episode_backward(model, [examples[i] for i in selected], scoring=scoring)
             gradients = {n: p.grad for n, p in parameters.items()}
@@ -204,8 +228,11 @@ def collect_features(model, examples, rows, grouped, output, *, metadata, max_ep
     np.save(output / "sketch.npy", np.stack(sketches), allow_pickle=False)
     write_json(output / "norms.json", norms, exclusive=True)
     write_json(output / "modules.json", {"schema": "v0-module-moments/1", **metadata,
+        "bucket_filter": buckets, "episode_ids": ids,
         "eps": moments.eps, "accumulator_dtype": "float32", "modules": moments.result()}, exclusive=True)
     index = {"schema": "v0-gradient-features/1", **metadata, "episode_ids": ids, "episodes": entries,
+        "bucket_filter": buckets, "dataset_episodes": inventory, "eligible_episodes": len(eligible),
+        "allow_no_edit": allow_no_edit, "no_edit_count": len(no_edit), "no_edit_episode_ids": no_edit,
         "parameter_names": list(parameters), "parameter_names_sha256": digest(list(parameters)),
         "parameter_sizes": {n: p.numel() for n, p in parameters.items()}, "parameter_state_sha256": before,
         "dimension": DIMENSION, "seed": HASH_SEED, "hash": "splitmix64-coordinate/1",
@@ -224,19 +251,25 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--max-episodes", type=int)
+    parser.add_argument("--buckets", default="R,G", help="Comma-separated gradient buckets (default: R,G)")
+    parser.add_argument("--allow-no-edit", action="store_true",
+                        help="Allow and count R/G episodes without edits, using whole-episode loss")
     args = parser.parse_args(argv)
     try:
         import torch
         require(args.device.startswith("cuda:") and torch.device(args.device).type == "cuda",
                 "Production extraction requires --device cuda:N")
         data = load_args(args)
+        _, _, _, selections = select_episodes(data["rows"], data["episodes"], buckets=args.buckets,
+            max_episodes=args.max_episodes, allow_no_edit=args.allow_no_edit)
         output = safe_output(args.output, data)
         inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"], 1)
         device = torch.device(args.device)
         torch.cuda.set_device(device)
         from train.dataset import load_tokenizer
         tokenizer = load_tokenizer(data["snapshot"])
-        examples = [v2.encode_example(row, tokenizer, max_length=inherited["recipe"]["max_length"]) for row in data["rows"]]
+        examples = {i: v2.encode_example(data["rows"][i], tokenizer, max_length=inherited["recipe"]["max_length"])
+                    for indices in selections.values() for i in indices}
         model = v2.load_existing_adapter(data["snapshot"], data["theta0"], device, inherited["recipe"])
         require({n: p.numel() for n, p in lora_parameters(model).items()} == inherited["parameters"],
                 "Actual trainable tensors differ from theta0")
@@ -246,7 +279,8 @@ def main(argv=None):
             details={"arguments": vars(args), "inherited": inherited,
             "tokenizer": tokenizer_identity(data["snapshot"], tokenizer), "teacher_calls": 0})
         result = collect_features(model, examples, data["rows"], data["episodes"], output,
-            max_episodes=args.max_episodes, scoring=inherited["recipe"]["scoring"], metadata={
+            max_episodes=args.max_episodes, buckets=args.buckets, allow_no_edit=args.allow_no_edit,
+            scoring=inherited["recipe"]["scoring"], metadata={
             "adapter_sha256": data["adapter_sha256"], "dataset_sha256": data["dataset_sha256"],
             "provenance_sha256": digest(prov)})
         print(json.dumps({"status": "complete", "episodes": len(result["episode_ids"]),

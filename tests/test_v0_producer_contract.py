@@ -8,7 +8,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import repair
 from repair.artifacts import read_json
 from repair.execute import execute_actions
 from sed.storage import digest, file_hash, write_json
@@ -21,32 +20,36 @@ def producer(monkeypatch):
     sibling = Path(__file__).resolve().parents[2] / "ICML27_wt_repair_eval"
     if not (sibling / "repair/v0_data.py").is_file():
         pytest.skip(f"V0 eval producer is unavailable at {sibling}; cross-worktree contract needs that checkout")
-    # Test-only lookup: production training has no dependency on the sibling.
-    # repair is already imported by the reader, so extend its package path too.
-    monkeypatch.setattr(sys, "dont_write_bytecode", True)
-    monkeypatch.syspath_prepend(str(sibling))
-    monkeypatch.setattr(repair, "__path__", [str(sibling / "repair"), *repair.__path__])
-    before = set(sys.modules)
-    try:
+    # Import the real producer and its dependencies together: newer transport
+    # helpers are incompatible with the reader's cached repair/teacher modules.
+    # Restore local imports before yielding so the reader still tests itself.
+    with monkeypatch.context() as imports:
+        imports.setattr(sys, "dont_write_bytecode", True)
+        imports.syspath_prepend(str(sibling))
+        for name in list(sys.modules):
+            if name.split(".")[0] in ("repair", "teachers"):
+                imports.delitem(sys.modules, name)
+        before = set(sys.modules)
         try:
-            modules = {name: importlib.import_module("repair.v0_" + name) for name in ("common", "synth", "data")}
-            fakes = importlib.import_module("repair.dry_fakes")
-        except (ImportError, OSError) as exc:
-            pytest.skip(f"Cannot import read-only V0 eval producer at {sibling} ({type(exc).__name__})")
-        for name, module in modules.items():
-            assert Path(module.__file__).resolve() == sibling / "repair" / f"v0_{name}.py"
-        yield SimpleNamespace(**modules, fakes=fakes)
-    finally:
-        # Do not leak sibling modules into subsequent local tests.
-        for name in set(sys.modules) - before:
-            module = sys.modules[name]
-            source = getattr(module, "__file__", None)
-            if source and Path(source).resolve().is_relative_to(sibling):
-                del sys.modules[name]
-                parent, _, child = name.rpartition(".")
-                package = sys.modules.get(parent)
-                if package is not None and getattr(package, child, None) is module:
-                    delattr(package, child)
+            try:
+                modules = {name: importlib.import_module("repair.v0_" + name) for name in ("common", "synth", "data")}
+                fakes = importlib.import_module("repair.dry_fakes")
+            except (ImportError, OSError) as exc:
+                pytest.skip(f"Cannot import read-only V0 eval producer at {sibling} ({type(exc).__name__})")
+            for name, module in modules.items():
+                assert Path(module.__file__).resolve() == sibling / "repair" / f"v0_{name}.py"
+        finally:
+            # Do not leak sibling modules into the reader or subsequent tests.
+            for name in set(sys.modules) - before:
+                module = sys.modules[name]
+                source = getattr(module, "__file__", None)
+                if source and Path(source).resolve().is_relative_to(sibling):
+                    del sys.modules[name]
+                    parent, _, child = name.rpartition(".")
+                    package = sys.modules.get(parent)
+                    if package is not None and getattr(package, child, None) is module:
+                        delattr(package, child)
+    yield SimpleNamespace(**modules, fakes=fakes)
 
 
 @pytest.fixture

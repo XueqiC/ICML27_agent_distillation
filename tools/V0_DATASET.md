@@ -196,6 +196,8 @@ task identity.
 
 `tests/test_v0_producer_contract.py` imports the sibling producer read-only,
 with path insertion confined to the test and bytecode writes disabled. It
+temporarily isolates the producer's repair/teacher imports from the reader's
+cached modules and restores local imports before testing the reader. It
 uses the producer's allocator, `SyntheticManifest`, `decision_rows`, and
 `publish_dataset` with fake candidates/executions and sealed fake K20 receipts.
 It covers every allowed synthetic generator/bin pair, R/G/S and virtual D,
@@ -213,9 +215,14 @@ CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
 
 ## Gradient artifacts
 
-`v0_grad_features.py` loads θ₀ once on one allocated GPU. For each episode in
-lexical episode-ID order, it selects rows with `edit_decision=true`, falling
-back to all rows when none are marked. Loss is the **mean of V2 per-row
+`v0_grad_features.py` loads θ₀ once on one allocated GPU. `--buckets R,G`
+(the default) restricts gradient extraction and module moments to repair
+buckets. S/D episodes are inventoried but contribute no gradients or moments.
+Selected episodes are processed in lexical episode-ID order, using only rows
+with `edit_decision=true`. An R/G episode without any such row is refused
+before model loading/backward unless `--allow-no-edit` explicitly enables
+whole-episode loss. This also applies to student successes in expansion G;
+their presence does not silently enable a fallback. Loss is the **mean of V2 per-row
 token-mean SFT losses**, using the same encoded masks and shared-history
 scorer. No optimizer is created or stepped. Gradients are cleared before and
 after every episode; adapter parameters are hashed before/after. Inherited
@@ -238,14 +245,26 @@ squared norms accumulate in float32 **on the model device**, with
 Files: `sketch.npy`, `norms.json` (episode -> raw norm/flags), `modules.json`,
 `index.json`, and `provenance.json`. Index records sorted IDs, row selections,
 parameter names/sizes/hash, adapter/dataset hashes, artifact seals, and
-episodes/second. `--max-episodes` takes the lexical prefix and marks an
-incomplete smoke subset. Production training refuses weights/module masks
-from incomplete subsets.
+episodes/second. `bucket_filter` records the effective bucket list;
+`dataset_episodes` inventories every dataset episode by ID/bucket so S/D can
+receive explicit unit weights. `available_episodes` counts the entire dataset,
+and `eligible_episodes` counts episodes passing the bucket filter.
+`allow_no_edit`, `no_edit_count`, and `no_edit_episode_ids` disclose the override
+and every selected episode using whole-episode fallback. `modules.json` binds
+moments to the same bucket filter and extracted episode IDs.
+`--max-episodes` takes the lexical prefix **after** filtering. Omitting any R/G
+episode, by limit or bucket filter, marks grouping outputs as an incomplete
+smoke subset. Excluding S/D does not. Production training refuses weights/module
+masks from incomplete subsets. Explicit S/D extraction is possible for separate
+diagnostics, but its artifacts cannot be used by V0 grouping.
 
 ## Grouping, weights, and module masks
 
-`v0_groups.py --features FEATURES --output GROUPS` runs on CPU. All supplied
-episodes with nonzero raw gradient and sketch participate. ZERO_GRADIENT
+`v0_groups.py --features FEATURES --output GROUPS` runs on CPU. It requires an
+explicit nonempty `bucket_filter` restricted to R/G, matching feature entries
+and module moments. Old unfiltered artifacts must be regenerated; mixed-bucket
+moments cannot be corrected by dropping sketches afterward. Only R/G episodes
+with nonzero raw gradient and sketch participate. ZERO_GRADIENT
 means raw norm <1e-12; these remain trainable with neutral weight before R/G
 normalization. Nonzero gradients projected to zero have ZERO_SKETCH status
 and the same treatment. All-zero inputs produce no directional groups.
@@ -260,7 +279,9 @@ excludes the medoid and is null for a sole member.
 
 Consistency is group size times mean cosine over **distinct unordered pairs**;
 a sole member uses cosine 1. R/G episodes receive their group's consistency,
-normalized jointly to mean 1 over R/G episodes. S/D always have weight 1.
+normalized jointly to mean 1 over extracted R/G episodes. S/D are never clustered
+and always have explicit weight 1, using the index's dataset inventory. Omitted
+R/G episodes in a smoke subset have no computed weight.
 Signed consistency can be negative: the formula then cannot define sampling
 probabilities. The tool preserves groups and module ranking, writes an
 invalid-status weights artifact, and fails instead of silently clipping or
@@ -269,7 +290,7 @@ These cases require an explicit weighting-protocol decision before training.
 
 Outputs have versioned schemas: `groups.json`, `weights.json` with an episode
 ID -> weight map, and `trainable_modules.json` with `selected` full tensor
-names and complete descending-SNR ranking. Ties use tensor name, selecting
+names and complete descending-SNR ranking from R/G moments only. Ties use tensor name, selecting
 ceil(module_count/4). Artifacts bind dataset, adapter, parameter-name hash,
 and source feature index. Do not manually edit these identities.
 

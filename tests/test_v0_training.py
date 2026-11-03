@@ -180,7 +180,7 @@ def test_episode_gradient_is_v2_row_mean_with_edit_selection_and_no_update(tmp_p
     for i, row in enumerate(rows):
         row["example_id"] = str(i)
         row["messages"][-1]["content"] = "Thought: " + "look " * (10 * i + 1) + ".\nAction: look"
-        row["v0"] = {"episode_id": "a" if i < 2 else "b", "bucket": "R", "edit_decision": i == 0}
+        row["v0"] = {"episode_id": "a" if i < 2 else "b", "bucket": "R", "edit_decision": i != 1}
     examples = [v2.encode_example(r, v2.FakeTokenizer()) for r in rows]
     model = v2.fake_model()
     with torch.no_grad():
@@ -197,7 +197,7 @@ def test_episode_gradient_is_v2_row_mean_with_edit_selection_and_no_update(tmp_p
     result = features.collect_features(model, examples, rows, v0_data.episodes(rows), tmp_path,
         metadata={"dataset_sha256": "d", "adapter_sha256": "a"})
     assert result["episodes"][0]["gradient_row_ids"] == ["0"]
-    assert result["episodes"][1]["gradient_row_ids"] == ["2"]  # No edit -> all rows.
+    assert result["episodes"][1]["gradient_row_ids"] == ["2"]
     assert before == features.parameter_hash(features.lora_parameters(model))
     assert all(p.grad is None for p in model.parameters())
     assert model.dropout.p == .05 and model.peft_config["default"].lora_dropout == .05
@@ -217,7 +217,7 @@ def test_zero_gradient_is_retained_but_not_directionally_clustered(tmp_path):
     with torch.no_grad():
         model.lora_A.zero_()
     row = example("train/a/0", "joint_local", "decision", "V0")
-    row["v0"] = {"episode_id": "a", "bucket": "R", "edit_decision": False}
+    row["v0"] = {"episode_id": "a", "bucket": "R", "edit_decision": True}
     features.collect_features(model, [v2.encode_example(row, v2.FakeTokenizer())], [row], {"a": [0]}, tmp_path,
         metadata={"dataset_sha256": "d", "adapter_sha256": "a"})
     assert read_json(tmp_path / "norms.json")["a"]["ZERO_GRADIENT"] is True
@@ -225,6 +225,146 @@ def test_zero_gradient_is_retained_but_not_directionally_clustered(tmp_path):
     result = groups.run(tmp_path, out)
     assert not result["groups"]
     assert read_json(out / "weights.json")["weights"] == {"a": 1.0}
+
+
+@pytest.fixture
+def mixed_features(tmp_path, monkeypatch):
+    """S/D and unedited rows would dominate both direction and module ranking."""
+    import torch
+    model = v2.fake_model(2)
+    rows, samples = [], []
+    for eid, bucket, edits, values in (
+        ("a-demo", "D", [False], [(100., -100.)]),
+        ("b-success", "S", [False], [(100., -100.)]),
+        ("c-repair", "R", [False, True], [(100., -100.), (1., 2.)]),
+        ("d-expanded", "G", [True], [(3., 2.)]),
+    ):
+        for edit, value in zip(edits, values):
+            rows.append({"example_id": str(len(rows)),
+                         "v0": {"episode_id": eid, "bucket": bucket, "edit_decision": edit}})
+            samples.append(value)
+    calls = []
+    def backward(model, examples, **kwargs):
+        assert len(examples) == 1
+        a, b = examples[0]
+        calls.append((a, b))
+        model.lora_A.grad = torch.full_like(model.lora_A, a)
+        model.lora_B.grad = torch.full_like(model.lora_B, b)
+        return 0.
+    monkeypatch.setattr(features, "episode_backward", backward)
+    path = tmp_path / "features"
+    path.mkdir()
+    index = features.collect_features(model, samples, rows, v0_data.episodes(rows), path,
+        metadata={"dataset_sha256": "d", "adapter_sha256": "a"})
+    return path, index, model, rows, samples, calls
+
+
+def test_only_repairs_contribute_to_sketches_moments_groups_and_weights(mixed_features, tmp_path):
+    path, index, model, rows, samples, calls = mixed_features
+    assert calls == [(1., 2.), (3., 2.)]
+    assert index["episode_ids"] == ["c-repair", "d-expanded"]
+    assert index["bucket_filter"] == ["R", "G"]
+    assert index["available_episodes"] == 4 and index["eligible_episodes"] == 2
+    assert index["allow_no_edit"] is False and index["no_edit_count"] == 0
+    assert [e["gradient_row_ids"] for e in index["episodes"]] == [["3"], ["4"]]
+    assert set(read_json(path / "norms.json")) == set(index["episode_ids"])
+    sketches = np.load(path / "sketch.npy")
+    assert sketches.shape == (2, 2048)
+    for i, values in enumerate(([1., 2., 2.], [3., 2., 2.])):
+        expected = features.count_sketch(values)
+        np.testing.assert_allclose(sketches[i], expected / np.linalg.norm(expected), atol=1e-7)
+    stats = read_json(path / "modules.json")
+    assert stats["episode_ids"] == index["episode_ids"] and stats["bucket_filter"] == ["R", "G"]
+    assert all(m["episodes"] == 2 for m in stats["modules"].values())
+    assert stats["modules"]["lora_A"]["mean_norm"] == 2
+    assert stats["modules"]["lora_A"]["variance"] == 1
+    assert stats["modules"]["lora_B"]["mean_squared_norm"] == 8
+    assert stats["modules"]["lora_B"]["variance"] == 0
+    result = groups.run(path, tmp_path / "groups")
+    assert set(result["assignment"]) == set(index["episode_ids"])
+    assert result["groups"][0]["size"] == 2
+    assert result["groups"][0]["consistency"] == pytest.approx(2 * np.dot(sketches[0], sketches[1]))
+    weights = read_json(tmp_path / "groups/weights.json")
+    assert weights["weights"] == {eid: 1.0 for eid in v0_data.episodes(rows)}
+    assert weights["smoke_subset"] is False
+    assert read_json(tmp_path / "groups/trainable_modules.json")["selected"] == ["lora_B"]
+
+
+@pytest.mark.parametrize("options", [{"max_episodes": 1}, {"buckets": "R"}])
+def test_filter_precedes_limit_and_incomplete_repairs_are_smoke_subsets(mixed_features, tmp_path, options):
+    _, _, model, rows, samples, calls = mixed_features
+    calls.clear()
+    path = tmp_path / "subset"
+    path.mkdir()
+    index = features.collect_features(model, samples, rows, v0_data.episodes(rows), path,
+        metadata={"dataset_sha256": "d", "adapter_sha256": "a"}, **options)
+    assert index["episode_ids"] == ["c-repair"] and calls == [(1., 2.)]
+    groups.run(path, tmp_path / "groups")
+    weights = read_json(tmp_path / "groups/weights.json")
+    assert weights["smoke_subset"] is True
+    assert weights["weights"] == {"a-demo": 1., "b-success": 1., "c-repair": 1.}
+    assert read_json(tmp_path / "groups/trainable_modules.json")["smoke_subset"] is True
+
+
+@pytest.mark.parametrize("buckets", ["", "R,", "R,R", "R,X"])
+def test_gradient_filter_rejects_invalid_buckets(buckets):
+    with pytest.raises(ValueError, match="--buckets"):
+        features.select_episodes([], {}, buckets=buckets)
+
+
+@pytest.mark.parametrize("bucket", ["R", "G"])
+def test_missing_edit_is_refused_before_backward_and_override_is_counted(tmp_path, monkeypatch, bucket):
+    model = v2.fake_model()
+    rows = [example("train/a/0", "joint_local", "decision", "V0") for _ in range(2)]
+    for i, row in enumerate(rows):
+        row["example_id"] = str(i)
+        row["v0"] = {"episode_id": "a", "bucket": bucket, "edit_decision": False}
+    examples = [v2.encode_example(row, v2.FakeTokenizer()) for row in rows]
+    original = features.episode_backward
+    def forbidden(*args, **kwargs):
+        pytest.fail("Missing-edit repair must be refused before backward")
+    monkeypatch.setattr(features, "episode_backward", forbidden)
+    with pytest.raises(ValueError, match="no edit_decision.*--allow-no-edit"):
+        features.collect_features(model, examples, rows, {"a": [0, 1]}, tmp_path, metadata={})
+    assert not (tmp_path / "index.json").exists()
+    monkeypatch.setattr(features, "episode_backward", original)
+    index = features.collect_features(model, examples, rows, {"a": [0, 1]}, tmp_path,
+        metadata={"dataset_sha256": "d", "adapter_sha256": "a"}, allow_no_edit=True)
+    assert index["allow_no_edit"] is True and index["no_edit_count"] == 1
+    assert index["no_edit_episode_ids"] == ["a"]
+    assert index["episodes"][0]["gradient_row_ids"] == ["0", "1"]
+
+
+@pytest.mark.parametrize("mutation,match", [
+    ("legacy", "bucket_filter"), ("mixed_filter", "bucket_filter"),
+    ("nonrepair_entry", "Feature bucket"), ("inventory", "inventory mismatch"),
+    ("module_filter", "Module moments"), ("module_ids", "Module moments"),
+    ("module_count", "Module moments"),
+])
+def test_grouping_refuses_mixed_or_unscoped_features(mixed_features, tmp_path, mutation, match):
+    path, index, *_ = mixed_features
+    if mutation == "legacy":
+        del index["bucket_filter"]
+    elif mutation == "mixed_filter":
+        index["bucket_filter"] = ["R", "G", "S", "D"]
+    elif mutation == "nonrepair_entry":
+        index["episodes"][0]["bucket"] = "S"
+    elif mutation == "inventory":
+        index["dataset_episodes"][2]["bucket"] = "S"
+    else:
+        modules = read_json(path / "modules.json")
+        if mutation == "module_filter":
+            modules["bucket_filter"] = ["R", "G", "S", "D"]
+        elif mutation == "module_ids":
+            modules["episode_ids"].append("a-demo")
+        elif mutation == "module_count":
+            modules["modules"]["lora_A"]["episodes"] = 4
+        write_json(path / "modules.json", modules)
+        index["artifact_sha256"]["modules.json"] = file_hash(path / "modules.json")
+    write_json(path / "index.json", index)
+    with pytest.raises(ValueError, match=match):
+        groups.run(path, tmp_path / "groups")
+    assert not (tmp_path / "groups").exists()
 
 
 def test_peft_subset_checkpoint_preserves_frozen_adapter_tensors(tmp_path):
@@ -457,10 +597,10 @@ def test_inputs_check_never_loads_model_and_cpu_dry_run(corpus, tmp_path, monkey
 
 
 def test_weights_keep_signed_consistency_exact_and_module_ranking_ties():
-    entries = [{"episode_id": eid, "bucket": b} for eid, b in (("a", "R"), ("b", "G"), ("c", "D"))]
+    entries = [{"episode_id": eid, "bucket": b} for eid, b in (("a", "R"), ("b", "G"), ("c", "D"), ("d", "S"))]
     result = {"assignment": {"a": "x", "b": "y"}, "groups": [
         {"group_id": "x", "consistency": 2}, {"group_id": "y", "consistency": 4}]}
-    assert groups.episode_weights(result, entries) == {"a": 2 / 3, "b": 4 / 3, "c": 1}
+    assert groups.episode_weights(result, entries) == {"a": 2 / 3, "b": 4 / 3, "c": 1, "d": 1}
     result["groups"][0]["consistency"] = -1
     with pytest.raises(ValueError, match="Negative group consistency"):
         groups.episode_weights(result, entries)
