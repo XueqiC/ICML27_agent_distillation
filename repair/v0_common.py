@@ -42,6 +42,7 @@ def inside(root, relative):
 def code_identity():
     paths = sorted((ROOT / 'repair').glob('*.py'))
     paths += sorted((ROOT / 'tools').glob('v0_*.py'))
+    paths += [ROOT / 'tools/build_v2_dataset.py']  # Shared ordered label workers/tokenizer lock.
     paths += [ROOT / p for p in ('src/sed/react.py', 'src/sed/visibility.py',
         'students/sampled_student.py', 'students/vllm_student.py',
         'harness/alfworld_env/environment.py', 'teachers/openai_teacher.py', 'teachers/capped.py')]

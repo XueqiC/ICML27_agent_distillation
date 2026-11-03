@@ -1,9 +1,11 @@
 """One preregistered K20/seed-0 V0 round. No training or server launch here."""
 import argparse
 from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from copy import deepcopy
 from functools import partial
 import json
+import multiprocessing
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -73,8 +75,84 @@ def student_factory(spec, task_id, decoding, seed, log_dir):
     return partial(_student, log_dir, spec=spec, decoding=decoding, seed=seed, task_id=task_id)
 
 
+def worker_count(args, name='workers'):
+    value = getattr(args, name, 1)
+    if type(value) is not int or value < 1:
+        raise ValueError('--' + name.replace('_', '-') + ' must be >= 1')
+    return value
+
+
+def _init_worker(stop):
+    global _worker_stop
+    _worker_stop = stop
+
+
+def _process_unit(worker, job):
+    # Bound submissions in the parent and stop queued units even when a failure
+    # races with the initial fill. Active units settle their durable evidence.
+    if _worker_stop.is_set():
+        return None
+    try:
+        return worker(**job)
+    except BaseException:
+        _worker_stop.set()
+        raise
+
+
+def process_results(jobs, worker, workers):
+    """Spawn isolated environments/clients; merge in input order, fail fast."""
+    if workers == 1:
+        return [worker(**job) for job in jobs]
+    # Same isolation as eval.run_suite (used by v2_task_eval/repair_coverage).
+    context = multiprocessing.get_context('spawn')
+    stop = context.Event()
+    results, pending = [None] * len(jobs), {}
+    remaining = iter(enumerate(jobs))
+    exhausted = False
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context,
+                             initializer=_init_worker, initargs=(stop,)) as pool:
+        try:
+            while pending or not exhausted:
+                while not exhausted and not stop.is_set() and len(pending) < workers:
+                    item = next(remaining, None)
+                    if item is None:
+                        exhausted = True
+                    else:
+                        index, job = item
+                        pending[pool.submit(_process_unit, worker, job)] = index
+                if pending:
+                    done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        results[pending.pop(future)] = future.result()
+                elif stop.is_set():
+                    raise ValueError('V0 worker stopped; evidence retained')
+        finally:
+            stop.set()
+            for future in pending:
+                future.cancel()
+    return results
+
+
+def _attempt_unit(*, manifest, spec, task_id, decoding, seed, directory, probes):
+    from repair.v0_execution import attempt
+    try:
+        row = attempt(manifest, task_id, decoding=decoding, sampling_seed=seed,
+            env_factory=partial(manifest.environment, task_id, probes=probes),
+            student_factory=student_factory(spec, task_id, decoding, seed, directory / 'student'),
+            directory=directory, probes=probes)
+        print(json.dumps(dict(stage='attempt', id=row['attempt_id'], success=row['success'])), flush=True)
+        if row['execution']['termination_reason'] == 'ENV_ERROR':
+            raise ValueError('V0 student/environment error retained; collection halted')
+        return row
+    except Exception as exc:
+        # Never serialize an SDK exception/body (it may contain credentials).
+        write_json(directory / 'worker_error.json', dict(error_type=type(exc).__name__, task_id=task_id))
+        raise
+
+
 def run_attempts(args, root, manifest, *, directory=None, probes=False):
-    from repair.v0_execution import attempt, attempt_id, probe_report
+    from repair.v0_execution import attempt_id, probe_report
+    workers = worker_count(args)
     directory = Path(directory or root / ('probe_attempt' if probes else 'attempt'))
     ids = args.task_ids if args.task_ids is not None else [
         t['task_id'] for t in manifest.tasks.values() if t['heldout_probe'] == probes]
@@ -92,19 +170,12 @@ def run_attempts(args, root, manifest, *, directory=None, probes=False):
         complete_task_coverage=set(ids) == expected_ids, H=40, temperature=.7, top_p=.95), resume=args.resume)
     if completed(directory):
         return read(directory / 'records.json')
-    records = []
-    for task in tasks:
-        for decoding, seed in DECODINGS:
-            ident = attempt_id(manifest, task['task_id'], decoding, seed)
-            dest = directory / 'episodes' / ident
-            row = attempt(manifest, task['task_id'], decoding=decoding, sampling_seed=seed,
-                env_factory=partial(manifest.environment, task['task_id'], probes=probes),
-                student_factory=student_factory(spec, task['task_id'], decoding, seed, dest / 'student'),
-                directory=dest, probes=probes)
-            records.append(row)
-            print(json.dumps(dict(stage='attempt', id=ident, success=row['success'])), flush=True)
-            if row['execution']['termination_reason'] == 'ENV_ERROR':
-                raise ValueError('V0 student/environment error retained; collection halted')
+    # Scheduling knobs do not enter the scientific identity/seal. A resume may
+    # change concurrency; attempt() reuses each deterministic record verbatim.
+    jobs = [dict(manifest=manifest, spec=spec, task_id=task['task_id'], decoding=decoding,
+        seed=seed, directory=directory / 'episodes' / attempt_id(manifest, task['task_id'], decoding, seed),
+        probes=probes) for task in tasks for decoding, seed in DECODINGS]
+    records = process_results(jobs, _attempt_unit, workers)
     write_json(directory / 'records.json', records)
     report = probe_report(tasks, records) if probes else dict(attempts=len(records),
         successes=sum(r['success'] is True for r in records), failures=sum(r['success'] is False for r in records),
@@ -159,11 +230,43 @@ def review_dry_run(args, root, manifest, attempts_dir):
     return estimate
 
 
-def run_reviews(args, root, manifest, attempts_dir, *, directory=None):
+def _review_unit(*, manifest, spec, config, attempt, directory, budget):
     from repair.joint import usage_summary
     from repair.ledger import BudgetLedger
-    from repair.v0_execution import selected_failures
     from repair.v0_review import WholeReviewer, WholeTransport, repair_failure
+    path = directory / 'record.json'
+    try:
+        budget.check()
+        if path.exists():
+            record = read(path)
+        else:
+            transport = WholeTransport(config, attempt['task_id'], directory / 'teacher', budget)
+            reviewer = WholeReviewer(transport, directory / 'requests')
+            ledger = BudgetLedger(directory / 'environment.jsonl')
+            record = repair_failure(attempt, reviewer=reviewer,
+                env_factory=partial(manifest.environment, attempt['task_id']),
+                student_factory=student_factory(spec, attempt['task_id'], attempt['decoding'],
+                                                attempt['sampling_seed'], directory / 'student'),
+                ledger=ledger, directory=directory)
+            record.update(teacher_usage=usage_summary(directory / 'teacher/usage.jsonl'),
+                          synthetic_manifest_sha256=manifest.sha256)
+            record['teacher_tokens'] = record['teacher_usage']['totals']
+            write_json(path, record, exclusive=True)
+        print(json.dumps(dict(stage='review', attempt=attempt['attempt_id'], success=record['success'],
+                              rounds=len(record['rounds']))), flush=True)
+        if record['execution']['termination_reason'] == 'ENV_ERROR':
+            raise ValueError('V0 repair execution failed; evidence retained')
+        budget.check()
+        return record
+    except Exception as exc:
+        write_json(directory / 'worker_error.json', dict(error_type=type(exc).__name__,
+                                                        attempt_id=attempt['attempt_id']))
+        raise
+
+
+def run_reviews(args, root, manifest, attempts_dir, *, directory=None):
+    from repair.v0_execution import selected_failures
+    workers = worker_count(args)
     attempts = sealed_records(attempts_dir, 'records.json')
     if any(r['heldout_probe'] for r in attempts):
         raise ValueError('V0 probes cannot be sent to trajectory review')
@@ -180,35 +283,17 @@ def run_reviews(args, root, manifest, attempts_dir, *, directory=None):
     if completed(directory):
         return read(directory / 'records.json')
     budget = budget_for(root)
-    records = []
-    for attempt in selected_failures(attempts):
+    failures = selected_failures(attempts)
+    for attempt in failures:
         manifest.authorize(attempt['task_id'])
         if attempt['synthetic_manifest_sha256'] != manifest.sha256:
             raise ValueError('V0 review manifest differs from collection')
-        dest = directory / 'failures' / attempt['attempt_id']
-        path = dest / 'record.json'
-        if path.exists():
-            record = read(path)
-        else:
-            budget.check()
-            transport = WholeTransport(config, attempt['task_id'], dest / 'teacher', budget)
-            reviewer = WholeReviewer(transport, dest / 'requests')
-            ledger = BudgetLedger(dest / 'environment.jsonl')
-            record = repair_failure(attempt, reviewer=reviewer,
-                env_factory=partial(manifest.environment, attempt['task_id']),
-                student_factory=student_factory(spec, attempt['task_id'], attempt['decoding'],
-                                                attempt['sampling_seed'], dest / 'student'),
-                ledger=ledger, directory=dest)
-            record.update(teacher_usage=usage_summary(dest / 'teacher/usage.jsonl'),
-                          synthetic_manifest_sha256=manifest.sha256)
-            record['teacher_tokens'] = record['teacher_usage']['totals']
-            write_json(path, record, exclusive=True)
-        records.append(record)
-        print(json.dumps(dict(stage='review', attempt=attempt['attempt_id'], success=record['success'],
-                              rounds=len(record['rounds']))), flush=True)
-        if record['execution']['termination_reason'] == 'ENV_ERROR':
-            raise ValueError('V0 repair execution failed; evidence retained')
-        budget.check()
+    # SharedTeacherBudget is a path/caps handle: its accounting and the common
+    # WholeTransport rate limiter use the same file locks in every process.
+    records = process_results([dict(manifest=manifest, spec=spec, config=config, attempt=attempt,
+        directory=directory / 'failures' / attempt['attempt_id'], budget=budget)
+        for attempt in failures], _review_unit, workers)
+    budget.check()
     write_json(directory / 'records.json', records)
     write_json(directory / 'budget_snapshot.json', budget.summary())
     finish(directory, failures=len(records), repaired=sum(r['verified'] for r in records), budget=budget.summary())
@@ -242,9 +327,11 @@ class DurableLabels:
 
 
 def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=None, expanded=False):
-    from repair.supervision import RationaleLabeler
+    from repair.supervision import ByteBoundTokenizer
     from repair.v0_data import choose_episodes, decision_rows
     from sed.storage import JsonlLedger
+    from tools.build_v2_dataset import LockedTokenizer, label_results
+    workers = worker_count(args, 'label_workers')
     attempts, repairs = sealed_records(attempts_dir, 'records.json'), sealed_records(reviews_dir, 'records.json')
     directory = Path(directory or root / 'label')
     config = config_for(args)
@@ -255,8 +342,11 @@ def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=Non
     if completed(directory):
         return read(directory / 'rows.json')
     budget = None if args.action_only else budget_for(root)
+    tokenizer = ByteBoundTokenizer()
+    if workers > 1:
+        tokenizer = LockedTokenizer(tokenizer)
     rows, counts = [], Counter()
-    for bucket, episode in choose_episodes(attempts, repairs, expanded=expanded):
+    def build_episode(bucket, episode):
         dest = directory / 'episodes' / episode['episode_id']
         if (dest / 'rows.json').exists():
             built, exclusions = read(dest / 'rows.json'), read(dest / 'excluded.json')
@@ -269,14 +359,24 @@ def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=Non
                                         dest / 'requests')
             built, exclusions = decision_rows(episode, manifest, bucket=bucket,
                 episode_ref=str((dest / 'execution.json').resolve()), labeler=labeler,
-                audit=JsonlLedger(dest / 'labels.jsonl').append)
+                audit=JsonlLedger(dest / 'labels.jsonl').append, tokenizer=tokenizer)
             write_json(dest / 'execution.json', episode)
             write_json(dest / 'excluded.json', exclusions)
             write_json(dest / 'rows.json', built)
-        rows.extend(built)
-        counts.update(exclusions)
         if budget:
             budget.check()
+        return built, exclusions
+    def build_record(bucket, episode):
+        try:
+            return build_episode(bucket, episode)
+        except Exception as exc:
+            write_json(directory / 'episodes' / episode['episode_id'] / 'worker_error.json',
+                       dict(error_type=type(exc).__name__, episode_id=episode['episode_id']))
+            raise
+    for built, exclusions in label_results(choose_episodes(attempts, repairs, expanded=expanded),
+                                           build_record, workers):
+        rows.extend(built)
+        counts.update(exclusions)
     write_json(directory / 'rows.json', rows)
     write_json(directory / 'excluded.json', dict(counts))
     write_json(directory / 'budget_snapshot.json', budget.summary() if budget else dict(teacher_calls=0, action_only=True))
@@ -312,7 +412,7 @@ def build_dataset(args, root, manifest, labels_dir, *, directory=None, inherited
         if not (replay / 'manifest.json').exists():
             build(SimpleNamespace(arm='CONTINUE', splits=args.splits, inputs=[], output=str(replay),
                 config=args.config, verified_root=args.verified_root, theta0_training_dir=args.theta0_training_dir,
-                snapshot=args.snapshot, label_workers=1, rationale_teacher=False, dry_run=False,
+                snapshot=args.snapshot, label_workers=worker_count(args, 'label_workers'), rationale_teacher=False, dry_run=False,
                 budget_ledger=None, max_teacher_input_tokens=None, max_teacher_output_tokens=None))
     if (directory / 'manifest.json').exists():
         from repair.v0_data import load_dataset
@@ -345,6 +445,7 @@ def main(argv=None):
         if command == 'synth':
             p.add_argument('--workers', type=int, default=4)
         if command in ('attempt', 'probe', 'review', 'expand'):
+            p.add_argument('--workers', type=int, default=1, help='Concurrent isolated episodes/failures (default: 1)')
             for field in ('endpoint', 'model-name', 'server-provenance', 'lora-check'):
                 p.add_argument('--' + field)
             p.add_argument('--task-ids', nargs='+')
@@ -359,6 +460,8 @@ def main(argv=None):
         if command in ('label', 'expand'):
             p.add_argument('--reviews')
             p.add_argument('--action-only', action='store_true', help='Explicit V2 action-only fallback, no rationale teacher')
+        if command in ('label', 'build', 'expand'):
+            p.add_argument('--label-workers', type=int, default=1, help='Concurrent record labellers (default: 1)')
         if command == 'build':
             p.add_argument('--labels')
         if command in ('build', 'expand'):
@@ -373,6 +476,8 @@ def main(argv=None):
             p.add_argument('--groups')
             p.add_argument('--weights')
     args = parser.parse_args(argv)
+    worker_count(args)
+    worker_count(args, 'label_workers')
     root = round_root(args)
     # One invocation mutates a round at a time, including the global teacher ledger.
     with locked(root / 'round.lock'):

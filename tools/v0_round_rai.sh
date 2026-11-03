@@ -16,9 +16,10 @@ case "$V0_STAGE" in attempt|probe|review|expand) ;; *) echo 'Unknown V0_STAGE' >
 cd "$PROJECT_ROOT"
 source scripts/repair_stage_env.sh
 repair_work() {
-    local extra=()
+    local extra=(--workers "${WORKERS:-8}")
     [[ "${V0_RESUME:-0}" == 1 ]] && extra+=(--resume)
     if [[ "$V0_STAGE" == expand ]]; then
+        extra+=(--label-workers "${LABEL_WORKERS:-16}")
         : "${V0_VARIANT:?Set D-data or D-param}" "${V0_DATASET:?Set the immutable input dataset}"
         extra+=(--variant "$V0_VARIANT" --dataset "$V0_DATASET"
             --seeds "$VERIFIED/manifest.json" --data-root "$ALFWORLD_DATA_ROOT"
