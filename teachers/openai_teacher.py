@@ -45,6 +45,10 @@ class TeacherCallError(RuntimeError):
     pass
 
 
+class TeacherTimeoutError(TeacherCallError):
+    """Opt-in transport exhausted its timeout retries; receipts are durable."""
+
+
 class TeacherRateLimitError(TeacherCallError):
     """Shared-key retry budget exhausted; never advance a method-level try."""
 
@@ -415,6 +419,14 @@ class Teacher:
                             retryable = status in {408, 409} or status >= 500
                     else:
                         retryable = rate_limited
+                    if getattr(policy, "connection_retries_only", False):
+                        # V0 opts into connection retries without changing the
+                        # HTTP/status retry policy of any existing collector.
+                        retryable = rate_limited or status is None and (
+                            isinstance(exc, (TimeoutError, ConnectionError))
+                            or type(exc).__name__ in policy.connection_error_types)
+                timeout = (isinstance(exc, TimeoutError) or type(exc).__name__ in {
+                    "APITimeoutError", "ReadTimeout", "ConnectTimeout", "WriteTimeout", "PoolTimeout"})
                 retry_after = _seconds(_headers(exc).get("retry-after", ""), self.clock(), invalid=None)
                 provider_wait = _provider_wait(exc, self.clock()) if retryable else 0.0
                 if policy and not rate_limited:
@@ -450,6 +462,10 @@ class Teacher:
                     else:
                         base, ceiling = (5, 300) if self.retry_rate_limits_only else (2, 60)
                         wait = max(self.jitter(0, min(base * 2 ** (attempt - 1), ceiling)), provider_wait)
+                recoverable_timeout = (not retry and timeout
+                    and getattr(policy, "timeout_is_recoverable", False))
+                if recoverable_timeout:
+                    failure["recoverable_timeout"] = True
                 self.ledger.append({**identity, **failure, "status": "failed", "usage": None,
                                     "latency_seconds": latency, "retryable": retryable,
                                     "will_retry": retry, "wait_seconds": wait,
@@ -458,6 +474,8 @@ class Teacher:
                 if retry:
                     self.sleep(wait)
                     continue
+                if recoverable_timeout:
+                    raise TeacherTimeoutError("Teacher timeout retries exhausted; see usage ledger") from None
                 # Never expose SDK exception messages, raw HTTP headers or bodies.
                 if policy and (rate_limited or quota):
                     error = TeacherRateLimitError if rate_limited else TeacherQuotaError

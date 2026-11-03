@@ -15,8 +15,9 @@ from repair.joint import is_refused
 from repair.joint_transform import ENVIRONMENT_RULE, TransformFactTable
 from repair.patch import InvalidPatch, Patch, compile_patch
 from repair.records import TrajectoryRecord
+from repair.supervision import ByteBoundTokenizer
 from repair.v0_common import read
-from repair.v0_transport import StructuredTransport, TeacherOutputTruncated
+from repair.v0_transport import StructuredTransport, TeacherOutputTruncated, TeacherTimeout, V0TeacherMixin
 from sed.storage import canonical_bytes, digest, write_json
 from sed.thinking import split_thinking
 from sed.visibility import visible_observation
@@ -31,6 +32,9 @@ RETRY_OUTPUT_CAP = 32768
 # small cap before emitting it. Keep this policy separate from whole review.
 RATIONALE_OUTPUT_CAP = 16384
 RATIONALE_RETRY_OUTPUT_CAP = 32768
+# Transport schema validation uses a stateless byte bound, independently of
+# the dataset builder's potentially shared/locked training tokenizer.
+_LABEL_TOKENIZER = ByteBoundTokenizer()
 TEMPLATE = """Review the WHOLE public student trajectory and its final environment outcome.
 Infer subgoals from visible replies. Preserve valid student choices and routes.
 Only public observations establish locations/contents; admissibility is not an
@@ -154,6 +158,11 @@ COMMAND = re.compile(r'(?:look|inventory|(?:go to|open|close|examine|use) [a-z][
 
 
 def validate_review(raw, trajectory, prefix_length=0):
+    return _validate_review(raw, trajectory.trajectory_id,
+                            [s['action_raw'] for s in trajectory.steps], prefix_length)
+
+
+def _validate_review(raw, trajectory_id, replies, prefix_length):
     def require(ok, reason):
         if not ok:
             raise ReviewInvalid(reason)
@@ -167,7 +176,7 @@ def validate_review(raw, trajectory, prefix_length=0):
         value = json.loads(raw, object_pairs_hook=pairs)
     except (TypeError, ValueError):
         raise ReviewInvalid('invalid_json') from None
-    n = len(trajectory.steps)
+    n = len(replies)
     require(type(value) is dict and set(value) == {'plan', 'preservable_choices', 'breaking_points', 'patch'}, 'schema')
     for key, text_key in (('plan', 'subgoal'), ('preservable_choices', 'choice')):
         require(type(value[key]) is list, 'list_schema')
@@ -185,9 +194,9 @@ def validate_review(raw, trajectory, prefix_length=0):
     try:
         require(type(value['patch']) is dict and set(value['patch']) == {'original_trajectory_id', 'blocks'}, 'patch_schema')
         patch = Patch.from_json(value['patch'])
-        require(patch.original_trajectory_id == trajectory.trajectory_id, 'patch_trajectory_id')
+        require(patch.original_trajectory_id == trajectory_id, 'patch_trajectory_id')
         require(1 <= len(patch.blocks) <= 2, 'patch_block_limit')
-        compile_patch([s['action_raw'] for s in trajectory.steps], patch)
+        compile_patch(replies, patch)
         for block in patch.blocks:
             boundary = block.index if block.op == 'insert_before' else block.start
             require(boundary >= prefix_length, 'context_only_prefix_edit')
@@ -197,7 +206,13 @@ def validate_review(raw, trajectory, prefix_length=0):
         raise ReviewInvalid('invalid_patch') from None
 
 
-class WholeTeacher(Teacher):
+def _review_response(raw, *, prompt):
+    payload = prompt.payload
+    return _validate_review(raw, payload['original_trajectory_id'],
+        [s['reply'] for s in payload['trajectory']['steps']], payload['context_only_prefix_length'])
+
+
+class WholeTeacher(V0TeacherMixin, Teacher):
     def __init__(self, **kwargs):
         super().__init__(prompt_template=TEMPLATE, **kwargs)
 
@@ -213,7 +228,7 @@ class WholeTransport(StructuredTransport):
     def __init__(self, config, task_id, directory, budget, *, client=None):
         super().__init__(config, task_id, directory, budget, client=client,
             teacher_class=WholeTeacher, output_cap=OUTPUT_CAP,
-            retry_output_cap=RETRY_OUTPUT_CAP, phase='review')
+            retry_output_cap=RETRY_OUTPUT_CAP, phase='review', validator=_review_response)
 
 
 class WholeReviewer:
@@ -235,11 +250,12 @@ class WholeReviewer:
                 try:
                     raw = self.transport(prompt)  # Transport/cap errors still escape.
                     row = dict(request=prompt.to_json(), raw_output=raw)
-                except TeacherOutputTruncated as exc:
+                except (TeacherOutputTruncated, TeacherTimeout) as exc:
                     row = dict(request=prompt.to_json(), raw_output=None,
-                               status='teacher_output_truncated', teacher_attempts=exc.attempts)
+                               status='teacher_timeout' if isinstance(exc, TeacherTimeout) else 'teacher_output_truncated',
+                               teacher_attempts=exc.attempts)
                 write_json(path, row, exclusive=True)
-            if row.get('status') == 'teacher_output_truncated':
+            if row.get('status') in ('teacher_output_truncated', 'teacher_timeout'):
                 attempts.append(row)
                 return None, attempts
             try:
@@ -256,9 +272,13 @@ class WholeReviewer:
 def make_rationale_labeler(config, task_id, directory, budget, *, client=None):
     """Keep the V2 public L prompt; apply the V0 reasoning-output cap policy."""
     from repair.runtime import RepairTeacher
+    from repair.schemas import parse_label
+    class V0LabelTeacher(V0TeacherMixin, RepairTeacher):
+        pass
     return StructuredTransport(config, task_id, directory, budget, client=client,
-        teacher_class=RepairTeacher, output_cap=RATIONALE_OUTPUT_CAP,
-        retry_output_cap=RATIONALE_RETRY_OUTPUT_CAP, phase='label')
+        teacher_class=V0LabelTeacher, output_cap=RATIONALE_OUTPUT_CAP,
+        retry_output_cap=RATIONALE_RETRY_OUTPUT_CAP, phase='label',
+        validator=lambda raw, prompt: parse_label(raw, _LABEL_TOKENIZER))
 
 
 def compiled_turns(current, executors, patch):
@@ -308,8 +328,8 @@ def repair_failure(attempt, *, reviewer, env_factory, student_factory, ledger, d
             review, requests = reviewer.request(current, prefix_length, rounds)
             row = dict(round=index + 1, input_trajectory_id=current.trajectory_id,
                        review=review, requests=requests, executions=[], status='format_retry_exhausted')
-            if requests and requests[-1].get('status') == 'teacher_output_truncated':
-                row['status'] = 'teacher_output_truncated'
+            if requests and requests[-1].get('status') in ('teacher_output_truncated', 'teacher_timeout'):
+                row['status'] = requests[-1]['status']
             if review is not None:
                 patch = Patch.from_json(review['patch'])
                 replies, edited_origins, boundary, first = compiled_turns(current, origins, patch)

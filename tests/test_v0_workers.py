@@ -116,6 +116,8 @@ class ReviewClient(WholeClient):
     def create(self, **kwargs):
         self.markers.mkdir(exist_ok=True)
         (self.markers / AUDIT.key).write_text(str(os.getpid()))
+        if self.mode == 'timeout' and AUDIT.key == self.truncation_target:
+            raise TimeoutError('PRIVATE_FAKE_TIMEOUT')
         if self.mode == 'cap_race':
             # One admitted transport remains in flight while another reservation
             # hits the global cap. The admitted call must still be settled.
@@ -161,7 +163,10 @@ def fake_review_unit(**job):
             if spec.get('review_failure') == job['attempt']['attempt_id']:
                 time.sleep(.5)
                 raise RuntimeError('PRIVATE_FAKE_EXCEPTION_DO_NOT_PERSIST')
-            return transport(*a, **kw, client=client)
+            result = transport(*a, **kw, client=client)
+            result.teacher.teacher.sleep = lambda seconds: None
+            result.teacher.teacher.jitter = lambda lo, hi: 0
+            return result
         patch.setattr(v0_review, 'WholeTransport', make_transport)
         return REVIEW_UNIT(**job)
 
@@ -210,12 +215,12 @@ def test_attempt_probe_worker_count_identical_records_and_seals(runtime, probes)
         for decoding, seed in cli.DECODINGS]
 
 
-@pytest.mark.parametrize('mode', ['suffix', 'handback', 'three_rounds', 'truncated_twice'])
+@pytest.mark.parametrize('mode', ['suffix', 'handback', 'three_rounds', 'truncated_twice', 'timeout'])
 def test_review_worker_count_identical_records_and_seals(runtime, mode):
     args, root, manifest, spec = runtime
     spec['test_mode'] = mode
     attempts = cli.run_attempts(args, root, manifest)
-    if mode == 'truncated_twice':
+    if mode in ('truncated_twice', 'timeout'):
         from repair.v0_execution import selected_failures
         spec['truncation_target'] = selected_failures(attempts)[0]['attempt_id']
     sequential = cli.run_reviews(args, root, manifest, root / 'attempt')
@@ -224,8 +229,8 @@ def test_review_worker_count_identical_records_and_seals(runtime, mode):
     assert all(len(r['rounds']) == (3 if mode == 'three_rounds' else 1) for r in sequential)
     if mode == 'handback':
         assert all('handback-student' in r['executors'] for r in sequential)
-    if mode == 'truncated_twice':
-        assert sequential[0]['rounds'][0]['status'] == 'teacher_output_truncated'
+    if mode in ('truncated_twice', 'timeout'):
+        assert sequential[0]['rounds'][0]['status'] == ('teacher_timeout' if mode == 'timeout' else 'teacher_output_truncated')
         assert [r['verified'] for r in sequential] == [False, True, True, True]
     budget = cli.budget_for(root).summary()
     shutil.rmtree(root / 'review')

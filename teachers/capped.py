@@ -19,7 +19,7 @@ from sed.provenance import utc_now
 from sed.react import PROMPT_VERSION
 from sed.storage import digest, locked, write_json
 from sed.visibility import visible_history, visible_observation, visible_task
-from teachers.openai_teacher import Teacher, TeacherCallError, TeacherResult, read_api_key
+from teachers.openai_teacher import Teacher, TeacherCallError, TeacherResult, TeacherTimeoutError, read_api_key
 
 
 class BudgetExceeded(TeacherCallError):
@@ -208,7 +208,11 @@ class CappedTeacher:
         logical_starts = {r.get("logical_call_id", r["call_id"]) for r in all_rows if r["status"] == "started"}
         completed = {r["logical_call_id"] for r in rows
                      if r["status"] in {"success", "rejected"} and "logical_call_id" in r}
+        timeout_ids = {r['call_id'] for r in rows if r.get('recoverable_timeout')
+                       and getattr(self.teacher.transport_policy, 'timeout_is_recoverable', False)}
+        completed.update(r['logical_call_id'] for r in rows if r['call_id'] in timeout_ids)
         failed = any(r["status"] in {"failed", "incomplete"} and not (
+            r['call_id'] in timeout_ids or
             (r.get("http_status") == 429 or self.teacher.transport_policy is not None)
             and r.get("retryable") and r.get("will_retry")
             and r.get("logical_call_id") in completed) for r in rows)
@@ -266,6 +270,11 @@ class CappedTeacher:
                 result = self.teacher.generate(history, task, visible_context)
                 from teachers.stage import require_completed
                 require_completed(result)
+            except TeacherTimeoutError:
+                self._counter.update(halted=not getattr(self.teacher.transport_policy,
+                    'timeout_is_recoverable', False), pending=False)
+                write_json(self.counter_path, self._counter)
+                raise
             except BaseException:
                 self._counter.update(halted=True, pending=False)
                 write_json(self.counter_path, self._counter)

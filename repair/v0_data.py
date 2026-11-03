@@ -16,7 +16,7 @@ from repair.schemas import SchemaError, parse_label
 from repair.supervision import (ByteBoundTokenizer, GUIDANCE, InvalidExample,
     _grounded, _example, action_line, inspect_steps, public_visible, thought, validate_example)
 from repair.v0_common import bind, check_inputs, read
-from repair.v0_transport import TeacherOutputTruncated
+from repair.v0_transport import TeacherOutputTruncated, TeacherTimeout
 from sed.provenance import utc_now
 from sed.react import build_messages
 from sed.storage import atomic_write, canonical_bytes, digest, file_hash, write_json
@@ -77,6 +77,10 @@ def decision_rows(episode, manifest, *, bucket, episode_ref, labeler=None, audit
                     source, check = 'action_only_truncated_label', 'teacher_output_truncated'
                     log['teacher_attempts'] = exc.attempts
                     excluded['truncated_rationale_label'] += 1
+                except TeacherTimeout as exc:
+                    source, check = 'action_only_timeout_label', 'teacher_timeout'
+                    log['teacher_attempts'] = exc.attempts
+                    excluded['timeout_rationale_label'] += 1
                 except (SchemaError, InvalidExample) as exc:
                     source, check = 'action_only_invalid_label', str(exc)
                     excluded['invalid_rationale_label'] += 1
