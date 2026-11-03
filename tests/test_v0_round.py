@@ -557,7 +557,7 @@ def test_real_capped_transport_fake_client_and_ledger_hard_stop(tmp_path):
             return SimpleNamespace(status_code=200, headers={}, parse=lambda: result)
     config = load_config('configs/base_e4b.yaml')
     client = Client()
-    budget = SharedTeacherBudget(tmp_path / 'budget.jsonl', input_tokens=1000000, output_tokens=10000)
+    budget = SharedTeacherBudget(tmp_path / 'budget.jsonl', input_tokens=1000000, output_tokens=100000)
     transport = WholeTransport(config, TASK, tmp_path / 'teacher', budget, client=client)
     trace = TrajectoryRecord.from_json(failure()['execution'])
     value, _ = WholeReviewer(transport, tmp_path / 'requests').request(trace, 0, [])

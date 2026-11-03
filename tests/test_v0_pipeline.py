@@ -104,6 +104,11 @@ def test_full_fake_round_build_and_resume(tmp_path, monkeypatch):
     assert len(attempts) == 4
     estimate = cli.review_dry_run(args, root, manifest, root / 'attempt')
     assert estimate['failures'] == 2 and estimate['teacher_calls'] == 0 and client.calls == 0
+    assert estimate['review_output_cap'] == estimate['rationale_output_cap'] == 16384
+    assert estimate['review_retry_output_cap'] == estimate['rationale_retry_output_cap'] == 32768
+    assert estimate['maximum_review_output_tokens'] == 2 * 3 * 2 * (16384 + 32768)
+    assert estimate['maximum_label_output_tokens'] == 2 * 40 * (16384 + 32768)
+    assert estimate['projected_review_input_at_current_request_sizes'] == 12 * estimate['first_round_input_byte_bound']
     repairs = cli.run_reviews(args, root, manifest, root / 'attempt')
     assert len(repairs) == 2 and all(r['verified'] for r in repairs) and client.calls == 2
     rows = cli.run_labels(args, root, manifest, root / 'attempt', root / 'review')

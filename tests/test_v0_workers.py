@@ -128,6 +128,11 @@ class ReviewClient(WholeClient):
                 raise AssertionError('No concurrent cap stop')
         response = super().create(**kwargs)
         result = response.parse()
+        if self.mode == 'truncated_twice' and AUDIT.key == self.truncation_target:
+            result.output_text, result.status = '', 'incomplete'
+            result.incomplete_details = {'reason': 'max_output_tokens'}
+            result.usage.update(output_tokens=kwargs['max_output_tokens'],
+                output_tokens_details={'reasoning_tokens': kwargs['max_output_tokens']})
         if self.mode in ('handback', 'three_rounds'):
             value = json.loads(result.output_text)
             value['patch']['blocks'][0]['actions'] = ['look']
@@ -151,6 +156,7 @@ def fake_review_unit(**job):
         patch.setattr(cli, 'student_factory', fake_student)
         client = ReviewClient(job['spec'].get('test_mode'), job['budget'].path,
                               job['spec']['test_markers'])
+        client.truncation_target = spec.get('truncation_target')
         def make_transport(*a, **kw):
             if spec.get('review_failure') == job['attempt']['attempt_id']:
                 time.sleep(.5)
@@ -204,17 +210,23 @@ def test_attempt_probe_worker_count_identical_records_and_seals(runtime, probes)
         for decoding, seed in cli.DECODINGS]
 
 
-@pytest.mark.parametrize('mode', ['suffix', 'handback', 'three_rounds'])
+@pytest.mark.parametrize('mode', ['suffix', 'handback', 'three_rounds', 'truncated_twice'])
 def test_review_worker_count_identical_records_and_seals(runtime, mode):
     args, root, manifest, spec = runtime
     spec['test_mode'] = mode
-    cli.run_attempts(args, root, manifest)
+    attempts = cli.run_attempts(args, root, manifest)
+    if mode == 'truncated_twice':
+        from repair.v0_execution import selected_failures
+        spec['truncation_target'] = selected_failures(attempts)[0]['attempt_id']
     sequential = cli.run_reviews(args, root, manifest, root / 'attempt')
     expected = contents(root / 'review')
     assert len(sequential) == 4
     assert all(len(r['rounds']) == (3 if mode == 'three_rounds' else 1) for r in sequential)
     if mode == 'handback':
         assert all('handback-student' in r['executors'] for r in sequential)
+    if mode == 'truncated_twice':
+        assert sequential[0]['rounds'][0]['status'] == 'teacher_output_truncated'
+        assert [r['verified'] for r in sequential] == [False, True, True, True]
     budget = cli.budget_for(root).summary()
     shutil.rmtree(root / 'review')
     shutil.rmtree(spec['test_markers'])
@@ -289,7 +301,8 @@ def test_shared_review_cap_stops_all_workers_and_settles_inflight(runtime, monke
     spec['test_mode'] = 'cap_race'
     attempts = cli.run_attempts(args, root, manifest)
     spec['admit'] = selected_failures(attempts)[0]['attempt_id']
-    caps = dict(input_tokens=1_000_000, output_tokens=4096)
+    from repair.v0_review import OUTPUT_CAP
+    caps = dict(input_tokens=1_000_000, output_tokens=OUTPUT_CAP)
     budget = SharedTeacherBudget(root / 'teacher_budget.jsonl', **caps)
     monkeypatch.setattr(cli, 'budget_for', lambda root: budget)
     args.workers = 4

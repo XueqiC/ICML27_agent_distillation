@@ -1,8 +1,7 @@
 """Whole-trajectory V0 review with a real suffix-first, then student branch.
 
-Transport wiring is a small attributed adaptation of repair.supervision's
-RationaleLabeler and repair.joint.make_reviewer. Their capped client, durable
-reservations, usage settlement and cluster rate limiter are reused unchanged.
+Transport reuses the capped client, durable reservations, usage settlement and
+cluster rate limiter, with a V0-specific bounded output-truncation retry.
 """
 from collections import Counter
 from dataclasses import dataclass, replace
@@ -16,8 +15,8 @@ from repair.joint import is_refused
 from repair.joint_transform import ENVIRONMENT_RULE, TransformFactTable
 from repair.patch import InvalidPatch, Patch, compile_patch
 from repair.records import TrajectoryRecord
-from repair.supervision import RationaleLabeler
 from repair.v0_common import read
+from repair.v0_transport import StructuredTransport, TeacherOutputTruncated
 from sed.storage import canonical_bytes, digest, write_json
 from sed.thinking import split_thinking
 from sed.visibility import visible_observation
@@ -26,7 +25,12 @@ from train.dataset import EMPTY_THOUGHT
 
 CATEGORIES = ('refused_action', 'missing_precondition', 'wrong_object_or_target',
               'goal_misread', 'search_incomplete_or_loop', 'other')
-OUTPUT_CAP = 4096
+OUTPUT_CAP = 16384
+RETRY_OUTPUT_CAP = 32768
+# Rationale JSON is short, but the configured reasoning model can exhaust a
+# small cap before emitting it. Keep this policy separate from whole review.
+RATIONALE_OUTPUT_CAP = 16384
+RATIONALE_RETRY_OUTPUT_CAP = 32768
 TEMPLATE = """Review the WHOLE public student trajectory and its final environment outcome.
 Infer subgoals from visible replies. Preserve valid student choices and routes.
 Only public observations establish locations/contents; admissibility is not an
@@ -205,45 +209,11 @@ class WholeTeacher(Teacher):
         return prompt.messages()
 
 
-class WholeTransport(RationaleLabeler):
+class WholeTransport(StructuredTransport):
     def __init__(self, config, task_id, directory, budget, *, client=None):
-        from repair.takeover import _Reservations, _UsageLedger, _QuotaGuard
-        from teachers.capped import from_config
-        from teachers.openai_teacher import rate_limit_options
-        from teachers.rate_limit import RateLimiter
-        spec = config['models']['teacher']
-        if spec['requested_name'] != 'gpt-6-luna' or spec['provider_model_id'] != 'gpt-6-luna':
-            raise ValueError('V0 requires configured gpt-6-luna')
-        self.directory, self.budget, self.output_cap = Path(directory), budget, OUTPUT_CAP
-        self.task = dict(task_id=task_id, split='train', sealed=False)
-        self.teacher = from_config(config, output=self.directory, cache_dir=self.directory / 'cache',
-            usage_ledger=self.directory / 'usage.jsonl', run_id=self.directory.name, cap=80,
-            teacher_class=WholeTeacher, sampling={**spec['sampling'], 'max_output_tokens': OUTPUT_CAP})
-        self.reservation = _Reservations(budget, OUTPUT_CAP)
-        native = self.teacher.teacher
-        native.reservation_budget = self.reservation
-        native.ledger = _UsageLedger(native.ledger, budget)
-        if client is not None:
-            native.client.client = client
-        original = native._client
-        native._client = lambda: _QuotaGuard(original(), budget)
-        options = rate_limit_options(spec, budget.path.parent / 'joint_teacher_rate_limit')
-        native.limiter = RateLimiter(options.pop('rate_limit_dir'), spec['provider_model_id'], **options)
-
-    def __call__(self, prompt):
-        # A crash after durable transport settlement but before the round receipt
-        # must not issue the same logical request again or discard its raw output.
-        path = self.directory / 'requests.jsonl'
-        rows = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
-        matching = [r for r in rows if r.get('request') == prompt.to_json()]
-        if matching:
-            self.budget.check()
-            if matching[-1]['status'] == 'completed':
-                return matching[-1]['raw_output']
-            from teachers.openai_teacher import TeacherCallError
-            self.budget.halt('v0_interrupted_review_request')
-            raise TeacherCallError('V0 previous review request lacks a completion')
-        return super().__call__(prompt)
+        super().__init__(config, task_id, directory, budget, client=client,
+            teacher_class=WholeTeacher, output_cap=OUTPUT_CAP,
+            retry_output_cap=RETRY_OUTPUT_CAP, phase='review')
 
 
 class WholeReviewer:
@@ -262,9 +232,16 @@ class WholeReviewer:
                     raise ValueError('V0 review resume request differs')
                 raw = row['raw_output']
             else:
-                raw = self.transport(prompt)  # Transport/cap errors escape, never become format failures.
-                row = dict(request=prompt.to_json(), raw_output=raw)
+                try:
+                    raw = self.transport(prompt)  # Transport/cap errors still escape.
+                    row = dict(request=prompt.to_json(), raw_output=raw)
+                except TeacherOutputTruncated as exc:
+                    row = dict(request=prompt.to_json(), raw_output=None,
+                               status='teacher_output_truncated', teacher_attempts=exc.attempts)
                 write_json(path, row, exclusive=True)
+            if row.get('status') == 'teacher_output_truncated':
+                attempts.append(row)
+                return None, attempts
             try:
                 value = validate_review(raw, trajectory, prefix_length)
             except ReviewInvalid as exc:
@@ -277,14 +254,11 @@ class WholeReviewer:
 
 
 def make_rationale_labeler(config, task_id, directory, budget, *, client=None):
-    """Use the V2 L path, sharing review's default limiter and cluster override."""
-    from teachers.openai_teacher import rate_limit_options
-    from teachers.rate_limit import RateLimiter
-    labeler = RationaleLabeler(config, task_id, directory, budget, client=client)
-    spec = config['models']['teacher']
-    options = rate_limit_options(spec, budget.path.parent / 'joint_teacher_rate_limit')
-    labeler.teacher.teacher.limiter = RateLimiter(options.pop('rate_limit_dir'), spec['provider_model_id'], **options)
-    return labeler
+    """Keep the V2 public L prompt; apply the V0 reasoning-output cap policy."""
+    from repair.runtime import RepairTeacher
+    return StructuredTransport(config, task_id, directory, budget, client=client,
+        teacher_class=RepairTeacher, output_cap=RATIONALE_OUTPUT_CAP,
+        retry_output_cap=RATIONALE_RETRY_OUTPUT_CAP, phase='label')
 
 
 def compiled_turns(current, executors, patch):
@@ -334,6 +308,8 @@ def repair_failure(attempt, *, reviewer, env_factory, student_factory, ledger, d
             review, requests = reviewer.request(current, prefix_length, rounds)
             row = dict(round=index + 1, input_trajectory_id=current.trajectory_id,
                        review=review, requests=requests, executions=[], status='format_retry_exhausted')
+            if requests and requests[-1].get('status') == 'teacher_output_truncated':
+                row['status'] = 'teacher_output_truncated'
             if review is not None:
                 patch = Patch.from_json(review['patch'])
                 replies, edited_origins, boundary, first = compiled_turns(current, origins, patch)

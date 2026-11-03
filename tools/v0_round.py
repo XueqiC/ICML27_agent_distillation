@@ -198,7 +198,8 @@ def budget_for(root):
 def review_dry_run(args, root, manifest, attempts_dir):
     from repair.records import TrajectoryRecord
     from repair.v0_execution import selected_failures
-    from repair.v0_review import OUTPUT_CAP, review_prompt
+    from repair.v0_review import (OUTPUT_CAP, RETRY_OUTPUT_CAP, RATIONALE_OUTPUT_CAP,
+                                 RATIONALE_RETRY_OUTPUT_CAP, review_prompt)
     attempts = sealed_records(attempts_dir, 'records.json')
     if any(r['heldout_probe'] for r in attempts):
         raise ValueError('V0 probes cannot be sent to trajectory review')
@@ -217,10 +218,13 @@ def review_dry_run(args, root, manifest, attempts_dir):
             input_reservation_bound=raw_bytes + 16 * (len(prompt.messages()) + 1), request=prompt.to_json()))
     estimate = dict(failures=len(failures), teacher_calls=0, student_calls=0,
         first_round_input_byte_bound=sum(r['input_reservation_bound'] for r in requests),
-        projected_review_input_at_current_request_sizes=6 * sum(r['input_reservation_bound'] for r in requests),
-        maximum_review_output_tokens=len(failures) * 3 * 2 * OUTPUT_CAP,
-        maximum_label_output_tokens=len(failures) * 40 * 1024, caps=CAPS,
+        projected_review_input_at_current_request_sizes=12 * sum(r['input_reservation_bound'] for r in requests),
+        review_output_cap=OUTPUT_CAP, review_retry_output_cap=RETRY_OUTPUT_CAP,
+        rationale_output_cap=RATIONALE_OUTPUT_CAP, rationale_retry_output_cap=RATIONALE_RETRY_OUTPUT_CAP,
+        maximum_review_output_tokens=len(failures) * 3 * 2 * (OUTPUT_CAP + RETRY_OUTPUT_CAP),
+        maximum_label_output_tokens=len(failures) * 40 * (RATIONALE_OUTPUT_CAP + RATIONALE_RETRY_OUTPUT_CAP), caps=CAPS,
         note='Input projection is an estimate: later public execution feedback changes request sizes. '
+             'Output projections include one truncation retry per call, excluding HTTP retries. '
              'The live shared ledger reserves each actual request before transport.')
     write_json(directory / 'requests.json', requests)
     write_json(directory / 'estimate.json', estimate)
