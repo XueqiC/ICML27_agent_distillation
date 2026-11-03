@@ -32,11 +32,14 @@ def corpus(seed_corpus, tmp_path):
     replay = [example(tid, "k20_replay", "trajectory", "CONTINUE") for tid in sets["K20"]["task_ids"]]
     seal_bundle(root / "replay", replay, c.theta, splits, "CONTINUE")
     synthetic = tmp_path / "synthetic.json"
-    write_json(synthetic, {"schema": "v0-synthetic-tasks/1", "tasks": [{"task_id": "train/synth/a",
+    write_json(synthetic, {"schema": "v0-synthetic-tasks/1", "seed_task_ids": sets["K20"]["task_ids"],
+        "tasks": [{"task_id": "train/synth/a",
         "parent_seed_task_id": sets["K20"]["task_ids"][0], "group_id": "synthetic/a",
-        "task_type": "pick_and_place_simple", "generator": "G1", "split": "train", "sealed": False}]})
+        "task_type": "pick_and_place_simple", "generator": "G1", "bin": "near", "split": "train",
+        "sealed": False, "heldout_probe": False, "status": "valid", "item_fingerprint": digest("a")}]})
     row = example("train/synth/a", "joint_local", "decision", "V0")
-    row.update(group_id="synthetic/a", v0={"bucket": "R", "episode_id": "repair-a", "generator": "G1",
+    row["evidence"]["executor"] = "patch"
+    row.update(group_id="synthetic/a", v0={"bucket": "R", "episode_id": "repair-a", "generator": "G1", "bin": "near",
         "edit_decision": True, "synthetic_manifest_sha256": file_hash(synthetic)})
     config_path = tmp_path / "v0-config.json"
     write_json(config_path, c.config)
@@ -259,15 +262,48 @@ def test_contract_accepts_valid_synthetic_and_preserves_replay(corpus):
     assert Counter(r["v0"]["bucket"] for r in data["rows"]) == {"R": 1, "D": 20}
     original = [json.loads(s) for s in (corpus["root"] / "replay/examples.jsonl").read_text().splitlines()]
     for a, b in zip(data["rows"][1:], original):
+        assert a["v0"]["bin"] == a["v0"]["generator"] == "seed"
+        assert set(a["v0"]) == v0_data.V0_FIELDS
         assert {k: v for k, v in a.items() if k not in ("arm", "v0")} == {k: v for k, v in b.items() if k != "arm"}
     assert "evidence" not in v2.encode_example(data["rows"][0], v2.FakeTokenizer())
+
+
+@pytest.mark.parametrize("mutation,match", [
+    ("unchecked", "action-only label evidence"), ("rationale", "Action-only label with non-action target"),
+    ("executor", "Invalid V0 executor"), ("edit", "edit decision/executor mismatch"),
+    ("hidden_evidence", "Invalid evidence schema"),
+])
+def test_v0_evidence_extensions_keep_v2_safety_checks(mutation, match):
+    row = example("train/synth/a", "v0_R", "decision", "V0")
+    row["v0"] = dict(bucket="R", episode_id="patch-a", generator="G1", bin="near",
+                     edit_decision=True, synthetic_manifest_sha256="a" * 64)
+    row["evidence"].update(executor="patch", label_source="action_only_no_label", label_check="not_available")
+    row["messages"][-1]["content"] = "Action: look"
+    original = deepcopy(row)
+    v0_data.validate_row(row)
+    assert row == original
+    if mutation == "unchecked":
+        row["evidence"]["label_check"] = "passed"
+    elif mutation == "rationale":
+        row["messages"][-1]["content"] = "Thought: Inspect the room.\nAction: look"
+    elif mutation == "executor":
+        row["evidence"]["executor"] = "unknown"
+    elif mutation == "edit":
+        row["v0"]["edit_decision"] = False
+    elif mutation == "hidden_evidence":
+        row["evidence"]["extra.expert_plan"] = "private"
+    with pytest.raises(ValueError, match=match):
+        v0_data.validate_row(row)
 
 
 @pytest.mark.parametrize("mutation,match", [
     ("bad_id", "absent"), ("missing_manifest", "requires --synthetic-manifest"),
     ("hash", "Synthetic manifest hash mismatch"), ("parent", "not in theta0 K seeds"),
     ("holdout", "Held-out"), ("bucket", "Episode crosses"), ("hidden", "whitelist"),
-    ("unknown_success", "executed successful"), ("sealed_bytes", "hash mismatch")])
+    ("unknown_success", "executed successful"), ("sealed_bytes", "hash mismatch"),
+    ("unknown_bin", "Invalid v0 bin"), ("unknown_generator", "Invalid v0 metadata"),
+    ("missing_bin", "metadata fields"), ("extra_metadata", "metadata fields"),
+    ("bin_mismatch", "Synthetic bin mismatch"), ("generator_mismatch", "Synthetic generator mismatch")])
 def test_contract_rejections(corpus, mutation, match):
     row = corpus["rows"][0]
     if mutation == "missing_manifest":
@@ -280,7 +316,8 @@ def test_contract_rejections(corpus, mutation, match):
         row["v0"]["synthetic_manifest_sha256"] = "0" * 64
     elif mutation in ("parent", "holdout"):
         doc = read_json(corpus["synthetic"])
-        doc["tasks"][0].update({"parent_seed_task_id": "train/not-a-seed/0"} if mutation == "parent" else {"split": "holdout"})
+        doc["tasks"][0].update({"parent_seed_task_id": "train/not-a-seed/0"} if mutation == "parent" else
+                               {"split": "holdout", "sealed": True, "heldout_probe": True})
         write_json(corpus["synthetic"], doc)
         row["v0"]["synthetic_manifest_sha256"] = file_hash(corpus["synthetic"])
     elif mutation == "bucket":
@@ -294,11 +331,94 @@ def test_contract_rejections(corpus, mutation, match):
         row["messages"][1]["content"] = json.dumps(visible)
     elif mutation == "unknown_success":
         row["evidence"]["episode_success"] = None
+    elif mutation == "unknown_bin":
+        row["v0"]["bin"] = "distant"
+    elif mutation == "unknown_generator":
+        row["v0"]["generator"] = "G4"
+    elif mutation == "missing_bin":
+        del row["v0"]["bin"]
+    elif mutation == "extra_metadata":
+        row["v0"]["heldout_probe"] = False
+    elif mutation == "bin_mismatch":
+        row["v0"]["bin"] = "mid"
+    elif mutation == "generator_mismatch":
+        row["v0"]["generator"] = "G3"
     seal(corpus)
     if mutation == "sealed_bytes":
         with (corpus["root"] / "examples.jsonl").open("a") as handle:
             handle.write("\n")
     with pytest.raises(ValueError, match=match):
+        read(corpus)
+
+
+@pytest.mark.parametrize("generator,bin_name", [("G1", "near"), ("G3", "near"),
+    ("G2", "mid"), ("G2", "far"), ("G5", "very_far")])
+def test_manifest_bins_probes_and_raw_byte_hash(corpus, generator, bin_name):
+    doc = read_json(corpus["synthetic"])
+    task = doc["tasks"][0]
+    task.update(generator=generator, bin=bin_name)
+    probe = dict(task, task_id="train/synth/probe", group_id="synthetic/probe",
+                 item_fingerprint=digest("probe"), heldout_probe=True, split="holdout", sealed=True)
+    doc["tasks"].append(probe)
+    # Deliberately noncanonical bytes: both raw seals must use this exact file.
+    corpus["synthetic"].write_text(json.dumps(doc, indent=4) + "\n\n")
+    sha = file_hash(corpus["synthetic"])
+    assert sha != digest(doc)
+    corpus["rows"][0]["v0"].update(generator=generator, bin=bin_name, synthetic_manifest_sha256=sha)
+    seal(corpus)
+    data = read(corpus)
+    assert data["rows"][0]["v0"]["bin"] == bin_name
+    assert all(row["task_id"] != probe["task_id"] for row in data["rows"])
+    # Reformatting JSON without changing content still invalidates sealed inputs.
+    write_json(corpus["synthetic"], doc)
+    with pytest.raises(ValueError, match="sha256 mismatch"):
+        read(corpus)
+
+
+@pytest.mark.parametrize("changes,match", [
+    ({"bin": "unknown"}, "Invalid synthetic task fields"),
+    ({"generator": "G4"}, "Invalid synthetic task fields"),
+    ({"generator": "G5"}, "does not match distance bin"),
+    ({"bin": "seed", "generator": "seed"}, "Invalid synthetic task fields"),
+    ({"status": "rejected"}, "Invalid synthetic task fields"),
+    ({"heldout_probe": True}, "probe split mismatch"),
+    ({"split": "holdout"}, "probe split mismatch"),
+    ({"sealed": True}, "probe split mismatch"),
+    ({"heldout_probe": 0}, "probe split mismatch"),
+    ({"sealed": 0}, "Invalid synthetic task fields"),
+    ({"task_id": "train/synth/a\\escape"}, "Invalid or duplicate synthetic task id"),
+    ({"parent_seed_task_id": "train/synth/a"}, "not in theta0 K seeds"),
+])
+def test_synthetic_manifest_rejects_invalid_entries(corpus, changes, match):
+    doc = read_json(corpus["synthetic"])
+    doc["tasks"][0].update(changes)
+    write_json(corpus["synthetic"], doc)
+    # The file's seed list cannot promote a non-theta0 task into an allowed parent.
+    with pytest.raises(ValueError, match=match):
+        v0_data.read_synthetic_manifest(corpus["synthetic"], doc["seed_task_ids"])
+
+
+@pytest.mark.parametrize("collision", ["task_id", "group_id", "item_fingerprint"])
+def test_synthetic_manifest_rejects_training_probe_overlap(corpus, collision):
+    doc = read_json(corpus["synthetic"])
+    task = doc["tasks"][0]
+    probe = dict(task, task_id="train/synth/probe", group_id="synthetic/probe",
+                 item_fingerprint=digest("probe"), heldout_probe=True, split="holdout", sealed=True)
+    probe[collision] = task[collision]
+    doc["tasks"].append(probe)
+    write_json(corpus["synthetic"], doc)
+    with pytest.raises(ValueError, match="duplicate|overlap"):
+        v0_data.read_synthetic_manifest(corpus["synthetic"], doc["seed_task_ids"])
+
+
+def test_manifest_seed_list_cannot_authorize_an_unverified_parent(corpus):
+    doc = read_json(corpus["synthetic"])
+    doc["seed_task_ids"].append("train/unverified/trial_0")
+    doc["tasks"][0]["parent_seed_task_id"] = doc["seed_task_ids"][-1]
+    write_json(corpus["synthetic"], doc)
+    corpus["rows"][0]["v0"]["synthetic_manifest_sha256"] = file_hash(corpus["synthetic"])
+    seal(corpus)
+    with pytest.raises(ValueError, match="not in theta0 K seeds"):
         read(corpus)
 
 

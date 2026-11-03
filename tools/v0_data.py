@@ -14,7 +14,11 @@ from sed.visibility import visible_observation
 from repair.labels import instance_ids
 
 BUCKETS = ("R", "G", "S", "D")
-V0_FIELDS = {"bucket", "episode_id", "generator", "edit_decision", "synthetic_manifest_sha256"}
+V0_FIELDS = {"bucket", "episode_id", "generator", "bin", "edit_decision", "synthetic_manifest_sha256"}
+# Contract mirrored from repair/v0_common.py in the eval producer (e5bf24f).
+BIN_GENERATORS = {"near": ("G1", "G3"), "mid": ("G2",), "far": ("G2",), "very_far": ("G5",)}
+GENERATORS = ("G1", "G2", "G3", "G5", "seed")
+BINS = (*BIN_GENERATORS, "seed")
 
 
 def episodes(rows):
@@ -24,6 +28,24 @@ def episodes(rows):
     return {key: sorted(result[key], key=lambda i: rows[i]["example_id"]) for key in sorted(result)}
 
 
+def _validate_v0_evidence(row):
+    """Check producer executor/label names through V2 without rewriting rows."""
+    evidence = row["evidence"]
+    require(isinstance(evidence, dict), "Invalid evidence schema")
+    if row["v0"]["bucket"] == "D":
+        _validate_evidence(row)
+        return
+    executor = evidence.get("executor")
+    require(executor in ("student", "patch", "handback-student"), "Invalid V0 executor")
+    require(row["v0"]["edit_decision"] == (executor == "patch"), "V0 edit decision/executor mismatch")
+    evidence = dict(evidence, executor="teacher" if executor == "patch" else "student")
+    if evidence.get("label_source") == "action_only_no_label":
+        require(evidence.get("label_check") == "not_available", "Invalid V0 action-only label evidence")
+        # V2's invalid-label path checks the same action-only target invariant.
+        evidence["label_source"] = "action_only_invalid_label"
+    _validate_evidence(dict(row, evidence=evidence))
+
+
 def validate_row(row):
     require(isinstance(row, dict) and set(row) == EXAMPLE_FIELDS | {"v0"}, "Invalid V0 row fields")
     require(row["arm"] == "V0", "Expected arm V0")
@@ -31,9 +53,10 @@ def validate_row(row):
                 ("example_id", "source", "task_id", "group_id", "task_type")), "Missing row identity")
     meta = row["v0"]
     require(isinstance(meta, dict) and set(meta) == V0_FIELDS, "Invalid v0 metadata fields")
-    require(meta["bucket"] in BUCKETS and meta["generator"] in ("G1", "G2", "G3", "seed")
+    require(meta["bucket"] in BUCKETS and meta["generator"] in GENERATORS
             and isinstance(meta["episode_id"], str) and meta["episode_id"]
             and type(meta["edit_decision"]) is bool, "Invalid v0 metadata")
+    require(meta["bin"] in BINS, "Invalid v0 bin")
     require(row["kind"] in ("decision", "trajectory"), "Invalid row kind")
     require(type(row["weight"]) in (int, float) and row["weight"] == 1,
             "Row weight must be 1; use episode weights.json")
@@ -46,7 +69,7 @@ def validate_row(row):
     expected = list(range(2, len(messages), 2)) if row["kind"] == "trajectory" else [len(messages) - 1]
     require(isinstance(indices, list) and all(type(i) is int for i in indices) and indices == expected,
             "Invalid supervised assistant indices")
-    _validate_evidence(row)
+    _validate_v0_evidence(row)
     require(row["evidence"]["episode_success"] is True, "V0 requires executed successful episodes")
     history = []
     for i in range(2, len(messages), 2):
@@ -70,21 +93,33 @@ def read_synthetic_manifest(path, seed_tasks):
     document = read_json(path)
     require(document.get("schema") == "v0-synthetic-tasks/1" and isinstance(document.get("tasks"), list),
             "Invalid synthetic-task manifest schema")
-    tasks = {}
+    tasks, fingerprints = {}, set()
     for task in document["tasks"]:
         require(isinstance(task, dict) and {"task_id", "parent_seed_task_id", "group_id", "task_type",
-                "generator", "split", "sealed"} <= task.keys(), "Incomplete synthetic task")
+                "generator", "bin", "split", "sealed", "heldout_probe", "status", "item_fingerprint"}
+                <= task.keys(), "Incomplete synthetic task")
         tid = task["task_id"]
         require(isinstance(tid, str) and tid.startswith("train/synth/") and len(tid.split("/")) == 3
-                and tid.split("/")[-1] not in ("", ".", "..") and tid not in tasks,
+                and tid.split("/")[-1] not in ("", ".", "..") and "\\" not in tid and tid not in tasks,
                 "Invalid or duplicate synthetic task id")
-        require(task["parent_seed_task_id"] in seed_tasks, "Synthetic parent is not in theta0 K seeds")
-        require(task["generator"] in ("G1", "G2", "G3") and task["split"] in ("train", "holdout")
-                and type(task["sealed"]) is bool and all(isinstance(task[k], str) and task[k]
+        parent = task["parent_seed_task_id"]
+        require(isinstance(parent, str) and parent in seed_tasks and not parent.startswith("train/synth/"),
+                "Synthetic parent is not in theta0 K seeds")
+        require(task["generator"] in GENERATORS[:-1] and task["bin"] in tuple(BIN_GENERATORS)
+                and task["status"] == "valid" and type(task["sealed"]) is bool
+                and all(isinstance(task[k], str) and task[k]
                 for k in ("group_id", "task_type")), "Invalid synthetic task fields")
+        require(task["generator"] in BIN_GENERATORS[task["bin"]], "Synthetic generator does not match distance bin")
+        probe = task["heldout_probe"]
+        require(type(probe) is bool and task["split"] == ("holdout" if probe else "train")
+                and task["sealed"] == probe, "Synthetic probe split mismatch")
+        fingerprint = task["item_fingerprint"]
+        require(isinstance(fingerprint, str) and fingerprint and fingerprint not in fingerprints,
+                "Invalid or duplicate synthetic training/probe fingerprint")
+        fingerprints.add(fingerprint)
         tasks[tid] = task
-    training_groups = {t["group_id"] for t in tasks.values() if t["split"] == "train" and not t["sealed"]}
-    held_groups = {t["group_id"] for t in tasks.values() if t["split"] != "train" or t["sealed"]}
+    training_groups = {t["group_id"] for t in tasks.values() if not t["heldout_probe"]}
+    held_groups = {t["group_id"] for t in tasks.values() if t["heldout_probe"]}
     require(not training_groups & held_groups, "Synthetic training/holdout group overlap")
     return tasks, file_hash(path)
 
@@ -164,10 +199,13 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
             require(tid in synthetic, "Synthetic id is absent from the manifest")
             require(meta["synthetic_manifest_sha256"] == synth_sha, "Synthetic manifest hash mismatch")
             task = synthetic[tid]
-            require(task["split"] == "train" and not task["sealed"], "Held-out synthetic task cannot enter training")
+            require(not task["heldout_probe"] and task["split"] == "train" and not task["sealed"],
+                    "Held-out synthetic task cannot enter training")
             require(meta["generator"] == task["generator"], "Synthetic generator mismatch")
+            require(meta["bin"] == task["bin"], "Synthetic bin mismatch")
         else:
             require(tid in seeds and meta["generator"] == "seed", "Non-synthetic task must be a theta0 K seed")
+            require(meta["bin"] == "seed", "Seed rows use bin seed")
             require(meta["synthetic_manifest_sha256"] == "", "Seed rows use an empty synthetic manifest hash")
             task = resolve_task(frozen, freeze, tid)
             authorize_task(task, "generation")
@@ -177,7 +215,7 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     for row in replay["rows"]:
         row = deepcopy(row)
         row["arm"] = "V0"
-        row["v0"] = {"bucket": "D", "episode_id": "seed/" + row["example_id"], "generator": "seed",
+        row["v0"] = {"bucket": "D", "episode_id": "seed/" + row["example_id"], "generator": "seed", "bin": "seed",
                      "edit_decision": False, "synthetic_manifest_sha256": ""}
         validate_row(row)
         rows.append(row)
@@ -186,8 +224,9 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     grouped = episodes(rows)
     for indices in grouped.values():
         require(len({(rows[i]["task_id"], rows[i]["group_id"], rows[i]["v0"]["bucket"],
-                      rows[i]["v0"]["generator"], rows[i]["evidence"]["episode_ref"]) for i in indices}) == 1,
-                "Episode crosses tasks, buckets, generators or evidence references")
+                      rows[i]["v0"]["generator"], rows[i]["v0"]["bin"],
+                      rows[i]["evidence"]["episode_ref"]) for i in indices}) == 1,
+                "Episode crosses tasks, buckets, generators, bins or evidence references")
         require(len({rows[i]["evidence"]["step"] for i in indices}) == len(indices), "Duplicate episode decision")
     # One successful S trajectory per instance, as preregistered.
     s_tasks = [rows[indices[0]]["task_id"] for indices in grouped.values()

@@ -1,7 +1,9 @@
 # V0 training interchange, version 1
 
-This is the producer/consumer contract for the V2 training worktree at
-`5857234`. The implementations are `v0_data.py`, `v0_grad_features.py`,
+This is the V0 training contract aligned with the eval producer at `e5bf24f`
+(`repair/v0_data.py`, `repair/v0_common.py`, `repair/v0_synth.py`, and
+`tools/V0_ROUND.md` in `ICML27_wt_repair_eval`). The implementations are
+`v0_data.py`, `v0_grad_features.py`,
 `v0_groups.py`, and `train_v0_arm.py`. They import the V2 reader, encoder,
 adapter loader, scorer, training loop, accounting, and exporter; no V2 module
 is patched. There are no teacher, generator, or environment calls here.
@@ -33,8 +35,8 @@ the V2 fields plus `v0`:
 {
   "arm": "V0",
   "evidence": {"episode_ref": "records/repair-1.json", "step": 3,
-    "executor": "student", "local_event": null, "episode_success": true,
-    "label_source": "student_thought", "label_check": "passed"},
+    "executor": "patch", "local_event": null, "episode_success": true,
+    "label_source": "teacher_rationale", "label_check": "passed"},
   "example_id": "unique-stable-decision-id",
   "group_id": "synth-group-1",
   "kind": "decision",
@@ -45,7 +47,8 @@ the V2 fields plus `v0`:
   "task_type": "pick_and_place_simple",
   "weight": 1.0,
   "v0": {"bucket": "R", "episode_id": "repair-1", "generator": "G1",
-    "edit_decision": true, "synthetic_manifest_sha256": "<64 lowercase hex>"}
+    "bin": "near", "edit_decision": true,
+    "synthetic_manifest_sha256": "<64 lowercase hex>"}
 }
 ```
 
@@ -61,13 +64,21 @@ fields, and `Guidance:`. V2 action-only labels remain supported. Hidden audit
 fields, evidence, task manifests, and `v0` metadata never enter tokenization.
 The training encoder reads the same explicit fields as V2.
 
+Root evidence uses executor `student`, `patch`, or `handback-student`, with
+`edit_decision=true` exactly for `patch`. Unlabeled patches use
+`label_source="action_only_no_label"`, `label_check="not_available"`; these
+must still have an action-only supervised target. The V0 validator adapts
+these names for V2's existing evidence checks without altering stored rows
+or relaxing the evidence field whitelist. D retains its original V2 evidence.
+
 `example_id` is a unique nonempty producer ID; unlike V2, it need not use a
 particular digest formula. An `episode_id` identifies exactly one task,
-group, generator, bucket, and evidence episode reference. Its decision step
+group, generator, bin, bucket, and evidence episode reference. Its decision step
 indices are unique. Row `weight` stays 1; weighting happens at episode sampling.
-Every root row must contain all five `v0` keys with no extras. `edit_decision`
-is a JSON boolean. Non-synthetic task IDs must be θ₀ seed tasks, use generator
-`seed`, and use `""` for `synthetic_manifest_sha256`.
+Every row must contain exactly the six `v0` keys shown above. `edit_decision`
+is a JSON boolean. Allowed generators are `G1|G2|G3|G5|seed`; allowed bins are
+`near|mid|far|very_far|seed`. Non-synthetic task IDs must be θ₀ seed tasks, use
+generator and bin `seed`, and use `""` for `synthetic_manifest_sha256`.
 
 Bucket meanings follow the newer preregistration: R is the initial synthesis
 repair pool, G the expansion repair/success pool, S initial-synthesis student
@@ -75,9 +86,12 @@ success (at most one episode per task), D the original K demonstrations.
 Synthetic tasks can therefore occur in R, G, or S. D is mandatory and comes
 only from `replay/`; do not duplicate it in root rows. Its V2 bytes and masks
 are preserved. In memory, D rows get arm V0 and metadata:
-`episode_id="seed/" + example_id`, generator `seed`, `edit_decision=false`,
+`episode_id="seed/" + example_id`, generator/bin `seed`, `edit_decision=false`,
 empty synthetic hash. Original trajectory targets, including V2's diagnostic
 exceptions for historical seed labels, remain unchanged.
+The consumer's `dataset_sha256` includes these virtual rows and therefore
+includes `bin`. Feature/group artifacts made with the older five-key reader
+must be regenerated to match this identity.
 
 Root `manifest.json` requires:
 
@@ -116,34 +130,86 @@ groups, episodes, and repeated training exposure are reported separately.
 
 ## Synthetic task manifest
 
-Pass the path with `--synthetic-manifest`. Its SHA256 is the hash of the raw
-file bytes, not canonicalized JSON. Every synthetic row must carry exactly
-that hash. The versioned minimal format is:
+Pass the path with `--synthetic-manifest`. The producer also records this path
+in the dataset manifest's audit-only `synthetic_manifest` field; the reader
+uses the explicit argument and requires it to be a sealed input. Its SHA256
+is the hash of the raw file bytes, not canonicalized JSON or a digest of the
+`tasks` list. This is exactly `SyntheticManifest.sha256` on the producer.
+Every synthetic row must carry that hash. The minimal identity fields are:
 
 ```json
 {
   "schema": "v0-synthetic-tasks/1",
+  "seed_task_ids": ["train/original-group/trial_0"],
   "tasks": [{
     "task_id": "train/synth/example-1",
     "parent_seed_task_id": "train/original-group/trial_0",
     "group_id": "synth-group-1",
     "task_type": "pick_and_place_simple",
     "generator": "G1",
+    "bin": "near",
     "split": "train",
-    "sealed": false
+    "sealed": false,
+    "heldout_probe": false,
+    "status": "valid",
+    "item_fingerprint": "<effective state/goal or recovery-state fingerprint>"
   }]
 }
 ```
 
 IDs have exactly three slash-separated components, with a nonempty final
-component other than `.` or `..`. G1/G2/G3 are allowed. Every entry, including
-holdout entries, must have a parent in θ₀'s verified K seed task set. Extra
-task fields are audit-only. Holdout entries use `split="holdout"` or
-`sealed=true`; no such entry can train. Training and holdout group IDs cannot
-overlap. Task type, group, and generator must match the row. Missing manifest,
-unknown synthetic ID, hash mismatch, parent outside K, or diagnostic identity
-is an error. Freeze this manifest before collection/experiments. Rephrases
-and retries must retain the original task identity.
+component other than `.` or `..`, and no backslashes. Every entry, including
+held-out probes, must have `status="valid"` and a parent in θ₀'s verified K
+seed task set. A synthetic task can never be a parent. The manifest's
+`seed_task_ids` list cannot authorize additional parents: the reader derives
+membership from θ₀'s executed seed receipts.
+
+The generator/bin pairs match the producer's `SyntheticManifest`:
+
+| Bin | Generators |
+| --- | --- |
+| `near` | `G1`, `G3` |
+| `mid` | `G2` |
+| `far` | `G2` |
+| `very_far` | `G5` |
+
+`seed` is reserved for seed rows, never synthetic manifest entries. Training
+entries require `heldout_probe=false`, `split="train"`, `sealed=false`.
+Held-out probes require **all three** of `heldout_probe=true`,
+`split="holdout"`, `sealed=true`. The flags must be JSON booleans; missing or
+contradictory markings are rejected. Probes remain in the hashed freeze but
+are always rejected as training rows. All entries have unique task IDs and
+`item_fingerprint` values, and training/probe group IDs cannot overlap.
+Task type, group, generator **and bin** must match each training row.
+
+The full producer manifest also records seed/split source hashes, seed
+provenance, K/seed, grouping/witness policy, and per-task edits, allocation,
+fingerprints, asset paths/hashes and validation receipts. These additional
+fields remain audit-only; none enters the model input whitelist. Missing
+manifest, unknown synthetic ID, hash mismatch, parent outside K, or diagnostic
+identity is an error. Freeze the manifest before collection/experiments.
+Expansion publishes a new combined manifest and rebinds inherited rows to
+its raw-byte hash in a new dataset. Rephrases and retries retain the original
+task identity.
+
+## Offline contract tests
+
+`tests/test_v0_producer_contract.py` imports the sibling producer read-only,
+with path insertion confined to the test and bytecode writes disabled. It
+uses the producer's allocator, `SyntheticManifest`, `decision_rows`, and
+`publish_dataset` with fake candidates/executions and sealed fake K20 receipts.
+It covers every allowed synthetic generator/bin pair, R/G/S and virtual D,
+raw-byte manifest hashing, unchanged replay bytes, and the producer's consumer
+dataset hash with `seed_bin=True`. Negative cases include unknown bins and
+generators, held-out probe rows, and row/manifest bin or generator mismatches.
+The cross-worktree tests skip with an explicit reason if the sibling cannot
+be imported; the standalone reader tests still run.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest \
+  tests/test_v0_training.py tests/test_v0_producer_contract.py -q
+```
 
 ## Gradient artifacts
 
