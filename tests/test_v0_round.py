@@ -1,5 +1,6 @@
 """CPU-only V0 protocol tests. Existing fake environment/student/transport used."""
 from copy import deepcopy
+from dataclasses import replace
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,7 +9,8 @@ import pytest
 
 from repair.dry_fakes import FakeEnvironment, O, N
 from repair.execute import execute_actions
-from repair.joint import FakeReviewClient, FakeStudent
+from repair.joint import FakeReviewClient, FakeStudent, is_refused
+from repair.joint_transform import TransformFactTable
 from repair.ledger import BudgetLedger
 from repair.records import TrajectoryRecord
 from repair.takeover import SharedTeacherBudget
@@ -20,7 +22,9 @@ from repair.v0_review import (ReviewInvalid, WholeReviewer, WholeTransport, publ
                               repair_failure, review_prompt, validate_review)
 from repair.v0_synth import allocate_seed, annotate, candidates, edit_kind, validate_candidate
 from sed.config import load_config
-from sed.storage import digest, file_hash, write_json
+from sed.storage import canonical_bytes, digest, file_hash, write_json
+from sed.thinking import split_thinking
+from sed.visibility import visible_observation
 from train.dataset import EMPTY_THOUGHT
 from test_synth_tasks import small_game, template_seeds, FakeEnv, make_seed_receipt
 from repair import synth_tasks as factory
@@ -310,17 +314,167 @@ def test_three_round_cap_previous_executions_and_won_only(tmp_path):
     assert len(reviewer.calls[-1].payload['previous_rounds'][0]['executions']) == 2
 
 
+def legacy_public_execution(trace):
+    """Full-table encoding from v0_review at 6e33968, for loss/size comparisons."""
+    initial = before = visible_observation(trace.initial['visible'])
+    table, rows, seen = TransformFactTable(initial), [], set()
+    for i, step in enumerate(trace.steps):
+        after = visible_observation(step['visible']) if step['visible'] is not None else None
+        action = step.get('action_parsed')
+        facts = json.loads(table.prompt_text())
+        row = dict(step=i, reply=split_thinking(step['action_raw'])[0], action=action,
+            action_outcome=step.get('action_outcome'), observation=after['observation'] if after else None,
+            refused=is_refused(step.get('action_outcome'), after['observation']) if after else None,
+            repeated_action=bool(action and action in seen), admissible_commands=before['admissible_commands'],
+            facts_before=facts, unmet_preconditions={k: v for k, v in facts['conditions'].items()
+                if v['status'] in ('known_unsatisfied', 'refuted')})
+        seen.add(action)
+        table.update(dict(action_parsed=action, action_outcome=step.get('action_outcome'),
+                          observation=after['observation'] if after else ''))
+        row['facts_after'] = json.loads(table.prompt_text())
+        rows.append(row)
+        if after:
+            before = after
+    return dict(initial_observation=initial['observation'], steps=rows,
+                final_outcome=dict(won=trace.success, termination=trace.termination_reason))
+
+
+def apply_fact_delta(facts, changes):
+    """Independent decoder of the merge/delete format documented to the teacher."""
+    result = deepcopy(facts)
+    for key, value in changes.items():
+        if value == {'$removed': True}:
+            del result[key]
+        elif isinstance(value, dict):
+            result[key] = apply_fact_delta(result.get(key, {}), value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
+def compact_fixture():
+    actions = ['look', 'go to countertop 1', 'take apple 1 from countertop 1',
+        'go to microwave 1', 'heat apple 1 with microwave 1', 'go to fridge 1',
+        'cool apple 1 with fridge 1', 'put apple 1 in fridge 1', 'take apple 1 from fridge 1',
+        'inventory', 'take mug 1 from cabinet 1', 'take mug 1 from cabinet 1',
+        'open cabinet 1', 'open cabinet 1'] + ['look'] * 26
+    class PublicEnv(FakeEnvironment):
+        def state(self, text):
+            # Distinct lists make accidental use of post-action commands detectable.
+            commands = sorted(set(actions) - {'take mug 1 from cabinet 1'})
+            return (dict(observation=text, admissible_commands=commands + [f'examine mug {self.turn + 1}']),
+                    0, False, False, {'won': False, 'internal_state': 'SECRET_STATE'})
+        def reset(self, task_id):
+            self.turn = 0
+            return self.state('Your task is to: put a cool apple in cabinet.\n' + ' '.join(
+                f'On the cabinet {i}, you see a mug {i}.' for i in range(1, 17)) +
+                ' On the countertop 1, you see an apple 1.')
+        def step(self, action):
+            self.turn += 1
+            text = {'inventory': 'You are carrying: apple 1.',
+                    'take mug 1 from cabinet 1': 'Nothing happens.',
+                    'open cabinet 1': 'Nothing happens.'}.get(action, 'You executed ' + action + '.')
+            return self.state(text)
+    return execute_actions(PublicEnv, TASK,
+        ['Thought: Use the public evidence.\nAction: ' + a for a in actions], 40)
+
+
+def test_review_compact_facts_reconstruct_every_original_step_and_previous_round():
+    trace = compact_fixture()
+    original = trace.to_json()
+    compact = public_execution(trace)
+    legacy = legacy_public_execution(trace)
+    facts = compact['initial_facts']
+    assert len(compact['steps']) == 40
+    for row, old in zip(compact['steps'], legacy['steps']):
+        assert facts == old['facts_before']
+        facts = apply_fact_delta(facts, row['facts_changed'])
+        assert facts == old['facts_after']
+        for key in ('step', 'reply', 'action', 'action_outcome', 'refused', 'repeated_action', 'observation'):
+            assert row[key] == old[key]
+        assert row.get('unmet_preconditions', {}) == old['unmet_preconditions']
+        assert ('unmet_preconditions' in row) == bool(old['unmet_preconditions'])
+        assert 'facts_before' not in row and 'facts_after' not in row
+    assert facts == compact['final_facts']
+    assert compact['steps'][0]['facts_changed']['conditions']['transform_done'] == {'evidence_steps': [-1, 0]}
+    assert compact['steps'][14]['facts_changed'] == {}
+    # Cooling replaces a witnessed hot state, requiring a real deletion delta.
+    assert compact['steps'][6]['facts_changed']['state_changes']['apple 1']['hot'] == {'$removed': True}
+    assert 'cabinet 16' not in compact['steps'][2]['facts_changed'].get('receptacles', {})
+    assert compact['steps'][2]['facts_changed']['holding']['value'] == ['apple 1']
+    assert compact['steps'][0]['reply'].startswith('Thought:')
+    prompt = review_prompt(trace, prefix_length=3, previous=[dict(round=0, executions=[original, original])])
+    assert prompt.payload['previous_rounds'][0]['executions'] == [compact, compact]
+    assert prompt.payload['context_only_prefix_length'] == 3
+    assert prompt.payload['original_trajectory_id'] == trace.trajectory_id
+    assert prompt.to_json()['template_version'] == 'v0-whole-review/2'
+    assert trace.to_json() == original
+
+
+def test_review_admissible_commands_only_on_refused_and_final_steps():
+    trace = compact_fixture()
+    public = public_execution(trace)
+    assert [s['step'] for s in public['steps'] if s['refused']] == [10, 11, 12, 13]
+    for row, old in zip(public['steps'], legacy_public_execution(trace)['steps']):
+        expected = row['refused'] or row['step'] == 39
+        assert ('admissible_commands' in row) == expected
+        if expected:
+            assert row['admissible_commands'] == old['admissible_commands']
+    assert public['steps'][11]['repeated_action'] is True
+
+
+@pytest.mark.parametrize('kind', ['empty', 'missing_observation', 'no_unmet_conditions'])
+def test_review_compact_edge_cases(kind):
+    trace = compact_fixture()
+    if kind == 'empty':
+        trace = replace(trace, steps=[])
+    elif kind == 'missing_observation':
+        trace = replace(trace, steps=[dict(trace.steps[0], visible=None)],
+                        success='unknown', termination_reason='ENV_ERROR')
+    else:
+        trace = TrajectoryRecord.from_json(failure()['execution'])
+    compact = public_execution(trace)
+    facts = compact['initial_facts']
+    for row, old in zip(compact['steps'], legacy_public_execution(trace)['steps']):
+        assert facts == old['facts_before']
+        facts = apply_fact_delta(facts, row['facts_changed'])
+        assert facts == old['facts_after']
+        assert ('unmet_preconditions' in row) == bool(old['unmet_preconditions'])
+    assert compact['final_facts'] == facts
+    if kind == 'missing_observation':
+        assert compact['steps'][0]['refused'] is None
+        assert compact['steps'][0]['observation'] is None
+        assert compact['final_outcome']['won'] == 'unknown'
+        assert compact['steps'][0]['admissible_commands'] == trace.initial['visible']['admissible_commands']
+    elif kind == 'no_unmet_conditions':
+        assert 'unmet_preconditions' not in compact['steps'][0]
+
+
+def test_review_compact_40_step_request_under_15_percent_of_full_encoding():
+    trace = compact_fixture()
+    prompt = review_prompt(trace)
+    old_payload = dict(prompt.payload, trajectory=legacy_public_execution(trace))
+    # Include the new instructions on both sides: payload savings alone must pass.
+    old_messages = [prompt.messages()[0], dict(role='user', content=canonical_bytes(old_payload).decode())]
+    old_bytes, new_bytes = len(canonical_bytes(old_messages)), len(canonical_bytes(prompt.messages()))
+    assert new_bytes < 0.15 * old_bytes, (old_bytes, new_bytes)
+
+
 def test_review_prompt_hidden_state_exclusion_and_transform_rules():
     trace = TrajectoryRecord.from_json(failure()['execution'])
+    private = dict(witness='SECRET_WITNESS', planner='SECRET_PLANNER', internal_state='SECRET_STATE',
+        facts='SECRET_PDDL', policy_commands='SECRET_POLICY', audit='SECRET_AUDIT',
+        hidden_success='SECRET_SUCCESS', **{'extra.expert_plan': 'SECRET_EXPERT'})
+    # Inject after record construction too, so public_execution's own whitelist is exercised.
+    for step in [trace.initial, *trace.steps]:
+        step.update(private, audit_sha256='SECRET_DIGEST')
+        step['visible'].update(private)
     body = trace.to_json()
     body.pop('trajectory_id')
-    body['initial'].update(witness='SECRET_WITNESS', planner='SECRET_PLANNER', internal_state='SECRET_STATE')
-    body['initial']['visible']['extra.expert_plan'] = 'SECRET_EXPERT'
-    trace = TrajectoryRecord.from_json(body)
-    prompt = json.dumps(review_prompt(trace).messages())
-    for secret in ('SECRET_WITNESS', 'SECRET_PLANNER', 'SECRET_STATE', 'SECRET_EXPERT'):
+    prompt = json.dumps(review_prompt(trace, previous=[dict(round=0, executions=[body])]).messages())
+    for secret in [*private.values(), 'SECRET_DIGEST']:
         assert secret not in prompt
-    facts = public_execution(trace)['steps'][0]['facts_before']
+    facts = public_execution(trace)['initial_facts']
     assert facts['object_locations'] == {}
     assert facts['receptacles'] == {}
     assert 'heat <obj> with <microwave>' in prompt

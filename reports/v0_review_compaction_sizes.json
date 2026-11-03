@@ -1,0 +1,26 @@
+{
+  "baseline_revision": "6e33968",
+  "code_sha256": {
+    "repair/v0_review.py": "3d94fd6375ec28096f9b2773add678a6e4653f1bdb668e80976d43a85d5ea0f4",
+    "tools/v0_review_sizes.py": "11b8665877bfcf02cf180767d413eb4fdc8c04760ece27ad53236e1956733ddb"
+  },
+  "environment_calls": 0,
+  "failures": 146,
+  "max_per_request_new_over_old": 0.2665995081627211,
+  "measurement": "UTF-8 canonical JSON of system+user messages; first review round only",
+  "new_over_old": 0.12537132878586182,
+  "new_request_bytes": {
+    "max": 78888,
+    "mean": 55376.34246575343,
+    "total": 8084946
+  },
+  "old_request_bytes": {
+    "max": 655119,
+    "mean": 441698.61643835617,
+    "total": 64487998
+  },
+  "source": "/home/xueqi/hq/projects/ICML27_v0_runs/v0_k20_r1/_failed/review_dry_run-verbose-6e33968/requests.json",
+  "source_kind": "recorded_public_trajectories",
+  "source_sha256": "9f21fc2a22faad7f0e7eb0091a0609ffce6d1451000e831249adee642cc60373",
+  "teacher_calls": 0
+}
