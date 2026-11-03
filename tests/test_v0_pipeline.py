@@ -27,7 +27,7 @@ def arguments(root, **kwargs):
         synthetic_manifest=None, endpoint='http://localhost:1/v1', model_name='e4b-tsft-k20-e32-lr5e-5',
         server_provenance='fake', lora_check='fake', task_ids=None, action_only=True,
         splits='data/manifest/method_v1_splits.json', verified_root=None, theta0_training_dir=None,
-        snapshot=None, replay=None, **kwargs)
+        snapshot=None, replay=None, byte_token_cap=True, **kwargs)
 
 
 def fake_adapter():

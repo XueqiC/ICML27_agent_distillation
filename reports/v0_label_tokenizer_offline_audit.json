@@ -1,0 +1,83 @@
+{
+  "audit_rows_without_raw_output": 56,
+  "checked_source_artifact_hashes_sha256": "b354c7957100efd02f3ee1509f38d70b9147bdc526de6c9d54721bfeca78ece1",
+  "checked_source_artifacts": 624,
+  "dataset_sha256": "ba4fc3cf97dddb3acef2faa5e2e2b1cec5910eacda647bf31ab42822127ce1e1",
+  "gpu_used": false,
+  "grounding_failure_details": {
+    "candidate_not_grounded": 1,
+    "label_instances_not_public_and_candidate_not_grounded": 9,
+    "teacher_unsupported": 14
+  },
+  "label_check": {
+    "label_grounding_failed": 24,
+    "passed": 471
+  },
+  "label_completion_sha256": "5eda9d7d36d2a4e7e21b42b078e31e822e6930c6d060c72da031c6279ec9ca37",
+  "label_plan_sha256": "5c4486c719319414a0aa11c5febb15106225c123e9407e5bfb8615dd9755e8d0",
+  "label_source": {
+    "action_only_invalid_label": 24,
+    "teacher_rationale": 471
+  },
+  "network_disabled": true,
+  "new_teacher_usage": 0,
+  "old_label_check": {
+    "passed": 2,
+    "reasoning_token_cap": 493
+  },
+  "rationale_token_histogram": {
+    "15": 1,
+    "16": 6,
+    "17": 4,
+    "18": 14,
+    "19": 13,
+    "20": 22,
+    "21": 19,
+    "22": 21,
+    "23": 35,
+    "24": 39,
+    "25": 38,
+    "26": 42,
+    "27": 36,
+    "28": 29,
+    "29": 29,
+    "30": 22,
+    "31": 28,
+    "32": 20,
+    "33": 15,
+    "34": 8,
+    "35": 11,
+    "36": 15,
+    "37": 6,
+    "38": 4,
+    "39": 4,
+    "40": 1,
+    "41": 4,
+    "42": 2,
+    "43": 2,
+    "44": 2,
+    "45": 3
+  },
+  "rationale_token_max": 45,
+  "rationale_token_min": 15,
+  "real_reuse_source_unique_completed_requests": 481,
+  "recorded_raw_outputs": 495,
+  "schema_check": {
+    "passed": 495
+  },
+  "scope": "Independent revalidation against each original recorded request and public prefix, without rebuilding the dataset.",
+  "source": "/home/xueqi/hq/projects/ICML27_v0_runs/v0_k20_r1",
+  "source_files_written": 0,
+  "teacher_calls": 0,
+  "tokenizer": {
+    "chat_template_sha256": "734397deaf791f4736cbf05f47c43aef34d62a3270a2ad288f4999e6ec8e1367",
+    "files": {
+      "chat_template.jinja": "0a2c8073c878ab1da004bee933a998606537bbb62016310352c7285c3f01c5b5",
+      "tokenizer.json": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+      "tokenizer_config.json": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633"
+    },
+    "id": "c94df751f28295dd9b6c779ccee1ab0021e4b6f824bb625b8ce3173341056c7a",
+    "path": "/home/xueqi/.cache/huggingface/hub/models--google--gemma-4-E4B-it/snapshots/ee0ef6023621cff504d758262d4e04895a5af4a2",
+    "student_revision": "ee0ef6023621cff504d758262d4e04895a5af4a2"
+  }
+}

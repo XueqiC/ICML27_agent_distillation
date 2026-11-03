@@ -16,6 +16,7 @@ if __package__ in (None, ''):
 
 from repair.v0_common import (CAPS, DECODINGS, SyntheticManifest, artifacts, bind, completed,
     finish, phase, read, safe_effective)
+from repair.v0_labeling import LabelReuseSource, LabelSetupError, label_tokenizer
 from sed.config import load_config
 from sed.storage import canonical_bytes, digest, file_hash, locked, write_json
 
@@ -306,8 +307,9 @@ def run_reviews(args, root, manifest, attempts_dir, *, directory=None):
 
 class DurableLabels:
     """A settled label request can be reused across a process interruption."""
-    def __init__(self, make_labeler, directory):
+    def __init__(self, make_labeler, directory, reuse=None):
         self.make_labeler, self.directory, self.labeler = make_labeler, Path(directory), None
+        self.reuse = reuse
 
     def __call__(self, prompt):
         path = self.directory / (digest(prompt.to_json()) + '.json')
@@ -323,6 +325,10 @@ class DurableLabels:
             raw = settled[-1]['raw_output']
             write_json(path, dict(request=prompt.to_json(), raw_output=raw, recovered_settled_transport=True), exclusive=True)
             return raw
+        reused = self.reuse.find(prompt.to_json()) if self.reuse is not None else None
+        if reused is not None:
+            write_json(path, dict(request=prompt.to_json(), **reused), exclusive=True)
+            return reused['raw_output']
         if self.labeler is None:
             self.labeler = self.make_labeler()
         raw = self.labeler(prompt)
@@ -331,7 +337,6 @@ class DurableLabels:
 
 
 def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=None, expanded=False):
-    from repair.supervision import ByteBoundTokenizer
     from repair.v0_data import choose_episodes, decision_rows
     from sed.storage import JsonlLedger
     from tools.build_v2_dataset import LockedTokenizer, label_results
@@ -339,14 +344,29 @@ def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=Non
     attempts, repairs = sealed_records(attempts_dir, 'records.json'), sealed_records(reviews_dir, 'records.json')
     directory = Path(directory or root / 'label')
     config = config_for(args)
-    phase(directory, dict(command='label', inputs={**source_inputs(attempts_dir, reviews_dir), **bind([manifest.path, args.config])},
+    label_inputs = {**source_inputs(attempts_dir, reviews_dir), **bind([manifest.path])}
+    config_sha256 = file_hash(args.config)
+    inputs = {**label_inputs, **bind([args.config])}
+    tokenizer, tokenizer_info = label_tokenizer(args, config, inputs)
+    reuse_path = getattr(args, 'reuse_labels_from', None)
+    if reuse_path and args.action_only:
+        raise LabelSetupError('--reuse-labels-from cannot be combined with --action-only')
+    reuse = LabelReuseSource(reuse_path, label_inputs, config_sha256) if reuse_path else None
+    if reuse is not None:
+        if directory.resolve() == reuse.directory:
+            raise LabelSetupError('V0 label reuse requires a new output phase')
+        inputs.update({str(reuse.directory / name): sha for name, sha in artifacts(reuse.directory).items()})
+        if (reuse.directory / 'completion.json').is_file():
+            inputs.update(bind([reuse.directory / 'completion.json']))
+    phase(directory, dict(command='label', inputs=inputs, label_source_inputs=label_inputs,
+        label_config_sha256=config_sha256,
+        tokenizer=tokenizer_info, reuse_labels_from=str(reuse.directory) if reuse else None,
         action_only=args.action_only, expanded=expanded, config=safe_effective(config), caps=CAPS,
         complete_task_coverage=read(Path(attempts_dir) / 'plan.json')['identity']['complete_task_coverage'],
         theta0=read(Path(attempts_dir) / 'plan.json')['identity']['adapter']), resume=args.resume)
     if completed(directory):
         return read(directory / 'rows.json')
     budget = None if args.action_only else budget_for(root)
-    tokenizer = ByteBoundTokenizer()
     if workers > 1:
         tokenizer = LockedTokenizer(tokenizer)
     rows, counts = [], Counter()
@@ -360,7 +380,7 @@ def run_labels(args, root, manifest, attempts_dir, reviews_dir, *, directory=Non
             if budget is not None:
                 from repair.v0_review import make_rationale_labeler
                 labeler = DurableLabels(partial(make_rationale_labeler, config, episode['task_id'], dest / 'teacher', budget),
-                                        dest / 'requests')
+                                        dest / 'requests', reuse=reuse)
             built, exclusions = decision_rows(episode, manifest, bucket=bucket,
                 episode_ref=str((dest / 'execution.json').resolve()), labeler=labeler,
                 audit=JsonlLedger(dest / 'labels.jsonl').append, tokenizer=tokenizer)
@@ -464,8 +484,12 @@ def main(argv=None):
         if command in ('label', 'expand'):
             p.add_argument('--reviews')
             p.add_argument('--action-only', action='store_true', help='Explicit V2 action-only fallback, no rationale teacher')
+            p.add_argument('--byte-token-cap', action='store_true', help='TEST ONLY: count UTF-8 bytes instead of student tokens')
+        if command == 'label':
+            p.add_argument('--reuse-labels-from', help='Reuse completed raw outputs for identical requests in a previous label phase')
         if command in ('label', 'build', 'expand'):
             p.add_argument('--label-workers', type=int, default=1, help='Concurrent record labellers (default: 1)')
+            p.add_argument('--snapshot', help='Local pinned student snapshot containing tokenizer.json; otherwise discover from config')
         if command == 'build':
             p.add_argument('--labels')
         if command in ('build', 'expand'):
@@ -473,7 +497,6 @@ def main(argv=None):
             p.add_argument('--splits', default='data/manifest/method_v1_splits.json')
             p.add_argument('--verified-root')
             p.add_argument('--theta0-training-dir')
-            p.add_argument('--snapshot')
         if command == 'expand':
             p.add_argument('--dataset', required=True)
             p.add_argument('--variant', choices=('D-data', 'D-param'), required=True)
@@ -525,5 +548,6 @@ if __name__ == '__main__':
     except Exception as exc:
         # SDK exceptions can contain credentials and private provider bodies.
         print(json.dumps(dict(status='error', error_type=type(exc).__name__,
-                              detail='V0 halted; completed evidence and token reservations are retained.')), file=sys.stderr)
+                              detail=str(exc) if isinstance(exc, LabelSetupError) else
+                              'V0 halted; completed evidence and token reservations are retained.')), file=sys.stderr)
         raise SystemExit(1) from None
