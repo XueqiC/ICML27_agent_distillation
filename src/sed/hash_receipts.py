@@ -46,12 +46,19 @@ def cache_directory():
     return (Path.home() / ".cache/sed-hash-receipts").resolve()
 
 
+def tree_worker_cap():
+    workers = int(os.environ.get("SED_TREE_WORKERS", "2"))
+    if workers < 1:
+        raise ValueError("SED_TREE_WORKERS must be positive")
+    return workers
+
+
 def cache_provenance():
     result = {"mode": "metadata_receipts_and_process_memo" if cache_enabled() else "full_rehash",
             "observed_modes": sorted(_MODES),
             "scope": "verified_collection_validation",
             "stat_fields": ["size", "mtime_ns", "inode"],
-            "tree_worker_cap": 2,
+            "tree_worker_cap": tree_worker_cap(),
             "receipt_version": _VERSION,
             "directory": str(cache_directory()) if cache_enabled() else None}
     if active_file_hash_cache() is not None:
@@ -267,9 +274,10 @@ class HashReceipts:
 
     @contextmanager
     def batch(self, directories, workers, hash_file):
-        # Profiling on the real bank: many tiny metadata syscalls contend with
+        # Profiling on rai's real bank: many tiny metadata syscalls contend with
         # Python work at 16 threads. Two concurrent trees are faster cold/warm.
-        workers = min(workers, 2)
+        # Lustre needs more concurrency: set SED_TREE_WORKERS and SED_HASH_WORKERS together.
+        workers = min(workers, tree_worker_cap())
         def read(value):
             return self.hashes(value() if callable(value) else value, hash_file)
         if workers == 1:

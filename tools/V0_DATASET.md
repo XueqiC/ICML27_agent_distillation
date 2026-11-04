@@ -415,7 +415,11 @@ receipt checksum and atomic-write format in a separate `raw-files/`
 namespace; they store byte hashes only. Every seal comparison, split check,
 synthetic-task check, parent binding and row validation still runs. The
 default is eight bounded workers; `--hash-workers N` overrides
-`SED_HASH_WORKERS`. Results and errors retain input order.
+`SED_HASH_WORKERS`. `SED_TREE_WORKERS` caps concurrent collection-tree readers
+(positive integer, default 2); effective tree concurrency is the minimum of
+the requested hash workers and this cap. Invalid values raise `ValueError`.
+For Lustre metadata latency, set `SED_TREE_WORKERS` and `SED_HASH_WORKERS`
+together (for example, both to 32). Results and errors retain input order.
 
 The checked V0 path delegates collection artifacts to the existing recursive
 collection reader instead of also building a second per-file inventory of

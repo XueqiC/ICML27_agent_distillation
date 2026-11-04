@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from repair.v2_inputs import InputFiles, Relocation
-from sed import hash_receipts, raw_hash_cache, storage
+from sed import hash_receipts, raw_hash_cache, seed_evidence, storage
 from tools import train_v0_arm as trainer, v0_data
 from test_v0_training import corpus, seed_corpus
 
@@ -199,6 +199,53 @@ def test_parallel_order_and_worker_bound(target, monkeypatch):
     with raw_hash_cache.raw_input_cache(workers=4) as cache:
         assert list(cache.map(storage.file_hash, paths, parallel_if=lambda p: not cache.likely_cached(p))) == expected
         assert cache.report()["byte_hashes"] == 0
+
+
+def test_tree_worker_cap_concurrency_and_order(tmp_path, monkeypatch):
+    cache = hash_receipts.HashReceipts(tmp_path, ())
+    monkeypatch.setattr(seed_evidence, "active_cache", lambda: cache)
+    paths = [tmp_path / str(i) for i in range(16)]
+    expected = [{"file": str(path)} for path in paths]
+    baseline = None
+    for configured, workers, effective in [(None, 16, 2), ("8", 16, 8), ("8", 4, 4), ("1", 16, 1)]:
+        monkeypatch.setenv("SED_HASH_WORKERS", str(workers))
+        if configured is None:
+            monkeypatch.delenv("SED_TREE_WORKERS", raising=False)
+        else:
+            monkeypatch.setenv("SED_TREE_WORKERS", configured)
+        barrier = Barrier(effective)
+        lock, running, peak = Lock(), 0, 0
+        def read_tree(path, hash_file):
+            nonlocal running, peak
+            with lock:
+                running += 1
+                peak = max(peak, running)
+            try:
+                barrier.wait(timeout=10)
+                return {"file": str(path)}
+            finally:
+                with lock:
+                    running -= 1
+        monkeypatch.setattr(cache, "hashes", read_tree)
+        with seed_evidence.artifact_hashes_batch(paths) as readers:
+            actual = [read() for read in readers]
+        assert peak == effective and running == 0
+        assert actual == expected
+        if baseline is None:
+            baseline = actual
+        assert actual == baseline
+        assert hash_receipts.cache_provenance()["tree_worker_cap"] == (2 if configured is None else int(configured))
+
+
+@pytest.mark.parametrize("value", ["", "invalid", "1.5", "0", "-1"])
+def test_invalid_tree_worker_cap(tmp_path, monkeypatch, value):
+    monkeypatch.setenv("SED_TREE_WORKERS", value)
+    cache = hash_receipts.HashReceipts(tmp_path, ())
+    with pytest.raises(ValueError):
+        with cache.batch([], 16, storage.file_hash):
+            pytest.fail("Invalid tree workers accepted")
+    with pytest.raises(ValueError):
+        hash_receipts.cache_provenance()
 
 
 def test_worker_configuration_and_audit_scope_restore(monkeypatch):
