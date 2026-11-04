@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 
 from repair.p0_pairs import teacher_pair, provenance
 from repair.takeover import SharedTeacherBudget
@@ -28,6 +29,19 @@ PREDICTION_METRICS = ('rollout_success', 'decision_flip_rate', 'collateral', 'k2
     'rollout_gain_vs_none', 'rollout_gain_vs_random', 'rollout_gain_vs_fixed',
     'mcnemar_p_vs_none', 'mcnemar_p_vs_random', 'mcnemar_p_vs_fixed')
 SYSTEM = """P0: Diagnose a white-box student using only these diagnosis pairs and tools.
+Your goal is to explain why theta0 chooses a_f instead of a_r in this category
+and submit ONE deployable edit from the documented family that, applied to
+theta0, raises greedy rollout success from the decision state on UNSEEN test
+pairs of the same category. Your edit is judged against (a) the unedited student,
+(b) random unit directions at the same layers/targets/alpha (5 seeds), and
+(c) a fixed-rule direction: mean fail-minus-repair action-token residual of the
+diagnosis pairs, layers 20-41 inclusive, with the same alpha/targets. Comparisons
+use exact paired McNemar tests. Collateral (greedy decision changes on 200
+successful-trajectory decisions) must be <= 5%, and K20 success must not drop.
+Use the budget: form hypotheses with the readout tools, test them causally with
+patch, counterfactual_context, and apply_edit, and verify candidate edits with
+real rollouts on diagnosis pairs (both edited and unedited) before submitting.
+A large alpha or many layers risks collateral.
 You are black-box gpt-6-luna. No training, gradients, arbitrary code, model
 substitution, hidden environment/oracle data, or evaluation access is available.
 Visible Thought is public student text, not evidence of private reasoning.
@@ -51,7 +65,12 @@ fractions in [0,1], gains in [-1,1], and exact paired p-values. Supported metric
 """ + ', '.join(PREDICTION_METRICS) + """. Operators: >, >=, <, <=.
 Submit one deployable edit from the documented family; no contextual edit or
 activation patch can be deployed. Your submission freezes before ANY test run.
+Submission is rejected unless the exact submitted edit spec has been used in
+at least one completed rollout during this session. A rejected submission costs
+one tool-call slot and does not freeze. Protocol errors also cost one tool-call
+slot each; at most 5 are allowed per category, and the 6th halts the run.
 """
+EXPECTED_TURN = 'exactly one JSON object {"tool":...,"args":...} or {"submit":...}'
 
 
 def parse_turn(raw):
@@ -71,10 +90,25 @@ def parse_turn(raw):
         raise ValueError('Expected object')
     if set(value) == {'submit'} and isinstance(value['submit'], dict):
         return value
-    if (set(value) != {'tool', 'args'} or value['tool'] not in TOOL_DOCS
+    if (set(value) != {'tool', 'args'} or not isinstance(value['tool'], str) or value['tool'] not in TOOL_DOCS
             or not isinstance(value['args'], dict)):
         raise ValueError('Invalid tool-call protocol')
     return value
+
+
+def validation_message(exc):
+    """Short local validation feedback only; never pass provider exceptions here."""
+    message = str(exc).split('Traceback (most recent call last):', 1)[0]
+    for name in ('OPENAI_API_KEY', 'AZURE_OPENAI_API_KEY'):
+        secret = os.environ.get(name)
+        if secret:
+            message = message.replace(secret, '<redacted>')
+    message = re.sub(r'\$\{[^}]*\}|\$[A-Za-z_][A-Za-z_0-9]*', '<redacted>', message)
+    message = re.sub(r'\b[A-Z_][A-Z_0-9]*\s*=\s*(?:"[^"]*"|\'[^\']*\'|\S+)', '<redacted>', message)
+    # Quoted paths may contain spaces. Handle POSIX, drive-letter and UNC paths.
+    message = re.sub(r'''(['"])(?:/|[A-Za-z]:[\\/]|\\\\)[^\r\n]*?\1''', '<path>', message)
+    message = re.sub(r'''(?<![\w])(?:/|[A-Za-z]:[\\/]|\\\\)[^\s'"<>{}\[\],;)]*''', '<path>', message)
+    return ' '.join(message.split())[:300]
 
 
 @dataclass(frozen=True)
@@ -92,10 +126,10 @@ class AgentPrompt:
 @dataclass(frozen=True)
 class P0TransportPolicy(V0TransportPolicy):
     rate_limit_attempts: int = 2
-    version: str = 'p0-v0-transport-one-429-probe/1'
+    version: str = 'p0-v0-transport-one-429-probe/2'
 
     def disclosure(self):
-        return dict(super().disclosure(),
+        return dict(super().disclosure(), reasoning={'effort': 'high'},
             **{'429_policy': 'initial attempt plus one rate-limit probe; quota/exhaustion halt; no provider failover'})
 
 
@@ -106,6 +140,9 @@ class P0Teacher(V0TeacherMixin, Teacher):
         # truncation handling and fail-loud behavior. P0 tightens 429 to one
         # initial attempt plus ONE probe; no 20-attempt rate-limit storm.
         self.transport_policy = P0TransportPolicy()
+        # P0-only request option, included in cache/counter identities and usage
+        # receipts. The base Teacher sampling whitelist remains unchanged.
+        self.sampling['reasoning'] = {'effort': 'high'}
 
     def prompt(self, history, task, visible_context):
         value = json.loads(visible_context['observation'])
@@ -147,6 +184,7 @@ class ProviderClient:
             if self.selection_path:
                 write_json(self.selection_path, dict(provider=self.provider, provider_order=['azure', 'openai'],
                     requested_alias='gpt-6-luna', timestamp=utc_now(),
+                    reasoning=kwargs['reasoning'],
                     api_version=os.environ.get('AZURE_OPENAI_API_VERSION') if self.provider == 'azure' else None),
                     exclusive=True)
         return self.client.responses.with_raw_response.create(**kwargs)
@@ -284,6 +322,21 @@ class P0Agent:
         self.budget = budget or AgentBudget()
         self.ledger = JsonlLedger(self.directory / 'agent.jsonl')
         self.transcript = []
+        self.protocol_errors = 0
+        self.completed_rollout_edits = set()
+
+    def protocol_error(self, exc, turn):
+        self.budget.reserve('protocol_error', {})
+        self.protocol_errors += 1
+        feedback = dict(protocol_error=validation_message(exc), expected=EXPECTED_TURN)
+        self.transcript.append(feedback)
+        self.ledger.append(dict(event='protocol_error', turn=turn, result=feedback,
+            protocol_errors=self.protocol_errors, budget=self.budget.status()))
+        if self.protocol_errors > 5:
+            reason = 'Protocol error limit exceeded: sixth error (maximum 5 per category)'
+            self.ledger.append(dict(event='halted', turn=turn, reason=reason,
+                protocol_errors=self.protocol_errors, budget=self.budget.status()))
+            raise BudgetExceeded(reason)
 
     def run(self):
         # Fresh-only orchestrator: transport retains its own resumable receipts,
@@ -298,9 +351,27 @@ class P0Agent:
                                       budget=self.budget.status()))
             raw = self.transport(prompt)  # Errors, 429 storms, unknown usage escape loudly.
             self.ledger.append(dict(event='teacher_turn', turn=turn, request=prompt.to_json(), raw_output=raw))
-            message = parse_turn(raw)
+            try:
+                message = parse_turn(raw)
+            except ValueError as exc:
+                self.protocol_error(exc, turn)
+                continue
             if 'submit' in message:
                 self.budget.candidate(message['submit'].get('edit'))
+                try:
+                    submission = validate_submission(message['submit'], self.session)
+                except (ValueError, KeyError, TypeError) as exc:
+                    self.protocol_error(exc, turn)
+                    continue
+                if digest(submission['edit']) not in self.completed_rollout_edits:
+                    self.budget.reserve('submit', {})
+                    result = dict(status='rejected', submission_error=
+                        'Submission requires at least one completed rollout during this session '
+                        'using the exact submitted edit spec; run rollout with that edit before submitting.')
+                    self.transcript.append(dict(request=message, result=result))
+                    self.ledger.append(dict(event='submission_rejected', turn=turn, result=result,
+                        budget=self.budget.status()))
+                    continue
                 result = freeze_submission(self.directory / 'submission.json', message['submit'], self.session,
                     category=self.category, pairs_sha256=self.pairs_sha256, budget=self.budget.status())
                 self.ledger.append(dict(event='frozen', sha256=result['sha256'], budget=self.budget.status()))
@@ -310,8 +381,13 @@ class P0Agent:
             before_steps = self.session.environment_steps
             try:
                 result = self.session.call(tool, args)
+                if (tool == 'rollout' and args.get('edit') is not None and not result.get('cache_hit')
+                        and result['data'].get('verification') == 'real_environment'
+                        and result['data'].get('termination') != 'ENV_ERROR'):
+                    self.completed_rollout_edits.add(digest(args['edit']))
             except (ValueError, KeyError, TypeError) as exc:
-                result = dict(tool=tool, data=dict(status='rejected', error_type=type(exc).__name__),
+                result = dict(tool=tool, data=dict(status='rejected', error_type=type(exc).__name__,
+                    message=validation_message(exc)),
                     summary='Tool request rejected; check the documented argument schema and available IDs.')
             finally:
                 self.budget.steps += self.session.environment_steps - before_steps

@@ -213,13 +213,72 @@ the earlier P0 implementation. The underlying harness and split rule are unchang
   of paired tests even with instance-disjoint splits. Reports expose counts and use the field
   `preregistered_numeric_criterion`, not an automatic scientific-finding claim.
 
-## Commands
+## Fresh output directories
 
 Run from this worktree. All outputs below are new directories. Frozen artifacts
 are exclusive writes; the agent/evaluator refuses restart that would reset
 budgets. Tool caches can restore content-bound directions/states. V0 transport
 retains its own durable request/usage receipts. A crashed agent is not silently
 resumed with a fresh tool budget.
+
+## Teacher-agent protocol v2
+
+Protocol v2 keeps the v3 pair freeze and all existing tool, visibility, edit,
+budget and evaluation rules. The SYSTEM prompt now explicitly asks the teacher
+to explain why theta0 chooses a_f instead of a_r and submit ONE deployable edit
+that improves greedy rollout success from the decision state on UNSEEN test
+pairs of the same category. It states all three controls: unedited theta0,
+five random unit directions at matching layers/targets/alpha, and the fixed
+mean diagnosis fail-minus-repair action-token direction at layers 20–41 with
+matching alpha/targets. Judging uses exact paired McNemar tests, collateral
+decision changes on 200 successful-trajectory decisions must be <=5%, and K20
+success must not drop. These criteria disclose no test examples or outcomes.
+
+The teacher is instructed to spend its budget forming readout hypotheses,
+testing them causally with `patch`, `counterfactual_context` and `apply_edit`,
+and comparing edited and unedited real rollouts on diagnosis pairs. Large alpha
+and many edited layers are explicitly identified as collateral risks.
+
+Malformed replies (including prose, concatenated JSON objects, unknown tools
+and invalid shapes) produce a transcript item:
+
+```json
+{"protocol_error":"short reason","expected":"exactly one JSON object {\"tool\":...,\"args\":...} or {\"submit\":...}"}
+```
+
+Each error consumes one tool-call slot. Up to five errors per category are
+recoverable; the sixth consumes a slot, records a `halted` event with its reason,
+and stops. Raw sampled replies remain in the agent and transport ledgers.
+Tool argument validation failures return the exception type and local validation
+message, sanitized before truncation to 300 characters; absolute filesystem
+paths become `<path>`. SDK exceptions and tracebacks are never used as feedback.
+
+A submission is rejected, costs one tool-call slot, and remains unfrozen until
+the **exact edit spec** has been used in a completed rollout in the current
+agent session. Changing direction ID, layers, targets or alpha requires another
+rollout. An unedited rollout, rejected rollout, or cached result originating
+before this agent session does not satisfy the gate. A completed negative or
+unknown-success rollout is evidence of execution and does satisfy it; success
+is not required by this gate. The prompt asks for both edited and unedited
+comparisons; the enforced minimum is one rollout of the submitted edit.
+Candidate-edit accounting is unchanged: submissions, `apply_edit` and `rollout`
+share the same five-distinct-spec budget, including rejected submissions.
+
+Every P0 Responses request sets `reasoning={"effort":"high"}`, including
+connection/rate-limit and output-cap retries. The effort is recorded in
+`provider.json`, transport disclosure, and sampling identities/usage receipts.
+This option is added only in `P0Teacher`; the base teacher sampling whitelist
+is unchanged. Provider rejection fails loudly without removing the option or
+falling back. Only sampled text/actions and usage counts are consumed; reasoning
+token counts are accounting metadata, not access to hidden reasoning.
+
+Live v2 output directories are **`reports/p0_runs/diagnose_v2/<category>`**.
+The CLI refuses an existing diagnosis output directory before loading data or
+models. Preserve the original `reports/p0_runs/diagnose/<category>` receipts;
+never reuse them or reset their budgets. No live run is authorized by this
+implementation task.
+
+## Offline and future run commands
 
 ```bash
 PY=/home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python
@@ -231,7 +290,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
   tests/test_p0_agent.py tests/test_p0_eval.py
 ```
 
-Future smoke command, **on rai GPU 1**. This v3 correction task authorizes no GPU,
+Future smoke command, **on rai GPU 1**. This protocol-v2 task authorizes no GPU,
 teacher/API or network execution; the command below was not run:
 
 ```bash
@@ -261,6 +320,10 @@ and 500,000 tokens per category and are configurable. A sampled text/action
 JSON response is the only teacher output requested. No logprobs or hidden
 teacher internals are requested.
 
+For an independently authorized future run, use
+`--output reports/p0_runs/diagnose_v2/<category>` with `diagnose`; the directory
+must not already exist. Retain the GPU/runtime flags and frozen v3 pairs above.
+
 `make_transport` injects a lazy provider client beneath the existing
 `StructuredTransport`, capped client, `SharedTeacherBudget`, reservations and
 settled usage ledger. Provider order is Azure first when configured through
@@ -271,8 +334,10 @@ There is no cross-provider failover after a request. Alias stays `gpt-6-luna`.
 Provider, returned model ID, timestamp, raw sampled output, rejections, and
 reported token usage are recorded. SDK retries remain disabled. V0 owns
 connection/truncation retries; P0 tightens rate-limit retries to the original
-attempt plus one probe. Quota, another 429, empty/truncated/unknown outcomes,
-and exhausted caps fail loudly; raw exception text is never persisted.
+attempt plus one probe. Quota, another 429, truncation at both output caps,
+unknown transport outcomes and exhausted caps fail loudly; raw SDK exception
+text is never persisted. Completed replies with protocol errors receive the
+v2 feedback described above.
 
 Future evaluation requires five `--submission` arguments. The evaluator verifies
 every submission and the shared pair freeze, writes `evaluation_freeze.json`,
@@ -281,7 +346,29 @@ training data. Outputs include `results.jsonl`, all real execution receipts,
 condition/direction freezes, collateral/K20 decisions, per-category and pooled
 McNemar tests, individual prediction results, `report.json`, and `report.md`.
 
-## Validation status for v3
+## Validation status for teacher-agent protocol v2
+
+All **237 tests passed**: 143 P0 tests and the requested 94 regressions, in
+63.72 seconds. JUnit: `/tmp/p0-agent-v2-tests.xml`. The fake Responses transport
+tests cover prose/multiple-object recovery, unknown tools and invalid shapes,
+five-error recovery and sixth-error halt, exact-edit rollout gating, rejected
+and prior-session cached rollouts, sanitized validation feedback, high reasoning
+effort (including 429 and output-cap retries), provider rejection without
+fallback, unchanged base sampling whitelist, and early CLI directory refusal.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py tests/test_p0_eval.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py --junitxml=/tmp/p0-agent-v2-tests.xml
+```
+
+Only the allowed P0 agent, CLI, documentation and test files changed. No tracked
+non-P0 files changed; no staging, commits, GPU, teacher/API or network calls were
+performed. These offline checks establish protocol behavior, not edit efficacy.
+
+## Historical validation status for pair freeze v3
 
 All **210 tests passed**: 116 P0 tests and 94 regressions, in 53.98 seconds.
 JUnit results are at `/tmp/p0-v3-tests.xml`. No GPU, teacher/API or network call
@@ -312,4 +399,4 @@ The earlier `reports/p0_tooling/validation.json`, `VALIDATION.md`, `tests.xml`,
 `extraction/`, and `extraction_v2/` remain historical records. V3 counts and
 exclusions are in `extraction_v3/extraction_report.json`. Real-model reproduction
 and rollout success remain unmeasured; offline tooling validation establishes
-no scientific finding. No tracked files, git index, commits or staging are changed.
+no scientific finding. Those historical validation artifacts are unchanged.

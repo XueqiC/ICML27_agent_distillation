@@ -42,16 +42,18 @@ class ScriptedTeacherClient:
 
     def __init__(self, script):
         self.script, self.calls = script, 0
+        self.requests = []
         self.responses = self
         self.with_raw_response = self
 
     def create(self, **kwargs):
+        self.requests.append(kwargs)
         payload = json.loads(kwargs['input'][1]['content'])
         turn = self.script[self.calls]
         if callable(turn):
             turn = turn(payload)
         self.calls += 1
-        raw = json.dumps(turn)
+        raw = turn if isinstance(turn, str) else json.dumps(turn)
         response = SimpleNamespace(output_text=raw, model='FAKE_NO_MODEL', id=f'fake-{self.calls}',
             status='completed', usage={'input_tokens': 100, 'output_tokens': 40,
             'output_tokens_details': {'reasoning_tokens': 0}})
@@ -165,6 +167,8 @@ def main(argv=None):
     parser.add_argument('--input-token-cap', type=int, default=2_000_000)
     parser.add_argument('--output-token-cap', type=int, default=500_000)
     args = parser.parse_args(argv)
+    if args.command == 'diagnose' and args.output.exists():
+        parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v2/<category> directory')
     if args.command == 'extract':
         value = extract_pairs(args.round_dir)
         write_json(args.output / 'pairs.json', value, exclusive=True)

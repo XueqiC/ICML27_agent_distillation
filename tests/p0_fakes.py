@@ -75,3 +75,14 @@ def sample_submission(direction_id, layers=None):
         locus=dict(layers=layers or [0], spans=['latest_observation'], direction='fixture fail-minus-fix'),
         edit=dict(direction_id=direction_id, layers=layers or [0], targets=['mlp.down_proj'], alpha=0.5),
         predictions=[dict(metric='rollout_gain_vs_none', direction='>', threshold=0.0)])
+
+
+def fake_greedy(state):
+    """Deterministic continuation; success still comes from FakeEnvironment."""
+    if 'You executed clean apple 1 with sinkbasin 1.' in state['text']:
+        action = 'put apple 1 in/on table 1'
+    elif 'You executed take apple 1 from cabinet 1.' in state['text']:
+        action = 'clean apple 1 with sinkbasin 1'
+    else:
+        action = 'take apple 1 from cabinet 1'
+    return dict(action=action, reply='Action: ' + action, prompt_tokens=1, generated_tokens=1)
