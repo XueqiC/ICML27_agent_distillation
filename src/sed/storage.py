@@ -8,12 +8,20 @@ log before scaling, not unsafe tail truncation or silent crash recovery.
 """
 
 from contextlib import contextmanager
+from contextvars import ContextVar
 import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import tempfile
+
+
+_FILE_HASH_CACHE = ContextVar("raw_file_hash_cache", default=None)
+
+
+def active_file_hash_cache():
+    return _FILE_HASH_CACHE.get()
 
 
 def canonical_bytes(value):
@@ -26,6 +34,11 @@ def digest(value):
 
 
 def file_hash(path):
+    cache = active_file_hash_cache()
+    return cache.hash(path, _byte_file_hash) if cache is not None else _byte_file_hash(path)
+
+
+def _byte_file_hash(path):
     h = hashlib.sha256()
     with open(path, "rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):

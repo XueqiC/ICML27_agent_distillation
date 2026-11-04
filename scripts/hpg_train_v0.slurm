@@ -22,7 +22,7 @@ D=$H/ICML27_agent_distillation
 cd "$TRAIN_TREE"
 export PROJECT_ROOT=$TRAIN_TREE
 source configs/hpg.env
-export SED_HASH_CACHE_DIR=$H/ICML27_runs/sed-hash-receipts
+export SED_HASH_CACHE_DIR=${SED_HASH_CACHE_DIR:-$H/ICML27_runs/sed-hash-receipts}
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_DEVICE_ORDER=PCI_BUS_ID
 mkdir -p "$SED_HASH_CACHE_DIR"
 [[ -x "$TRAIN_PYTHON" ]] || { echo "TRAIN_PYTHON is not executable" >&2; exit 2; }

@@ -4,16 +4,18 @@ Only filesystem references are relocated. Sealed JSON, evidence and hashes are
 never edited, and historical provenance is not recursively interpreted as paths.
 """
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import wraps
 import json
 import os
 from pathlib import Path
 import re
+import stat
 
 from repair.artifacts import read_json
 from sed import hash_receipts
-from sed.storage import digest, file_hash
+from sed.storage import active_file_hash_cache, digest, file_hash
 
 FORBIDDEN_SETS = ("U_dev", "U_mech", "D_probe", "D_unseen_quick", "dev140")
 
@@ -29,6 +31,11 @@ def require(ok, message):
 
 def _sha(value):
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _within(path, root):
+    """POSIX component-prefix test without allocating every ancestor Path."""
+    return path.parts[:len(root.parts)] == root.parts
 
 
 def input_hash_policy(function):
@@ -57,6 +64,7 @@ class Relocation:
     lose the sealed identity. Destinations are checked against resolved NEW.
     """
     def __init__(self, dataset, values=()):
+        self._directory_resolution = None
         self.rules = []
         self.seen = defaultdict(set)
         for value in values:
@@ -87,7 +95,7 @@ class Relocation:
         path = Path(value)
         if path.is_absolute():
             for old, new in self.rules:
-                if path.is_relative_to(old):
+                if _within(path, old):
                     tail = path.relative_to(old)
                     require(".." not in tail.parts, "Relocation cannot change a path's relative tail")
                     target = new / tail
@@ -103,15 +111,44 @@ class Relocation:
         """Check a derived local path without performing a second substitution."""
         path = Path(value).absolute()
         try:
-            resolved = path.resolve()
+            resolved = (path.resolve() if self._directory_resolution is None else
+                        self._resolve_in_batch(path, self._directory_resolution))
         except (OSError, RuntimeError):
             raise ValidationError(f"Cannot resolve input path: {json.dumps(str(path))}") from None
         for _, new in self.rules:
             boundary = self.destinations[new]
-            if path.is_relative_to(new) or path.is_relative_to(boundary):
-                require(resolved.is_relative_to(boundary),
+            if _within(path, new) or _within(path, boundary):
+                require(_within(resolved, boundary),
                         f"Relocation symlink escape: {json.dumps(str(path))}")
         return resolved
+
+    @staticmethod
+    def _resolve_in_batch(path, directories):
+        # Resolve shared directory components once in this read-only pass,
+        # as a directory walk does. Inspect every leaf; delegate symlinks,
+        # '..', missing components and unusual paths to pathlib unchanged.
+        if ".." in path.parts or path.parent == path:
+            return path.resolve()
+        parent = directories.get(path.parent)
+        if parent is None:
+            parent = Relocation._resolve_in_batch(path.parent, directories)
+            directories[path.parent] = parent
+        candidate = parent / path.name
+        try:
+            info = candidate.lstat()
+        except OSError:
+            return path.resolve()
+        return candidate.resolve() if stat.S_ISLNK(info.st_mode) else candidate
+
+    @contextmanager
+    def resolution_batch(self):
+        previous = self._directory_resolution
+        if previous is None and active_file_hash_cache() is not None and hash_receipts.cache_enabled():
+            self._directory_resolution = {}
+        try:
+            yield
+        finally:
+            self._directory_resolution = previous
 
     def report(self):
         return {"map": [{"old": str(old), "new": str(new)} for old, new in self.rules],
@@ -131,6 +168,7 @@ class InputFiles:
         self.collection_seals = {}
         self.collection_covered = set()
         self.full_rehash = not hash_receipts.cache_enabled()
+        self.collection_artifact_inventory = "explicit_files"
         self.hash_cache = hash_receipts.cache_provenance()
         self.all_hashes_verified = False
 
@@ -161,29 +199,47 @@ class InputFiles:
         self.all_hashes_verified = False
         failures = []
         entries = self.files.items() if paths is None else ((p, self.files[p]) for p in paths)
-        for path, entry in entries:
+        cache = active_file_hash_cache()
+        def verify_one(item):
+            path, entry = item
             try:
                 resolved = self.relocation.local(path)
                 if not resolved.is_file():
-                    failures.append((path, "missing file"))
-                    continue
-                covered = (not self.full_rehash and resolved not in self.hashes
+                    return path, resolved, None, False, "missing file"
+                covered = (not self.full_rehash and hash_receipts.cache_enabled() and resolved not in self.hashes
                     and resolved in self.collection_files
                     and (not entry["seals"] or resolved in self.collection_seals))
                 if covered:
-                    self.collection_covered.add(resolved)
                     sha = self.collection_seals.get(resolved)
                 else:
-                    self.collection_covered.discard(resolved)
-                    if resolved not in self.hashes:
-                        self.hashes[resolved] = file_hash(resolved)
-                    sha = self.hashes[resolved]
+                    # V0 always stats again, including repeated verify() calls.
+                    # Its scoped hash service handles aliases, receipts and audit
+                    # bypass; retain the existing V2-only path outside that scope.
+                    if cache is not None:
+                        sha = cache.hash_resolved(resolved, file_hash)
+                    else:
+                        sha = file_hash(resolved) if resolved not in self.hashes else self.hashes[resolved]
                 if entry["seals"]:
                     if sha not in entry["seals"] or len(entry["seals"]) != 1:
                         reasons = {why for values in entry["seals"].values() for why in values}
-                        failures.append((path, "; ".join(sorted(reasons))))
+                        return path, resolved, sha, covered, "; ".join(sorted(reasons))
+                return path, resolved, sha, covered, None
             except (OSError, RuntimeError):
-                failures.append((path, "unreadable file"))
+                return path, None, None, False, "unreadable file"
+        # Covered evidence still gets the same path/existence/seal checks.
+        # Do not create a future for each of its ~million already-checked files.
+        results = (cache.map(verify_one, entries, parallel_if=lambda item:
+                            item[0] not in self.collection_files and not cache.likely_cached(item[0]))
+                   if cache is not None else map(verify_one, entries))
+        with self.relocation.resolution_batch():
+            for path, resolved, sha, covered, failure in results:
+                if covered:
+                    self.collection_covered.add(resolved)
+                elif sha is not None:
+                    self.collection_covered.discard(resolved)
+                    self.hashes[resolved] = sha
+                if failure is not None:
+                    failures.append((path, failure))
         if failures:
             first = "; ".join(f"{json.dumps(str(p))} ({why})" for p, why in sorted(failures)[:5])
             raise ValidationError(f"Input verification failed: {len(failures)} offending paths; first paths: {first}")
@@ -191,21 +247,27 @@ class InputFiles:
         self.hash_cache = hash_receipts.cache_provenance()
 
     def report(self):
+        cache = active_file_hash_cache()
+        if cache is not None:
+            self.hash_cache = hash_receipts.cache_provenance()
+        byte_hashed = len(self.hashes) if cache is None else len(set(self.hashes) & cache.byte_hashed_paths)
         return {**self.relocation.report(), "all_hashes_verified": self.all_hashes_verified,
                 "verified_hashed_files": len(self.hashes) if self.all_hashes_verified else 0,
-                "byte_hashed_files": len(self.hashes) if self.all_hashes_verified else 0,
+                "byte_hashed_files": byte_hashed if self.all_hashes_verified else 0,
                 "collection_covered_files": len(self.collection_covered) if self.all_hashes_verified else 0,
                 "collection_validation_roots": sorted(map(str, self.collection_roots)),
                 "collection_validation_anchors": self.collection_anchors,
+                "collection_artifact_inventory": self.collection_artifact_inventory,
                 "full_rehash": self.full_rehash, "hash_cache": self.hash_cache,
                 "counting_files": "distinct resolved files; collection coverage excludes byte-hashed files"}
 
     def provenance_inputs(self, extra=()):
         """Retain byte-hashed inputs/anchors without rehashing the evidence bank."""
         require(self.all_hashes_verified, "Provenance requires completed input verification")
-        return sorted(p for p in set(self.files) | {Path(p).absolute() for p in extra}
-                      if p not in self.collection_covered
-                      and self.relocation.local(p) not in self.collection_covered)
+        with self.relocation.resolution_batch():
+            return sorted(p for p in set(self.files) | {Path(p).absolute() for p in extra}
+                          if p not in self.collection_covered
+                          and self.relocation.local(p) not in self.collection_covered)
 
     def listing(self):
         groups = defaultdict(list)
@@ -231,12 +293,23 @@ def training_view_inputs(files, source, *, validate=False, config=None):
     evidence files. No rollout or model runtime is involved.
     """
     from sed.seed_selection import is_stratified_nested
+    cache = active_file_hash_cache()
+    compact = validate and cache is not None and hash_receipts.cache_enabled()
+    if compact:
+        # The collection reader compares every declared artifact hash with a
+        # fresh enumeration/stat check. Keep that validation and its confinement
+        # checks, without constructing and re-resolving a second million-file
+        # inventory just to mark those same files as collection-covered later.
+        cache.register_relocation(files.relocation)
+        files.collection_artifact_inventory = "recursive_collection_validation"
     original = Path(source["config"]["baseline_training"]["verified"])
     sha = source.get("inputs", {}).get(str(original / "manifest.json"))
     require(_sha(sha), "K20 view differs from theta0's original support manifest")
     view_manifest = files.reference(original / "manifest.json", sha,
         reason="K20 view differs from theta0's original support manifest")
     view = files.relocation.path(original)
+    if active_file_hash_cache() is not None:
+        active_file_hash_cache().protect(view)
     if validate:
         # The original byte seal binds theta0 to this view before its recursive
         # collection/semantic checks are allowed to cover any dependencies.
@@ -252,6 +325,8 @@ def training_view_inputs(files, source, *, validate=False, config=None):
 
     while pending:
         root = pending.pop()
+        if active_file_hash_cache() is not None:
+            active_file_hash_cache().protect(root)
         if root in seen:
             continue
         seen.add(root)
@@ -281,7 +356,7 @@ def training_view_inputs(files, source, *, validate=False, config=None):
                     and (field == "extension_source" or is_stratified_nested(selection))):
                 parent = dependency(identity[field]["path"], root)
                 pending.append(parent)
-                if field == "extension_source":
+                if field == "extension_source" and not compact:
                     # Its recorded tree seal makes every original source file a
                     # dependency, including inherited smaller-K view anchors.
                     for path in sorted(parent.rglob("*")):
@@ -291,6 +366,8 @@ def training_view_inputs(files, source, *, validate=False, config=None):
             episode = dependency(receipt["episode_dir"], evidence_root)
             require(episode.is_relative_to(evidence_root), "Episode path escapes collection")
             covered.add(files.add(episode.parent / "receipt.json"))
+            if compact:
+                continue  # Unchanged recursive loader validates these dictionaries and files below.
             for directory, key in ((episode, "episode_hashes"), (episode.parent / "teacher", "teacher_hashes")):
                 for name, sha in receipt[key].items():
                     require(_sha(sha), "Invalid K20 evidence sha256")

@@ -378,6 +378,71 @@ launcher does not guess rounding of `4 * episode_count / 16`. Input validation
 supports the same explicit `--relocate OLD=NEW`, `--splits`, `--repair-splits`,
 and `--dev140` paths as V2, without rewriting source artifacts.
 
+Before allocating HPG GPUs, warm raw-file hash receipts with the CPU check
+on HPG using the same paths, relocation flags and choice artifact as `run`:
+
+```bash
+H=/blue/fsu-compsci-dept/xc25.fsu/hq
+D="$H/ICML27_agent_distillation"
+cd "$TRAIN_TREE"
+export PROJECT_ROOT="$TRAIN_TREE"
+source configs/hpg.env
+export SED_HASH_CACHE_DIR="$H/ICML27_runs/sed-hash-receipts"
+export SED_HASH_WORKERS=8
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. PYTHONDONTWRITEBYTECODE=1 \
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  "$TRAIN_PYTHON" tools/train_v0_arm.py inputs --check \
+  --dataset "$DATASET" --theta0 "$THETA0" --snapshot "$SNAPSHOT" \
+  --config configs/base_e4b.yaml --synthetic-manifest "$SYNTHETIC_MANIFEST" \
+  --weights "$WEIGHTS" \
+  --relocate /home/xueqi/hq/projects/ICML27_agent_distillation="$D" \
+  --relocate /home/xueqi/.cache/huggingface="$H/tools/hf-cache" \
+  --relocate /home/xueqi/hq/projects/ICML27_run_repair_eval_7748da5="$H/ICML27_runs/repair_eval_7748da5" \
+  --relocate /ddnB/work/xueqic/hq/ICML27_data="$D/data"
+# Submit the normal GPU job with this same exported SED_HASH_CACHE_DIR.
+```
+
+For D-param replace `--weights` with `--trainable-modules "$MODULES"` in
+both commands. Keep the cache outside datasets, checkpoints, snapshots and
+seed collections. The HPG launcher honors an exported cache directory and
+otherwise uses the path above. A cache on node-local temporary storage must
+be available on the training node to benefit a later job. Receipts made on
+rai generally cannot warm HPG: absolute paths and inode metadata differ.
+
+V0 raw hashes now share a process memo keyed by resolved path, size,
+nanosecond mtime and inode. Persistent receipts use the existing collection
+receipt checksum and atomic-write format in a separate `raw-files/`
+namespace; they store byte hashes only. Every seal comparison, split check,
+synthetic-task check, parent binding and row validation still runs. The
+default is eight bounded workers; `--hash-workers N` overrides
+`SED_HASH_WORKERS`. Results and errors retain input order.
+
+The checked V0 path delegates collection artifacts to the existing recursive
+collection reader instead of also building a second per-file inventory of
+the entire source bank. That reader still enumerates every artifact, checks
+its metadata/hash against the collection, and validates failed attempts,
+executions and selection semantics. Relocation confinement is checked on
+each scanned directory and file symlink, including receipt hits. Explicit
+input listing and full audit mode retain the original expanded inventory.
+When the replay inspector already validated the original seed collection,
+V0 uses that result instead of repeating the same validation immediately.
+
+`inputs --check` reports raw-file calls, memo hits, receipt hits, misses,
+byte-hash counts and bytes in `hash_cache.raw_files`. Training records the
+same counters in provenance, including a snapshot of rank 0's input
+validation. Only rank 0 performs the full validation in distributed `run`;
+it publishes receipts and broadcasts the verified data, identity and
+continuation choices over the CPU process group before model loading.
+Validation failure is fatal on every rank.
+
+Receipts are disposable accelerators on trusted local storage, never
+verification authority. Missing, corrupt or inaccessible receipts trigger
+byte hashing. Metadata changes invalidate a receipt. Same-size edits with
+restored mtime and unchanged inode are outside this cache's detection
+boundary, exactly as for collection receipts. `--full-rehash` or
+`SED_HASH_CACHE=0` bypasses both receipt and process memo reuse throughout
+the check/run, including provenance. Use that mode for a byte audit.
+
 `--dry-run` uses V2's tiny CPU model and byte tokenizer; optionally use
 `--dry-run-tokenizer snapshot` for the real offline tokenizer. With a module
 mask, requested real names are validated from θ₀ metadata, then selected A/B

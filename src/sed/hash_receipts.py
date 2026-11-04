@@ -9,17 +9,18 @@ Semantic validation and comparisons with the collection's hashes still run.
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import ContextVar, copy_context
 import errno
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import sys
 import tempfile
 from threading import RLock
 
-from sed.storage import canonical_bytes, digest, file_hash
+from sed.storage import active_file_hash_cache, canonical_bytes, digest, file_hash
 
 
 _ACTIVE = ContextVar("collection_hash_receipts", default=None)
@@ -29,6 +30,7 @@ _DIRECTORY_LOCKS = [RLock() for _ in range(256)]
 _MAX_DIRECTORIES = 16384  # Includes the full TRAIN bank's episode + teacher trees.
 _MODES = set()
 _VERSION = 1
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def cache_enabled():
@@ -45,13 +47,16 @@ def cache_directory():
 
 
 def cache_provenance():
-    return {"mode": "metadata_receipts_and_process_memo" if cache_enabled() else "full_rehash",
+    result = {"mode": "metadata_receipts_and_process_memo" if cache_enabled() else "full_rehash",
             "observed_modes": sorted(_MODES),
             "scope": "verified_collection_validation",
             "stat_fields": ["size", "mtime_ns", "inode"],
             "tree_worker_cap": 2,
             "receipt_version": _VERSION,
             "directory": str(cache_directory()) if cache_enabled() else None}
+    if active_file_hash_cache() is not None:
+        result["raw_files"] = active_file_hash_cache().report()
+    return result
 
 
 def active_cache():
@@ -133,6 +138,9 @@ class HashReceipts:
         protected = [root]
         protected.extend(p for p in root.parents
                          if (p / "identity.json").exists() or (p / "selection.json").exists())
+        raw_cache = active_file_hash_cache()
+        if raw_cache is not None:
+            protected.extend(raw_cache.protected)
         self.protected = protected
         if any(self.cache.is_relative_to(p) for p in protected):
             self.cache = None
@@ -160,11 +168,12 @@ class HashReceipts:
             for row in rows:
                 if (not isinstance(row, list) or len(row) != 5
                         or not isinstance(row[0], str) or row[0] in result
-                        or Path(row[0]).is_absolute() or ".." in Path(row[0]).parts
-                        or any(type(v) is not int for v in row[1:4])
+                        # POSIX receipt names: the same component checks without
+                        # constructing two Paths for each of ~900k file rows.
+                        or row[0].startswith("/") or ".." in row[0].split("/")
+                        or type(row[1]) is not int or type(row[2]) is not int or type(row[3]) is not int
                         or row[1] < 0 or row[3] < 0
-                        or not isinstance(row[4], str) or len(row[4]) != 64
-                        or any(c not in "0123456789abcdef" for c in row[4])):
+                        or not isinstance(row[4], str) or _SHA256.fullmatch(row[4]) is None):
                     return {}
                 result[row[0]] = tuple(row[1:])
             return result
@@ -201,7 +210,8 @@ class HashReceipts:
                     pass
 
     def hashes(self, directory, hash_file):
-        directory = Path(directory).resolve()
+        raw_cache = active_file_hash_cache()
+        directory = (Path(directory).resolve() if raw_cache is None else raw_cache.checked_path(directory))
         key = (str(self.root), self.anchors, str(directory))
         # Concurrent loads of the same collection share one hashing operation.
         # Stripes bound lock storage without serializing unrelated directories.
@@ -228,16 +238,23 @@ class HashReceipts:
                 raise
             if not stat.S_ISREG(info.st_mode) or entry.name.endswith(".lock"):
                 continue
-            signature = _signature(info)
+            raw_cache = active_file_hash_cache()
+            if raw_cache is not None and entry.is_symlink():
+                raw_cache.checked_path(entry.path)
             previous = old.get(relative)
-            if previous is not None and previous[:3] == signature:
+            if (previous is not None and previous[0] == info.st_size
+                    and previous[1] == info.st_mtime_ns and previous[2] == info.st_ino):
                 sha = previous[3]
+                row = previous  # Immutable metadata already matches the fresh stat.
             else:
+                signature = _signature(info)
                 item = Path(entry.path)
-                sha = hash_file(item)
+                sha = (hash_file(item) if raw_cache is None else
+                       raw_cache.hash_entry(entry, signature, hash_file))
                 if _signature(item.stat()) != signature:
                     raise ValueError("Evidence changed while hashing")
-            rows[relative] = (*signature, sha)
+                row = (*signature, sha)
+            rows[relative] = row
             result[relative] = sha
         if rows != old:
             self._write(path, directory, rows)
@@ -265,10 +282,10 @@ class HashReceipts:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             def readers():
                 values = iter(directories)
-                pending = deque(pool.submit(read, value) for value in islice(values, workers))
+                pending = deque(pool.submit(copy_context().run, read, value) for value in islice(values, workers))
                 while pending:
                     yield pending.popleft().result
                     for value in values:
-                        pending.append(pool.submit(read, value))
+                        pending.append(pool.submit(copy_context().run, read, value))
                         break
             yield readers()

@@ -5,6 +5,7 @@ import sys
 from collections import Counter, deque
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import contextmanager
+from contextvars import copy_context
 from errno import EBADF, ELOOP, ENOENT, ENOTDIR
 from itertools import islice
 from pathlib import Path
@@ -162,7 +163,7 @@ def artifact_hashes_batch(directories):
     def hash_reader(root, pool):
         try:
             paths = iter(root.collect())
-            pending = deque((p, pool.submit(_hash_entry, p)) for p in islice(paths, workers))
+            pending = deque((p, pool.submit(copy_context().run, _hash_entry, p)) for p in islice(paths, workers))
         except Exception as error:
             return failed_reader(error)
         def collect():
@@ -173,7 +174,7 @@ def artifact_hashes_batch(directories):
                 if sha is not None:
                     result[str(path.relative_to(root.directory))] = sha
                 for path in paths:
-                    pending.append((path, pool.submit(_hash_entry, path)))
+                    pending.append((path, pool.submit(copy_context().run, _hash_entry, path)))
                     break
             return result
         return collect

@@ -64,9 +64,10 @@ def write_provenance(directory, *, command, config, inputs=None, details=None, r
            "command": command, "python_executable": sys.executable,
            "python_version": platform.python_version(), "dependencies": versions(),
            "git_head": git_head, "code_sha256": code_hashes(root),
-           "hash_cache": cache_provenance(),
            "config": safe_config(config),
            "inputs": {str(p): file_hash(p) for p in (inputs or [])},
            "details": details or {}}
+    # Include input/code hashes performed above in the operation's counters.
+    row["hash_cache"] = cache_provenance()
     write_json(Path(directory) / "provenance.json", row, exclusive=True)
     return row

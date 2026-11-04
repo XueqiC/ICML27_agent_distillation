@@ -9,7 +9,8 @@ from repair.v2_inputs import Relocation, require, training_view_inputs
 from repair.v2_validation import EXAMPLE_FIELDS, _json, _sha, _validate_evidence
 from sed.manifest import authorize_task, load_frozen, resolve_task
 from sed.react import build_messages, parse_action
-from sed.storage import canonical_bytes, digest, file_hash
+from sed.raw_hash_cache import cached_inputs, raw_input_cache
+from sed.storage import active_file_hash_cache, canonical_bytes, digest, file_hash
 from sed.visibility import visible_observation
 from repair.labels import instance_ids
 
@@ -78,8 +79,12 @@ def validate_row(row):
         visible = _json(messages[i - 1]["content"])
         require(isinstance(visible, dict) and set(visible) == {"observation", "admissible_commands"},
                 "User fields exceed the public observation whitelist")
-        require(build_messages(history, {}, visible_observation(visible)) == messages[:i],
-                "Messages differ from the exact student prompt contract")
+        if i == len(messages) - 1:
+            # With task={}, the complete rendered prefix contains every earlier
+            # prefix unchanged. Compare it once instead of rendering all growing
+            # prefixes quadratically; every turn is still parsed and checked.
+            require(build_messages(history, {}, visible_observation(visible)) == messages[:i],
+                    "Messages differ from the exact student prompt contract")
         action = parse_action(messages[i]["content"])
         if i in indices and meta["bucket"] != "D":
             require(action in visible["admissible_commands"], "Rejected action cannot be supervised")
@@ -88,6 +93,7 @@ def validate_row(row):
         history.append({"visible": visible, "reply": messages[i]["content"]})
 
 
+@cached_inputs
 def read_synthetic_manifest(path, seed_tasks):
     """Training membership is explicit; held-out entries remain in the freeze."""
     document = read_json(path)
@@ -124,11 +130,15 @@ def read_synthetic_manifest(path, seed_tasks):
     return tasks, file_hash(path)
 
 
+@cached_inputs
 def read_dataset(directory, *, theta0, snapshot=None, config, synthetic_manifest=None,
                  splits=None, relocate=(), repair_splits=None, dev140=None):
     """Validate V2 replay, original K evidence, split freezes and all V0 seals."""
     relocation = Relocation(directory, relocate)
     root = relocation.dataset
+    active_file_hash_cache().protect(root, relocation.path(theta0),
+        relocation.path(snapshot) if snapshot else None,
+        relocation.path(synthetic_manifest).parent if synthetic_manifest else None)
     manifest = read_json(root / "manifest.json")
     require(manifest.get("schema") == "v0-train-interchange/1" and manifest.get("arm") == "V0",
             "Invalid V0 dataset manifest")
@@ -159,13 +169,18 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
             replay_origins.append(origin)
     inspection["replay_deduplication"] = {"input_rows": len(replay["rows"]),
         "unique_rows": len(replay_rows), "duplicates_removed": len(replay["rows"]) - len(replay_rows)}
-    view, collection = training_view_inputs(files, inspection["theta0_provenance"], validate=True, config=config)
+    if "training_collection" in inspection:
+        # inspect_inputs already ran this exact validation for the K fallback.
+        view, collection = inspection["training_view"], inspection["training_collection"]
+    else:
+        view, collection = training_view_inputs(files, inspection["theta0_provenance"], validate=True, config=config)
     seeds = {r["task_id"] for r in collection["verified"]}
     require(len(collection["verified"]) == collection["K"], "K must count verified seed trajectories")
     require(Counter(r["task_id"] for r in replay_rows) == Counter(r["task_id"] for r in collection["verified"]),
             "D replay must cover exactly theta0's K seed trajectories")
     require(isinstance(manifest.get("inputs"), dict) and manifest["inputs"], "Missing hashed V0 inputs")
-    main_inputs = {files.reference(name, sha, root=root): sha for name, sha in manifest["inputs"].items()}
+    with files.relocation.resolution_batch():
+        main_inputs = {files.reference(name, sha, root=root): sha for name, sha in manifest["inputs"].items()}
     main_hashes = set(manifest["inputs"].values())
     for path in (inspection["splits"], Path(config["paths"]["manifest"]), Path(config["paths"]["split_freeze"])):
         # Producer/consumer checkouts can contain byte-identical copies. Match
@@ -259,6 +274,7 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
             "inspection": inspection, "config": config, "theta0": theta0, "snapshot": inspection["snapshot"]}
 
 
+@cached_inputs
 def sealed_input(data, path):
     """Resolve an expansion input and recheck its seal before interpreting it."""
     relocation = data["inspection"]["files"].relocation
@@ -269,6 +285,7 @@ def sealed_input(data, path):
     return path
 
 
+@cached_inputs
 def verified_parent(data):
     """Reconstruct the parent identity from the producer's sealed input bundle.
 
@@ -385,14 +402,18 @@ def add_inputs(parser):
     parser.add_argument("--repair-splits")
     parser.add_argument("--dev140")
     parser.add_argument("--relocate", action="append", default=[], metavar="OLD=NEW")
+    parser.add_argument("--full-rehash", action="store_true", help="Bypass hash receipts and process memo")
+    parser.add_argument("--hash-workers", type=int, default=None,
+                        help="Bound concurrent input hashes (default SED_HASH_WORKERS or 8)")
 
 
 def load_args(args):
     from sed.config import load_config
     relocation = Relocation(args.dataset, args.relocate)
-    return read_dataset(args.dataset, theta0=args.theta0, snapshot=args.snapshot,
-        config=load_config(relocation.path(args.config)), synthetic_manifest=args.synthetic_manifest,
-        splits=args.splits, relocate=args.relocate, repair_splits=args.repair_splits, dev140=args.dev140)
+    with raw_input_cache(full_rehash=getattr(args, "full_rehash", False), workers=getattr(args, "hash_workers", None)):
+        return read_dataset(args.dataset, theta0=args.theta0, snapshot=args.snapshot,
+            config=load_config(relocation.path(args.config)), synthetic_manifest=args.synthetic_manifest,
+            splits=args.splits, relocate=args.relocate, repair_splits=args.repair_splits, dev140=args.dev140)
 
 
 def provenance_inputs(data, extra=()):

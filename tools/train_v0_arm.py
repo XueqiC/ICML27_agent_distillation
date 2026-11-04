@@ -19,7 +19,9 @@ if __package__ in (None, ""):
 from repair import v2_train as v2
 from repair.artifacts import provenance, read_json, tokenizer_identity
 from repair.v2_inputs import ValidationError, require
-from sed.storage import digest, file_hash, write_json
+from sed.hash_receipts import cache_provenance
+from sed.raw_hash_cache import cached_inputs, raw_input_cache
+from sed.storage import active_file_hash_cache, digest, file_hash, write_json
 from tools.v0_data import (BUCKETS, add_inputs, episodes, expansion_units, load_args,
                            provenance_inputs, safe_output, sealed_input, verified_parent)
 from tools.v0_groups import episode_weights
@@ -146,6 +148,7 @@ def inherit_expansion_weights(data, parent, document, path):
     return weights, [group_path, *paths]
 
 
+@cached_inputs
 def load_choices(data, inherited, *, weights=None, modules=None):
     result_weights, selected, paths = {}, None, []
     parent = None
@@ -197,7 +200,28 @@ def bucket_summary(data, weights):
     return result
 
 
-def run(args, data, inherited, weights, selected, extra):
+def validate_inputs(args, *, rank=0, world=1, group=None, broadcast=None):
+    """Broadcast rank 0's complete verified objects; peers never open input files."""
+    def validate():
+        data = load_args(args)
+        inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"],
+                                           args.updates if args.command == "run" else 1)
+        weights, selected, extra = load_choices(data, inherited, weights=args.weights, modules=args.trainable_modules)
+        extra.append(data["inspection"]["files"].relocation.path(args.config))
+        data["input_validation"] = {"rank": 0, "dataset_sha256": data["dataset_sha256"],
+                                    "hash_cache": cache_provenance()}
+        if active_file_hash_cache() is not None:
+            # Publish before peers enter model loading's metadata checks and
+            # before a long training job can be interrupted.
+            active_file_hash_cache().flush()
+        return data, inherited, weights, selected, extra
+    if world == 1:
+        return validate()
+    from baselines.common.fsdp_train import rank_zero_data
+    return rank_zero_data(rank, world, validate, group, broadcast=broadcast)
+
+
+def run(args):
     import torch
     import torch.distributed as dist
     from baselines.common.fsdp_train import train_loop, rank_zero_data
@@ -206,20 +230,9 @@ def run(args, data, inherited, weights, selected, extra):
     require(args.batch_examples == 16, "V0 requires B=16")
     require(args.updates > 0 and all(0 <= c <= args.updates for c in args.checkpoints), "Invalid updates/checkpoints")
     checkpoints = sorted({0, args.updates, *args.checkpoints})
-    batches, mixture = batch_schedule(data["rows"], updates=args.updates, seed=args.seed, weights=weights,
-                                      mixture=dict(zip(BUCKETS, args.bucket_probabilities)))
-    output = safe_output(args.output, data)
-    byte_tokenizer = args.dry_run and args.dry_run_tokenizer == "bytes"
-    tokenizer = v2.FakeTokenizer() if byte_tokenizer else load_tokenizer(data["snapshot"])
-    examples = [v2.encode_example(row, tokenizer, max_length=inherited["recipe"]["max_length"]) for row in data["rows"]]
-    scoring, vocabulary = v2.fake_scoring_examples(examples) if args.dry_run and not byte_tokenizer else (examples, None)
     rank, world, local = (int(os.environ.get(k, default)) for k, default in
                           (("RANK", "0"), ("WORLD_SIZE", "1"), ("LOCAL_RANK", "0")))
     require(world == (1 if args.dry_run else args.gpus), "Launch with the requested GPU rank count")
-    counts = v2.accounting(examples, batches, world_size=world)
-    exposures = exposure_counts(batches)
-    for update in counts:
-        counts[update].update(exposures[update])
     if not args.dry_run:
         require(torch.cuda.is_available(), "Production requires allocated GPUs; use --dry-run on CPU")
         torch.cuda.set_device(local)
@@ -230,6 +243,18 @@ def run(args, data, inherited, weights, selected, extra):
     try:
         if world > 1:
             group = dist.new_group(backend="gloo", timeout=timedelta(hours=4))
+        data, inherited, weights, selected, extra = validate_inputs(args, rank=rank, world=world, group=group)
+        batches, mixture = batch_schedule(data["rows"], updates=args.updates, seed=args.seed, weights=weights,
+                                          mixture=dict(zip(BUCKETS, args.bucket_probabilities)))
+        output = safe_output(args.output, data)
+        byte_tokenizer = args.dry_run and args.dry_run_tokenizer == "bytes"
+        tokenizer = v2.FakeTokenizer() if byte_tokenizer else load_tokenizer(data["snapshot"])
+        examples = [v2.encode_example(row, tokenizer, max_length=inherited["recipe"]["max_length"]) for row in data["rows"]]
+        scoring, vocabulary = v2.fake_scoring_examples(examples) if args.dry_run and not byte_tokenizer else (examples, None)
+        counts = v2.accounting(examples, batches, world_size=world)
+        exposures = exposure_counts(batches)
+        for update in counts:
+            counts[update].update(exposures[update])
         set_seed(args.seed + rank)
         model = v2.fake_model(len(vocabulary) if vocabulary else 512) if args.dry_run else v2.load_existing_adapter(
             data["snapshot"], data["theta0"], device, inherited["recipe"])
@@ -265,6 +290,7 @@ def run(args, data, inherited, weights, selected, extra):
                 "optimizer_subset": list(actual)}
             choices = {"parent_binding": data.get("parent_binding"),
                        "weight_inheritance": data.get("weight_inheritance"),
+                       "input_validation": data["input_validation"],
                        "episode_weights_sha256": digest(weights), "buckets": bucket_summary(data, weights)}
             effective["v0_training"].update(choices)
             if args.dry_run:
@@ -368,35 +394,39 @@ def main(argv=None):
         return subprocess.run([sys.executable, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node", "2",
                                str(Path(__file__).resolve()), *values], check=False).returncode
     try:
-        data = load_args(args)
-        inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"],
-                                           args.updates if args.command == "run" else 1)
-        weights, selected, extra = load_choices(data, inherited, weights=args.weights, modules=args.trainable_modules)
-        extra.append(data["inspection"]["files"].relocation.path(args.config))
-        if args.command == "inputs":
-            # Also validate numeric weight values without allocating a model.
-            batch_schedule(data["rows"], updates=1, seed=0, weights=weights)
-            result = {"schema": "v0-training-inputs/1", "status": "verified", "rows": len(data["rows"]),
-                "buckets": bucket_summary(data, weights), "parent_binding": data.get("parent_binding"),
-                "weight_inheritance": data.get("weight_inheritance"), "episode_weights_sha256": digest(weights),
-                "replay_deduplication": data["inspection"]["replay_deduplication"],
-                "episodes": len(data["episodes"]), "dataset_sha256": data["dataset_sha256"],
-                "K_trusted_seed_trajectories": data["K"], "seed_unique_instances": len(data["seed_task_ids"]),
-                "trainable_parameter_count": sum(inherited["parameters"][n] for n in
-                                                 (selected if selected is not None else inherited["parameters"]))}
-            if args.output:
-                destination = safe_output(args.output, data)
-                write_json(destination, result, exclusive=True)
-            else:
-                print(json.dumps(result, indent=2))
-        else:
-            run(args, data, inherited, weights, selected, extra)
-        return 0
+        with raw_input_cache(full_rehash=args.full_rehash, workers=args.hash_workers):
+            return execute(args)
     except ValidationError as exc:
         print(f"V0 training refused: {exc}", file=sys.stderr)
     except Exception as exc:
         print(f"V0 training failed ({type(exc).__name__}); no result marked complete.", file=sys.stderr)
     return 1
+
+
+def execute(args):
+    # The scope covers provenance as well as checking. Distributed runs
+    # establish their CPU broadcast group before rank 0 reads any inputs.
+    if args.command == "inputs":
+        data, inherited, weights, selected, extra = validate_inputs(args)
+        # Also validate numeric weight values without allocating a model.
+        batch_schedule(data["rows"], updates=1, seed=0, weights=weights)
+        result = {"schema": "v0-training-inputs/1", "status": "verified", "rows": len(data["rows"]),
+            "hash_cache": cache_provenance(),
+            "buckets": bucket_summary(data, weights), "parent_binding": data.get("parent_binding"),
+            "weight_inheritance": data.get("weight_inheritance"), "episode_weights_sha256": digest(weights),
+            "replay_deduplication": data["inspection"]["replay_deduplication"],
+            "episodes": len(data["episodes"]), "dataset_sha256": data["dataset_sha256"],
+            "K_trusted_seed_trajectories": data["K"], "seed_unique_instances": len(data["seed_task_ids"]),
+            "trainable_parameter_count": sum(inherited["parameters"][n] for n in
+                                             (selected if selected is not None else inherited["parameters"]))}
+        if args.output:
+            destination = safe_output(args.output, data)
+            write_json(destination, result, exclusive=True)
+        else:
+            print(json.dumps(result, indent=2))
+    else:
+        run(args)
+    return 0
 
 
 if __name__ == "__main__":
