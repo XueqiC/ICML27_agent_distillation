@@ -20,7 +20,9 @@ from repair import v2_train as v2
 from repair.artifacts import provenance, read_json, tokenizer_identity
 from repair.v2_inputs import ValidationError, require
 from sed.storage import digest, file_hash, write_json
-from tools.v0_data import BUCKETS, add_inputs, episodes, load_args, provenance_inputs, safe_output
+from tools.v0_data import (BUCKETS, add_inputs, episodes, expansion_units, load_args,
+                           provenance_inputs, safe_output, sealed_input, verified_parent)
+from tools.v0_groups import episode_weights
 
 DEFAULT_MIXTURE = {"R": .50, "G": .25, "S": .15, "D": .10}
 
@@ -99,16 +101,69 @@ def subset_optimizer_state(saved, original_names, selected_names):
     return saved
 
 
+def episode_entries(data):
+    return [{"episode_id": eid, "bucket": data["rows"][indices[0]]["v0"]["bucket"]}
+            for eid, indices in data["episodes"].items()]
+
+
+def inherit_expansion_weights(data, parent, document, path):
+    """Use this round's parent gradients; new G gradients enter next round."""
+    group_path = sealed_input(data, path.with_name("groups.json"))
+    groups = read_json(group_path)
+    require(groups.get("schema") == "v0-groups/1" and not groups.get("smoke_subset", False)
+            and all(groups.get(k) == document.get(k) for k in
+                    ("dataset_sha256", "adapter_sha256", "parameter_names_sha256", "features_index_sha256")),
+            "Expansion group/weight source identity mismatch")
+    require(isinstance(groups.get("groups"), list) and isinstance(groups.get("assignment"), dict),
+            "Invalid expansion groups")
+    consistency = {g["group_id"]: g["consistency"] for g in groups["groups"]}
+    require(len(consistency) == len(groups["groups"]) and all(
+        type(v) in (int, float) and math.isfinite(v) and v >= 0 for v in consistency.values()),
+        "Invalid expansion group consistency")
+    require(set(groups["assignment"]) <= set(parent["episodes"])
+            and all(g in consistency for g in groups["assignment"].values()), "Invalid parent group assignment")
+    expected = episode_weights(groups, episode_entries(parent))
+    require(set(document["weights"]) == set(expected) and all(
+        type(document["weights"][eid]) in (int, float) and math.isclose(document["weights"][eid], value,
+        rel_tol=1e-12, abs_tol=1e-12) for eid, value in expected.items()),
+        "Parent weights differ from group consistency")
+    mapping, paths = expansion_units(data, set(data["episodes"]) - set(parent["episodes"]))
+    expanded = dict(groups, assignment=dict(groups["assignment"]))
+    for eid, item in mapping.items():
+        source, gid = item["source_episode_id"], item["group"]
+        require(gid in consistency and source in parent["episodes"]
+                and parent["rows"][parent["episodes"][source][0]]["v0"]["bucket"] == "R"
+                and groups["assignment"].get(source) == gid,
+                f"Unresolved G episode expansion group/source: {eid}")
+        expanded["assignment"][eid] = gid
+        item["consistency"] = consistency[gid]
+    weights = episode_weights(expanded, episode_entries(data))
+    for eid, item in mapping.items():
+        item["weight"] = weights[eid]
+    data["weight_inheritance"] = {"normalization": "R/G episode mean 1; S/D 1; excluded gradients neutral before normalization",
+        "gradient_policy": "parent gradients only; new G gradients enter next round",
+        "groups_sha256": file_hash(group_path), "G_episode_mapping": mapping}
+    return weights, [group_path, *paths]
+
+
 def load_choices(data, inherited, *, weights=None, modules=None):
     result_weights, selected, paths = {}, None, []
+    parent = None
     for path, schema in ((weights, "v0-episode-weights/1"), (modules, "v0-trainable-modules/1")):
         if not path:
             continue
         path = data["inspection"]["files"].relocation.path(path)
         document = read_json(path)
         require(document.get("schema") == schema, "Invalid weights/modules schema")
-        require(document.get("dataset_sha256") == data["dataset_sha256"] and
-                document.get("adapter_sha256") == data["adapter_sha256"], "Weights/modules dataset or adapter hash mismatch")
+        require(document.get("adapter_sha256") == data["adapter_sha256"],
+                "Weights/modules dataset or adapter hash mismatch")
+        parent_bound = document.get("dataset_sha256") != data["dataset_sha256"]
+        if parent_bound:
+            if parent is None:
+                parent = verified_parent(data)
+                paths.extend(provenance_inputs(parent))
+            require(document.get("dataset_sha256") == parent["dataset_sha256"],
+                    "Weights/modules dataset or adapter hash mismatch")
         require(not document.get("smoke_subset", False), "Smoke-subset features cannot drive production training")
         require(document.get("parameter_names_sha256") == digest(sorted(inherited["parameters"])),
                 "Weights/modules parameter-name hash mismatch")
@@ -116,6 +171,9 @@ def load_choices(data, inherited, *, weights=None, modules=None):
             require(document.get("status", "valid") == "valid" and isinstance(document.get("weights"), dict),
                     "Weights artifact is invalid")
             result_weights = document["weights"]
+            if parent_bound:
+                result_weights, inherited_paths = inherit_expansion_weights(data, parent, document, path)
+                paths.extend(inherited_paths)
             require(set(result_weights) == set(data["episodes"]), "Weights must cover all dataset episodes")
             require(all(result_weights[eid] == 1 for eid, indices in data["episodes"].items()
                         if data["rows"][indices[0]]["v0"]["bucket"] in ("S", "D")), "S/D weights must be 1")
@@ -125,6 +183,18 @@ def load_choices(data, inherited, *, weights=None, modules=None):
                     and all(n in inherited["parameters"] for n in selected), "Selected module name does not exist or is empty")
         paths.append(path)
     return result_weights, selected, paths
+
+
+def bucket_summary(data, weights):
+    result = {}
+    for bucket in BUCKETS:
+        entries = [e for e in episode_entries(data) if e["bucket"] == bucket]
+        values = [weights.get(e["episode_id"], 1.0) for e in entries]
+        result[bucket] = {"rows": sum(r["v0"]["bucket"] == bucket for r in data["rows"]),
+            "episodes": len(entries), "weight_min": min(values) if values else None,
+            "weight_max": max(values) if values else None,
+            "weight_mean": sum(values) / len(values) if values else None}
+    return result
 
 
 def run(args, data, inherited, weights, selected, extra):
@@ -193,6 +263,10 @@ def run(args, data, inherited, weights, selected, extra):
                 "loss_normalization": "V2 per-row token mean; uniform row within weighted episode",
                 "synthetic_mask_mapping": "selected real A/B sides -> fake A/B" if args.dry_run else None,
                 "optimizer_subset": list(actual)}
+            choices = {"parent_binding": data.get("parent_binding"),
+                       "weight_inheritance": data.get("weight_inheritance"),
+                       "episode_weights_sha256": digest(weights), "buckets": bucket_summary(data, weights)}
+            effective["v0_training"].update(choices)
             if args.dry_run:
                 fake_base = output / "fake-base"
                 fake_base.mkdir()
@@ -203,8 +277,9 @@ def run(args, data, inherited, weights, selected, extra):
                     "metadata_sha256": {"config.json": file_hash(fake_base / "config.json")}}}
             prov = provenance(output, effective, command="v0_train", inputs=provenance_inputs(data, extra),
                 details={"relocation": data["inspection"]["files"].report(),
-                         "replay_deduplication": data["inspection"]["replay_deduplication"]})
+                         "replay_deduplication": data["inspection"]["replay_deduplication"], **choices})
             manifest = {"schema": "v0-training-run/1", "status": "running", "dry_run": args.dry_run,
+                **choices,
                 "dataset_sha256": data["dataset_sha256"], "adapter_sha256": data["adapter_sha256"],
                 "input_manifest": data["manifest"], "provenance_sha256": digest(prov),
                 "schedule_sha256": digest(batches), "effective_bucket_probabilities": mixture,
@@ -302,6 +377,8 @@ def main(argv=None):
             # Also validate numeric weight values without allocating a model.
             batch_schedule(data["rows"], updates=1, seed=0, weights=weights)
             result = {"schema": "v0-training-inputs/1", "status": "verified", "rows": len(data["rows"]),
+                "buckets": bucket_summary(data, weights), "parent_binding": data.get("parent_binding"),
+                "weight_inheritance": data.get("weight_inheritance"), "episode_weights_sha256": digest(weights),
                 "replay_deduplication": data["inspection"]["replay_deduplication"],
                 "episodes": len(data["episodes"]), "dataset_sha256": data["dataset_sha256"],
                 "K_trusted_seed_trajectories": data["K"], "seed_unique_instances": len(data["seed_task_ids"]),

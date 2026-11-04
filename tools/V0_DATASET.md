@@ -223,7 +223,8 @@ be imported; the standalone reader tests still run.
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
   /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest \
-  tests/test_v0_training.py tests/test_v0_producer_contract.py -q
+  tests/test_v0_training.py tests/test_v0_producer_contract.py \
+  tests/test_v0_expansion_weights.py -q
 ```
 
 ## Gradient artifacts
@@ -306,6 +307,35 @@ ID -> weight map, and `trainable_modules.json` with `selected` full tensor
 names and complete descending-SNR ranking from R/G moments only. Ties use tensor name, selecting
 ceil(module_count/4). Artifacts bind dataset, adapter, parameter-name hash,
 and source feature index. Do not manually edit these identities.
+
+Expanded datasets may use choices bound to their verified parent dataset.
+The producer seals the parent `manifest.json` and `examples.jsonl` under the
+expanded manifest's `inputs`; the reader requires a unique parent, validates
+it with the same V0 reader, and recomputes its composite dataset hash. The
+artifact must match that hash and the current adapter and parameter names.
+Inherited rows must remain identical except for their synthetic-manifest
+reference, and additions must be new G episodes. Missing or changed parents
+and unrelated dataset bindings are refused. Relocation applies to these
+references without rewriting any source artifact.
+
+For parent-bound D-data weights, `groups.json` beside `weights.json` must be
+a sealed expansion input with matching source identity. The original weights
+must reproduce its consistency formula. Each new G episode resolves through
+its task to an expansion unit, cross-checked against `allocation.json`, sealed
+`synth/allocation_execution.json`, sealed `synth/generated.json`, and the
+synthetic manifest. The unit's source must be a parent R episode assigned to
+that gradient group; the task's `group_id` is a separate identity. Missing or
+conflicting units/groups fail. R and G raw consistency weights are normalized
+together to episode mean 1 using `v0_groups.episode_weights`; excluded parent
+gradients retain neutral raw mass and S/D stay at 1. New G gradients enter only
+at the next round (§10.5), so this check does not extract gradients.
+
+The check report, training manifest, and run provenance record the verified
+parent, per-bucket row/episode and weight summaries, effective-weight digest,
+and each G episode's task, unit, source repair, group, consistency, and final
+weight. Provenance hashes the mapping artifacts. These remain audit-only.
+Parent-bound D-param module selections need only the verified binding and
+existing tensor-name checks; they do not depend on G weights or unit mapping.
 
 ## Training and commands
 

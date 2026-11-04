@@ -165,7 +165,7 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     require(Counter(r["task_id"] for r in replay_rows) == Counter(r["task_id"] for r in collection["verified"]),
             "D replay must cover exactly theta0's K seed trajectories")
     require(isinstance(manifest.get("inputs"), dict) and manifest["inputs"], "Missing hashed V0 inputs")
-    main_inputs = {files.reference(name, sha, root=root) for name, sha in manifest["inputs"].items()}
+    main_inputs = {files.reference(name, sha, root=root): sha for name, sha in manifest["inputs"].items()}
     main_hashes = set(manifest["inputs"].values())
     for path in (inspection["splits"], Path(config["paths"]["manifest"]), Path(config["paths"]["split_freeze"])):
         # Producer/consumer checkouts can contain byte-identical copies. Match
@@ -181,12 +181,12 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     require(manifest.get("splits_sha256") == file_hash(inspection["splits"]), "V0 split freeze hash mismatch")
     require(manifest.get("theta0", {}).get("adapter_weights_sha256") == replay["theta0_sha256"],
             "V0 theta0 adapter hash mismatch")
-    synthetic, synth_sha = {}, ""
+    synthetic, synth_sha, synth_path = {}, "", None
     if synthetic_manifest is not None:
-        path = files.relocation.path(synthetic_manifest)
-        require(path in main_inputs, "Synthetic manifest must be a sealed V0 input")
-        files.verify(paths=[path])
-        synthetic, synth_sha = read_synthetic_manifest(path, seeds)
+        synth_path = files.relocation.path(synthetic_manifest)
+        require(synth_path in main_inputs, "Synthetic manifest must be a sealed V0 input")
+        files.verify(paths=[synth_path])
+        synthetic, synth_sha = read_synthetic_manifest(synth_path, seeds)
     files.verify()
     rows = [_json(line) for line in (root / "examples.jsonl").read_text().splitlines() if line.strip()]
     frozen, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
@@ -253,9 +253,116 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     dataset_hash = digest({"manifest": file_hash(root / "manifest.json"), "rows": rows,
                            "replay_manifest": file_hash(root / "replay/manifest.json")})
     return {"rows": rows, "episodes": grouped, "origins": origins, "manifest": manifest,
+            "synthetic_manifest": synth_path, "synthetic_tasks": synthetic, "input_seals": main_inputs,
             "dataset_sha256": dataset_hash, "adapter_sha256": replay["theta0_sha256"],
             "K": collection["K"], "seed_task_ids": sorted(seeds), "training_view": str(view),
             "inspection": inspection, "config": config, "theta0": theta0, "snapshot": inspection["snapshot"]}
+
+
+def sealed_input(data, path):
+    """Resolve an expansion input and recheck its seal before interpreting it."""
+    relocation = data["inspection"]["files"].relocation
+    path = relocation.local(path)
+    seal = data["input_seals"].get(path)
+    require(seal is not None and path.is_file(), f"Missing sealed expansion input: {path}")
+    require(file_hash(path) == seal, f"Expansion input hash mismatch: {path}")
+    return path
+
+
+def verified_parent(data):
+    """Reconstruct the parent identity from the producer's sealed input bundle.
+
+    v0_expand seals the parent manifest/examples in inputs, rather than storing
+    the consumer's composite dataset digest as a top-level manifest field.
+    """
+    inspection = data["inspection"]
+    relocation = inspection["files"].relocation
+    root = relocation.dataset.parent  # The inspection is for dataset/replay.
+    candidates = {}
+    for path in data["input_seals"]:
+        if path.name != "manifest.json":
+            continue
+        path = sealed_input(data, path)
+        document = read_json(path)
+        if path != root / "manifest.json" and document.get("schema") == "v0-train-interchange/1":
+            candidates[path] = document
+    require(len(candidates) == 1, "Weights/modules dataset or adapter hash mismatch: no unique sealed parent dataset")
+    path, manifest = next(iter(candidates.items()))
+    sealed_input(data, path.parent / "examples.jsonl")
+    require(isinstance(manifest.get("synthetic_manifest"), str), "Parent dataset lacks synthetic manifest reference")
+    synthetic = relocation.path(manifest["synthetic_manifest"], root=path.parent)
+    sources = inspection["split_sources"] or {}
+    parent = read_dataset(path.parent, theta0=data["theta0"], snapshot=data["snapshot"], config=data["config"],
+        synthetic_manifest=synthetic, splits=inspection["splits"],
+        relocate=[f"{old}={new}" for old, new in relocation.rules],
+        repair_splits=sources.get("repair_splits"), dev140=sources.get("dev140"))
+    require(parent["adapter_sha256"] == data["adapter_sha256"], "Parent dataset adapter hash mismatch")
+    # Expansion only appends G decisions and refreshes the synthetic-manifest
+    # reference on inherited rows. Do not accept an unrelated sealed input.
+    inherited = {r["example_id"]: r for r in parent["rows"]}
+    current = {r["example_id"]: r for r in data["rows"]}
+    require(inherited.keys() <= current.keys(), "Expanded dataset dropped parent rows")
+    for eid, row in inherited.items():
+        updated = dict(current[eid], v0=dict(current[eid]["v0"],
+            synthetic_manifest_sha256=row["v0"]["synthetic_manifest_sha256"]))
+        require(canonical_bytes(updated) == canonical_bytes(row), "Expanded dataset changed parent rows")
+    require(all(row["v0"]["bucket"] == "G" and row["v0"]["episode_id"] not in parent["episodes"]
+                for eid, row in current.items() if eid not in inherited), "Expansion must append only new G episodes")
+    data["parent_binding"] = {"path": str(path.parent), "manifest_sha256": file_hash(path),
+        "dataset_sha256": parent["dataset_sha256"], "adapter_sha256": parent["adapter_sha256"]}
+    return parent
+
+
+def expansion_units(data, episode_ids):
+    """Audit-only G episode -> task -> allocated unit; never added to prompts."""
+    require(data["synthetic_manifest"] is not None, "G weights require a synthetic manifest")
+    synth = data["synthetic_manifest"].parent
+    generated_path = sealed_input(data, synth / "generated.json")
+    execution_path = sealed_input(data, synth / "allocation_execution.json")
+    # allocation.json itself is not sealed by older producers. Its units must
+    # agree with both sealed generated.json and allocation_execution.json.
+    allocation_path = synth.parent / "allocation.json"
+    require(allocation_path.is_file(), "G weights require expansion allocation.json")
+    allocation = read_json(allocation_path)
+    require(allocation.get("variant") == "D-data" and isinstance(allocation.get("units"), list),
+            "G weights require a D-data expansion allocation")
+    units = {}
+    for unit in allocation["units"]:
+        require(isinstance(unit, dict) and type(unit.get("unit")) is int and unit["unit"] >= 0
+                and unit["unit"] not in units, "Invalid or duplicate expansion unit")
+        units[unit["unit"]] = unit
+    generated, execution = read_json(generated_path), read_json(execution_path)
+    require(isinstance(generated, list) and isinstance(execution, list), "Invalid expansion task/unit mapping")
+    tasks, executed, seen_units = {}, {}, set()
+    for item in generated:
+        require(isinstance(item, dict) and isinstance(item.get("task_id"), str)
+                and item["task_id"] not in tasks, "Invalid or duplicate generated task")
+        tasks[item["task_id"]] = item
+    for item in execution:
+        unit = item.get("unit", {})
+        uid = unit.get("unit")
+        require(type(uid) is int and uid in units and unit == units[uid] and uid not in seen_units,
+                "Expansion execution unit differs from allocation")
+        seen_units.add(uid)
+        if item.get("status") == "filled":
+            tid = item.get("generated_task_id")
+            require(isinstance(tid, str) and tid not in executed, "Duplicate or missing executed expansion task")
+            executed[tid] = unit
+    result = {}
+    for eid in sorted(episode_ids):
+        row = data["rows"][data["episodes"][eid][0]]
+        tid = row["task_id"]
+        unit = executed.get(tid)
+        require(unit is not None and tid in tasks and tid in data["synthetic_tasks"],
+                f"Unresolved G episode expansion unit: {eid}")
+        require(tasks[tid].get("expansion_unit") == unit
+                and data["synthetic_tasks"][tid].get("expansion_unit") == unit,
+                f"Conflicting G episode expansion unit: {eid}")
+        require(isinstance(unit.get("group"), str) and isinstance(unit.get("source_episode_id"), str),
+                f"Unresolved G episode expansion group: {eid}")
+        result[eid] = {"task_id": tid, "unit": unit["unit"], "group": unit["group"],
+                       "source_episode_id": unit["source_episode_id"]}
+    return result, [allocation_path, generated_path, execution_path]
 
 
 def safe_output(output, data):
