@@ -4,6 +4,12 @@ Governing document: `~/hq/projects/tc-alignment/docs/handoff/2026-10-04_paper1_c
 Discord channel: tc (1536171352573349909). Compute: hpg primary (`/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_agent_distillation`), rai for CPU/smoke.
 Teacher: gpt-6-luna via the original OpenAI key, no spend cap (user, 2026-10-04). Student: google/gemma-4-12B-it @ 707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7.
 
+**THEME (user, 2026-11-01 23:12-23:13 CST; governs everything below): few-shot agent distillation.** Goal of this phase: one
+clear, complete, sustainable on-policy agent-distillation framework in which the harness and the teacher jointly guide the
+student; later improve its components one by one. Every evaluation must feed back into this method (say which component it
+informs). Test only few-shot K = 10, 20, 30 (more only if needed). V2 = mechanism check on K20; after §7 -> K10 and K30.
+Do not drift to whatever the chat last touched.
+
 **Direction (user, 2026-10-07, v2 supersedes v1): Same Tools, Different Policies — interaction-strategy distillation under fixed tools/API**
 (docs/direction/2026-10-07_same_tools_different_policies_ZH.md): is the teacher's best interaction style what the student should learn?
 Core claim to test: the value of an interaction depends on who executes it (H1 executor × interaction, H2 adjusted targets > more teacher
@@ -17,6 +23,365 @@ code), PivotOPD (recovery, code soon), FutureBridge (needs logits). P1 preview: 
 each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher self-disagreement.
 
 ## RUNNING JOBS
+### CURRENT (11-01 22:20 CST) — all six V2 500-update arms trained; rai evals running; hpg 3 u1000 PENDING
+- hpg: JOINT-u1000 48826939 / JCO-u1000 48826940 (80G 6h), JOINT_EQ-u1000 48826941 (60G 6h), nice 100, tree repair_train_5857234.
+  Outputs $D/reports/runs/method_v1/v2_train/<ARM>_U1000; evaluated only if that arm's 500-run E-sel selects u500 (rev 3).
+  PE_U1000 (done, 10 ckpts) on hpg only, pull with pull_v2_train.sh PREFIX_EXPERT_U1000 1000 if PE selects u500.
+- rai pulls: PE VERIFIED 22:03 CST; pull queue (scratchpad pull_queue_v2.sh, pid 1453991, logs/v2_pull_queue_1101.log)
+  JOINT -> JOINT_COMPLETE_ONLY -> JOINT_EQ, one rsync at a time (tunnel back to ~5.8 MB/s at 22:18 CST).
+- rai evals (prereg rev 7, bb81b95): chain PE on GPU 1 (pid 1146105, logs/v2_chain_pe_1101.log; E-sel on Blackwell as planned).
+  E-sel queue joint -> jco -> jointeq on GPU 3 A100 (run_v2_esel_queue.sh, pid 1513587, logs/v2_esel_queue_1101.log; on a u500
+  selection it starts auto_pull_v2.sh for <OUT>_U1000 and re-selects after the other arms). Main queue on GPU 1 Blackwell
+  (run_v2_main_queue.sh, pid 1513588, logs/v2_main_queue_1101.log): waits for pid 1146105, E-short of the 3 arms, then each
+  arm's main evals once its final selection exists. Old scheduler v2_chain_sched.sh 1454742 stopped 23:15 CST (never launched).
+  PE_U1000 pre-pull pid 1513589 (logs/v2_pull_pe1000_1102.log) so a PE u500 selection never blocks GPU 1.
+- rai long-lived: keeper 643198; rebalance_accounts.sh 1419682 (old-grid names only); smc_tol_handler.py 1045982 (dormant).
+  dedupe_ladder_loop.sh STOPPED 11-01 (it SIGSTOPped the keeper). Session: hourly grid cron (covers v2-*), v2_watch_bounded.sh (<=100 min, re-arm).
+### 10:3x CDT 10-31 — CREDITS TOPPED UP (user 10:35 CDT "充值好了"; "尽快把机制验证的实验结果完整跑出来"); V2 teacher work restarted
+- Probe 10:38 CDT: gpt-6-luna responses.create OK (1 call, 9 in / 16 out).
+- V2 shared ledger reports/runs/method_v1/v2_global_teacher_budget.jsonl was sticky-halted (last row stop_reason teacher_quota
+  -> every reserve raises CaseStopped). New tool tools/budget_recover.py (Codex, eval branch aac832d, 31 tests; pinned tree
+  ../ICML27_run_repair_eval_aac832d): appends one 'recovered' row (totals copied, nothing refunded, cap stops refused).
+  Tested on a copy, then real 10:4x CDT: rows 4545 -> 4546, prefix sha f70474ff…, totals 8,837,606 in / 695,654 out bounds,
+  3 unsettled attempts stay counted. Pre-recovery copy: v2_global_teacher_budget.jsonl.pre_recover_1031.
+- RUNNING C5 (teacher takeover = PREFIX_EXPERT source; prereg §3 C5), tree 7748da5 (takeover code identical to 1f23a37),
+  run_v1a.sh, 12 workers each, CPU only, own per-output ledgers (teacher_takeover has no --budget-ledger; caps 150M/15M each;
+  usage summed into the V2 total by me): v2_c5_dp (pid 2807995, log logs/v2_c5_dp_1031.log) and v2_c5_start (--from-start,
+  pid 2807996, log logs/v2_c5_start_1031.log); 128 x 5 = 640 each; started 10:51 CDT; first 18 all completed+success.
+- RUNNING revision-1 check rerun: v2_nonheat_r2b (tree 1f23a37, joint-review/2, G greedy + seeds 0-7 on 29 non-heat
+  prefixes, rai GPU 3, 16 workers, shared V2 ledger), launcher pid 2811649, started 10:47 CDT.
+  Decision script (mine) reports/analysis/method_v1/v2/analyze_rev1.py (sampled success per prefix as V1b primary; teacher
+  share pooled over 38 = heat_r2 + rerun, as analyze_v1b.py). Old void-dominated v2_nonheat_r2 is not read.
+- QUEUED C4 chain reports/runs/method_v1/run_v2_c4_chain.sh pid 2818732 (log logs/v2_c4_chain_1031.log): waits for 2811649 ->
+  analyze_rev1.py -> c4_template -> C4 G (greedy + seeds 0-3) on v2_prefix_spec.json 128: v2_c4_dp GPU 1 and v2_c4_start
+  (--from-start) GPU 3 in parallel, tree 1f23a37, 16 workers, shared V2 ledger. Dry-runs of both C4 starts and C5 passed.
+- REVISION-1 DECISION 11:48 CDT (analyze_rev1.py -> rev1_decision_v2_nonheat_r2b.json): v2_nonheat_r2b complete, 261/261, 0 voids.
+  29 non-heat prefixes, sampled G success: joint-review/1 (V1b) .754 -> joint-review/2 .823, +.069 CI [+.004, +.138], +9 -3;
+  greedy 20 -> 23. By type: look .906 -> .953, simple .292 -> .417, clean 1.0 -> 1.0, cool .562 -> .797, two .875 -> .771.
+  Teacher-step share pooled over 38 (heat_r2 + rerun, sampled) 145/4073 = .036 (<= .30). -> C4 USES joint-review/2.
+  V2 shared ledger after the rerun: 24.2M in / 2.22M out reported.
+- RUNNING C4 since 11:48 CDT (chain pid 2818732): v2_c4_dp pid 2862725 (GPU 1), v2_c4_start pid 2862726 (GPU 3, --from-start);
+  joint-review/2, G greedy + seeds 0-3, 128 x 5 = 640 each, 16 workers each, logs reports/runs/method_v1/v2_c4_{dp,start}.log.
+- C4 RESTARTED SHARDED 12:42 CDT. The unsharded runs (dp 85/640, start 31/640 in ~50 min) were bottlenecked by the shared
+  budget ledger: SharedTeacherBudget re-reads and JsonlLedger rewrites the whole 18k-row file under one lock on every
+  reserve/settle/check -> measured accounting-lock wait ~6 s per call (parse .15 s), getting worse as rows grow; student
+  servers idle, 0 429s. Killed with SIGKILL on the joint_guidance process groups (no TERM handler -> no halt row), launchers
+  exited and stopped their servers; shared ledger intact (18,381 rows, ends with newline, stop_reason null; 34.1M in
+  reported). Old dirs -> _trash/v2_c4_unsharded_1031/ (not used for data; their usage stays in the V2 ledger).
+  New launcher reports/runs/method_v1/run_v2_c4_sharded.sh: same tree 1f23a37 / settings, 128 cases split into 8 type-balanced
+  shards (v2_c4_shards/spec_s0..7.json, union = v2_prefix_spec.json), one joint_guidance run per shard with its OWN ledger
+  v2_c4_ledgers/<kind>_s<i>.jsonl (caps 100M/12M each; usage summed by me), 4 workers each, one theta0 server per kind.
+  RUNNING: dp launcher pid 2929926 (GPU 1, out v2_c4s_dp/s0..s7), start launcher pid 2929927 (GPU 3, v2_c4s_start/s0..s7).
+  C5 start also has this issue (own ledger 20.5k rows, lock wait 2-3 s) but is 396/640 done -> left running.
+- Sharded C4 measured 13:05 CDT: dp 9.5 eps/min (was 1.8), start 2.5/min (was .7); shard ledger lock wait 0 s; 95/95 valid.
+  New binding limit = shared rate limiter (v2_c4_ledgers/joint_teacher_rate_limit): every G call reserves input chars/4 +
+  4,096 output cap (OpenAI admission estimate) -> ~210 calls/min at 1.8M reserved TPM; 91% of calls wait (mean 10 s), 0 429s.
+  ETA C4 ~15:00 CDT (watcher), C5 start ~14:00 CDT (watcher b5zp68ezf). C5 usage: dp 48.1M in / .73M out (640, 495 success).
+- TODO (engineering, not urgent): SharedTeacherBudget/JsonlLedger are O(rows) per append (full re-read + atomic rewrite under
+  one lock) -> any long run on one ledger saturates; fix (append-only + small state checkpoint) before the next big collection.
+- C4 DONE ~14:30 CDT: dp 640/640 and start 640/640, all 16 shards expected=recorded=80, 0 void, stop_reason null (dp s3 has 3
+  unsettled reservations, counted). Success (completed+success): dp 521/640 (greedy 105/128, sampled 416/512); start 562/640
+  (greedy 113/128, sampled 449/512). Shard-ledger usage: dp 28.1M in / 2.43M out, start 51.3M in / 4.71M out
+  (plus the trashed unsharded C4 usage, already inside the V2 global ledger 34.1M / 3.00M).
+- E0.4 JOINT / JOINT_COMPLETE_ONLY builds RUNNING since 14:44 CDT (first launch 14:40 failed in 3 s: zsh passed the 16 input
+  dirs as one argument -> FileNotFoundError; relaunched with brace expansion). Launcher reports/runs/method_v1/run_v2_build.sh
+  (tree 7748da5, L labels on the V2 global ledger, caps 800M/100M as recorded): JOINT pid 3121115 (log
+  logs/v2_build_joint_seq_1031.log, out v2_data/JOINT), JCO pid 3121116 (logs/v2_build_jco_seq_1031.log, v2_data/JOINT_COMPLETE_ONLY).
+  Dry run of one shard (dp/s0, scratchpad): 1,429 JOINT examples (1,131 joint_complete + 298 joint_local), 628 L calls,
+  excluded no_qualifying_progress 630 / refused_or_inadmissible 47 / no_progress_repeat 10. -> full JOINT ~10k L calls,
+  SEQUENTIAL in build() -> 8-12 h. These two runs are a HEDGE only.
+- Codex 14:45 CDT (log ../ICML27_wt_repair_eval/logs/codex_20261031_154518.log): --label-workers N for build_v2_dataset
+  (ThreadPoolExecutor over records, results merged in record order, tokenizer behind a lock, same failure semantics; N=1 identical).
+  Supervision code is unchanged 7748da5..aac832d (only new tools), so a build from the new tree keeps OFFLINE's supervision code.
+  When it passes review: kill the hedge builds (SIGKILL pgid), move their dirs to _trash, rebuild JOINT + JCO with ~16 workers.
+- JOINT supervised turns will be ~20k+ vs OFFLINE 3,867 -> prereg §7 line 122 equal-turn stratified subset (seed 0) applies.
+- 14:5x CDT: Codex label-workers reviewed + tests 116 passed; committed eval branch 568f99d, pinned tree
+  ../ICML27_run_repair_eval_568f99d (builder path byte-identical to 7748da5 except the tool; --splits/--config from the 7748da5
+  tree so manifest inputs stay relocatable). Real-data check dp/s0 dry-run: 8 workers vs sequential -> examples.jsonl and
+  replay identical (41 s). Hedge builds SIGKILLed (pgid), dirs -> _trash/v2_build_hedge_1031/; V2 global ledger intact
+  (18,731 rows, 34.41M in / 3.04M out reported, stop null). run_v2_build.sh now: tree 568f99d, LABEL_WORKERS 16, OWN ledger per
+  build v2_label_ledgers/<ARM>.jsonl (caps 300M/40M) because the global ledger is O(rows) per append.
+  Parallel builds 14:53 CDT ran at ~160 labels/min each.
+### 23:0x CDT 10-31 — CREDITS BACK (user 23:00 "额度已经有了，你稍微省着点"); V2 restarted
+- 22:58 probe still 429 -> prereg rev 5 (d488fb0): provisional arm PE_PREFILL = trial_PE copied to v2_data/PE_PREFILL
+  (16,298 decisions, examples sha c5cdd06e, manifest 3d6b4f1e), synced to hpg (6 files, 267,030,839 B, sha match).
+  hpg 48660581 v2-train-pe-prefill (u500, 96G, 4h) and 48660582 v2-train-pe-prefill-u1000 (UPDATES=1000, ckpts +700 1000, 96G, 6h),
+  tree repair_train_6016bb3 -> v2_train/PE_PREFILL{,_U1000}. Shakedown + early read only, never in §7.
+- 23:02 probe OK -> run_v2_after_topup_jointfirst.sh (log logs/v2_after_topup_1031_r3.log): unsealed JOINT/JCO -> _trash/v2_build_quota_1031,
+  both label ledgers recovered, JOINT build pid 12308 (logs/v2_build_joint_r2_1031.log, ~180 L calls/min), C5 fill pid 12309
+  (logs/v2_c5_start_fill_1031.log). JCO HELD.
+- Saving teacher: dry runs show JOINT and JCO issue the IDENTICAL 5,269 L requests -> prereg rev 6 (b6e1c0e): JCO reuses JOINT's labels.
+  Codex (log ICML27_wt_repair_eval/logs/codex_20261101_000443.log, prompt scratchpad/codex_label_reuse.txt): --reuse-labels-from.
+  After review + pin: build JCO with reuse from sealed v2_data/JOINT; verify on dry_JOINT_full -> dry_JCO_full equality first.
+- Watchers: btopsxs5v (fill), b299v8ega (JOINT build).
+- 23:06 C5 fill DONE 40/40, 0 void, 32 success; 3.34M in / 0.10M out (own ledger). Run files synced to hpg (43 files, 6,130,137 B OK).
+- 23:10 PREFIX_EXPERT sealed (tree 568f99d): 16,824 decisions, 125 tasks, 453,500 sup tokens, examples sha b808dee5, manifest eeb2fed3;
+  synced to hpg (6 files, 272,802,372 B, sha match). PE_PREFILL jobs cancelled before start (rev 5 addendum c7babb0).
+  RUNNING hpg: 48662592 v2-train-pe (u500, 96G, 4h) -> v2_train/PREFIX_EXPERT; 48662593 v2-train-pe-u1000 (96G, 6h) -> v2_train/PREFIX_EXPERT_U1000.
+- Label reuse committed bce0ac9 (eval branch; 73 tests pass), pinned ../ICML27_run_repair_eval_bce0ac9. Full-size check running:
+  dry JCO with --reuse-labels-from scratchpad/dry_JOINT_full (pid 55039, watcher by69oucf0) must equal dry_JCO_full byte for byte.
+- JOINT_EQ target T = 3,867 (OFFLINE turns < PE 16,824).
+- 23:38 full-size reuse check PASSED: dry JCO with labels reused from dry_JOINT_full == dry_JCO_full byte for byte
+  (examples + replay; 5,269 reused, 0 unused, 0 teacher calls). JOINT L at 3,483/5,269 at 23:38 (~100/min, 6.78M in / 0.68M out).
+- Chain armed (watcher buczh0hb5): JOINT exit 0 + manifest -> run_v2_after_joint.sh (log logs/v2_after_joint_1031.log):
+  JOINT_EQ (tree 75d55ca, match OFFLINE, seed 0) then JCO reuse build (tree bce0ac9). Then: sync JOINT/JCO/JOINT_EQ to hpg, submit 6 jobs.
+- 00:20 CDT 11-01 JOINT sealed (568f99d): 23,169 examples (joint_complete 18,178 + joint_local 4,991), 125 tasks, 629,574 sup tokens,
+  examples sha 02ca38eb, manifest 781167ab. L: 4,573 passed, 695 label_grounding_failed + 1 reasoning_token_cap -> 696 action-only
+  (excluded reason invalid_rationale_label; dry run had 1). JOINT ledger total 9.62M in / 0.96M out (this round 8.96M / 0.88M).
+  Synced to hpg (19,534 files excl. locks, 531,652,025 B, sha match).
+- 00:21 JOINT_EQ (75d55ca): 3,867 examples = 3,867 turns, 124 tasks; examples sha 0aba1405, manifest e1a93cfd; synced (6 files, 79,485,278 B OK).
+- hpg SUBMITTED: 48673744 v2-train-joint (96G 4h), 48673746 v2-train-joint-u1000 (96G 6h), 48673756 v2-train-joint-eq (64G 4h),
+  48673757 v2-train-joint-eq-u1000 (64G 6h); outputs v2_train/<ARM>{,_U1000}. With PE 2 -> 6 jobs. Dept QOS 980/1000G, yd24f 448/500G.
+- 00:21 JCO reuse build running (log logs/v2_after_joint_1031.log, watcher buczh0hb5).
+- 00:47 JCO sealed (bce0ac9, reuse): 22,873 examples (all joint_complete), 122 tasks, 620,458 sup tokens, 0 teacher calls,
+  label_reuse 5,269 reused / 0 unused, same label outcomes as JOINT; examples sha fcb959f1, manifest c757e6d3; synced (1,247 files,
+  403,018,226 B OK). NOTE: JOINT vs JCO differ in composition, not just 296 examples: JOINT = 18,178 complete + 4,991 local; JCO = 22,873 complete.
+- hpg SUBMITTED 48677013 v2-train-jco (96G 4h), 48677014 v2-train-jco-u1000 (96G 6h). 8 jobs total, all PENDING (QOSGrpMemLimit).
+- rai `inputs --check` (train tree 6016bb3) on JCO/JOINT/JOINT_EQ/PE running (scratchpad/inputs_check_all.sh, watcher bsrpil1lz).
+- 01:13 CDT rai inputs --check rc 0 on all 4 (JCO 378 s, JOINT 347 s, JOINT_EQ 400 s, PE 346 s). V2 job watcher bg2jwy06m (scratchpad/v2_jobs_watch.sh, exits on first state change).
+- 01:31 CDT 11-01 hpg TUNNEL DOWN again (no master); one notice sent (Discord 1566339224800731187, marker hpg_tunnel_notified). Re-arm v2_jobs_watch.sh after it is back.
+- TODO next: watch hpg starts (prep time, idle-GPU), pull ckpts -> E-sel on rai (JOINT first), main evals, §7.
+
+### 22:46 CDT 10-31 — tunnel back (user). Keeper pid 643198 was in state T (stopped, cause unknown; no tty, no tracer) since ~19:44 CDT -> kill -CONT, now sleeping normally; grid_check_once.sh now reports STOPPED (kill -0 missed it). run_v2_after_topup.sh probe 22:47 CDT: still 429 credit_balance_exhausted -> stopped before moving/recovering/launching anything (log logs/v2_after_topup_1031.log). rai / free 557G (<1T rule) -> told user; V2 builds write <~2 GB.
+
+### 18:35 CDT 10-31 — hpg TUNNEL DOWN (localhost:2222 refused, no ControlMaster). One notice sent (Discord 1566234352352895078, marker scratchpad/hpg_tunnel_notified). No hpg jobs of ours; blocks only the hpg syncs/training after the top-up. Need: Mac autossh + `ssh -fN -M hpg` on rai.
+
+### 14:54 CDT 10-31 — TEACHER CREDITS EXHAUSTED AGAIN (probe 14:56 CDT: 429 insufficient_quota / credit_balance_exhausted)
+- Told user (Discord msg 1566179282672160840) with usage + remaining need; HOLD all teacher work until the top-up.
+- Usage since the 10:35 top-up ~224M in / 11.4M out: C4 shards 79.4M/7.14M, C5 dp 48.1M/.73M, C5 start 69.8M/1.02M,
+  V2 global ledger delta 25.6M/2.35M (non-heat rerun, unsharded C4, hedge), label ledgers JOINT .66M/.07M, JCO .66M/.07M.
+- JOINT / JCO parallel builds died TeacherQuotaError at 365 / 363 labels (unsealed dirs v2_data/JOINT, JOINT_COMPLETE_ONLY;
+  label ledgers v2_label_ledgers/*.jsonl stop teacher_quota). After the top-up: move the dirs to _trash, budget_recover the two
+  label ledgers (or new ledgers), relaunch run_v2_build.sh for both (~18k L calls, ~1.8k in / .2k out each -> ~33M / 3.6M).
+- C5 start ENDED with stop teacher_quota: 640 recorded, 604 valid (502 success), 36 void (24 not_run_halted + 12 void), all on
+  8 from-start cases: look Laptop-301, AlarmClock-305, Laptop-309, Pillow-309, Watch-301, Book-307 (5 void each),
+  heat Apple-GarbageCan-2 (4), look Pillow-307 (2). C5 dp complete (640, 0 void). -> after the top-up, rerun those 8 cases
+  from start (all 5 takeovers each, new dir) before building PREFIX_EXPERT. Partial cases need a rule (decide before running).
+- While waiting (no teacher): full dry-runs of JOINT / JCO (scratchpad dry_JOINT_full, dry_JCO_full) for exact counts;
+  PREFIX_EXPERT trial build (scratchpad trial_PE) from v2_c5_dp + v2_c5_start; Codex subset tool (log codex_20261031_155313).
+- Prereg REVISION 4 committed 1898354 (C5 refill rule, per-run ledgers summed by hand, L --label-workers 16 / tree 568f99d,
+  JOINT_EQ target T = min(OFFLINE, PREFIX_EXPERT) turns, task-stratified largest remainder, seed 0). Fill spec
+  reports/runs/method_v1/v2_c5_start_fill_spec.json (8 cases). Restart script reports/runs/method_v1/run_v2_after_topup.sh
+  "<reason>" (probe -> trash unsealed JOINT/JCO -> budget_recover both label ledgers -> relaunch both builds + C5 fill).
+- PREFIX_EXPERT trial (C5 without fill): 16,298 decision examples / 16,298 turns / 438k tokens, 125 tasks; excluded
+  student_prefix_context_only 6,235, refused_or_inadmissible 332, unsuccessful_takeover 247, ungrounded_rationale 170, void 36.
+  examples.jsonl 265 MB (OFFLINE 3.75 MB).
+- Subset tool reviewed, 33 tests pass, committed eval 75d55ca, pinned ../ICML27_run_repair_eval_75d55ca. Real check:
+  trial_PE -> match OFFLINE -> 3,867 turns exactly, 124 tasks (49 s); train tree cc909f7 `inputs --check` on it -> exit 0
+  (rai needs --relocate /ddnB/work/xueqic/hq/ICML27_data=$P/data, as hpg).
+- Memory: CPU dry-run (cc909f7, real tokenizer, tiny model) OFFLINE MaxRSS 6.7 GB / 9 min; PREFIX_EXPERT run pending.
+- hpg pre-sync DONE 15:3x CDT (scratchpad/sync_runs_hpg.sh: plan/provenance/run_manifest/records only, count + bytes OK):
+  v2_c5_dp, v2_c5_start, v2_c4s_{dp,start}/s0..s7 under $D/reports/runs/method_v1/.
+- Full dry-runs (16 shards, tree 568f99d, 69 min each): JOINT 23,169 decision examples (joint_complete 18,178 + joint_local
+  4,991), 563k tokens, 125 tasks, 10,538 L calls, examples.jsonl 343 MB; JCO 22,873 (all joint_complete), 556k tokens,
+  122 tasks, 10,538 L calls. Excluded (JOINT): no_qualifying_progress 7,352, refused_or_inadmissible 438, no_progress_repeat
+  169, repeated_refused_action 27, invalid_rationale_label 1. -> L need ~21k calls (~38M in / 4.2M out).
+- TRAINER ENCODE BOTTLENECK 16:2x CDT: encode_example (packing="turn") runs encode_turn on EVERY history step and keeps only
+  the supervised turn(s): measured 0.278 s/row (60 PE rows, real tokenizer) -> PE ~75 min, JOINT ~107 min of CPU per rank
+  before training with both B200s idle (idle-GPU cancellation risk). Codex 17:10 EDT (../ICML27_wt_repair_train, log
+  codex_20261031_171040.log): optional turns= fast path (all validation kept) + tools/v2_encode_check.py old-vs-new digest.
+  Verify on real rows (OFFLINE, replay, PE, JOINT samples + full trial_PE_eq), then new train tree for the decision arms.
+- ENCODE FAST PATH DONE 16:5x CDT: reviewed; 37 new tests + 965 broader pass (3 failures identical on original cc909f7:
+  stage3a/3c/mechanism_probes, pre-existing); tools/v2_encode_check old-vs-new byte-identical on real OFFLINE 200, replay 20,
+  PE 400, JOINT 400, JCO 300 rows; decision rows 0.244 -> 0.029 s (8.3x) -> PE ~8 min, JOINT ~11 min per rank.
+  Committed train branch 6016bb3, pinned ../ICML27_run_repair_train_6016bb3; hpg tree
+  /blue/.../ICML27_runs/repair_train_6016bb3 (1,316 files, 95,446,307 bytes both sides, key sha256s match, .venv -> main
+  project .venv as cc909f7, scripts/hpg_train_v2.slurm sha 6149ffaa). DECISION ARMS (PE, JOINT, JCO, JOINT_EQ) TRAIN FROM
+  6016bb3 (TRAIN_TREE); OFFLINE/CONTINUE stay cc909f7 (identical encodings, so the training input is the same function).
+  Pending: full-dataset digest check old-tree PE dry-run (still running, gives MaxRSS) vs new tree.
+- Memory: old-tree PE CPU dry-run MaxRSS 13.1 GB (1:29:43 wall) vs OFFLINE 6.7 GB -> data ~+6.4 GB per process (incl. the
+  dry-run-only fake-scoring deepcopy). hpg OFFLINE real MaxRSS 42.2G (2 ranks) -> PE est ~55G, JOINT/JCO (343 MB rows) ~59G.
+  -> request --mem=96G for PE / JOINT / JCO, 64G for JOINT_EQ (3.9k rows). Old-tree PE encoded_examples_sha256 4fac6cbc...;
+  new-tree dry-run on the same trial_PE running (pid 3735080) for the full-dataset equality check.
+  -> DONE 17:04 CDT: new tree 6016bb3 on the full 16,298-row trial_PE: encoded_examples_sha256 4fac6cbc... IDENTICAL,
+  batches.json and example_sources.json identical; wall 1:29:43 -> 19:10, MaxRSS 13.0 GB (same).
+- Builder throughput note: the labels.jsonl audit ledger (JsonlLedger, 25 MB in the dry-run) and the budget ledger are both
+  O(rows) per append -> dry-run 1,280 records takes ~1 h; real JOINT / JCO builds ~1-1.5 h each in parallel.
+- Next after C4+C5: E0.4 builds (tools.build_v2_dataset, tree 7748da5 as OFFLINE/CONTINUE) JOINT / JOINT_COMPLETE_ONLY (L labels,
+  shared ledger) / PREFIX_EXPERT -> hpg training x3 (same script/settings) -> E-sel on rai GPU 1 -> main evals -> §7 rule.
+
+### 00:2x CDT 10-30 — TEACHER CREDITS EXHAUSTED (OpenAI 429 insufficient_quota / credit_balance_exhausted)
+- From 00:26 CDT every gpt-6-luna call fails; probe at 00:28 CDT confirmed "You have no credits remaining". User asked to top up
+  (Discord msg 1565598578041163883). Teacher-bound work paused until then.
+- v2_nonheat_r2 (joint-review/2 on 29 non-heat prefixes): 261 recorded, 89 valid, 172 void (teacher_quota) -> rerun all in a new dir
+  after top-up, then apply prereg rev1 rule. Usage: v2 ledger ~11.2M in / 0.87M out (heat 2.33M + non-heat 8.84M).
+- C1 DONE 01:2x CDT: theta0 on V2_pool 200 x 4 -> success/4 dist {0:51,1:24,2:21,3:32,4:72}; 128 tasks fail >=1
+  (by type, successful rollouts: look 87/136, simple 126/136, clean 81/132, cool 51/132, heat 22/132, two 83/132).
+- C2 DONE: reports/runs/method_v1/v2_prefix_spec.json = 128 dp/1 prefixes (target_seen 99, search_after_10 27, refused 2).
+  C4/C5 will be 128 x 2 starts x 5 episodes each (waiting for teacher credits).
+- E0.5 reader compat committed 9b4682e (226 tests; real OFFLINE/CONTINUE dry-runs pass with real tokenizer, max 16,759 tokens).
+  RUNNING real canary: v2_train_canary/offline_u3_9b4682e (tree ../ICML27_run_repair_train_9b4682e, rai GPU 3, pid 565415,
+  3 updates B16 replay .25, --relocate /ddnB/work/xueqic/hq/ICML27_data=<P>/data).
+  -> DONE 01:53 CDT: loss .67 -> .43, lr linear decay from 5e-5, ~57 s/update on rai A100 (~1,600 tok/s), ~22 min CPU prep.
+  Serving gate PASSED on update-03 (max adapter diff .042 nats); smoke coverage 2 tasks x4 = 8 rollouts, 0 errors.
+- E0.6 committed 4152854 (eval branch, 283 tests): joint_guidance --eval-adapter (U only, 0 teacher calls, leakage guard,
+  recorded theta0 prefix replay). Smoke on canary update-03: 1 prefix greedy, completed, prefix_verified, leakage passed.
+  Launcher reports/runs/method_v1/run_v2_eval_rai.sh (kind tasks|prefix|start; EVAL_TREE=4152854 for prefix/start).
+- E0.5 fast inputs committed cc909f7 (collection files via hash receipts; 31 byte-hashed; check 9m48s cold / 7m57s warm).
+  hpg synced 03:1x CDT: train tree /blue/.../ICML27_runs/repair_train_cc909f7 (.venv -> main), eval manifests
+  /blue/.../ICML27_runs/repair_eval_7748da5, v2_data OFFLINE+CONTINUE and theta0 under /blue/.../ICML27_agent_distillation
+  (counts/du -sb/sha256 match). Script reports/runs/method_v1/hpg_train_v2.slurm (2 B200, cpu 4, 64G).
+  hpg canary 48283631 FAILED in 11 s (04:42 CDT): script used ENV_PYTHON (main .venv, no torch). Fixed: training uses
+  TRAIN_PYTHON (/blue/.../tc-alignment/.venv: torch 2.11+cu128, tf 5.14.1, peft 0.20.0, as main-grid training; help runs).
+  hpg canary 48289899 COMPLETED (05:38-06:21 CDT, 43 min): ~41 min input check (hash receipts COLD: new dir
+  $H/ICML27_runs/sed-hash-receipts, now warm with 9,544 receipts; the main grid's warm cache is $H/.sed-hash-receipts), model load
+  29 s, ~11 s/update on 2 B200, MaxRSS 16.0G. Same batch indices as rai; loss u1 0.6736 (rai 0.6735), u2 0.4419 (rai 0.4455);
+  grad norm u1 3.85 vs rai 4.20 (A100 1-GPU vs 2 B200). Checkpoints update-01/02 written.
+  RUNNING hpg full V2 training (submitted 06:23 CDT, 500 updates, ckpts 1 5 20 50 100 200 300 500, --time 5h):
+  OFFLINE job 48297913 -> v2_train/OFFLINE; CONTINUE job 48297914 -> v2_train/CONTINUE; watcher b3aaljlvn hit the 2 h limit 08:24 CDT, now checked in the hourly grid check.
+  Expect ~10-40 min input check + ~1.5 h training each. 07:35 CDT: both PENDING (Priority), SLURM start estimate 17:48 CDT;
+  hpg-b200 is busy on both accounts (yd24f 29 PD, dept 40 PD). Kept on hpg so all V2 arms train on the same 2xB200 setup.
+  16:35 CDT: estimate slipped to 11-01 01:47 CDT. yd24f is blocked by QOSGrpMemLimit (no gain from moving account);
+  cut TimeLimit 5h -> 3h30 on both (canary worst case ~2.3 h) to allow backfill.
+  OFFLINE 48297913 RUNNING since 17:25 CDT (c1010a-s5), input check in progress; CONTINUE est. start 17:48 CDT.
+  OFFLINE prep 17:25-17:58 CDT (~33 min even with warm receipts; rai warm 8 min -> Lustre metadata, 2 tree workers;
+  speed-up candidate before the JOINT arms). Training since 17:58: both GPUs 100%, u1/u2 loss 0.6736/0.4419 = canary exactly,
+  u4 0.311, ~8 s/update.
+- OFFLINE 48297913 COMPLETED 19:05 CDT (1h41m: prep 33 min + ~68 min train), 500 updates, 8 ckpts (558 MB each), MaxRSS 42.2G.
+  Loss by window: u1 .674 | u2-5 .357 | u6-20 .232 | u21-50 .163 | u51-100 .101 | u101-200 .035 | u201-300 .007 |
+  u301-400 .0009 | u401-500 .0001 (epoch 29 at u500: arm data memorised; E-sel on 20..500 decides).
+  CONTINUE 48297914 RUNNING since ~18:50 CDT.
+- E-sel/(c) GAP (19:1x CDT): tools.repair_coverage refuses D_probe groups (D_unseen_quick is inside D_probe), and
+  eval.run_suite() rejects decoding=sampled although its CLI/worker support it. E06 doc's claim that coverage serves
+  E-sel/(c) was wrong. Codex (wt_repair_eval, log logs/codex_20261030_201036.log, bg b2urijy02): run_suite sampled fix +
+  new tools/v2_task_eval.py (--set D_unseen_quick|D_probe, greedy + sampled seeds, adapter gate, leakage guard, summary
+  with non-quick 36). OFFLINE ckpts being pulled to rai reports/runs/method_v1/v2_train/OFFLINE (bg b26rwy3t1).
+  rai / at 646G free (<1T floor; not ours: no file of ours >1G written in the last 20 h); rai ckpt copies -> _trash after selection.
+- OFFLINE ckpts on rai verified (54 files, 4,482,688,035 B, u500 sha256 b680a456… = hpg).
+  RUNNING E-short (prereg §6) on rai GPU 1: reports/runs/method_v1/run_v2_eshort_offline.sh, pid 1791294, log
+  logs/v2_eshort_offline.log; theta0 (fresh) then OFFLINE u01/u05/u20, U greedy on v1b_main_spec.json (38), eval tree 4152854,
+  outputs v2_eval/eshort_{theta0,offline_u01,u05,u20}. Watcher b0u1muuvp.
+- E0.6b committed 1a348f9 (repair-v01-eval): tools/v2_task_eval.py (--set D_unseen_quick|D_probe, greedy + sampled seeds,
+  adapter gate + leakage guard, theta0 = arm 0, summary with non_quick_36 / quick_24) + run_suite sampled fix; 98 tests pass;
+  real split check OK (24 / 60, all 6 types). Pinned tree ../ICML27_run_repair_eval_1a348f9. Launcher kinds quick|probe added.
+  QUEUED E-sel OFFLINE: run_v2_esel_offline.sh pid 1821263 (waits for E-short pid 1791294), GPU 1, u20 50 100 200 300 500,
+  log logs/v2_esel_offline.log, outputs v2_eval/esel_offline_u{020,...,500}/tasks/summary.json.
+- E-short theta0 done (19:15-19:30 CDT): 38/38, 0 void, LoRA gate passed, 0 teacher tokens; greedy U 9/38 = V1b r2 U greedy
+  EXACTLY (all 38 first actions identical, no flips) -> serving on GPU 1 is reproducible. Its launcher exited 1 afterwards
+  ('set: unbound variable') because I edited run_v2_eval_rai.sh while it ran (bash reads incrementally); nothing executed,
+  outputs intact. Memory feedback-never-edit-running-bash-script. Analysis script reports/analysis/method_v1/v2/analyze_eshort.py.
+- E-short OFFLINE done 20:18 CDT (U greedy, 38 V1b prefixes, all 38/38 recorded, 0 void, 0 teacher tokens):
+  theta0 9 | u01 12 (+5 -2, first action changed 3/38, refused/ep 1.21) | u05 14 (+8 -3, 4/38, 1.45) | u20 13 (+7 -3, 4/38,
+  0.89; picked 30 vs 25). Greedy-only diagnostic; flips at 1 update show trajectory sensitivity, not selection evidence.
+  -> reports/analysis/method_v1/v2/eshort_offline.json. E-sel OFFLINE started 20:18 CDT (watcher bfv2t8ix3).
+- E-sel OFFLINE u020 FAILED 20:34 CDT (ValueError) after a valid greedy suite (24/24, 14 successes, 0 errors): v2_task_eval's
+  plan spec lacks max_model_len (adapter_eval.serving_spec calls context_options before config gets server_provenance) while
+  run_suite records max_model_len=32768 -> strict spec check always fails on a real server. Chain stopped (pids 1821263/
+  1897602 TERM; u050 was in its HF check); dirs -> _trash/v2_esel_spec_mismatch_1030/. Codex fix running (log
+  ICML27_wt_repair_eval/logs/codex_20261030_213601.log, bg b1yc1loyq). Rerun E-sel into fresh dirs after review.
+- CONTINUE 48297914 COMPLETED 21:30 EDT = 20:30 CDT (1h41m: prep ~36 min), 500 updates, 8 ckpts, MaxRSS 19.9G. Loss u1 0.0000
+  (theta0 already fits K20), u2-5 bump .015 (lr restart at 5e-5), ~0 from u50; epoch 299 at u500. Pulling to rai (bg b1tslxw2q).
+- v2_task_eval fix committed 3b9c686 (plan = effective spec incl. max_model_len; verified on the real failed u020 outputs;
+  108 tests). Pinned tree ../ICML27_run_repair_eval_3b9c686.
+  RUNNING chain reports/runs/method_v1/run_v2_sel_chain_1030.sh pid 1906578 (rai GPU 1), log logs/v2_sel_chain_1030.log:
+  E-sel OFFLINE u20..500 (tree 3b9c686) -> E-short CONTINUE u01/05/20 (tree 4152854, waits for v2_train/CONTINUE.verified,
+  which I write after count/bytes/sha256 match hpg) -> E-sel CONTINUE u20..500. ~16 min per run, ~4 h total. Watcher b6am0ruiw.
+- CONTINUE ckpts on rai verified 20:42 CDT (54 files, 4,474,095,123 B, u500 sha256 6c6eaadd… = hpg); marker CONTINUE.verified.
+- E-sel OFFLINE u020 done (20:41-21:03 CDT, ~21 min/ckpt): greedy 13/24, sampled 15/12/18 -> metric .604, 0 voids.
+  Greedy noise: vs the failed run of the same ckpt, 22/24 tasks identical, 1 success flip.
+  Prereg revision 2 a1f5905 (pushed): E-sel metric = per-task success over greedy + 3 sampled, averaged over 24 (voids
+  excluded, lower bound reported), tie -> earlier; written after only u020 was seen. Script analyze_esel.py. Watcher b5pv45i4k
+  (OFFLINE E-sel done ~22:50 CDT).
+- E-sel OFFLINE DONE 22:52 CDT (6/6, 0 voids; analyze_esel.py -> reports/analysis/method_v1/v2/esel_offline.json):
+  metric (greedy | sampled s0/s1/s2): u20 .604 (13 | 15/12/18) | u50 .740 (19 | 17/15/20) | u100 .708 (16 | 17/19/16) |
+  u200 .729 (18 | 17/16/19) | u300 .729 (17 | 19/17/17) | u500 .771 (19 | 19/18/18) -> SELECTED u500 -> §5 extension.
+  u50 vs u500 = 3 of 96 runs (within noise), but the registered rule decides.
+  Prereg revision 3 c62352f (pushed, 22:5x CDT): extension = fresh 1,000-update run from theta0, linear 5e-5->0 over 1,000
+  (500-run ends at lr 0; resuming would need a new lr shape), same data/B/replay/seed 0; batches 1-500 identical to the 500-run
+  (sequential schedule; verify batches.json prefix); ckpts 1 5 20 50 100 200 300 500 700 1000; reselect over its u20..u1000
+  only; no second extension (if 1000 again -> use it, note possibly under-trained). CONTINUE 1,000 trained in parallel,
+  evaluated ONLY if CONTINUE's 500-run E-sel selects 500.
+  SUBMITTED hpg 22:54 CDT (--time 4h, script sha 6149ffaa unchanged, UPDATES=1000 CHECKPOINTS env):
+  OFFLINE_U1000 job 48431225 -> v2_train/OFFLINE_U1000; CONTINUE_U1000 job 48431226 -> v2_train/CONTINUE_U1000.
+  Expect ~33 min prep + ~2.3 h train. Watcher b300aojbl (polls sacct every 5 min, 2 h cap; then hourly check).
+  Chain pid 1906578 now on E-short CONTINUE u01 (started 22:52 CDT; watcher bm2oobevy runs analyze_eshort.py offline continue),
+  then E-sel CONTINUE (~2.1 h, done ~01:50 CDT). Reported on Discord 23:0x CDT (msg 1565937418446573621).
+- E-short CONTINUE done 23:40 CDT (38/38 each, 0 void, 0 teacher tokens; eshort_offline_continue.json):
+  success theta0 9 | CONTINUE u01 14 (+6 -1, refused/ep 2.13) | u05 11 (+4 -2, 2.39) | u20 13 (+7 -3, 1.47); first action
+  changed 3/2/5 of 38. CONTINUE trains only on data theta0 already fits (loss ~0), yet gains as much success at 1 update as
+  OFFLINE (u01 12, +5 -2) -> greedy success on the 38 prefixes is sensitive to any small weight change; E-short success is
+  not evidence of learning. Refused/ep separates them: OFFLINE lowers it at u01/05/20 (1.21/1.45/0.89 vs 1.82), CONTINUE raises
+  it at u01/05 (2.13/2.39). Main comparisons are arm-vs-arm (CONTINUE = control), as registered. E-sel CONTINUE started 23:40 CDT
+  (watcher bi81ta2l4 -> analyze_esel.py continue, ~01:50 CDT). Reported on Discord (msg 1565948985280040966).
+- 00:53 CDT 10-31: both U1000 jobs still PENDING (QOSGrpMemLimit: dept QOS at 996/1000G; yd24f full on GPUs 8/8; burst QOS
+  has gpu=0, so no alternative). Shrunk requests to help backfill, sized from sacct of the same job type: OFFLINE_U1000
+  48431225 64G -> 56G (500-run MaxRSS 42.2G), CONTINUE_U1000 48431226 64G -> 32G (MaxRSS 19.9G); scontrol needs MB values.
+  Watcher re-armed (2 h cap); hourly check covers it after that.
+- E-sel CONTINUE DONE 02:03 CDT 10-31 (6/6, 0 voids; esel_continue.json, esel_offline_continue.json): metric (greedy |
+  sampled) u20 .510 (11 | 11/14/13) | u50 .542 (14 | 15/12/11) | u100 .510 (13 | 12/11/13) | u200 .521 (12 | 13/11/14) |
+  u300 .552 (14 | 14/14/11) | u500 .552 (13 | 14/13/13) -> tie u300 = u500 -> SELECTED u300 (tie -> earlier); no extension.
+  CONTINUE_U1000 48431226 (still PENDING) cancelled 02:04 CDT per revision 3 (only evaluated if CONTINUE selects 500).
+  OFFLINE (0.60-0.77) is above CONTINUE (0.51-0.55) at every checkpoint on quick 24 (selection set, descriptive only).
+- OFFLINE_U1000 48431225 RUNNING since 01:21 CDT (c1007a-s5, 56G): planned ckpts [1 5 20 50 100 200 300 500 700 1000], total 1000;
+  batches 1-500 identical to the 500-run (verified batches.json); loss u1/u2 .6736/.4419 = 500-run; u79 at 02:0x CDT, ~8 s/update
+  -> done ~04:15 CDT (limit 05:21 CDT). Watcher bxrgx4czm (2 h cap).
+- RUNNING main evals (prereg §6 (c)(a)(b)) on rai GPU 1: reports/runs/method_v1/run_v2_main_eval.sh pid 2288150, log
+  logs/v2_main_eval_1031.log, started 02:03 CDT: theta0 then continue_u300; per arm (c) probe D_probe 60 g+s0-2 (tree 3b9c686),
+  (a) prefix 38 U g+s0-7, (b) start 38 g+s0-7 (tree 4152854); outputs v2_eval/main_<tag>_{probe,prefix,start}.
+  OFFLINE_U1000 E-sel (8 ckpts) and OFFLINE main evals follow on GPU 1 after this chain (WAIT_PID).
+- main_theta0_probe done 02:37 CDT (33.5 min, 60/60 x 4, 0 voids): D_probe 60 greedy 31, sampled 33/33/34; non-quick 36 greedy 18,
+  sampled 20/17/22 (rate .546); quick 24 greedy 13, sampled 13/16/12 -> E-sel-equivalent metric 54/96 = .5625 (descriptive:
+  CONTINUE u300 .552 ~ theta0; OFFLINE u500 .771 = +.21, on the selection set). Chain now on main_theta0_prefix.
+- theta0 main evals done 04:02 CDT (prefix 39 min, start 46 min, 342/342 each, 0 voids). Analysis script (mine)
+  reports/analysis/method_v1/v2/analyze_main.py (a/b from records' metrics, c behaviour recomputed from episodes with
+  repair.joint definitions; pairwise cluster bootstrap 10k seed 0) -> main_theta0.json:
+  (a) prefix 38 sampled .293, greedy 12/38, refused/ep 1.77, repeat/ep .73, picked .67 | (b) start 38 sampled .336, greedy 16
+  | (c) non-quick 36 sampled .546, greedy 18/36, refused/ep 1.47 | quick 24 .569 | all 60 .556.
+  NOISE (same theta0 weights, same GPU): (a) sampled .293 vs V1b r2 U .253 (+.039; 14 up / 10 down / 14 tie); greedy 12 vs 9
+  in E-short: 30/38 identical action sequences, 7 success flips -> vLLM greedy depends on batch composition (greedy alone
+  vs mixed with 8 sampled seeds). Greedy single runs are not comparable across launches; §7 thresholds (.10 / .05) sit
+  above the +.04 same-weights difference. Chain now on main_continue_u300_probe.
+- OFFLINE_U1000 48431225 COMPLETED 04:06 CDT (2h45m, MaxRSS 20.7G of 56G), 10 ckpts, manifest complete; 66 files,
+  5,603,731,804 B, u1000 adapter sha256 5bce87d9…. Loss by window: u1 .674 | u2-5 .358 | u6-20 .232 | u21-50 .162 | u51-100 .097 |
+  u101-200 .034 | u201-300 .0098 | u301-500 .0021 | u501-700 .0001 | u701-1000 .0000. Pulling to rai (bg blbgaqhd5, writes
+  v2_train/OFFLINE_U1000.verified only if count/bytes/sha256 match). rai / 591G free.
+  rai copy VERIFIED 04:18 CDT (66 files, 5,603,731,804 B, u1000 sha256 = hpg; marker OFFLINE_U1000.verified). First gate said
+  MISMATCH only because ${PIPESTATUS[0]} is empty in zsh (my bug); re-ran rsync unpiped (no-op, rc 0) before writing the marker.
+  QUEUED chain reports/runs/method_v1/run_v2_offline1000_chain.sh pid 2408946 (log logs/v2_offline1000_chain_1031.log):
+  waits for main chain pid 2288150 + the .verified marker -> E-sel offline1000 u20..1000 (8 x ~22 min) -> analyze_esel.py
+  offline1000 (rule applied mechanically) -> run_v2_main_eval.sh for the selected ckpt (tag offline1000_u<sel>).
+  analyze_esel.py extended: tag <arm>1000 = 1,000-run, ckpts 20..1000, flags 'selected 1000 -> no second extension'.
+- CONTINUE u300 main evals DONE 05:55 CDT 10-31 (probe 34 min, prefix 36, start 44; 0 voids). analyze_main.py theta0
+  continue_u300 -> main_theta0_continue_u300.json. CONTINUE u300 minus theta0 (cluster bootstrap 10k seed 0; DESCRIPTIVE ONLY,
+  §7 rules are JOINT vs X; CONTINUE = more SFT on the K20 demos):
+  (a) prefix 38 sampled .293 -> .418, +.125 CI [+.033, +.224], tasks +17 -10 =11; greedy 12 -> 16
+  (b) start 38 .336 -> .444, +.109 CI [+.007, +.214], +20 -11 =7; greedy 16 -> 17
+  (c) non-quick 36 .546 -> .546, +.000 CI [-.065, +.074], +5 -6 =25; greedy 18 -> 18 | all 60 .556 -> .544 (-.011)
+  behaviour: (a) refused/ep 1.77 -> 1.71 (-.05, CI +-.7), picked .67 -> .69; (c) non-quick refused/ep 1.47 -> 2.15
+  (+.68 CI [-.05, +1.54]), repeat/ep .32 -> .87, picked .66 -> .67.
+  By type (n small): (a) gains in 5/6 types (clean .19 -> .53, heat .31 -> .46, cool .22 -> .34, look .38 -> .50); (c) up on
+  theta0-weak types (cool .22 -> .33, heat .17 -> .28), down on clean (.50 -> .33) / simple (1.00 -> .94); refused/ep up in
+  all 6 types on (c). Reading: on the 38 theta0-hard U_dev tasks CONTINUE gains ~+.11-.13 (above the +.04 same-weights noise
+  ref), but on unseen D_probe 36 no net gain and more refused actions -> the control arm is not flat; JOINT must beat it.
+  OFFLINE1000 chain started its E-sel 05:56 CDT (u20 first; 8 x ~22 min -> selection ~08:55 CDT, main evals ~11:00 CDT).
+- E-sel OFFLINE1000 DONE 08:36 CDT 10-31 (8/8, 0 voids; esel_offline1000.json): metric (greedy | sampled s0/s1/s2)
+  u20 .615 (13 | 16/14/16) | u50 .760 (18 | 18/19/18) | u100 .792 (18 | 19/19/20) | u200 .823 (21 | 19/19/20) |
+  u300 .802 (17 | 19/21/20) | u500 .823 (20 | 17/22/20) | u700 .812 (20 | 19/20/19) | u1000 .844 (21 | 21/19/20)
+  -> SELECTED u1000 (last of the 1,000-run): per revision 3 use it, no second extension, label "possibly under-trained".
+  Note: plateau .80-.84 from u200 on; u1000 beats u200/u500 by 2 of 96 runs (within the +-1 greedy noise ref); loss ~0
+  from u500. The 1,000-run is above the 500-run at every shared checkpoint (u100 .792 vs .708, u200 .823 vs .729), same
+  batches 1-500, slower LR decay -> descriptive (selection set).
+- RUNNING: OFFLINE1000 u1000 main evals (same chain pid 2408946) started 08:36 CDT: probe -> prefix -> start, ~2 h ->
+  ~10:35 CDT; then analyze_main.py theta0 continue_u300 offline1000_u1000.
+- OFFLINE1000 u1000 main evals DONE 10:09 CDT 10-31 (probe 30 min, prefix 29, start 33; 0 voids); offline1000 chain
+  finished, rai GPU 1 idle for us. analyze_main.py theta0 continue_u300 offline1000_u1000 ->
+  main_theta0_continue_u300_offline1000_u1000.json. OFFLINE u1000 (sampled | greedy):
+  (a) prefix 38 .780 | 31/38; (b) start 38 .793 | 32/38; (c) non-quick 36 .750 | 27/36, quick 24 .833, all 60 .783 | 48/60.
+  vs theta0: (a) +.487 CI [+.378, +.592] +30 -1 =7; (b) +.457 [+.349, +.562] +31 -4; (c) non-quick +.204 [+.111, +.306]
+  +14 -0 =22; refused/ep (a) 1.77 -> .59 (-1.17 [-1.63, -.72]); (c) 1.47 -> 1.26 (-.21, CI incl. 0); picked (a) .67 -> .86,
+  (c) .66 -> .80.
+  vs CONTINUE u300: (a) +.362 [+.250, +.477] +26 -2; (b) +.349 [+.224, +.467]; (c) non-quick +.204 [+.102, +.315] +13 -0;
+  refused/ep (c) 2.15 -> 1.26 (-.89 [-1.75, -.11]).
+  Leakage check: no V2_pool group in the 38 or D_probe 60 (0 exact group overlap); same type+object+receptacle in another
+  scene: 17/38 and 13/36 non-quick. Gain does not depend on it: (a) +.500 (17 shared goal) vs +.476 (21 not); (c) +.205
+  (13) vs +.203 (23).
+  HEADROOM for §7 (JOINT > OFFLINE needs (a) +.10 & +4 prefixes net, (c) +.05 & +3 tasks net): OFFLINE (a) 22/38 prefixes
+  at 1.0, 28 >= .75, 4 at 0 (others .125 .25 .5 .625 x3); (c) non-quick 25/36 at 1.0, 7 at 0, 4 between. JOINT has to win
+  on the ~10-16 hard prefixes / 7-11 tasks OFFLINE still fails -> the bar is high but not at ceiling.
+- hpg inputs: 899,316 files (899,280 = seeds_full_train_r2, 11.9 GB; hpg copy has identical manifest/K20 hashes; E4B snapshot
+  ee0ef60 present in /blue/.../tools/hf-cache). Codex: verify collection files via existing hash receipts instead of re-hashing
+  (prep time), --full-rehash for audits.
+
 ### 23:2x CDT 10-29 — V2 preregistered (9709e3c); C1 coverage running; two Codex tasks
 - V2 prereg docs/direction/2026-10-29_V2_learning_prereg_ZH.md: V2_pool 200; C1 theta0 greedy+3 sampled; C2 dp/1 prefixes;
   C3 two starts (dp, start) per failed task; C4 G greedy+4 sampled per start; C5 takeover 5 runs per start; arms CONTINUE /
@@ -28,6 +393,10 @@ each way (T-only 9–17, S-only 8–15) → need a teacher re-run for teacher se
 - Built: reports/runs/method_v1/v2_data/OFFLINE (200 ex, 3,867 turns), CONTINUE (20 ex, 315 turns).
 - joint-review/2 committed 1f23a37 (eval branch; 247 tests; V1 byte-identical). RUNNING §8 heat retest: reports/runs/method_v1/
   v2_heat_r2 (tree 1f23a37, rai GPU 3, launcher pid 432721, 23:31 CDT; 9 heat prefixes x G x (greedy + seeds 0-7), v2 ledger).
+- §8 heat retest DONE 23:53 CDT: G(joint-review/2) .931 vs G(r1) .349 on 9 heat prefixes, 9/0 -> PASS. Prereg rev1 78c2f8c:
+  C4 uses joint-review/2 iff the 29 non-heat prefixes are not worse (>= r1 - 0.05) and 38-prefix teacher share <= 30%.
+  RUNNING: reports/runs/method_v1/v2_nonheat_r2 (tree 1f23a37, rai GPU 3, launcher pid 481449, 23:54 CDT, 261 G rollouts).
+- E0.5 relocation committed 89a57fd (train branch). Codex now fixing reader compat (counts rule 6, split sources, evidence).
 - Training canary offline_u2 REFUSED: "Manifest counts mismatch" (E0.4 writes extra counts keys) -> spec rule 6; reader fix
   goes to Codex after the relocation task.
 - Codex (train wt): E0.5 --relocate OLD=NEW with hash verification + `inputs --list/--check`, for training on hpg.
@@ -2575,8 +2944,235 @@ smoke on a fixed dev subset, hpg environment + profiling report.
 
 ## ⟳ RESTART CHECKLIST (added 10-26 00:0x CDT)
 - Long-lived rai processes (setsid, survive a session restart; verify with ps): keeper 1593872 (scripts/hpg_queue_keeper.py),
-  dedupe_ladder_loop.sh 224983, copier_v4.sh 754546 (+ sync_loni_hpg_v4.sh child), smc_tol_handler.py (pid file in scratchpad).
+  dedupe_ladder_loop.sh 224983 (STOPPED 11-01 02:5x CST: obsolete, and it SIGSTOPped the keeper during hpg outages), copier_v4.sh 754546 (+ sync_loni_hpg_v4.sh child), smc_tol_handler.py (pid file in scratchpad).
 - Session-level (lost on restart, re-arm): the hourly grid check cron (scratchpad/grid_check_once.sh) and the keeper-log watcher
   (start from scratchpad/keeper_watch_offset, never from the current line count).
 - The scratchpad lives under /tmp/claude-1010/.../035c9823-.../scratchpad; a new session id means a new scratchpad -- copy the
   scripts listed above before relying on them.
+- 01:35 CST 11-01 (DST ended 02:00 CDT -> 01:00 CST; times from here on are CST) hpg tunnel BACK; keeper alive (pid 643198, heartbeat ok).
+  All 8 V2 train jobs still PENDING (QOSGrpMemLimit). v2_jobs_watch.sh re-armed (background, 600 s poll).
+  Note: hpg $HOME 40G/40G full (bulk = ~/.cache/vllm/torch_compile_cache 29G, last changed 10-22; nothing >10M written since 10-28).
+  Not a blocker: OFFLINE_U1000 trained 10-31 in the same state, training writes only /blue. Not authorized to clean $HOME -> reported to user.
+- 02:08 CST 11-01 hpg TUNNEL DOWN again (watcher SSH_FAIL x2; no master, 2222 banner timeout); one notice sent. 8 V2 jobs were PENDING at 01:35. Re-arm v2_jobs_watch.sh after it is back.
+- 02:4x CST 11-01 keeper pid 643198 found STOPPED (state T) again (last log 01:56 CST); kill -CONT -> SNs. No script of ours sends STOP; ptrace_scope=1 so strace can't attach. grid_check now reports KEEPER_STOPPED/DEAD even when the tunnel is down; keeper_stop_watch.sh (bg, 20 s poll) snapshots context on the next stop.
+- 02:5x CST 11-01 KEEPER-STOP CAUSE FOUND (corrects the 02:4x line "no script of ours sends STOP"): scratchpad/dedupe_ladder_loop.sh
+  (pid 224983, alive since 10-21) ran keeper_edit.sh every 3 min, which `kill -STOP`s the keeper while dedupe_ladder.py runs and
+  CONTs after. dedupe_ladder.py calls `ssh hpg` (no ConnectTimeout, ControlMaster auto); during an outage that ssh hangs, so the
+  keeper sat stopped (10-31 ~19:44->22:46 CDT; 11-01 02:41:57 CST, caught 4 s after keeper SSH_FAIL x5 by keeper_stop_watch.sh).
+  The loop's job (ladder hpg/LONI twin dedupe) is obsolete: LONI queue empty, hpg has only the 8 V2 jobs. Killed 224983 + its
+  sleep by pid; keeper SNs. Remaining old helpers checked and harmless to V2: rebalance_accounts.sh 1419682 (moves only
+  ^(tsft|adc|smc|sadc)- pending jobs), smc_tol_handler.py 1045982 (reacts only to FAILED e?b-smc-* keeper lines).
+- 08:06 CST 11-01 user reopened hpg master (pid 546820); it died ~08:38 CST (mux 'Broken pipe'; 2222 accepts but no banner = Mac side down). The 08:35 grid check hung 3 min on the dying mux. One notice sent 08:41 CST.
+- 12:00 CST 11-01 user: hpg back (master pid 2640528). 8 V2 jobs still PENDING QOSGrpMemLimit after ~13-14 h. Dept QOS 996/1000G,
+  21/24 GPU (zl24a 448G, rx21a 208G, pkumar 128G with days left; hf26a 1-GPU 24G jobs end in 2-3 h); group 500/500G (sl26u 2x192G,
+  6 days); burst QOS has gres/gpu=0 (unusable). sprio: our u500 jobs are the highest-priority hpg-b200 pending jobs.
+  Changes (scontrol, own pending jobs): mem 96G -> 80G (PE/JOINT/JCO u500+u1000), 64G -> 60G (JOINT_EQ x2). Bound: OFFLINE true peak
+  < 56G (U1000 ran at 56G) + data <= 2 x 7.4 GB (dry-run upper bound) -> JOINT <= ~71G. Nice=100 on the 4 u1000 jobs so every arm's
+  u500 (the prereg main run) starts first. Priorities: PE 65462, JOINT 65427, EQ 65427, JCO 65415 > u1000 65315-65362. Watcher re-armed.
+- 14:03 CST 11-01 JOINT_EQ u500 48673756 RUNNING since 14:03:11 CST on c0903a-s25 (2x B200, 60G); in prep (GPUs 0%, 4 MiB at +1 min).
+  Old v2_jobs_watch.sh hit the 2 h background cap. New scratchpad/v2_watch_bounded.sh (<=100 min, re-arm on exit): exits on any
+  V2 state change, on a running job's first updates.jsonl line (prep time), ssh fail x2, or HEARTBEAT. grid_check_once.sh now
+  also covers v2-* jobs (terminal states + idle-GPU check), so hourly coverage no longer depends on the watcher.
+- 14:22:53 CST JOINT_EQ_U1000 48673757 RUNNING. At 14:27 JOINT_EQ u500 (+24 min) still in pre-torch input validation: each rank read
+  19.2 GB (hashing inputs), now single-thread Python CPU (only yaml loaded, no torch yet), out dir not created, GPUs 4 MiB.
+  Consistent with OFFLINE/CONTINUE prep 33-36 min (both survived). Note for later: both ranks hash the same inputs (duplicate work).
+- 14:29 CST 11-01 JOINT_EQ u500 48673756 FAILED (26 min, MaxRSS 8.3G): "V2 training refused: Invalid or unchecked label evidence"
+  (repair/v2_train.py _validate_evidence accepts only label_check == passed). Cause = trainer/builder contract gap: the builder emits
+  the pre-registered action-only fallback rows (prereg §3 line 69 "没有有效标签时只监督 Action"): JOINT 728 (549 grounding-failed L,
+  178 ungrounded student thoughts, 1 token cap), JCO 715, JOINT_EQ 120; all targets are exactly "Action: ...". PE has none (PE OK).
+  `inputs --check` (rai, 4 arms "verified") never ran the per-example validation that `run` does -> gap not caught.
+  Actions: scancel 48673757 (EQ u1000, would fail the same way); scontrol hold 48673744/46 (JOINT), 48677013/14 (JCO); PE 48662592/93 stay.
+  Codex 15:36 EST (logs/codex_20261101_153635.log, prompt scratchpad/codex_action_only.txt): allow-list of builder (source, check) pairs,
+  action-only targets must be "Action: ..." only, and inputs --check runs the same per-example validation. Then: rai inputs --check x4,
+  new pinned tree -> hpg, cancel held JOINT/JCO + resubmit JOINT/JCO/EQ (u500+u1000) on the new tree; PE stays on 6016bb3 (no action-only rows).
+- 14:45 CST Codex done; reviewed: validator moved verbatim to repair/v2_validation.py + LABEL_EVIDENCE_PAIRS allow-list
+  (action_only_invalid_label needs a [a-z][a-z0-9_]* builder code != passed; action_only_no_label rejected; action-only only for
+  decision rows, every supervised target must fullmatch "Action: [^\n]+"); inputs --check now calls the same _read_bundle and reports
+  examples_validated + label_provenance. 348 tests pass (my run). Train branch commit 5857234, pinned ../ICML27_run_repair_train_5857234.
+  hpg tree $H/ICML27_runs/repair_train_5857234: 1,318 files / 95,456,905 B both sides (excl. __pycache__), key sha256s match,
+  .venv -> main project .venv, scripts/hpg_train_v2.slurm copied from 6016bb3 tree (sha 6149ffaa; NOTE: hpg-only, not in git).
+  rai inputs --check on 5857234: JCO rc=0 354 s (22,873 rows; action-only 542+1+172). JOINT/EQ/PE running.
+  Resubmit script scratchpad/resubmit_v2_5857234.sh (cancel 4 held, submit 6; OUT/ARM/UPDATES/CHECKPOINTS as originals, verified via sacct --env-vars).
+  rai / 522G free (< 1T, already reported).
+- 15:12 CST rai inputs --check on 5857234, all verified (~355 s each): JOINT 23,189 rows (incl. 20 replay; action-only 549+1+178),
+  JCO 22,893 (542+1+172), JOINT_EQ 3,887 (92+28), PE 16,844 (all teacher_reply|passed).
+- 15:13 CST RESUBMITTED on tree repair_train_5857234 (cancelled held 6016bb3 jobs 48673744/46, 48677013/14):
+  48826936 v2-train-joint (80G 4h), 48826937 v2-train-jco (80G 4h), 48826938 v2-train-joint-eq (60G 4h),
+  48826939 joint-u1000, 48826940 jco-u1000 (80G 6h, nice 100), 48826941 joint-eq-u1000 (60G 6h, nice 100); env verified via sacct --env-vars.
+  PE 48662592 / 48662593 stay on 6016bb3 (80G). 8 jobs. Priority: new u500 65050 (behind gw22g 65386, hy22c 65290), PE 65554.
+  Watcher v2_watch_bounded.sh re-armed with the new ids.
+- 16:19:31 CST PE u500 48662592 RUNNING (tree 6016bb3, 80G). Expect ~35 min prep before the first update.
+- 16:5x CST PE u500 training: first update ~16:55 CST (prep ~35 min, as OFFLINE). 6.4 s/update (28 updates / 180 s at 16:58-17:01) -> 500 updates ~55 min, ETA ~17:50 CST (+ ckpt saves). GPUs 56-100%, 33-34 GB each; sstat MaxRSS 43.8G of 80G. Loss u3-u6 0.457/0.444/0.595/0.511, lr 4.98e-5 -> linear decay.
+- 17:04 CST rai eval pipeline for V2 arms (new scripts in reports/runs/method_v1/):
+  pull_v2_train.sh <OUT> <final> (rsync, then .verified only if file count + bytes + final adapter sha256 match hpg);
+  auto_pull_v2.sh <jobid> <OUT> <final> (5-min sacct polls; pulls on COMPLETED, stops on any failure state);
+  run_v2_arm_chain.sh <OUT> <tag> <model_prefix> (GPU env): waits for marker -> E-short u1/5/20 (tree 4152854) -> E-sel u20..500
+  (3b9c686) -> analyze_esel.py <tag> -> if 500 selected: wait <OUT>_U1000.verified, E-sel <tag>1000 u20..1000 -> main evals
+  (MAIN_KINDS, default probe prefix start; JOINT_EQ gets "probe prefix" per prereg).
+  RUNNING: auto_pull PE (48662592 -> PREFIX_EXPERT 500) log logs/v2_pull_pe_1101.log; auto_pull PE u1000 (48662593) log
+  logs/v2_pull_pe1000_1101.log; chain PE on rai GPU 1 (pid 1146105, log logs/v2_chain_pe_1101.log). GPU 4 busy (labmate).
+- 17:50 CST PE u500 48662592 COMPLETED (1h30m43: prep ~35 min + ~55 min train; MaxRSS 43.8G of 80G). 500 updates, 8 ckpts.
+  Loss by window: u1 .451 | u2-5 .507 | u6-20 .281 | u21-50 .219 | u51-100 .213 | u101-200 .190 | u201-300 .180 | u301-500 .163
+  (500 x 16 = 8,000 of 16,824 examples = 0.48 epoch; unlike OFFLINE, which reached .002, no memorisation). hpg: 53 files,
+  4,497,542,669 B, u500 adapter sha256 e634dd32…. auto_pull pulling to rai. PE u1000 48662593 RUNNING since 17:50:18 CST.
+- 18:24:44 CST JOINT u500 48826936 RUNNING (tree 5857234). PE u1000 48662593 in prep (no updates.jsonl at +36 min).
+- 18:2x CST BOTTLENECK: hpg->rai pull through the Mac tunnel runs at 157 KB/s (measured 30 s; 326 MB in 36 min). OFFLINE_U1000
+  (5.6 GB) took ~12 min on 10-31 (~8 MB/s). Each ckpt = 558 MB adapter only (nothing to skip). PE 4.5 GB ~8 h; all arms >= 18 GB
+  ~32 h. pull_v2_train.sh rsync has timeout 3600 x 3 attempts (--partial resumes) -> will stop without a marker; re-launch as
+  needed. Asked user about Mac network. Fallback = prereg revision moving all V2 evals (incl. OFFLINE/CONTINUE/theta0 re-runs)
+  to hpg B200 so every arm shares the card type (§6) — needs user agreement.
+- 18:28 CST PE u1000 48662593 first update (prep ~38 min); ~107 min of updates -> ETA ~20:15 CST.
+- 18:5x CST PE pull: rsync attempt 1 hit its 1 h timeout (rc 124) at ~413 MB; attempt 2 resuming (--partial), 630 MB at 18:54 (~190 KB/s). Attempts end ~21:5x CST; re-launch pull_v2_train.sh PREFIX_EXPERT 500 if no marker by then (chain on GPU 1 waits up to 24 h).
+- 19:0x CST JOINT u500 48826936 TRAINING on 5857234 (action-only fix works on real data): prep ~36 min, 43 updates at 19:07; loss u1 1.253, u2-6 .258/.465/.089/.150/.353, u40-43 .24-.34; 88,678 supervised tokens; GPUs 89-100% / ~34 GB; MaxRSS 31.4G of 80G. ETA ~19:55 CST.
+- 19:53 CST JOINT u500 48826936 COMPLETED (1h29m03, MaxRSS 31.4G of 80G). 500 updates, 8,000 examples (of 23,169 = 0.35 epoch),
+  1,024,753 supervised tokens. Loss: u1 1.253 | u2-5 .241 | u6-20 .337 | u21-50 .225 | u51-100 .193 | u101-200 .183 | u201-300 .164 |
+  u301-500 .141. hpg: 53 files, 4,531,905,248 B, u500 adapter sha256 86928f3b…. NOT pulled yet (tunnel 157-190 KB/s; a second rsync
+  would only split it) - waiting for the user's network/hpg-eval decision.
+- 20:19 CST PE u1000 48662593 COMPLETED (2h30m51). Its auto_pull (pid 1146377) stopped by pid BEFORE it started rsync, so the PE u500
+  pull keeps the whole (slow) tunnel; PE_U1000 is only needed if PE E-sel selects u500 (revision 3). Pull it later with
+  pull_v2_train.sh PREFIX_EXPERT_U1000 1000 (or on hpg if evals move there).
+- 21:36 CST hourly check NO_CHANGE (terminal states); keeper alive 643198. JCO 48826937 started 20:45 CST (c0907a-s15), JOINT_EQ 48826938
+  started 20:46 CST (c1103a-s5), both on tree 5857234: past input validation (the old JOINT_EQ failure point), model loaded, updates
+  logging (21:36 CST: JCO 137/500, JOINT_EQ 232/500; ETA ~22:15 / ~22:05 CST). 3 u1000 jobs still PENDING. PE u500 pull attempt 3
+  rc=124 (1.60 GB of 4.50 GB on rai; update-01/05 complete, update-100 partial); relaunched 21:36 CST (pid 1408626, same log).
+  v2_watch_bounded.sh re-armed (state = current).
+- 22:03 CST JOINT_EQ u500 48826938 COMPLETED (1h17m05, MaxRSS 22.5G of 60G). 500 updates; bundle 3,867 + 20 replay (120 action-only
+  rows), so u500 is at epoch index 1 (~1.55 passes). Loss u1 .403 | u20 .356 | u100 .139 | u300 .133 | u500 .067. hpg: 53 files,
+  4,503,737,433 B, u500 adapter sha256 16d93a2d…. Not pulled (PE pull holds the tunnel). exp_log: v2-train-{pe,pe-u1000,joint,jointeq}-1101
+  added. JCO u500 48826937 still RUNNING (ETA ~22:15 CST).
+- 22:14 CST JCO u500 48826937 COMPLETED (1h29m00, MaxRSS 39.9G of 80G). Loss by window u1 .355 | u2-5 .588 | u6-20 .307 | u21-50 .222 |
+  u51-100 .198 | u101-200 .185 | u201-300 .173 | u301-500 .144. hpg: 53 files, 4,511,247,929 B, u500 sha256 3e0cf3da…. JOINT_EQ windows:
+  .403 | .562 | .258 | .273 | .207 | .182 | .153 | .103. ALL SIX 500-UPDATE ARMS NOW TRAINED. Remaining hpg: 3 u1000 jobs PENDING
+  (48826939/40 QOSGrpMemLimit, 48826941 Priority). On rai only OFFLINE/CONTINUE (+OFFLINE_U1000); PE pull in progress; JOINT, JCO,
+  JOINT_EQ (~4.5 GB each) waiting on the network/hpg-eval decision.
+- 22:03 CST PE pull VERIFIED (53 files, 4,497,542,669 B, u500 sha e634dd32…; the tunnel sped up: 2.4 GB in ~27 min). Chain PE
+  started E-short u01 22:04 CST (adapter-equivalence gate passed). 22:16 CST pull queue JOINT -> JCO -> JOINT_EQ started
+  (5.8 MB/s measured); 22:17 CST chain scheduler started (joint, jco, jointeq; GPU 1 after PE, GPU 4 if a labmate frees it).
+  With fast transfer the network/hpg-eval question is moot for now: evals stay on rai Blackwell as pre-registered.
+- 22:35 CST hourly check: CHANGE = JCO/JOINT_EQ training COMPLETED (handled above); keeper alive. JOINT pull VERIFIED 22:27 CST (10.5 min); JCO pulling. PE E-short u01/u05 done (14 min each), u20 running.
+- 23:10 CST all pulls VERIFIED (JOINT 22:27, JCO 22:37, JOINT_EQ 22:47 CST; ~10 min each). PE E-short done 22:48 CST (diagnostic):
+  success u01 18/38, u05 17/38, u20 13/38 vs theta0 9/38 (OFFLINE 12/14/13, CONTINUE 14/11/13); repeat/ep at u20 1.74 vs theta0 .55.
+  PE E-sel u020 started 22:48 CST (6 ckpts x ~22 min -> selection ~01:00 CST; main ~02:30 CST). Then joint/jco/jointeq chains on GPU 1
+  (~4.5 h each; GPU 4 still held by a labmate, 9.3 GB).
+- 23:12-23:13 CST user: theme = few-shot agent distillation; on-policy framework with harness + teacher guidance; K = 10/20/30 only;
+  every eval must feed the method (THEME block at the top). 23:09 CST user: evals may run on hpg/LONI. -> prereg revision 7
+  (bb81b95): JOINT/JCO/JOINT_EQ E-sel on rai GPU 3 A100 (within-arm only); E-short + main stay on Blackwell. 23:15 CST launched
+  E-sel queue (GPU 3) + main queue (GPU 1, after the PE chain) + PE_U1000 pre-pull. Expected: E-sel joint ~01:30, jco ~03:45,
+  jointeq ~06:00 CST; GPU 1: PE main ~02:30, E-short x3 ~04:45, mains -> all done ~09:30 CST (no extensions).
+- 23:20 CST framework status report (user-requested structure: pipeline first, then per component experiments/results/design implications) -> reports/analysis/method_v1/framework_status_1102_ZH.md, sent on Discord (1566683303287980102). Memory: feedback-reports-framework-first-1102.
+- 23:27 CST rev 7 A100 check: esel_joint_u020 on GPU 3 passed the serve consistency gate (adapter mean abs diff .0046 vs base noise .0265, 0 tokens > .25); eval running (GPU 3 94%, 75 GB).
+- 00:00 CST: v2 watcher heartbeat (3 u1000 PENDING), re-armed. PE_U1000 pre-pull VERIFIED. PE E-sel u100 done, u200 running (GPU 1, ~21 min/ckpt); JOINT E-sel u020 done 23:39, u050 running (GPU 3 A100, ~24 min/ckpt).
+- 01:38 CST 11-02: PE E-sel -> u50 (.698; u200 .573, u500 .688), no extension; PE mains running on GPU 1 (probe done 01:26, prefix running). JOINT E-sel (A100) -> u500 (.719, monotone rise from .479) -> EXTEND: hpg JOINT_U1000 job 48826939 RUNNING since 01:35 CST (~2.5 h), auto_pull started by esel queue (logs/v2_pull_joint1000.log); joint1000 E-sel runs after JCO + JOINT_EQ E-sel on GPU 3. JCO E-sel started 01:31. New ETA all mains ~11:00 CST (later if JCO extends; 48826940/41 still PENDING). hpg $HOME is 100% full (40G/40G) — not ours to clean (unauthorized); training writes to /blue; told user to ask ctl. Discord 1566718135891918919. Watcher re-armed (blyfj1mql).
+- 01:49 CST: hpg 48826940 (JCO_U1000) + 48826941 (JOINT_EQ_U1000) RUNNING since 01:45 CST; all three u1000 runs expected ~04:15 CST, so any JCO/JOINT_EQ extension no longer waits on the queue. Watcher re-armed (bw30d4eb5).
+- 02:14 CST: JOINT_U1000 (9 updates) and JOINT_EQ_U1000 (31) writing updates on hpg — the full hpg $HOME does not block training. JCO_U1000 still in prep. Watcher re-armed (b09eank71).
+- 02:20 CST: JCO_U1000 also writing updates (14). All three u1000 runs training; expected done ~04:15-04:30 CST. Watcher re-armed.
+- 03:40 CST: PE main evals done (chain exit 02:37 CST). pe_u50: (a) .556 / (b) .720 / (c) non-quick .704 vs OFFLINE1000 .780/.793/.750 and theta0 .293/.336/.546. PE fewest refused actions on new tasks (.454/ep vs OFFLINE 1.259). Bars for JOINT (§7): vs OFFLINE (a) >= .880 & +4 net, (c) >= .800 & +3 net; vs PE (a) >= .656, (c) >= .754; behaviour not worse than both. GPU 1 main queue now on E-short (joint done, jco running); A100 on esel_jco_u500 (last ckpt).
+  PE main report sent on Discord (1566747986577457215).
+- 03:55 CST: JOINT_EQ_U1000 (48826941) COMPLETED 1000/1000 (2h04m). Not pulled; esel queue pulls it only if JOINT_EQ selects u500. JOINT_U1000 + JCO_U1000 still running.
+- 04:00 CST: JCO E-sel -> u300 (.677; u500 .667), no extension -> JCO_U1000 (48826940, COMPLETED 1000/1000) unused, not pulled. JOINT_EQ E-sel started 03:46 CST on A100 (~06:00). Only JOINT_U1000 (48826939) still running on hpg (~04:10).
+- 04:06 CST: JOINT_U1000 (48826939) COMPLETED 1000/1000 (2h26m); auto_pull (pid 1699125) pulling 5.65 GB to rai. All hpg V2 jobs done (hpg 0 of ours running); v2 watcher not re-armed (nothing left). joint1000 E-sel (u20..u1000, 8 ckpts) runs on GPU 3 after JOINT_EQ E-sel (~06:00) -> ~09:00 CST; JOINT mains ~09:00-11:00 CST.
+- 04:11 CST: JOINT_U1000 pulled + VERIFIED on rai (65 files, 5,653,602,109 B, u1000 sha match). joint1000 E-sel waits for JOINT_EQ E-sel on GPU 3.
+- 06:55 CST: JCO mains done (u300: a .622 / b .727 / c .657; repeated refused on new tasks .593/ep > theta0 .315 — refused + repeated-refused steps are NOT supervised (supervision.py build_decisions), cause to analyse). JOINT_EQ E-sel -> u500 -> extend; JOINT_EQ_U1000 pulled by esel queue; joint1000 E-sel running on GPU 3 since 06:00 (~09:08), then jointeq1000 (~12:15). JOINT mains ~09:10-10:50, JOINT_EQ mains ~12:15-13:20 CST. Diagnostic D1 (prereg 7cf6c46): PE update-500 main (a),(c),(b) on idle GPU 1, pid 2048154, log logs/v2_diag_pe500_1102.log, script run_v2_diag_pe500.sh; stops before any eval once esel_joint1000_u500 starts (the main-queue guard regex uses uppercase tags and is inert; the esel guard alone implies it). Diagnostic only, not §7.
+- 07:10 CST: JCO repeat anomaly resolved: one task (train/pick_heat_then_place_in_recep-Cup-…, 045-92acf06fc658) contributes 10.7 repeats/ep — student takes mug instead of cup, heats + places it, then loops 'move mug 1 to sidetable 1' (Nothing happens) to the step cap. Excluding it JCO repeat/ep ≈ .30 (theta0 .32). Repeats are concentrated in failed episodes for every arm (JCO fail 1.65 vs succ .04). Not systematic; failure type = goal object confusion + no recovery after a place that did not finish the task.
+- 08:20 CST: D1 diagnostic done: PE u500 (a) .678 / (b) .826 / (c) .769 vs registered PE u50 .556/.720/.704 -> E-sel (24 quick tasks x 4, u50 .698 vs u500 .688, tie->earlier) under-selected PE by .12 on (a). §7 still uses PE u50 (registered); report must show both. Design lesson: checkpoint selection (C2) is a weak component — 24-task E-sel noise > the u50/u500 difference. joint1000 E-sel at u500 (started 07:55), u700/u1000 left -> ~08:45 CST; JOINT mains then ~08:45-10:25 CST.
+- 10:13 CST: JOINT1000 u1000 (a)+(c) done ((b) running, ~10:40). §7 core: JOINT vs OFFLINE (a) -.056 CI[-.135,+.016] +5/-14, (c) -.056 CI[-.120,+.009] +2/-6 -> NOT better. vs PE u50 (a) +.168 +22/-3 PASS, (c) -.009 FAIL -> NOT better. V2 does NOT pass (single seed). Descriptive: JOINT vs JCO (a) +.102 CI[+.039,+.171] +17/-5, refused -.62, repeated -.48 (local valid decisions help); vs PE u500 diag (a) +.046, (c) -.074. Failure split (a): JOINT 84 fails = 68 never picked target + 16 after pick; OFFLINE 67 = 44 + 23 -> JOINT's gap to OFFLINE is entirely search/finding the target; after-pick handling better. Hypothesis: JOINT supervises the student's own (teacher-approved) search order; OFFLINE supervises the teacher's search prior.
+- 10:15 CST: data check of the search hypothesis: JOINT supervised turns 69% search-phase (target not yet visible); of those 87% are the student's own unguided action, 12% after guidance, 1% teacher demo (after target seen: 72/20/8). PE: 48% search, all teacher. OFFLINE: 62% search, all teacher. -> JOINT's search policy is the student's own, approved by the teacher.
+- 10:16 CST: batch check: JOINT_U1000 drew 12,000 new (52% of 23,169, each at most once) + 4,000 replay; OFFLINE_U1000 12,000 new = 200 trajectories x 60 passes; PE u500 6,000 new (36%), PE u50 = 600 (3.6%). Report draft reports/analysis/method_v1/v2_result_framework_1102_ZH.md (waits for JOINT (b)).
+- 10:40 CST: JOINT mains complete ((b) .803 vs OFFLINE .793). Full report reports/analysis/method_v1/v2_result_framework_1102_ZH.md. V2 §7 NOT passed (JOINT vs OFFLINE and vs PE u50). Remaining: JOINT_EQ (jointeq1000 E-sel on GPU 3, then probe+prefix mains on GPU 1, ~13:20 CST); teacher usage accounting; user decision on next step (proposed V2b-mix / V2b-search).
+- 11-02 11:37 CST: grid check TUNNEL_DOWN (no cm-hpg control socket; keyboard-interactive denied). One Discord notice sent (msg 1566868925189464116, marker scratchpad/hpg_tunnel_notified). 0 hpg jobs in flight, no impact. Keeper pid 643198 alive. jointeq1000 E-sel at u1000 (started 11:37 CST).
+- 11:39 CST: V2 teacher usage tallied from ledgers (last-line reported_usage, settled): 245.40M in / 13.05M out (C4 79.45/7.14, labels 9.62/.96, C5 121.25/1.85, shared-ledger checks+voids 34.41/3.04, JCO aborted .66/.07); +V1 = 305.24M/17.75M. reports/runs/method_v1/teacher_usage_v2.json; report §6 added.
+- 12:3x CST: jointeq1000 E-sel done 11:59 CST: selected u200 (.740; u1000 ties .740, checkpoints differ, tie -> earlier). Main queue: main_jointeq1000_u200_probe 11:59-12:33 CST exit 0; prefix started 12:33 CST (~13:35). Wait bpcf5jxkk. GPU 3 idle again. Tunnel still down (notice 11:37 already sent).
+- 12:39 CST: user 'recovered' -> TUNNEL_BACK confirmed (ssh hpg -> login11, 0 jobs); marker cleared by grid check; keeper pid 643198 in backoff sleep (<=900 s), resumes on its own. Replied on Discord.
+### 12:50 CST 11-02 — USER DIRECTION CHANGE: end-to-end framework first (v0), compare with baselines, then improve components
+- User (msg 1566887367141498932): (1) drop component A "prefix at earliest key event"; harness+teacher evaluate the student's WHOLE
+  answer, understand its plan, minimal edits, different-but-viable choices are not errors (殊途同归); (2) few-shot = too little
+  supervision -> teacher+harness expand mistake sets, student answers many times, find the most consistent error pattern
+  ("gradient space region most often fine-tuned") and concentrate learning there; (3) online/offline both fine, must be FAST;
+  build a runnable whole framework, compare with baselines, then improve step by step (not days per component).
+- Draft docs/direction/2026-11-02_framework_v0_end_to_end_ZH.md (grounded in user's 10-26 v0.1): A rollouts (reuse theta0 V2-pool
+  rollouts) -> B closed-loop whole-trajectory review + <=2-block minimal edit, harness replays original suffix then hands back
+  to theta_r, <=3 review rounds -> C T1 retrieval of same-condition legal train tasks, 4 student attempts each -> D per-episode
+  LoRA gradients, CountSketch 2048, k-medoids, consistency-weighted budget + training weight -> E R/G/S/D buckets 0.5/.25/.15/.1
+  -> F D_unseen_quick select, dev140 on hpg B200 vs baselines (K20 tsft 78/78/90, AD 104/95/97, SmartAD 84/90/98, SAD 52).
+  Also proposed: dev140 of V2 JOINT u1000 / OFFLINE u1000 / PE u50 now (3 hpg 1-GPU jobs, no teacher).
+- Sent plan 12:55 CST (msg 1566888639319773315) with 3 questions: gradient = data-level (default) vs parameter-level; OK to
+  run the V2 dev140 evals; OK to drop strict v0.1 items (manual label check, block-ablation minimality, C2/C3 practice).
+  WAITING for the user. V2b-mix/V2b-search withdrawn. No GPU/teacher for v0 until confirmed + prereg.
+- Prep (read-only, 13:0x CST): V2 dev140 evals, if approved, = scripts/hpg_eval_adapters.slurm on tree 46b8527 (contains k_eq_v fix
+  5554db8), same exports as the baseline tsft-k20 eval stage (dev140 manifest ICML27_runs/20cb697, greedy, BATCH_INVARIANT=1,
+  WORKERS 16, 1 B200 / 4 CPU / 32G / 3h). Checkpoints present on hpg: v2_train/JOINT_U1000/update-1000, OFFLINE_U1000/update-1000,
+  PREFIX_EXPERT/update-50 (+ JOINT_EQ_U1000/update-200). hpg 0 jobs.
+- 12:59-13:04 CST user: (a) TRAINING DATA = K successful trajectories only (same as baselines); extra signal only via teacher/
+  harness queries or synthetic data; dev140 = final eval only (V2 200-task pool out -> V2 dev140 evals NOT run); (b) drop strict
+  v0.1 items, focus on running the mechanism; (c) explore how the harness can diversify/enrich synthetic on-policy supervision,
+  judged by final results; (d) g_i as TWO variants -> two final method versions D-data / D-param, compare on dev140.
+- theta0 solves its own K20 tasks 80/80 -> errors must come from harness-synthesised practice (G1 relocate, G2 goal edit,
+  G3 error-state prefix; G4 branch feedback later), witness required, dedupe vs dev140 (valid_seen) groups + held-out sets.
+  Asked user 13:03 whether other train scenes' layouts are allowed (default: K scenes only). Doc v0 rev 2 written 13:1x.
+- 13:06 CST Codex spike: synthetic task factory feasibility (prompt scratchpad/codex_synth_tasks.txt, pid 2470811,
+  log logs/codex_20261102_140606.log, out scratchpad/codex_synth_tasks.out), worktree ../ICML27_wt_repair_eval (HEAD bce0ac9),
+  real spike output reports/runs/method_v1/v0_synth_spike (CPU only). Watcher b39l8cx51. Then review -> prereg -> B/D/E impl.
+- 13:1x CST: JOINT_EQ mains done (main queue done 13:07 CST; GPU 1 + GPU 3 idle). Equal volume: JOINT_EQ u200 (a) .536 / (c) .546 vs OFFLINE .780 / .750 -> at the same supervised-turn count, student-state data << teacher trajectories (but u200 < 1 pass; quick-24 .778 vs non-quick .546 = selection on 24 tasks is optimistic). V2 closed; all V2 queues done.
+- 13:09 CST: first Codex spike blocked (sandbox = main checkout; project arg must be ICML27_wt_repair_eval). 13:10 CST relaunched: project ICML27_wt_repair_eval, prompt scratchpad/codex_synth_tasks_r2.txt, pid 2475327, log ../ICML27_wt_repair_eval/logs/codex_20261102_140958.log, spike output ../ICML27_wt_repair_eval/spike_out/v0_synth_spike (untracked). Read-only finding: task text = game grammar 'task' rule; .venv has AlfredExpert.
+- 13:11 CST user: report overall success rates (theta0 on own K20 = 100%), not execution counts; 'run experiments per your plan now, research in parallel' -> GO for v0 (prereg first, short).
+- 13:16 CST: user 13:13 asked for near/far ratio + an upper limit/theory. Prereg rev 1 (commit above): 4 distance bins 50/30/15/5, adaptive allocation (fail x repair rate, min 5%), stop per bin at CP-95 upper < 5% on fresh held-out synth, max 3 rounds; theory anchor Ross/Gordon/Bagnell 2011 Thm 2.1/2.2 (verified from PDF, scratchpad/lit/1011.0686.txt). Codex v0 train side launched 13:13 CST pid 2481768 (ICML27_wt_repair_train, log logs/codex_20261102_141353.log, prompt scratchpad/codex_v0_train.txt).
+- 13:17 CST: user 'go execute, report progress'. Work-log message 1566893934607605811 (edit it per step).
+- 13:19 CST: literature note reports/analysis/method_v1/lit_synthetic_saturation_1102_ZH.md (LLM2LLM, Lion, WebRL, AgentGen, Self-Challenging, AgentRefine, Agent-R; PDFs in scratchpad/lit) sent. Design takeaways: expand only from seeds (LLM2LLM T4), small iterative steps (T3), round>=2 retrain from theta0 vs continue (T5), mask erroneous turns (AgentRefine T2). Codex eval side: worktree .git lives in main checkout -> sandbox cannot commit; I commit after review.
+- 13:21 CST: user 13:20 OK -> prereg rev 2 committed (seed-only expansion, small steps, round>=2 retrain from theta0 vs continue).
+- 14:02 CST: synth spike reviewed (43 G1 / 81 G2 / 33 G3 valid; my independent replay of 3 witnesses won; writes only under --out) -> committed dbfca9d on ICML27_wt_repair_eval. Codex v0 round core launched pid 3116886 (prompt scratchpad/codex_v0_round.txt): synth bins+G5+held-out probes, attempt, closed-loop review, label+build (V0 contract), expand.
+- 14:04 CST: stopping-rule derivation docs/direction/2026-11-02_v0_stopping_theory_ZH.md (e2b2776; Thm 1 = Ross et al. Thm 2.2 corollary with fatal-action indicator; Prop 2 coverage identity; reference policy must be non-privileged) sent to user.
+- 14:15 CST: training-side Codex done (3,157 pass / 57 fail = pristine failure set; +20 tests) -> committed on ICML27_wt_repair_train (light review only: new files, no existing-module edits; GPU/real-data integration UNVERIFIED). Eval-side round-core Codex pid 3116886 still running (waiter bc2n6jpcb). USAGE LIMIT reached -> paused after this; next: review round core, synth, theta0 attempts (rai GPU), review/repair, D features, train 2 versions on hpg, dev140.
+- 17:3x CST: grid check TUNNEL_DOWN (first seen 15:20 CST; notice not sent then because my turn was cut off). Sending one notice now; marker written. 0 hpg jobs, keeper alive.
+- 17:35 CST: round core reviewed (closed-loop order, public-only review prompt, <=3 rounds, won-only) -> committed e5bf24f on ICML27_wt_repair_eval; pinned tree ../ICML27_run_repair_eval_e5bf24f. Dry-run synth: 206 train items (near 66 / mid 80 / far 40 / very_far 20) + 71 probes; near under-filled (54 train + 9 probe slots) by the frozen held-out-group rule -> PREREG DEVIATION (realised 32/39/19/10 vs 50/30/15/5, no backfill). Real synth pid 3606706 -> /home/xueqi/hq/projects/ICML27_v0_runs/v0_k20_r1 (guard forbids output inside the main checkout; misplaced empty dir -> _trash/v0_k20_r1_misplaced_1102), log logs/v0_k20_r1_synth.log. rai / 599G free (< 1T floor; v0 writes MBs only) -> told user. Train reader must accept 'bin' + G5 (pending Codex fix).
+- 17:36 CST: driver reports/runs/method_v1/run_v0_r1_attempt.sh pid 3616619 (log logs/v0_k20_r1_attempt.log): waits for synth 3606706, then theta0 attempt + probe on rai GPU 1 (tree e5bf24f). Codex reader fix pid 3613109 (ICML27_wt_repair_train, prompt scratchpad/codex_v0_reader_fix.txt). Review stage (teacher) NOT chained: probe teacher once first.
+- 17:37 CST: teacher probe OK (17:37). attempt/review/label are sequential in e5bf24f (~1,100 episodes -> >10 h) -> killed waiting driver 3616619 (sleep loop only; synth 3606706 untouched); Codex parallel-workers task pid 3623730 (prompt scratchpad/codex_v0_workers.txt). After review: new pinned tree, attempt with WORKERS=16 on GPU 1.
+- 17:38 CST: TUNNEL_BACK (user ran ssh -M); 0 hpg jobs; keeper alive.
+- 17:56 CST: v0 round-1 synth DONE (206 train / 71 probes, manifest sha 4df53e36, /home/xueqi/hq/projects/ICML27_v0_runs/v0_k20_r1/synth). Waiting on Codex workers (3623730) + reader fix (3613109).
+- 18:28 CST: committed eval 6e33968 (parallel workers) + train 213a560 (reader matches producer: bin, G5, probes). Pinned ../ICML27_run_repair_eval_6e33968. Driver reports/runs/method_v1/run_v0_r1_attempt_b.sh pid 4141131 (log logs/v0_k20_r1_attempt.log): theta0 attempt then probe, rai GPU 1, WORKERS=16, started 18:27 CST.
+- 18:37 CST: TUNNEL_DOWN again (no cm-hpg socket); one notice sent; 0 hpg jobs; keeper alive. v0 attempts on rai unaffected.
+- 18:39 CST: user 'look now' -> tunnel BACK (master pid 4156660, login12, 0 jobs). theta0 attempts 60/824 done, 53 success (88%), ~6/min, attempts+probes ETA ~21:30 CST. Replied.
+- 18:4x-18:50 CST: hq peer: hpg $HOME 100% full (29G ~/.cache/vllm, ours, written 10-04..10-22); /blue dept 97%. Fixed configs/hpg.env VLLM_CACHE_ROOT/TRITON_CACHE_DIR defaults -> /blue (64777db). User 18:47: clean outdated project data/models (12B, E2B first) on blue/orange; 18:49: 'I already asked ctl to do it'. Read-only inventory running on hpg (logs/hpg_inventory_1102.sh -> logs/inventory_1102/*.tsv). Asked hq who owns deletion; NOTHING deleted by tc.
+- 19:02 CST: hq: user chose option B in DM (tc writes deletion list, hq executes with per-path safety checks). Inventory polling waiter running; list -> user (tc channel) + hq.
+- 19:08 CST: v0 attempts DONE (73% success; 85/206 items with >=1 failure; mid bin weakest 67%). Probe stage started 19:08 CST (driver 4141131). Next: review (teacher) after probe.
+- 19:14 CST: cleanup prep: model-identity classification done (baselines: 235 12B, 8 E2B, 48 E4B, 3 unknown = 2 cancelled 12B-named adc cells + _superseded; eval/{baselines,contamination,seedsft-sweep-*}, train/seedsft-*, r03/*, robustness/merged, pilot-* = 12B; eval/chain = E4B keep; smartad-collections/smartad-chain/adftp-chain = teacher data, model-free). No E4B cell references a 12B/E2B cell path. Inventory du still running (first dir). hq will execute after user sees list; trims relayed OK, expansions need DM.
+- 19:22 CST: probe stage FAILED at server start 20:20 EST (19:20 CST): labmates took GPUs 0-2 after attempt server exited; vLLM 0.85 needs 80.7 GiB, 72.3 free on GPU 1. Moved serve-probe -> _failed/serve-probe-2020CST-mem085; rerun reports/runs/method_v1/run_v0_r1_probe_c.sh pid 69712 with VLLM_GPU_MEMORY_UTILIZATION=0.65 (log logs/v0_k20_r1_probe.log). Same card type (Blackwell GPU 1).
+- 22:3x CST: probe rerun (0.65) FAILED 19:40 CST (labmate peak: 44.7 GiB free). Moved -> _failed/serve-probe-1940CST-mem065; relaunched run_v0_r1_probe_d.sh pid 618772 at VLLM_GPU_MEMORY_UTILIZATION=0.45, GPU 1 (log logs/v0_k20_r1_probe_d.log). TUNNEL_BACK 22:31. hpg inventory still at first du after 3 h (poller ended 20:54 CST).
+- 22:45 CST: sent hq the rai keep/delete answer (symlink chains: tc-alignment-vllm/envs -> tc-alignment/envs; tc-alignment-taskeq/.venv -> tc-alignment-baselines/.venv -> tc-alignment/.venv => keep those dir shells, delete payload; old tc-alignment-* variants delete; table1 delete results/appworld_students 308G only; tc-alignment/results 34G delete). hpg: archived 1,508 small JSONs of 245 12B/E2B cells -> /blue/.../reports/archive_12b_e2b_1102 (11 MB). /orange icml27-cold: 12B sadc 11x90G, E2B 2x39G, E4B 6 cells 330G.
+- 22:50 CST: hpg deletion list -> user (reports/analysis/hpg_deletion_list_1102.md): A = 295 paths (12B/E2B cells, 12B evals/seedsft/r03/pilots, hf 12B+E2B, orange 12B+E2B SAD intermediates ~1.07 TB), B = 116 needing decision (orange E4B SAD intermediates 330G, V2 non-selected ckpts ~52G, old tc-* dirs/payload keeping tc-alignment/.venv + tc-alignment-vllm/envs, orange tc-cold). Waiting for user OK on B; then tell hq.
+- 22:57 CST: hq executed the rai list: 626.23 GiB freed (52 deletions, 0 failures); rai / back to 1.235T free. Live symlinks (tc-alignment-vllm/envs, taskeq/.venv, baselines/.venv) verified. hpg list held pending user.
+- 23:13 CST: probes DONE 23:10 CST (task failure any-of-4: near 9%, mid 55%, far 45%, very_far 50%; none near stop rule). Review dry run: 146 failures, requests ~455-512 KB each (full fact table before+after for all 40 steps = 407 KB; admissible 28 KB) -> projected 387M bytes >> 60M cap. Codex compaction task pid 702776 (facts_changed deltas + initial/final facts once; admissible only refused+final steps). Dry-run dir parked in _failed/review_dry_run-verbose-6e33968.
+- 03:3x CST 11-03: user 03:23 CST 'deletion as you said' -> told hq: execute hpg list A + all of B (no trims). Compaction committed 19dbea7 (mean request 441.7 -> 55.4 KB); pinned ../ICML27_run_repair_eval_19dbea7; dry run: 146 failures, first-round 8.1M bytes, projected review input 48.6M bytes (bound). REVIEW launched: reports/runs/method_v1/run_v0_r1_review.sh pid 1198364 (log logs/v0_k20_r1_review.log), GPU 1, WORKERS 8, VLLM util 0.45. rai idle now (load 2.7).
+- 03:46 CST: review HALTED 03:45 CST after 5 verified (1 round each): TruncatedOutput (gpt-6-luna used all 4096 output tokens on reasoning; OUTPUT_CAP=4096) -> global halt. Teacher probe OK. Usage so far 235k in / 34k out. Codex fix pid 1227669 (cap 16384, retry 32768 once, per-failure 'teacher_output_truncated' instead of global halt). Review dir must be restarted fresh (code identity changes).
+- 03:47 CST: hq executing hpg list: 389/391 /blue paths (A 282 then B 109, sequential). HELD by hq: hf-cache 12B/E2B (shared; wm uses gemma-4-12B-it) and all 20 /orange paths (only copies; asking user in DM). Replied: OK with holds, gave context.
+- 04:00 CST: hq: hf-cache E2B deleted (9.57 GiB); 12B kept permanently (wm student; hf-cache is a never-delete shared dir); /orange held pending user DM. Run: 31 deleted / 39.66 GiB, 360 paths left (hours); hq will verify keepers after.
+- 04:30 CST: truncation fix committed 3c4b371 (review cap 16384 + one 32768 retry, per-failure teacher_output_truncated; rationale cap 1024 -> 16384 same policy); pinned ../ICML27_run_repair_eval_3c4b371. Parked review + round ledger (235,215 in / 33,915 out, halted) -> _failed/review-trunc4096-19dbea7 (ADD to round usage), serve-review too. Review restarted: run_v0_r1_review_b.sh pid 1450735 (log logs/v0_k20_r1_review_b.log), GPU 1, WORKERS 8, util 0.45.
+- 04:45 CST: review restart HALTED 04:44 CST after 11/11 verified (1 round each): APITimeoutError at 60.9 s (client timeout 60 s, timeouts not retried). Also all review calls mis-recorded 'rejected ActionParseError' (ReAct parser on JSON; raw recovered, results OK). Round ledger now 323,675 in / 42,528 out (2nd ledger). Codex fix pid 1471264 (600 s timeout + 3 retries, per-failure teacher_timeout, JSON-parse transport).
+- 05:31 CST: timeout fix committed 96605d3 (opt-in V0TransportPolicy 600 s x3, teacher_timeout per failure, JSON-parsed responses); pinned ../ICML27_run_repair_eval_96605d3; parked run 2 -> _failed/review-timeout60-3c4b371 (ledger 323,675 in / 42,528 out). Review restarted (3rd): run_v0_r1_review_c.sh (log logs/v0_k20_r1_review_c.log).
+- 05:37 CST: TUNNEL_DOWN (no cm-hpg); one notice sent; 0 hpg jobs of ours. v0 review (rai) unaffected.
+- 06:04 CST: REVIEW DONE 06:02 CST: 134/146 verified (91.8%); reported to user. Label+build driver reports/runs/method_v1/run_v0_r1_label_build.sh pid 1740842 (log logs/v0_k20_r1_label_build.log) started 06:03 CST (label-workers 16, replay = v2_data/CONTINUE).
+- 06:09 CST: label+build done 06:08 CST (R 134 ep / 2,915 rows, S 175 / 2,616, D 20) BUT 493/495 edited decisions action_only_invalid_label (reasoning_token_cap): v0 label uses ByteBoundTokenizer (UTF-8 bytes vs 64 cap) instead of V2's Gemma tokenizer. Round ledger total now 5.54M in / 0.55M out (labels ~0.82M/0.08M). Codex fix pid 1747899 (real tokenizer + --reuse-labels-from to re-validate stored outputs, no new teacher calls). Dataset must be rebuilt after.
+- 06:35 CST: TUNNEL_BACK (down since 05:37 notice); keeper alive; 0 hpg jobs.
+- 06:56 CST: label fix committed 7467640 (real tokenizer + reuse; offline 471/495 pass); relabel+rebuild run_v0_r1_label_build_b.sh (old label/dataset/dataset_build -> _failed/label-bytecap-96605d3). Train side: grad features/groups cover all buckets (R,S,D) -> Codex restrict to R/G (pid 1991165).
+- 07:00 CST: dataset REBUILT 07:00 CST (469/495 edited decisions labelled). Relabel cost +0.63M in (reuse not complete; check later). Waiting for train-side bucket fix (Codex 1991165) before grad features.
+- 07:15 CST: hq hpg cleanup: 72 deleted / 1.68 TiB, /blue 19.41T -> 17.68T (97.1% -> 88.4%), keepers verified intact; 317 paths left (4 workers). v0 may use hpg (no input overlap; MDS contention only). My size estimates were low (agentgym/eto cells 67-106 GiB).
+- 08:00 CST: train c818ef3 committed (R/G-only grads). Grad smoke refused: (1) needed --relocate /ddnB/work/xueqic/hq/ICML27_data=<main>/data; (2) 'D replay must cover exactly K seeds' because V2 CONTINUE bundle has identical main+replay rows (40 rows). Codex fix pid 2277501 (dedupe identical rows) + real GPU smoke.
+- 08:35 CST: hq hpg cleanup DONE: 389 /blue paths, 0 failures, 2.861 TiB freed (A 2.582 TiB, B 276.3 GiB, +E2B cache 10.3 GB); /blue 19.41T -> 16.48T (82.4%), inodes 66.97M -> 48.19M; keepers re-verified (TOTAL_MISSING=0). /orange (1.4T) untouched pending user DM. Per-path table: ~/hq/ops/logs/hpg_deletion_1102_executed.txt.
+- 09:34 CST: train dedup fix committed 39a4b6c (pinned ../ICML27_run_repair_train_39a4b6c). GPU smoke killed after 10 min of CPU-bound input validation (would hit 25-min timeout). FULL grad run launched: reports/runs/method_v1/run_v0_r1_grad.sh pid 2650433 (log logs/v0_k20_r1_grad.log), rai GPU 1, SED_HASH_CACHE_DIR=/home/xueqi/hq/projects/ICML27_v0_runs/sed-hash-receipts; then v0_groups -> grad_groups.
+- 09:48 CST: grad run 1 refused (5/134 R episodes delete-only, no edit rows). Prereg deviation 2 (019e420): --allow-no-edit for those 5. Rerun run_v0_r1_grad_b.sh pid 2663436 (log logs/v0_k20_r1_grad_b.log); refused dir -> _failed/grad_features-noedit-refused.
+- 09:49 CST: rsync round dir (2.0G, 73k files) rai -> hpg /blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_v0_runs/v0_k20_r1 started (dept /blue 78%). hpg training needs extra --relocate /home/xueqi/hq/projects/ICML27_v0_runs=$H/ICML27_v0_runs and the eval tree 7467640 on hpg (dataset manifest refs); write own wrapper slurm (pinned-tree script lacks these).
+- 10:05 CST: grad rerun on rai FAILED 10:02 CST: InductorError (rai train venv torch 2.13+cu130; hpg env torch 2.11+cu128/tf 5.14.1/peft 0.20 = V2-proven). Deployed trees to hpg: ICML27_runs/repair_train_39a4b6c (1,326 files), repair_eval_7467640 (1,372). hpg job 49311321 v0-grad (1 B200, 4 CPU, 64G, 3h): reports/runs/method_v1/hpg_v0_grad.slurm, relocations rai->hpg, output $H/ICML27_v0_runs/v0_k20_r1/grad_features + grad_groups.
+- 10:07 CST: 49311321 FAILED in 3 s (no PYTHONPATH=src:.); fixed, resubmitted 49311693 (hpg_v0_grad_b.slurm in tree dir).
+- 11:33 CST: hpg 49311693 CANCELLED by me after 1h20m with idle GPU (0%, 0 MiB; CPU-bound input validation on Lustre; idle-GPU policy risk). Rai retry with TORCH_COMPILE_DISABLE=1 TORCHDYNAMO_DISABLE=1: run_v0_r1_grad_c.sh (log logs/v0_k20_r1_grad_c.log); partial rai grad dir -> _failed/grad_features-inductor-rai.
+- 11:49 CST: rai grad retry (compile disabled) WORKING: 2/134 episodes by 11:50 CST, ~31 s/episode (flex attention unfused, one transient OOM warning recovered), GPU 1 ~72 GB; ETA ~13:00 CST, then v0_groups.
+- 12:54 CST: grad + groups DONE 12:53 CST (5 groups, 1 giant; D-param 129/516 tensors in layers 20-41). Next: expand both variants in parallel (D-data GPU 1, D-param GPU 3 A100; GPUs 0,2 left free).
+- 12:55 CST: EXPAND launched: D-data pid 2847488 (GPU 1, log logs/v0_k20_r1_expand_D-data.log), D-param pid 2847492 (GPU 3, log logs/v0_k20_r1_expand_D-param.log); tree 7467640; outputs expand-D-data/, expand-D-param/.
+- 13:37 CST: expansions cannot run in parallel (round.lock held by D-data for its whole expand). Killed waiting D-param (2863121; server torn down, GPU 3 freed; serve dir -> _failed/serve-expand-D-param-lockwait). Chain run_v0_r1_expand_chain.sh starts D-param after D-data exits 0 (log logs/v0_k20_r1_expand_D-param_b.log).
+- 14:35 CST: TUNNEL_DOWN (port 2222 refused) during rsync of expand-D-data; one notice sent. D-param expansion running on rai (started 14:31 CST). Prereg deviation 3 committed cae63ca. Pending after tunnel: rsync round dir, hpg CPU inputs --check, train D-data (and D-param after its expansion).
+- 15:10 CST: D-param expand FAILED 15:08 CST by design: 83/85 units filled, 2 candidate_space_exhausted (look_at G2 mid). Codex fix pid 3010646 (same-category fallback to another repaired episode's edit kind; unfilled_after_fallback recorded; --strict-fill keeps old behaviour). Tunnel back ~15:09; rsync (excluding expand-D-param) running (b7hkqpzum).
+- 15:11 CST: wrote reports/runs/method_v1/hpg_v0_check_r1.slurm (hpg-default CPU inputs --check, warms receipts) and hpg_v0_train_r1.slurm (2 B200; D-data UPDATES 2193, CHECKPOINTS 549 1097 1645 2193). Submit check after rsync, then train after check OK (no pre-submitted chain).
+- 15:13 CST: rsync done (expand-D-data 28,618 files match). hpg 49366885 v0-check D-data (hpg-default CPU, 4 CPU/16G/4h) submitted.
+- 20:59 CST: fallback fix committed 271801b (dry check 85/85, 2 fallbacks); failed D-param expand -> _failed/expand-D-param-exhausted-7467640; D-param expand rerun run_v0_r1_expand_D-param_c.sh (GPU 3, log logs/v0_k20_r1_expand_D-param_c.log). hpg check 49366885 FAILED: 'Weights/modules dataset or adapter hash mismatch' (weights/modules bound to the pre-expansion dataset hash) -> train-side fix next.
+- 21:02 CST: user asked progress + weight-space-programming blog (rikiyat) + 'is parameter-level better? similar work?'. Read blog + PDFs (Surgical FT 2210.11466, Skill localization 2302.06600, ROME 2202.05262, Spectrum 2406.06623; scratchpad/lit). Replied: not yet decidable (needs dev140); proposed 'surgery' component (error-direction from repaired vs failed hidden states at breaking points, low-rank edit in D-param layers, harness-verified on held-out probes); asked user whether to pilot now on theta0 or after v0 dev140. Codex train fix pid 3576164 (parent-bound weights/modules, G weights from unit groups); D-param expand rerun running (GPU 3).
+- 21:03 CST: user 'OK' -> surgery component after v0 dev140; I draft its design + prereg meanwhile.
+
+- 11-03 22:04 CST: train fix 81506cf (parent-bound weights/modules, G inherits source-repair group consistency) committed, pinned, deployed to hpg ICML27_runs/repair_train_81506cf (hashes match). hpg D-data CPU input check job 49431354 submitted (hpg_v0_check_r1.slurm, T updated). Next: if check passes -> sbatch VARIANT=D-data UPDATES=2193 CHECKPOINTS="549 1097 1645 2193" hpg_v0_train_r1.slurm. D-param expansion rerun on rai GPU3 at ~257 attempts.
