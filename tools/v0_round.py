@@ -502,6 +502,10 @@ def main(argv=None):
             p.add_argument('--variant', choices=('D-data', 'D-param'), required=True)
             p.add_argument('--groups')
             p.add_argument('--weights')
+            p.add_argument('--strict-fill', action='store_true',
+                           help='Fail on unfilled units after same-group fallback (default: continue)')
+            p.add_argument('--dry-run', action='store_true',
+                           help='Generate and validate seed edits on CPU; no student attempts, teacher calls or dataset build')
     args = parser.parse_args(argv)
     worker_count(args)
     worker_count(args, 'label_workers')

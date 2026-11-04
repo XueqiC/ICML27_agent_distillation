@@ -80,6 +80,16 @@ def expansion_plan(dataset, rows, attempts, manifest, *, variant, groups=None, w
             for category in categories:
                 eligible[category].append(eid)
                 masses[category] = 1.0
+    # Keep every eligible repair, including ones not assigned an initial unit.
+    # Fallback changes only the seed-edit source, never the group allocation.
+    sources = {}
+    for group in sorted(masses):
+        sources[group] = []
+        for eid in sorted(set(eligible[group])):
+            task = manifest.authorize(episodes[eid]['task_id'])
+            sources[group].append(dict(source_episode_id=eid,
+                source_synthetic_task_id=task['task_id'], preferred_seed=task['parent_seed_task_id'],
+                restriction=edit_kind(task)))
     counts = allocate(len(failed), masses)
     units = []
     for group, count in sorted(counts.items()):
@@ -91,14 +101,24 @@ def expansion_plan(dataset, rows, attempts, manifest, *, variant, groups=None, w
                 source_synthetic_task_id=task['task_id'], preferred_seed=task['parent_seed_task_id'],
                 restriction=edit_kind(task)))
     return dict(variant=variant, failed_training_task_ids=failed, requested_items=len(failed),
-        allocation=counts, units=units, ignored_groups_without_repaired_episodes=ignored,
+        allocation=counts, units=units, group_sources=sources, ignored_groups_without_repaired_episodes=ignored,
+        fallback_rule='after exhausting all K20 seeds, try other repairs in the same group/category by episode_id',
         rule='largest remainder over eligible repaired-episode groups/categories; deterministic lexical ties', seed=seed)
 
 
+def allocation_summary(plan, execution):
+    return dict(requested_items=plan['requested_items'],
+        generated_items=sum(row['status'] == 'filled' for row in execution),
+        fallback_count=sum(row.get('fallback_to') is not None for row in execution),
+        fallback_attempted_count=sum(row.get('fallback_from') is not None for row in execution),
+        unfilled_count=sum(row['status'] == 'unfilled_after_fallback' for row in execution))
+
+
 def generate(request, *, env_factory=None):
-    """Finite seed candidate spaces; shortfall is an explicit failure, never padding."""
+    """Exhaust seed edits, then same-group repairs; record any remaining shortfall."""
     seeds, _ = factory.load_seeds(request['seeds'], request['data_root'])
-    if set(s.task_id for s in seeds) != set(request['seed_task_ids']):
+    if (set(s.task_id for s in seeds) != set(request['seed_task_ids'])
+            or any(s.task_id.startswith('train/synth/') for s in seeds)):
         raise ValueError('V0 expansion seeds differ from frozen K20')
     if request.get('seed_sources') and any(any(s.provenance[k] != request['seed_sources'][s.task_id][k]
             for k in ('game_sha256', 'episode_sha256', 'events_sha256', 'environment_seed')) for s in seeds):
@@ -109,26 +129,47 @@ def generate(request, *, env_factory=None):
         request['data_root'], request['seed'], request['heldout'], excluded=seen, env_factory=env_factory) for s in seeds}
     selected, unit_log = [], []
     for unit in request['plan']['units']:
-        parents = sorted(factories, key=lambda tid: (tid != unit['preferred_seed'], digest([request['seed'], unit['unit'], tid])))
+        original = {key: unit[key] for key in (
+            'source_episode_id', 'source_synthetic_task_id', 'preferred_seed', 'restriction')}
+        alternatives = sorted((s for s in request['plan'].get('group_sources', {}).get(unit['group'], [])
+                               if s['source_episode_id'] != original['source_episode_id']),
+                              key=lambda s: s['source_episode_id'])
         chosen = None
-        for parent in parents:
-            sf = factories[parent]
-            sf.seen.update(seen)
-            kind = unit['restriction']
-            chosen = sf.next_valid(kind['generator'], kind['bin'], kind)
+        source_attempts, fallback_from, fallback_to = [], None, None
+        for source_index, source in enumerate([original] + alternatives):
+            parents = sorted(factories, key=lambda tid: (tid != source['preferred_seed'],
+                digest([request['seed'], unit['unit'], tid]), tid))
+            tried = []
+            for parent in parents:
+                tried.append(parent)
+                sf = factories[parent]
+                sf.seen.update(seen)
+                kind = source['restriction']
+                chosen = sf.next_valid(kind['generator'], kind['bin'], kind)
+                if chosen:
+                    chosen.update(parent_seed_task_id=parent, split='train', sealed=False, heldout_probe=False,
+                        group_id='synth/' + chosen['item_fingerprint'], expansion_unit=unit,
+                        expansion_source=source, asset_root=str(sf.directory.resolve()))
+                    seen.add(chosen['item_fingerprint'])
+                    selected.append(chosen)
+                    break
+            source_attempts.append(dict(source=source, tried_seed_task_ids=tried,
+                status='filled' if chosen else 'candidate_space_exhausted'))
             if chosen:
-                chosen.update(parent_seed_task_id=parent, split='train', sealed=False, heldout_probe=False,
-                    group_id='synth/' + chosen['item_fingerprint'], expansion_unit=unit,
-                    asset_root=str(sf.directory.resolve()))
-                seen.add(chosen['item_fingerprint'])
-                selected.append(chosen)
+                if source_index:
+                    fallback_to = source
                 break
+            fallback_from = original
         unit_log.append(dict(unit=unit, generated_task_id=chosen['task_id'] if chosen else None,
-                             status='filled' if chosen else 'candidate_space_exhausted'))
+            status='filled' if chosen else 'unfilled_after_fallback',
+            fallback_from=fallback_from, fallback_to=fallback_to, source_attempts=source_attempts))
         write_json(out / 'allocation_execution.json', unit_log)
+    write_json(out / 'allocation_execution.json', unit_log)
     write_json(out / 'attempts.json', [r for sf in factories.values() for r in sf.records])
     write_json(out / 'generated.json', selected)
-    if len(selected) != request['plan']['requested_items']:
+    write_json(out / 'summary.json', dict(allocation_summary(request['plan'], unit_log),
+        strict_fill=request.get('strict_fill', False)))
+    if request.get('strict_fill', False) and len(selected) != request['plan']['requested_items']:
         raise ValueError('V0 expansion candidate space exhausted; requested total not met')
     return selected
 
@@ -158,17 +199,20 @@ def expand(args, root, manifest):
     paths = [dataset / 'manifest.json', dataset / 'examples.jsonl', manifest.path, args.seeds, freeze_path]
     paths += [p for p in (args.groups, args.weights) if p]
     inputs = {**input_manifest['inputs'], **bind(paths), **source_inputs(attempts_dir)}
-    phase(directory, dict(command='expand', plan=plan, inputs=inputs, seed=args.seed), resume=args.resume)
+    strict_fill, dry_run = getattr(args, 'strict_fill', False), getattr(args, 'dry_run', False)
+    phase(directory, dict(command='expand', plan=plan, inputs=inputs, seed=args.seed,
+        strict_fill=strict_fill, dry_run=dry_run), resume=args.resume)
     if completed(directory):
         return read(directory / 'summary.json')
     write_json(directory / 'allocation.json', plan)
     synth = directory / 'synth'
-    phase(synth, dict(command='expansion-synth', inputs=inputs, plan=plan), resume=args.resume)
+    phase(synth, dict(command='expansion-synth', inputs=inputs, plan=plan, strict_fill=strict_fill), resume=args.resume)
     if not completed(synth):
         request = dict(seeds=str(Path(args.seeds).resolve()), data_root=str(Path(args.data_root).resolve()),
             out=str(synth), seed=args.seed, heldout=freeze['groups'], seed_task_ids=sorted(manifest.seeds),
             seed_sources=manifest.value.get('seed_sources'),
-            excluded_fingerprints=[t['item_fingerprint'] for t in manifest.tasks.values()], plan=plan)
+            excluded_fingerprints=[t['item_fingerprint'] for t in manifest.tasks.values()], plan=plan,
+            strict_fill=strict_fill)
         write_json(synth / 'request.json', request)
         env = dict(PATH=os.defpath, CUDA_VISIBLE_DEVICES='', PYTHONDONTWRITEBYTECODE='1', PYTHONHASHSEED='0',
             PYTHONPATH=str(ROOT / 'src') + os.pathsep + str(ROOT), HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
@@ -180,7 +224,15 @@ def expand(args, root, manifest):
                         expansion_variant=args.variant, parent_manifest_sha256=manifest.sha256)
         write_json(synth / 'manifest.json', combined)
         write_json(synth / 'split_freeze.json', freeze)
-        finish(synth, generated=len(combined['tasks']) - len(old_tasks))
+        finish(synth, **allocation_summary(plan, read(synth / 'allocation_execution.json')))
+    summary = allocation_summary(plan, read(synth / 'allocation_execution.json'))
+    if dry_run:
+        result = dict(summary, dry_run=True, strict_fill=strict_fill,
+            synthetic_manifest=str(synth / 'manifest.json'), student_calls=0, teacher_calls=0, training_exposure=0)
+        write_json(directory / 'summary.json', result)
+        finish(directory, **result)
+        load_dataset(dataset)
+        return result
     expanded_manifest = SyntheticManifest(synth / 'manifest.json', manifest.seeds)
     # When importing a dataset into a new round-output root, retain its already
     # settled teacher expenditure under the SAME caps. No writes to that input.
@@ -203,8 +255,7 @@ def expand(args, root, manifest):
     built = build_dataset(current_args, root, expanded_manifest, directory / 'label',
         directory=directory / 'dataset', inherited=rows,
         extra_inputs={**inputs, **source_inputs(synth, directory / 'attempt', directory / 'review')})
-    result = dict(requested_items=plan['requested_items'], generated_items=len(current_args.task_ids),
-                  dataset=str(directory / 'dataset'), counts=built['counts'])
+    result = dict(summary, strict_fill=strict_fill, dataset=str(directory / 'dataset'), counts=built['counts'])
     write_json(directory / 'summary.json', result)
     finish(directory, **result)
     # Reverify every original byte after publication.
@@ -212,12 +263,17 @@ def expand(args, root, manifest):
     return result
 
 
-def main():
+def main(argv=None):
     from repair.synth_validation import offline
     offline()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--request', required=True)
-    generate(read(parser.parse_args().request))
+    parser.add_argument('--strict-fill', action='store_true',
+                        help='Fail if any unit remains unfilled after same-group fallback (default: off)')
+    args = parser.parse_args(argv)
+    request = read(args.request)
+    request['strict_fill'] = args.strict_fill or request.get('strict_fill', False)
+    generate(request)
 
 
 if __name__ == '__main__':

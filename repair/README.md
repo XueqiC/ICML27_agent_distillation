@@ -80,3 +80,36 @@ The unit tests use deterministic fake backends through the real harness adapter.
 Passing them establishes software behavior, not real ALFWorld determinism or a
 scientific mechanism finding. Real acceptance requires the recorded training
 episodes and their matching frozen data/configuration.
+
+## V0 expansion exhaustion
+
+`tools.v0_round expand` preserves the requested D-param category or D-data group
+allocation. Each unit first searches all K20 seeds with its assigned repair's
+edit kind. If exhausted, it tries the other verified repaired episodes of that
+same category/group, sorted by `episode_id`, with each repair's own edit kind
+and preferred seed. Every candidate is still an independent edit of an original
+K20 seed. Initial training items, probes and items already generated in this
+expansion remain excluded by fingerprint.
+
+`allocation.json` records all eligible repair sources, including repairs not
+assigned an initial unit. `synth/allocation_execution.json` retains each original
+unit and records `fallback_from`, `fallback_to`, and the ordered source/seed
+searches. Generated items retain both the original `expansion_unit` and the
+effective `expansion_source`. Exhausting the whole category/group records
+`unfilled_after_fallback` and continues with later units; no quota moves to a
+different group. Summaries report `requested_items`, `generated_items`,
+`fallback_count` (units successfully filled by fallback),
+`fallback_attempted_count`, and `unfilled_count`.
+
+`--strict-fill` restores failure on a remaining shortfall after fallback, with
+the generated items and exhaustion evidence written before the error. It is
+off by default for round use, and is also accepted by the private
+`python -m repair.v0_expand --request REQUEST.json` worker. Fill policy is part
+of the frozen phase identity; changed code or policy needs a fresh output root.
+
+For a real CPU allocation check, add `--dry-run` to `tools.v0_round expand` with
+the original dataset, attempts, synthetic manifest, seed receipts and data root,
+and a fresh `--output`. This performs real seed-edit generation and environment
+validation, then stops before student attempts, review, labeling or dataset
+building. It makes no model/teacher calls and writes all results under the new
+output root. Generation feasibility does not establish student task success.

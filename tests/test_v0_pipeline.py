@@ -135,7 +135,8 @@ def test_full_fake_round_build_and_resume(tmp_path, monkeypatch):
     assert client.calls == 2
 
 
-def test_expand_new_dataset_never_writes_input_and_parent_is_seed(tmp_path, monkeypatch):
+@pytest.mark.parametrize('new_items', [0, 1])
+def test_expand_new_dataset_never_writes_input_and_parent_is_seed(tmp_path, monkeypatch, new_items):
     root = tmp_path / 'round'
     args = arguments(root)
     cli.round_root(args)
@@ -162,9 +163,10 @@ def test_expand_new_dataset_never_writes_input_and_parent_is_seed(tmp_path, monk
         assert unit['preferred_seed'] in manifest.seeds
         row = dict(task_row('train/synth/new'), expansion_unit=unit,
             parent_seed_task_id=unit['preferred_seed'], asset_root=request['out'])
-        write_json(Path(request['out']) / 'generated.json', [row])
+        write_json(Path(request['out']) / 'generated.json', [row] if new_items else [])
         write_json(Path(request['out']) / 'attempts.json', [row])
-        write_json(Path(request['out']) / 'allocation_execution.json', [dict(unit=unit, status='filled')])
+        write_json(Path(request['out']) / 'allocation_execution.json', [dict(unit=unit,
+            status='filled' if new_items else 'unfilled_after_fallback')])
     monkeypatch.setattr(v0_expand.subprocess, 'run', generate_fake)
     seeds_path = tmp_path / 'seeds.json'
     write_json(seeds_path, {'fixture': True})
@@ -173,12 +175,16 @@ def test_expand_new_dataset_never_writes_input_and_parent_is_seed(tmp_path, monk
     args.seeds, args.data_root, args.main_checkout = str(seeds_path), str(tmp_path / 'games'), str(tmp_path / 'main')
     fake_runtime(monkeypatch, manifest, successful=True)
     result = expand(args, root, manifest)
-    assert result['generated_items'] == result['requested_items'] == 1
-    assert result['counts']['G']['episodes'] == 1
+    assert result['requested_items'] == 1
+    assert result['generated_items'] == result['counts']['G']['episodes'] == new_items
+    assert result['unfilled_count'] == 1 - new_items
+    assert result['fallback_count'] == 0 and result['strict_fill'] is False
+    if not new_items:
+        assert read(root / 'expand-D-param/attempt/records.json') == []
     assert artifacts(dataset) == before
     new_manifest, rows = load_dataset(result['dataset'])
     assert new_manifest['counts']['D']['episodes'] == 20
-    assert {r['task_id'] for r in rows if r['v0']['bucket'] == 'G'} == {'train/synth/new'}
+    assert {r['task_id'] for r in rows if r['v0']['bucket'] == 'G'} == ({'train/synth/new'} if new_items else set())
     assert (Path(result['dataset']) / 'replay/examples.jsonl').read_bytes() == (dataset / 'replay/examples.jsonl').read_bytes()
 
 
