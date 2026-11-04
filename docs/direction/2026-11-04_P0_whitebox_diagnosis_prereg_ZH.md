@@ -50,7 +50,7 @@
 7. **harness rollout**：从 s_t 起，用（可带编辑的）学生 greedy 跑到结束，返回成功与否和动作序列。
 
 预算：每个类别最多 60 次工具调用、10 次 rollout、5 个候选编辑、400 个真实环境步。teacher token 只设失控上限（每类别输入 8M、输出 1M；每轮会重发配对和完整记录，预计每类别约 4–5M 输入），用量照实记录。
-运行：teacher 为 gpt-6-luna（OpenAI，与 v0 轮相同的 provider）；五个类别并行诊断，学生分别放在 rai GPU 1（goal_misread、missing_precondition）、GPU 3（refused_action、search_incomplete_or_loop）、GPU 0（wrong_object_or_target），GPU 2 留空。§5 的测试全部在 GPU 1 上进行。
+运行：teacher 为 gpt-6-luna（OpenAI，与 v0 轮相同的 provider）。五个类别分三条链在 rai GPU 1 上并行诊断：goal_misread→missing_precondition、refused_action→search_incomplete_or_loop、wrong_object_or_target。§5 的测试也全部在 GPU 1 上进行。（17:28 CST 更正：原计划分到 GPU 0/1/3，但 CLI 只允许 GPU 1，GPU 0/3 的两条链在加载模型前就被拒绝，没有调用 teacher。）
 
 ## 4. teacher 的产出（每个类别一份，提交后冻结）
 
