@@ -3249,3 +3249,4 @@ smoke on a fixed dev subset, hpg environment + profiling report.
 - 11-05 08:3x CST: account mover (b8elapb45) hit the 2 h limit without moving anything (yd24f stayed full); not restarted. Check yd24f free GPUs by hand at the next hourly check.
 - 11-05 09:0x CST: K10 D-data dev140 = 90/140 (64.3%): vs theta0 72 p=0.0064; above every K10 baseline seed numerically (AD 85/83/83 n.s. p>=0.28; SmartAD 76/86/79). Uniform eval 49735691 about to start.
 - 11-05 09:1x CST: K10 D-param 49720434 COMPLETED 1h30 (1,112 updates, 37.6M trainable, update-1112 verified); dev140 eval 49742523 submitted. Uniform eval 49735691 PENDING Priority; Dparam-full 49720435 RUNNING.
+- 11-05 09:2x CST: K10 Dparam-full 49720435 COMPLETED 1h38 (1,112 updates, 139.5M, update-1112 verified); dev140 eval 49743204 submitted. Uniform eval 49735691 + D-param eval 49742523 RUNNING. Ablations G2/frac28/G1/G3 PENDING (Priority, niced); G5 not yet submitted.
