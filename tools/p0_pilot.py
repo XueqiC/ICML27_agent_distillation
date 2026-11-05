@@ -17,17 +17,22 @@ from sed.storage import write_json, digest, file_hash
 
 
 def model_runtime(args, pairs):
-    # No code path in this CLI can select another GPU.
-    expected = dict(CUDA_DEVICE_ORDER='PCI_BUS_ID', CUDA_VISIBLE_DEVICES='1',
+    expected = dict(CUDA_DEVICE_ORDER='PCI_BUS_ID',
                     TORCH_COMPILE_DISABLE='1', TORCHDYNAMO_DISABLE='1')
-    if any(os.environ.get(k) != v for k, v in expected.items()):
-        raise RuntimeError('GPU operations require CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 '
+    physical = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+    if any(os.environ.get(k) != v for k, v in expected.items()) or physical not in tuple('01234567'):
+        raise RuntimeError('GPU operations require CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<one index 0-7> '
                            'TORCH_COMPILE_DISABLE=1 TORCHDYNAMO_DISABLE=1')
+    import torch
+    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+        raise RuntimeError('Torch must see exactly one CUDA device')
+    runtime_device = dict(physical_gpu_index=int(physical), device_name=torch.cuda.get_device_name(0))
     os.environ['HF_HUB_OFFLINE'] = '1'
     os.environ['TRANSFORMERS_OFFLINE'] = '1'
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
     from repair.p0_introspect import load_theta0, StudentTools
     model, tokenizer, identity = load_theta0(args.base, args.adapter, pairs['student'])
+    identity = dict(identity, runtime_device=runtime_device)
     return StudentTools(model, tokenizer, identity=identity,
         max_new_tokens=pairs['serving']['max_tokens'], max_model_len=pairs['serving']['max_model_len'])
 
@@ -96,7 +101,8 @@ def run_smoke(args, pairs, student=None):
     from sed.config import load_config
     directory = Path(args.output)
     write_json(directory / 'smoke_started.json', dict(schema='p0-gpu-smoke/1', pairs_sha256=pairs['sha256'],
-        provenance=provenance(dict(gpu=1, API=False, scripted_teacher=True))), exclusive=True)
+        provenance=provenance(dict(cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
+                                   API=False, scripted_teacher=True))), exclusive=True)
     timings, start = {}, time.perf_counter()
     try:
         student = student or model_runtime(args, pairs)
@@ -169,7 +175,18 @@ def main(argv=None):
     parser.add_argument('--allow-teacher-api', action='store_true', help='Explicit future-run gate; never needed for smoke')
     parser.add_argument('--input-token-cap', type=int, default=2_000_000)
     parser.add_argument('--output-token-cap', type=int, default=500_000)
+    execution = parser.add_mutually_exclusive_group()
+    execution.add_argument('--shard', help='evaluate only: zero-based i/n stable-hash shard (0 <= i < n)')
+    execution.add_argument('--merge', action='store_true', help='evaluate only: verify and merge shards on CPU')
     args = parser.parse_args(argv)
+    if (args.shard is not None or args.merge) and args.command != 'evaluate':
+        parser.error('--shard/--merge require evaluate')
+    if args.shard is not None:
+        from repair.p0_eval import parse_shard
+        try:
+            args.shard = parse_shard(args.shard)
+        except ValueError as exc:
+            parser.error(str(exc))
     if args.command == 'diagnose' and args.output.exists():
         parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v4/<category> directory')
     if args.command == 'extract':
@@ -218,15 +235,19 @@ def main(argv=None):
         print(json.dumps(dict(submission_sha256=result['sha256'])))
         return
     # No teacher object or client is constructed in evaluation.
-    from repair.p0_eval import evaluate
+    from repair.p0_eval import evaluate, merge_evaluation
     from repair.p0_agent import load_submission
     if len(args.submission) != 5:
         parser.error('evaluate needs all five --submission paths')
     for p in args.submission:
         load_submission(p, pairs_sha256=pairs['sha256'])
-    student = model_runtime(args, pairs)
-    report = evaluate(student, pairs, args.submission, args.output)
-    print(json.dumps(dict(report=str(args.output / 'report.json'), complete=report['complete'])))
+    if args.merge:
+        report = merge_evaluation(pairs, args.submission, args.output)
+    else:
+        student = model_runtime(args, pairs)
+        report = evaluate(student, pairs, args.submission, args.output, shard=args.shard)
+    print(json.dumps(report if args.shard is not None else
+                     dict(report=str(args.output / 'report.json'), complete=report['complete'])))
 
 
 if __name__ == '__main__':

@@ -10,13 +10,26 @@ export V0_SOURCE_ROOT=${V0_SOURCE_ROOT:-/home/xueqi/hq/projects/ICML27_agent_dis
 export HPG_CONFIG=${HPG_CONFIG:-$V0_SOURCE_ROOT/reports/runs/repair_pilot/rai.env}
 export MODEL_NAME=e4b-tsft-k20-e32-lr5e-5
 export VERIFIED=${VERIFIED:-$V0_SOURCE_ROOT/data/verified/seeds_full_train_r2/subsets/k20}
-export REPAIR_OUT=${REPAIR_OUT:-$V0_ROUND_OUT/serve-$V0_STAGE${V0_VARIANT:+-$V0_VARIANT}}
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=${GPU:-1}
 case "$V0_STAGE" in attempt|probe|review|expand) ;; *) echo 'Unknown V0_STAGE' >&2; exit 2 ;; esac
+if [[ -n "${V0_ATTEMPT_DIR:-}" ]]; then
+    [[ "$V0_STAGE" == probe && "${V0_RESUME:-0}" != 1 ]] || {
+        echo 'V0_ATTEMPT_DIR requires a fresh probe' >&2; exit 2;
+    }
+    # Reserve the entire run exclusively. The phase and serving evidence have
+    # separate children so the probe CLI can also reserve its phase exclusively.
+    mkdir -p "$(dirname "$V0_ATTEMPT_DIR")"
+    mkdir "$V0_ATTEMPT_DIR"
+    export V0_ATTEMPT_DIR="$(cd "$V0_ATTEMPT_DIR" && pwd)"
+    export REPAIR_OUT="$V0_ATTEMPT_DIR/serve"
+else
+    export REPAIR_OUT=${REPAIR_OUT:-$V0_ROUND_OUT/serve-$V0_STAGE${V0_VARIANT:+-$V0_VARIANT}}
+fi
 cd "$PROJECT_ROOT"
 source scripts/repair_stage_env.sh
 repair_work() {
     local extra=(--workers "${WORKERS:-8}")
+    [[ -n "${V0_ATTEMPT_DIR:-}" ]] && extra+=(--attempt-dir "$V0_ATTEMPT_DIR/probe")
     [[ "${V0_RESUME:-0}" == 1 ]] && extra+=(--resume)
     if [[ "$V0_STAGE" == expand ]]; then
         extra+=(--label-workers "${LABEL_WORKERS:-16}")

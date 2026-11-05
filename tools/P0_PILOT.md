@@ -442,6 +442,32 @@ training data. Outputs include `results.jsonl`, all real execution receipts,
 condition/direction freezes, collateral/K20 decisions, per-category and pooled
 McNemar tests, individual prediction results, `report.json`, and `report.md`.
 
+The CLI now accepts exactly one physical GPU index `0`–`7` in
+`CUDA_VISIBLE_DEVICES`; `CUDA_DEVICE_ORDER=PCI_BUS_ID`,
+`TORCH_COMPILE_DISABLE=1`, and `TORCHDYNAMO_DISABLE=1` remain required.
+Torch must see exactly one device. Model identities record the physical index
+and `torch.cuda.get_device_name(0)`. Hardware provenance may differ between
+diagnosis and evaluation while the checkpoint identity must match.
+
+For parallel evaluation, pass `--shard i/n` with **zero-based** indices
+`0 <= i < n`, the same pairs, all five submissions, and the same output directory
+to each process. SHA-256 of the category, condition, unit kind and pair/decision/
+task ID assigns every work unit to one shard. Shared input and direction freezes
+are checked under a lock; each shard exclusively owns
+`shards/IIII-of-NNNN/`, including execution receipts and `result.json`.
+Existing shard directories cannot be reused. K20 task executions and collateral
+decisions use the same unit protocol in sharded and unsharded runs; K20 execution
+counts record actual work without cross-condition cache reuse.
+
+After all processes finish, run the same `evaluate` command with `--merge`
+instead of `--shard`, and `CUDA_VISIBLE_DEVICES=''`. Merge constructs no model or
+environment. It requires every shard and every frozen unit exactly once, with
+matching student, input, code, dependency and direction identities, before
+publishing `results.jsonl`, `report.json`, and `report.md` exclusively. The
+unsharded command executes all units and invokes this same aggregation path.
+Reports list all execution GPU identities; statistical denominators, unknown
+outcomes, paired tests, and preregistered criteria are unchanged.
+
 ## Validation status for teacher-agent protocol v4
 
 All **356 tests passed**: 262 P0 tests and the requested **94 regressions**, in

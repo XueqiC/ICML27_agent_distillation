@@ -259,6 +259,29 @@ teacher or student client/model call. Unit tests use existing fake environments,
 `FakeStudent`, and fake transport clients; they establish software behavior,
 not a scientific finding or a faithful baseline reproduction.
 
+To probe another adapter without writing to the existing round, use a fresh
+`V0_ATTEMPT_DIR`. The launcher exclusively creates that directory and writes
+serving/gate evidence under `serve/` and the probe phase under `probe/`:
+
+```bash
+cd /home/xueqi/hq/projects/ICML27_wt_repair_eval
+V0_STAGE=probe V0_ROUND_OUT=/absolute/path/to/existing-round \
+V0_ATTEMPT_DIR=/absolute/path/to/new-probe-dir \
+ADAPTER=/absolute/path/to/adapter/checkpoint GPU=3 WORKERS=8 \
+TORCH_COMPILE_DISABLE=1 TORCHDYNAMO_DISABLE=1 \
+  bash tools/v0_round_rai.sh
+```
+
+This uses the usual rai cache exports and `HPG_CONFIG`/`rai.env` settings.
+`V0_ATTEMPT_DIR` must not exist, even as an empty directory; `V0_RESUME=1` is
+incompatible. The direct CLI equivalent for an already gated server is
+`probe --output ROUND --attempt-dir DIR` plus the existing endpoint, model-name,
+server-provenance and lora-check arguments. The direct CLI puts the phase files,
+attempt records and `summary.json` directly in `DIR`, exclusively. It never
+creates or acquires the input round's lock. Both phase and summary bind the
+adapter's resolved path and `adapter_model.safetensors` SHA-256. With no override,
+the default remains `ROUND/probe_attempt`.
+
 ```bash
 CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
   /home/xueqi/hq/projects/ICML27_agent_distillation/.venv/bin/python \

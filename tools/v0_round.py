@@ -55,6 +55,11 @@ def serving(args, config):
     spec.update(context_options(config))  # Server provenance has now been loaded, as in v2_task_eval.
     if args.model_name != 'e4b-tsft-k20-e32-lr5e-5':
         raise ValueError('V0 first round requires the configured K20 seed-0 theta0 adapter')
+    weights = Path(adapter['path']).resolve() / 'adapter_model.safetensors'
+    if file_hash(weights) != adapter['adapter_weights_sha256']:
+        raise ValueError('V0 served adapter weights changed')
+    adapter = dict(adapter, path=str(weights.parent))
+    inputs.append(weights)
     return spec, adapter, inputs
 
 
@@ -163,7 +168,9 @@ def run_attempts(args, root, manifest, *, directory=None, probes=False):
     expected_ids = {t['task_id'] for t in manifest.tasks.values() if t['heldout_probe'] == probes and
                     (probes or not manifest.value.get('expansion_variant') or t.get('expansion_unit') is not None)}
     config = config_for(args)
-    spec, adapter, inputs = serving(args, config)
+    # Serving validation may create its student log directory. Keep it inside
+    # this phase too, including when the round itself is a read-only input.
+    spec, adapter, inputs = serving(SimpleNamespace(**{**vars(args), 'output': str(directory)}), config)
     inputs += [args.config, manifest.path, config['paths']['manifest'], config['paths']['split_freeze']]
     phase(directory, dict(command='probe' if probes else 'attempt', inputs=bind(inputs),
         config=safe_effective(config), adapter=adapter, serving=spec, task_ids=ids,
@@ -181,6 +188,8 @@ def run_attempts(args, root, manifest, *, directory=None, probes=False):
     report = probe_report(tasks, records) if probes else dict(attempts=len(records),
         successes=sum(r['success'] is True for r in records), failures=sum(r['success'] is False for r in records),
         unknown=sum(type(r['success']) is not bool for r in records), teacher_calls=0, training_exposure=0)
+    if probes:
+        report['adapter'] = adapter
     write_json(directory / 'summary.json', report)
     finish(directory, **report)
     return records
@@ -477,6 +486,8 @@ def main(argv=None):
             p.add_argument('--probes', action='store_true')
         if command == 'probe':
             p.add_argument('--report-only', action='store_true')
+            p.add_argument('--attempt-dir', type=Path,
+                           help='Fresh exclusive probe phase directory; round is read-only')
         if command in ('review', 'label', 'expand'):
             p.add_argument('--attempts')
         if command == 'review':
@@ -509,6 +520,23 @@ def main(argv=None):
     args = parser.parse_args(argv)
     worker_count(args)
     worker_count(args, 'label_workers')
+    if args.command == 'probe' and args.attempt_dir is not None:
+        if args.resume or args.report_only:
+            parser.error('--attempt-dir requires a fresh run; cannot use --resume or --report-only')
+        directory = args.attempt_dir.resolve()
+        if directory.exists() or args.attempt_dir.is_symlink():
+            raise FileExistsError('V0 attempt directory must not exist')
+        root = Path(args.output).resolve()
+        if args.seed != 0 or read(root / 'round.json') != dict(
+                schema='v0-round/1', seed=0, K=20, caps=CAPS, training_exposure=0):
+            raise ValueError('V0 probe requires an existing seed-0 round')
+        # No round_root() or round.lock: isolated probes only read round inputs.
+        manifest = manifest_for(args, root)
+        run_attempts(args, root, manifest, directory=directory, probes=True)
+        if not completed(directory):
+            raise ValueError('V0 probe report requires completed attempts')
+        print(json.dumps(read(directory / 'summary.json'), sort_keys=True))
+        return 0
     root = round_root(args)
     # One invocation mutates a round at a time, including the global teacher ledger.
     with locked(root / 'round.lock'):

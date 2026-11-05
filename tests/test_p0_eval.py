@@ -5,7 +5,8 @@ import pytest
 
 from repair.p0_agent import freeze_submission
 from repair.p0_eval import (mcnemar_exact, compare, predictions, CONDITIONS, evaluation_barrier,
-                            evaluate, restore_direction, control_edits)
+                            evaluate, restore_direction, control_edits, work_units, shard_owner,
+                            merge_evaluation, parse_shard)
 from repair.p0_introspect import ToolSession
 from repair.p0_pairs import CATEGORIES
 from p0_fakes import tiny_student, fake_pair, sample_submission
@@ -151,26 +152,38 @@ def test_fixed_direction_uses_exact_layers_and_teacher_alpha(tmp_path, monkeypat
     assert edits == again
 
 
+class FakeRuntime:
+    def __init__(self, student, pairs, directory):
+        # The freeze MUST precede even constructing an evaluator.
+        assert (directory.parent.parent / 'evaluation_freeze.json').is_file()
+        self.collateral = [dict(pair_id=f'collateral-{i}') for i in range(200)]
+        self.seed_ids = [f'train/seed/{i}' for i in range(20)]
+        self.seed_sources = {key: {'fixture': True} for key in self.seed_ids}
+
+    def pair(self, pair, edit):
+        good = edit is not None and edit['alpha'] == .5
+        return dict(success=good, greedy='inventory' if good else 'look', decision_flip=good,
+                    reproduction_matches=pair['pair_id'].endswith('4') if edit is None else None)
+
+    def collateral_decision(self, pair_id, edit):
+        return dict(pair_id=pair_id, original='look', edited='look', changed=False)
+
+    def k20_task(self, task_id, edit):
+        return dict(task_id=task_id, success=True, environment_steps=2)
+
+
+def fake_edits(student, frozen, diagnosis):
+    teacher = restore_direction(student, frozen)
+    return {k: None if k == 'none' else dict(teacher, alpha=.5 if k == 'teacher' else .1) for k in CONDITIONS}
+
+
+def fake_evaluate(student, pairs, paths, directory, **kwargs):
+    return evaluate(student, pairs, paths, directory, runtime_factory=FakeRuntime, edits_factory=fake_edits, **kwargs)
+
+
 def test_evaluation_end_to_end_fake_runtime_no_teacher(tmp_path):
     student, pairs, paths, frozen = make_freezes(tmp_path)
-    class Runtime:
-        def __init__(self, student, pairs, directory):
-            # The freeze MUST precede even constructing an evaluator.
-            assert (directory / 'evaluation_freeze.json').is_file()
-        def pair(self, pair, edit):
-            assert (tmp_path / 'evaluation/evaluation_freeze.json').is_file()
-            good = edit is not None and edit['alpha'] == .5
-            return dict(success=good, greedy='inventory' if good else 'look',
-                        decision_flip=good,
-                        reproduction_matches=pair['pair_id'].endswith('4') if edit is None else None)
-        def collateral_run(self, edit):
-            return dict(fraction=0.0, n=200)
-        def k20_run(self, edit):
-            return dict(rate=dict(value=1.0, n=20, unknown=0), rows=[])
-    def edits(student, frozen, diagnosis):
-        teacher = restore_direction(student, frozen)
-        return {k: None if k == 'none' else dict(teacher, alpha=.5 if k == 'teacher' else .1) for k in CONDITIONS}
-    report = evaluate(student, pairs, paths, tmp_path / 'evaluation', runtime_factory=Runtime, edits_factory=edits)
+    report = fake_evaluate(student, pairs, paths, tmp_path / 'evaluation')
     assert report['teacher_calls'] == 0 and report['complete']
     assert report['pooled']['pairs'] == 10
     assert report['reproduction']['rate'] == dict(value=.5, n=10, unknown=0)
@@ -180,3 +193,72 @@ def test_evaluation_end_to_end_fake_runtime_no_teacher(tmp_path):
     assert report['diagnosis_fidelity']['value'] == 1.0
     assert (tmp_path / 'evaluation/report.md').is_file()
     assert len((tmp_path / 'evaluation/results.jsonl').read_text().splitlines()) == 80
+
+
+@pytest.mark.parametrize('count', range(1, 5))
+def test_work_units_partition_exactly_once(count):
+    pairs = dict(pairs=[fake_pair(i, category=c, split='test') for i, c in enumerate(CATEGORIES)])
+    units = work_units(pairs, [f'c{i}' for i in range(200)], [f't{i}' for i in range(20)])
+    shards = [[u for u in units if shard_owner(u, count) == i] for i in range(count)]
+    assert sum(map(len, shards)) == len(units) == 5 * 8 * (1 + 200 + 20)
+    from sed.storage import digest
+    assert len({digest(u) for shard in shards for u in shard}) == len(units)
+    assert all(shard_owner(u, count) == shard_owner(dict(reversed(list(u.items()))), count) for u in units)
+    assert {u['kind'] for u in units} == {'pair', 'collateral', 'k20'}
+
+
+@pytest.mark.parametrize('value', ['1/1', '-1/2', '0/0', '0', '1/2/3', '0/a', '0/ 2'])
+def test_invalid_shard(value):
+    with pytest.raises(ValueError, match='zero-based'):
+        parse_shard(value)
+
+
+def test_sharded_merge_equals_unsharded_and_refuses_missing_duplicate(tmp_path, monkeypatch):
+    from repair import p0_eval
+    from sed.storage import write_json
+    # Fix audit time only; no result normalization or production evidence edits.
+    monkeypatch.setattr('repair.p0_pairs.utc_now', lambda: '2000-01-01T00:00:00Z')
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    plain, sharded = tmp_path / 'plain', tmp_path / 'sharded'
+    expected = fake_evaluate(student, pairs, paths, plain)
+    fake_evaluate(student, pairs, paths, sharded, shard='0/3')
+    with pytest.raises(ValueError, match='Missing'):
+        merge_evaluation(pairs, paths, sharded)
+    assert not (sharded / 'report.json').exists()
+    with pytest.raises(FileExistsError):
+        fake_evaluate(student, pairs, paths, sharded, shard='0/3')
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    def run_shard(index):
+        independent = SimpleNamespace(identity=student.identity, directions={})
+        return fake_evaluate(independent, pairs, paths, sharded, shard=f'{index}/3')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(run_shard, [2, 1]))
+    path = sharded / 'shards/0000-of-0003/result.json'
+    original = json.loads(path.read_text())
+    changed = deepcopy(original)
+    changed['records'].append(changed['records'][0])
+    write_json(path, changed)
+    with pytest.raises(ValueError, match='Duplicate evaluation unit'):
+        merge_evaluation(pairs, paths, sharded)
+    changed = deepcopy(original)
+    changed['records'].pop()
+    write_json(path, changed)
+    with pytest.raises(ValueError, match='Missing'):
+        merge_evaluation(pairs, paths, sharded)
+    write_json(path, original)
+    # No runtime, CUDA or teacher should be involved in the merge.
+    monkeypatch.setattr(p0_eval, 'HarnessEvaluation', lambda *a: pytest.fail('runtime during merge'))
+    assert merge_evaluation(pairs, paths, sharded) == expected
+    for name in ('report.json', 'report.md', 'results.jsonl'):
+        assert (sharded / name).read_bytes() == (plain / name).read_bytes()
+    with pytest.raises(FileExistsError):
+        merge_evaluation(pairs, paths, sharded)
+
+
+def test_submission_gpu_can_differ_but_checkpoint_cannot(tmp_path):
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    identity = dict(student.identity, runtime_device=dict(physical_gpu_index=3, device_name='fake'))
+    evaluation_barrier(tmp_path / 'eval', pairs, paths, identity)
+    with pytest.raises(ValueError, match='student differs'):
+        evaluation_barrier(tmp_path / 'bad', pairs, paths, dict(identity, revision='changed'))
