@@ -1,12 +1,14 @@
 """Same-category expansion fallback: fake candidates, no models or network."""
 from copy import deepcopy
+import fcntl
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from repair import v0_expand
-from repair.v0_common import read
+from repair.v0_common import artifacts, completed, finish, phase, read
 from repair.v0_expand import expansion_plan, generate
 from sed.storage import write_json
 from test_v0_round import SEED, manifest_at, task_row
@@ -180,3 +182,129 @@ def test_round_cli_records_strict_fill_and_dry_run(tmp_path, monkeypatch, strict
             '--main-checkout', 'fake', '--dataset', 'fake', '--variant', 'D-param', '--dry-run']
     assert v0_round.main(argv + (['--strict-fill'] if strict else [])) == 0
     assert captured[0].strict_fill is strict and captured[0].dry_run is True
+
+
+@pytest.mark.parametrize('value,expected', [(None, 7200), ('1', 1), ('14400', 14400)])
+def test_expansion_synth_timeout(monkeypatch, value, expected):
+    monkeypatch.delenv('V0_EXPANSION_SYNTH_TIMEOUT', raising=False)
+    if value is not None:
+        monkeypatch.setenv('V0_EXPANSION_SYNTH_TIMEOUT', value)
+    assert v0_expand.expansion_synth_timeout() == expected
+
+
+@pytest.mark.parametrize('value', ['', 'abc', '1.5', '0', '-1', '1_000'])
+def test_invalid_expansion_timeout_fails_before_work(tmp_path, monkeypatch, capsys, value):
+    monkeypatch.setenv('V0_EXPANSION_SYNTH_TIMEOUT', value)
+    message = 'V0_EXPANSION_SYNTH_TIMEOUT must be a positive integer in seconds'
+    with pytest.raises(ValueError, match=message):
+        v0_expand.expand(None, None, None)
+    with pytest.raises(SystemExit) as error:
+        v0_round.main(['expand', '--output', str(tmp_path / 'round'), '--seeds', 'missing',
+            '--data-root', 'missing', '--main-checkout', 'missing', '--dataset', 'missing',
+            '--variant', 'D-param', '--synth-only'])
+    assert error.value.code == 2 and message in capsys.readouterr().err
+    assert not list(tmp_path.iterdir())
+
+
+def expansion_fixture(tmp_path, monkeypatch, k):
+    """Use the existing fake pipeline to prepare sealed expansion inputs."""
+    from test_v0_pipeline import arguments, fake_runtime, replay_bundle, setup_synth
+    source = tmp_path / 'input'
+    args = arguments(source, k)
+    v0_round.round_root(args)
+    manifest = setup_synth(source, k)
+    with monkeypatch.context() as patch:
+        fake_runtime(patch, manifest)
+        v0_round.run_attempts(args, source, manifest)
+        v0_round.run_reviews(args, source, manifest, source / 'attempt')
+        v0_round.run_labels(args, source, manifest, source / 'attempt', source / 'review')
+        args.replay = str(replay_bundle(tmp_path / 'replay', manifest.seeds))
+        v0_round.build_dataset(args, source, manifest, source / 'label')
+    root = tmp_path / 'round'
+    argv = ['expand', '--output', str(root), '--seeds', args.seeds,
+        '--data-root', str(tmp_path / 'games'), '--main-checkout', str(tmp_path / 'main'),
+        '--dataset', str(source / 'dataset'), '--variant', 'D-param',
+        '--synthetic-manifest', str(manifest.path), '--attempts', str(source / 'attempt')]
+    calls = []
+    original_run = v0_expand.subprocess.run
+
+    def synthesize(command, **kwargs):
+        if 'repair.v0_expand' not in command:
+            return original_run(command, **kwargs)
+        # The ordinary round.lock must cover CPU synthesis, too.
+        with (root / 'round.lock').open() as lock:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        calls.append(kwargs)
+        request = read(command[-1])
+        out = Path(request['out'])
+        row = dict(task_row('train/synth/new'), asset_root=str(out))
+        write_json(out / 'generated.json', [row])
+        write_json(out / 'allocation_execution.json', [dict(status='filled')])
+
+    monkeypatch.setattr(v0_expand.subprocess, 'run', synthesize)
+    return root, argv, calls
+
+
+@pytest.mark.parametrize('k', [10, 20])
+@pytest.mark.parametrize('timeout', [None, '14400'])
+def test_synth_only_completion_and_normal_resume(tmp_path, monkeypatch, capsys, k, timeout):
+    root, argv, calls = expansion_fixture(tmp_path, monkeypatch, k)
+    capsys.readouterr()
+    before = artifacts(tmp_path / 'input')
+    monkeypatch.delenv('V0_EXPANSION_SYNTH_TIMEOUT', raising=False)
+    if timeout is not None:
+        monkeypatch.setenv('V0_EXPANSION_SYNTH_TIMEOUT', timeout)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail('synth-only must not construct clients or run later phases')
+
+    for name in ('serving', 'student_factory', 'run_attempts', 'run_reviews', 'run_labels', 'build_dataset'):
+        monkeypatch.setattr(v0_round, name, forbidden)
+    monkeypatch.setattr('teachers.openai_teacher.Teacher.__init__', forbidden)
+    monkeypatch.setattr('students.vllm_student.Student.__init__', forbidden)
+    assert v0_round.main(argv + ['--synth-only']) == 0
+    result = json.loads(capsys.readouterr().out)
+    directory = root / 'expand-D-param'
+    synth = directory / 'synth'
+    assert result['synthetic_manifest'] == str(synth / 'manifest.json')
+    assert result['requested_items'] == result['generated_items'] == 1
+    assert result['student_calls'] == result['teacher_calls'] == 0
+    assert completed(synth) and not completed(directory)
+    assert not (directory / 'summary.json').exists()
+    assert not (root / 'teacher_budget.jsonl').exists()
+    for parent in (root, directory):
+        assert all(not (parent / name).exists() for name in ('attempt', 'review', 'label', 'dataset'))
+    assert len(calls) == 1 and calls[0]['timeout'] == int(timeout or 7200)
+    assert calls[0]['env']['CUDA_VISIBLE_DEVICES'] == ''
+    synth_before = artifacts(synth)
+    outer_plan = (directory / 'plan.json').read_bytes()
+    allocation = (directory / 'allocation.json').read_bytes()
+    with pytest.raises(ValueError, match='phase exists'):
+        v0_round.main(argv)
+    with pytest.raises(ValueError, match='phase exists'):
+        v0_round.main(argv + ['--synth-only'])
+    # Neither the mode nor a different operational timeout may alter identity.
+    monkeypatch.setenv('V0_EXPANSION_SYNTH_TIMEOUT', '28800')
+    assert v0_round.main(argv + ['--synth-only', '--resume']) == 0
+    capsys.readouterr()
+    proceeded = []
+
+    def later(name):
+        def run(args, root, manifest, *unused, directory, **kwargs):
+            proceeded.append(name)
+            assert args.task_ids == ['train/synth/new']
+            phase(directory, dict(command=name, inputs={}), resume=args.resume)
+            finish(directory)
+            return dict(counts={})
+        return run
+
+    for name in ('run_attempts', 'run_reviews', 'run_labels', 'build_dataset'):
+        monkeypatch.setattr(v0_round, name, later(name))
+    assert v0_round.main(argv + ['--resume']) == 0
+    assert proceeded == ['run_attempts', 'run_reviews', 'run_labels', 'build_dataset']
+    assert len(calls) == 1 and completed(directory)
+    assert artifacts(synth) == synth_before
+    assert (directory / 'plan.json').read_bytes() == outer_plan
+    assert (directory / 'allocation.json').read_bytes() == allocation
+    assert artifacts(tmp_path / 'input') == before

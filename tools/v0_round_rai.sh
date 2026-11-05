@@ -1,9 +1,9 @@
 #!/bin/bash
-# Example launcher; launching this script starts a server. Not used by CPU tests.
+# Example launcher; starts a server except for the CPU-only expand-synth stage.
 # Source/cache/model paths come from the same rai.env as run_v2_eval_rai.sh.
 set -euo pipefail
 : "${V0_ROUND_OUT:?Set the round root, already initialized by synth}"
-: "${V0_STAGE:?Set attempt, probe, review or expand}"
+: "${V0_STAGE:?Set attempt, probe, review, expand or expand-synth}"
 : "${ADAPTER:?Set the theta0 checkpoint path}"
 export PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export V0_SOURCE_ROOT=${V0_SOURCE_ROOT:-/home/xueqi/hq/projects/ICML27_agent_distillation}
@@ -17,7 +17,11 @@ case "$MODEL_NAME" in
 esac
 export VERIFIED=${VERIFIED:-$V0_SOURCE_ROOT/data/verified/seeds_full_train_r2/subsets/k$seed_k}
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=${GPU:-1}
-case "$V0_STAGE" in attempt|probe|review|expand) ;; *) echo 'Unknown V0_STAGE' >&2; exit 2 ;; esac
+case "$V0_STAGE" in
+    expand-synth) export CUDA_VISIBLE_DEVICES='' ;;
+    attempt|probe|review|expand) ;;
+    *) echo 'Unknown V0_STAGE' >&2; exit 2 ;;
+esac
 if [[ -n "${V0_ATTEMPT_DIR:-}" ]]; then
     [[ "$V0_STAGE" == probe && "${V0_RESUME:-0}" != 1 ]] || {
         echo 'V0_ATTEMPT_DIR requires a fresh probe' >&2; exit 2;
@@ -52,7 +56,7 @@ repair_work() {
     local extra=(--workers "${WORKERS:-8}")
     [[ -n "${V0_ATTEMPT_DIR:-}" ]] && extra+=(--attempt-dir "$V0_ATTEMPT_DIR/probe")
     [[ "${V0_RESUME:-0}" == 1 ]] && extra+=(--resume)
-    if [[ "$V0_STAGE" == expand ]]; then
+    if [[ "$V0_STAGE" == expand || "$V0_STAGE" == expand-synth ]]; then
         extra+=(--label-workers "${LABEL_WORKERS:-16}")
         [[ -n "${V0_SNAPSHOT:-}" ]] && extra+=(--snapshot "$V0_SNAPSHOT")
         : "${V0_VARIANT:?Set D-data or D-param}" "${V0_DATASET:?Set the immutable input dataset}"
@@ -64,10 +68,20 @@ repair_work() {
             extra+=(--groups "$V0_GROUPS/groups.json" --weights "$V0_GROUPS/weights.json")
         fi
     fi
+    if [[ "$V0_STAGE" == expand-synth ]]; then
+        CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" -m tools.v0_round expand --synth-only \
+            --config "$CONFIG" --output "$V0_ROUND_OUT" --seed 0 \
+            --model-name "$MODEL_NAME" "${extra[@]}"
+        return
+    fi
     # repair_serve_stage.sh supplies the actual ready endpoint and both gates.
     CUDA_VISIBLE_DEVICES='' run_work "$ENV_PYTHON" -m tools.v0_round "$V0_STAGE" \
         --config "$CONFIG" --output "$V0_ROUND_OUT" --seed 0 \
         --endpoint "$1" --server-provenance "$2" --lora-check "$3" \
         --model-name "$MODEL_NAME" "${extra[@]}"
 }
-source scripts/repair_serve_stage.sh
+if [[ "$V0_STAGE" == expand-synth ]]; then
+    repair_work
+else
+    source scripts/repair_serve_stage.sh
+fi

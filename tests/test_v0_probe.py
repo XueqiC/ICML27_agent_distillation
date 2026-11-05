@@ -123,23 +123,51 @@ repair_work fake-endpoint fake-provenance fake-check
 
 @pytest.mark.parametrize('k', [10, 30])
 @pytest.mark.parametrize('variant', ['D-data', 'D-param'])
-def test_rai_expansion_passes_k_seed_view_and_local_tokenizer(tmp_path, k, variant):
+@pytest.mark.parametrize('stage', ['expand', 'expand-synth'])
+@pytest.mark.parametrize('resume', ['0', '1'])
+def test_rai_expansion_passes_k_seed_view_and_local_tokenizer(tmp_path, k, variant, stage, resume):
     project = tmp_path / 'project'
     (project / 'tools').mkdir(parents=True)
     (project / 'scripts').mkdir()
     launcher = project / 'tools/v0_round_rai.sh'
     shutil.copyfile('tools/v0_round_rai.sh', launcher)
-    (project / 'scripts/repair_stage_env.sh').write_text('CONFIG=fake\nENV_PYTHON=true\nALFWORLD_DATA_ROOT=fake-games\n')
+    (project / 'scripts/repair_stage_env.sh').write_text('''CONFIG=fake
+ENV_PYTHON=fake_python
+ALFWORLD_DATA_ROOT=fake-games
+fake_python() {
+    if [[ "$1" == -m ]]; then
+        printf '%s\\n' "$@" > "$V0_ROUND_OUT/args"
+        printf '%s' "$CUDA_VISIBLE_DEVICES" > "$V0_ROUND_OUT/cuda"
+    fi
+}
+''')
     (project / 'scripts/repair_serve_stage.sh').write_text('''mkdir -p "$REPAIR_OUT"
 run_work() { printf '%s\\n' "$@" > "$REPAIR_OUT/args"; }
 repair_work fake-endpoint fake-provenance fake-check
 ''')
     root = tmp_path / 'round'
-    env = dict(PATH=os.defpath, V0_STAGE='expand', V0_ROUND_OUT=str(root),
+    root.mkdir()
+    env = dict(PATH=os.defpath, V0_STAGE=stage, V0_RESUME=resume, V0_ROUND_OUT=str(root),
         V0_SOURCE_ROOT=str(tmp_path / 'source'), ADAPTER='fake', MODEL_NAME=THETA0_CELLS[k],
         V0_VARIANT=variant, V0_DATASET='fake-dataset', V0_GROUPS='fake-groups', V0_SNAPSHOT='fake-snapshot')
     subprocess.run(['bash', str(launcher)], env=env, check=True, capture_output=True)
-    args = (root / ('serve-expand-' + variant) / 'args').read_text().splitlines()
+    if stage == 'expand-synth':
+        assert not list(root.glob('serve-*'))  # Sourcing the server stub creates this directory.
+        assert (root / 'cuda').read_text() == ''
+        args = (root / 'args').read_text().splitlines()
+        assert args[:4] == ['-m', 'tools.v0_round', 'expand', '--synth-only']
+        assert not {'--endpoint', '--server-provenance', '--lora-check'}.intersection(args)
+    else:
+        args = (root / ('serve-expand-' + variant) / 'args').read_text().splitlines()
+        assert '--synth-only' not in args
+    assert ('--resume' in args) == (resume == '1')
+    assert args[args.index('--variant') + 1] == variant
+    assert args[args.index('--dataset') + 1] == 'fake-dataset'
+    assert args[args.index('--data-root') + 1] == 'fake-games'
+    assert args[args.index('--main-checkout') + 1] == str(tmp_path / 'source')
+    assert args[args.index('--config') + 1] == 'fake'
+    assert args[args.index('--output') + 1] == str(root)
+    assert args[args.index('--seed') + 1] == '0'
     assert args[args.index('--seeds') + 1].endswith(f'/subsets/k{k}/manifest.json')
     assert args[args.index('--model-name') + 1] == THETA0_CELLS[k]
     assert args[args.index('--snapshot') + 1] == 'fake-snapshot'

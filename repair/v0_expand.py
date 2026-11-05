@@ -16,6 +16,13 @@ from repair.v0_synth import SeedFactory, edit_kind
 from sed.storage import digest, file_hash, write_json
 
 
+def expansion_synth_timeout():
+    value = os.environ.get('V0_EXPANSION_SYNTH_TIMEOUT', '7200')
+    if not value.isascii() or not value.isdecimal() or int(value) <= 0:
+        raise ValueError('V0_EXPANSION_SYNTH_TIMEOUT must be a positive integer in seconds')
+    return int(value)
+
+
 def allocate(total, masses):
     """Largest remainder; lexical ties; never clip negative consistency."""
     if type(total) is not int or total < 0 or any(not math.isfinite(v) or v < 0 for v in masses.values()):
@@ -175,6 +182,7 @@ def generate(request, *, env_factory=None):
 
 
 def expand(args, root, manifest):
+    timeout = expansion_synth_timeout()
     from tools.v0_round import (build_dataset, budget_for, run_attempts, run_labels, run_reviews,
                                 sealed_records, source_inputs)
     dataset = Path(args.dataset).resolve()
@@ -217,7 +225,7 @@ def expand(args, root, manifest):
         env = dict(PATH=os.defpath, CUDA_VISIBLE_DEVICES='', PYTHONDONTWRITEBYTECODE='1', PYTHONHASHSEED='0',
             PYTHONPATH=str(ROOT / 'src') + os.pathsep + str(ROOT), HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
         subprocess.run([sys.executable, '-m', 'repair.v0_expand', '--request', str(synth / 'request.json')],
-                       env=env, cwd=synth, check=True, timeout=7200)
+                       env=env, cwd=synth, check=True, timeout=timeout)
         old_tasks = [dict(t, asset_root=str(Path(t.get('asset_root', manifest.path.parent)).resolve()))
                      for t in manifest.tasks.values()]
         combined = dict(manifest.value, tasks=old_tasks + read(synth / 'generated.json'),
@@ -226,6 +234,9 @@ def expand(args, root, manifest):
         write_json(synth / 'split_freeze.json', freeze)
         finish(synth, **allocation_summary(plan, read(synth / 'allocation_execution.json')))
     summary = allocation_summary(plan, read(synth / 'allocation_execution.json'))
+    if getattr(args, 'synth_only', False):
+        # Leave the outer phase open so normal expand --resume can continue.
+        return dict(summary, synthetic_manifest=str(synth / 'manifest.json'), student_calls=0, teacher_calls=0)
     if dry_run:
         result = dict(summary, dry_run=True, strict_fill=strict_fill,
             synthetic_manifest=str(synth / 'manifest.json'), student_calls=0, teacher_calls=0, training_exposure=0)

@@ -536,7 +536,15 @@ def main(argv=None):
                            help='Fail on unfilled units after same-group fallback (default: continue)')
             p.add_argument('--dry-run', action='store_true',
                            help='Generate and validate seed edits on CPU; no student attempts, teacher calls or dataset build')
+            p.add_argument('--synth-only', action='store_true',
+                           help='Complete CPU expansion synthesis; leave expand open for a normal --resume')
     args = parser.parse_args(argv)
+    if args.command == 'expand':
+        from repair.v0_expand import expansion_synth_timeout
+        try:
+            expansion_synth_timeout()
+        except ValueError as exc:
+            parser.error(str(exc))
     worker_count(args)
     worker_count(args, 'label_workers')
     if args.command == 'probe' and args.attempt_dir is not None:
