@@ -14,8 +14,18 @@ import time
 from repair.p0_pairs import REVISION, MODEL, render_state, thought_split, state_digest, FRAMINGS
 from repair.records import TrajectoryRecord
 from sed.react import action_outcome, build_messages
-from sed.storage import digest, file_hash, write_json, JsonlLedger
+from sed.storage import digest, file_hash, atomic_write, canonical_bytes, JsonlLedger
 from sed.thinking import split_thinking
+
+
+def write_receipt(path, value):
+    """Publish immutable content; identical rollouts may share one receipt."""
+    content = canonical_bytes(value) + b'\n'
+    try:
+        atomic_write(path, content, exclusive=True)
+    except FileExistsError:
+        if Path(path).read_bytes() != content:
+            raise ValueError('Content-addressed receipt integrity error: ' + str(path)) from None
 
 
 def tensor_hash(tensor):
@@ -610,7 +620,7 @@ class ToolSession:
                 continuation=continuation, prefix_reference=original)
         self.environment_steps += result.environment_steps
         path = self.directory / 'executions' / (result.trajectory_id + '.json')
-        write_json(path, result.to_json())
+        write_receipt(path, result.to_json())
         if result.termination_reason == 'ENV_ERROR':
             # execute_actions preserves sanitized failures. Never return a fake
             # restored branch or silently turn an unknown outcome into failure.
@@ -683,7 +693,7 @@ class ToolSession:
                     data = self.student.direction(self._group(args['positive']), self._group(args['negative']), args['layers'], framing=framing)
                     self.direction_specs[data['direction_id']] = deepcopy(args)
                     vectors = self.student.directions[data['direction_id']]
-                    write_json(self.directory / 'directions' / (key + '.json'),
+                    write_receipt(self.directory / 'directions' / (key + '.json'),
                         dict(construction=args, vectors={str(i): d.tolist() for i, d in vectors.items()}))
                 elif tool == 'rollout':
                     data = self.rollout(**kw)
@@ -691,7 +701,7 @@ class ToolSession:
                     data = getattr(self.student, tool)(**kw)
                 result = dict(tool=tool, framing=framing, data=data, summary=tool + ': ' + self._summary(tool, data),
                               cache_key=key, cache_hit=False, sha256=digest(data))
-                write_json(path, result)
+                write_receipt(path, result)
             self.ledger.append(dict(event='settled', tool=tool, args=args, result=result,
                 wall_seconds=time.perf_counter() - started,
                 student_usage={k: self.student.usage[k] - v for k, v in usage_before.items()},

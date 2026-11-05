@@ -11,10 +11,11 @@ import operator
 from pathlib import Path
 
 from repair.p0_agent import load_submission
-from repair.p0_introspect import ToolSession, tensor_hash
+from repair.p0_introspect import ToolSession, tensor_hash, write_receipt
 from repair.p0_pairs import collateral_sample, render_state, provenance, CATEGORIES
+from repair.records import TrajectoryRecord
 from repair.v0_common import SyntheticManifest, read
-from sed.storage import digest, write_json, file_hash, locked, atomic_write, canonical_bytes
+from sed.storage import digest, write_json, file_hash, locked, atomic_write, canonical_bytes, JsonlLedger
 
 CONDITIONS = ('none', 'teacher', 'random_0', 'random_1', 'random_2', 'random_3', 'random_4', 'fixed')
 STATISTICAL_PLAN = dict(mcnemar='two-sided exact conditional binomial, unadjusted pooled/per-category',
@@ -126,20 +127,32 @@ def evaluation_identity(pairs, submission_paths, student_identity, *, full_plan=
     return {s['category']: s for s in submissions}, identity
 
 
-def evaluation_barrier(directory, pairs, submission_paths, student_identity, *, shared=False, full_plan=False):
+def check_runtime(frozen, current, *, resume=False):
+    # Explicit resume permits this storage/driver repair across an old freeze.
+    # Model, environment, prompt/parser code and dependencies remain pinned.
+    allowed = {'repair/p0_eval.py', 'repair/p0_introspect.py', 'tools/p0_pilot.py'} if resume else set()
+    before, after = frozen['code_sha256'], current['code_sha256']
+    if (frozen['dependencies'] != current['dependencies'] or before.keys() != after.keys() or
+            any(before[k] != after[k] for k in before.keys() - allowed)):
+        raise ValueError('Evaluation code/dependencies changed')
+
+
+def evaluation_barrier(directory, pairs, submission_paths, student_identity, *, shared=False, full_plan=False,
+                       resume=False):
     """Validate all FIVE freezes, then publish plan before any model test call."""
     directory = Path(directory)
     submissions, identity = evaluation_identity(pairs, submission_paths, student_identity, full_plan=full_plan)
     value = dict(plan=identity['plan'], identity=identity, sha256=digest(identity), provenance=provenance(identity))
     with locked(directory / 'evaluation.lock'):
         path = directory / 'evaluation_freeze.json'
-        if shared and path.exists():
+        if resume and not path.is_file():
+            raise ValueError('Resume requires an existing evaluation freeze')
+        if (shared or resume) and path.exists():
             existing = read(path)
             if (existing.get('plan') != value['plan'] or existing['identity'] != identity or
-                    existing['sha256'] != value['sha256'] or
-                    any(existing['provenance'][k] != value['provenance'][k]
-                        for k in ('code_sha256', 'dependencies'))):
+                    existing['sha256'] != value['sha256']):
                 raise ValueError('Evaluation freeze differs across shards')
+            check_runtime(existing['provenance'], value['provenance'], resume=resume)
             value = existing
         else:
             write_json(path, value, exclusive=True)
@@ -247,7 +260,7 @@ class HarnessEvaluation:
             result = execute_actions(factory, task_id, [], 40, ledger=ledger,
                 interaction_kind='evaluation_steps', continuation=continuation, prefix_reference=reference)
         path = self.directory / 'k20_executions' / (result.trajectory_id + '.json')
-        write_json(path, result.to_json(), exclusive=True)
+        write_receipt(path, result.to_json())
         return dict(task_id=task_id, success=result.success, termination=result.termination_reason,
                     execution_sha256=file_hash(path), environment_steps=result.environment_steps)
 
@@ -300,59 +313,243 @@ def publish_shared(path, value):
             write_json(path, value, exclusive=True)
 
 
+def validate_plan(plan, freeze, pairs, count, full_plan):
+    units = work_units(pairs, [p['pair_id'] for p in plan['collateral']], plan['seed_ids'], full_plan=full_plan)
+    if (plan.get('schema') != 'p0-work-plan/1' or plan.get('plan') != freeze['plan'] or
+            plan['freeze_sha256'] != freeze['sha256'] or type(plan['shards']) is not int or
+            plan['shards'] != count or count < 1 or units != plan['units'] or
+            len(plan['collateral']) != 200 or len(plan['seed_ids']) != 20 or
+            len(set(plan['seed_ids'])) != 20 or set(plan['seed_sources']) != set(plan['seed_ids'])):
+        raise ValueError('Evaluation work unit manifest mismatch')
+    return units
+
+
+class UnitVerifier:
+    """Validate both legacy {unit_id,result} files and versioned unit receipts.
+
+    Old units reference executions by file hash only. Index each receipt directory
+    once, then verify the referenced trajectory's content ID and outcome fields.
+    """
+    def __init__(self, workdir, pairs):
+        self.workdir = workdir
+        self.pairs = {p['pair_id']: p for p in pairs['pairs'] if p['split'] == 'test'}
+        self.executions = {}
+
+    def execution(self, directory, sha, result, task_id):
+        if directory not in self.executions:
+            self.executions[directory] = {file_hash(p): p for p in directory.glob('*.json')}
+        path = self.executions[directory].get(sha)
+        if path is None:
+            raise ValueError('Referenced execution receipt hash missing or changed')
+        value = read(path)
+        trajectory = TrajectoryRecord.from_json(value)
+        if (path.stem != trajectory.trajectory_id or value.get('trajectory_id') != path.stem or
+                trajectory.task_id != task_id or trajectory.success != result['success'] or
+                trajectory.termination_reason != result['termination'] or
+                trajectory.environment_steps != result['environment_steps']):
+            raise ValueError('Execution receipt identity/outcome mismatch')
+
+    def verify(self, path, unit):
+        try:
+            row = read(path)
+            legacy = set(row) == {'unit_id', 'result'}
+            if (not legacy and (set(row) != {'schema', 'unit', 'unit_id', 'result'} or
+                    row['schema'] != 'p0-unit/1' or row['unit'] != unit)):
+                raise ValueError('Invalid completed unit schema')
+            if path.stem != digest(unit) or row['unit_id'] != digest(unit):
+                raise ValueError('Completed unit key mismatch')
+            result = row['result']
+            if not isinstance(result, dict):
+                raise ValueError('Invalid completed unit result schema')
+            if unit['kind'] == 'collateral':
+                if (set(result) != {'pair_id', 'edited'} or result['pair_id'] != unit['key'] or
+                        result['edited'] is not None and not isinstance(result['edited'], str)):
+                    raise ValueError('Collateral result schema/identity mismatch')
+                return row
+            if type(result['success']) is not bool and result['success'] != 'unknown':
+                raise ValueError('Invalid completed unit success')
+            if unit['kind'] == 'pair':
+                pair = self.pairs[unit['key']]
+                if (any(result[k] != unit[u] for k, u in
+                        [('pair_id', 'key'), ('category', 'category'), ('condition', 'condition')]) or
+                        any(result[k] != pair[k] for k in ('task_id', 'group_id', 'alignment')) or
+                        type(result['decision_flip']) is not bool or
+                        result['reproduction_matches'] is not None and type(result['reproduction_matches']) is not bool or
+                        result['greedy'] is not None and not isinstance(result['greedy'], str)):
+                    raise ValueError('Pair result schema/identity mismatch')
+                receipt = result['rollout']
+                data = receipt['data']
+                key = receipt['cache_key']
+                if (not isinstance(key, str) or len(key) != 64 or any(c not in '0123456789abcdef' for c in key) or
+                        receipt['tool'] != 'rollout' or receipt['framing'] != 'free_greedy' or
+                        type(receipt['cache_hit']) is not bool or receipt['sha256'] != digest(data) or
+                        data['success'] != result['success']):
+                    raise ValueError('Pair rollout receipt schema/hash mismatch')
+                pairdir = self.workdir / 'pairs' / unit['key']
+                # Cache hits only change the in-memory flag, never the stored bytes.
+                if (pairdir / 'cache' / (key + '.json')).read_bytes() != canonical_bytes(
+                        dict(receipt, cache_hit=False)) + b'\n':
+                    raise ValueError('Referenced cache receipt bytes changed')
+                directory = pairdir / 'executions'
+            else:
+                if result['task_id'] != unit['key']:
+                    raise ValueError('K20 result identity mismatch')
+                data = result
+                directory = self.workdir / 'k20_executions'
+            if (type(data['environment_steps']) is not int or data['environment_steps'] < 0 or
+                    not isinstance(data['termination'], str)):
+                raise ValueError('Invalid execution result schema')
+            self.execution(directory, data['execution_sha256'], data, result['task_id'])
+            return row
+        except (KeyError, TypeError, OSError):
+            raise ValueError('Invalid completed unit schema or missing receipt: ' + str(path)) from None
+
+
+def completed_units(workdir, assigned, pairs):
+    verifier, records = UnitVerifier(workdir, pairs), {}
+    for path in sorted((workdir / 'units').glob('*.json')):
+        if path.stem not in assigned:
+            raise ValueError('Unexpected/misassigned completed unit')
+        records[path.stem] = verifier.verify(path, assigned[path.stem])
+    return records
+
+
+def restore_conditions(student, conditions, submissions):
+    """Reuse frozen controls; resuming never estimates directions again."""
+    import torch
+    if set(conditions) != set(CATEGORIES):
+        raise ValueError('Frozen condition categories differ')
+    edits = {}
+    for category, value in conditions.items():
+        edits[category] = value['edits']
+        if (set(value['edits']) != set(CONDITIONS) or value['edits']['none'] is not None or
+                value['edits']['teacher'] != submissions[category]['submission']['edit']):
+            raise ValueError('Frozen condition edits differ')
+        for ident, directions in value['directions'].items():
+            vectors = {int(i): torch.tensor(d, dtype=torch.float32) for i, d in directions.items()}
+            if ident != digest({str(i): tensor_hash(d) for i, d in vectors.items()}):
+                raise ValueError('Frozen direction content mismatch')
+            student.directions[ident] = vectors
+        if any(e['direction_id'] not in value['directions'] for e in value['edits'].values() if e is not None):
+            raise ValueError('Missing frozen condition direction')
+    return edits
+
+
+def resume_identity(freeze, plan, conditions, current):
+    return dict(schema='p0-resume-runtime/1', freeze_sha256=freeze['sha256'],
+        work_plan_sha256=digest(plan), conditions_sha256=digest(conditions),
+        code_sha256=current['code_sha256'], dependencies=current['dependencies'])
+
+
 def evaluate(student, pairs, submission_paths, directory, *, runtime_factory=HarnessEvaluation,
-             edits_factory=control_edits, shard=None, full_plan=False):
+             edits_factory=control_edits, shard=None, full_plan=False, resume=False):
+    if resume and shard is None:
+        raise ValueError('Resume requires an explicit --shard')
     index, count = (0, 1) if shard is None else parse_shard(shard) if isinstance(shard, str) else shard
     if type(index) is not int or type(count) is not int or not 0 <= index < count:
         raise ValueError('Invalid evaluation shard')
     directory = Path(directory)
     submissions, freeze = evaluation_barrier(directory, pairs, submission_paths, student.identity,
-                                           shared=True, full_plan=full_plan)
+                                           shared=True, full_plan=full_plan, resume=resume)
     workdir = directory / 'shards' / f'{index:04d}-of-{count:04d}'
-    # Exclusive ownership also protects all runtime caches, logs and executions.
-    workdir.mkdir(parents=True, exist_ok=False)
-    runtime = runtime_factory(student, pairs, workdir)
-    collateral_ids = [p['pair_id'] for p in runtime.collateral]
-    if len(collateral_ids) != 200 or len(set(collateral_ids)) != 200 or len(set(runtime.seed_ids)) != 20:
-        raise ValueError('Expected 200 unique collateral decisions and 20 unique K20 tasks')
-    units = work_units(pairs, collateral_ids, runtime.seed_ids, full_plan=full_plan)
-    plan = dict(schema='p0-work-plan/1', plan=freeze['plan'], freeze_sha256=freeze['sha256'], shards=count,
-        units=units, collateral=runtime.collateral, seed_ids=runtime.seed_ids, seed_sources=runtime.seed_sources)
-    publish_shared(directory / 'work_plan.json', plan)
-    publish_shared(directory / 'collateral_freeze.json', dict(seed=0, decisions=runtime.collateral,
-                                                           sha256=digest(runtime.collateral)))
-    edits, conditions = {}, {}
-    for category in CATEGORIES:
-        diagnosis = [p for p in pairs['pairs'] if p['split'] == 'diagnosis' and p['category'] == category]
-        edits[category] = edits_factory(student, submissions[category], diagnosis)
-        conditions[category] = dict(edits=edits[category], directions={
-            str(k): {str(i): d.tolist() for i, d in student.directions[k].items()}
-            for k in {e['direction_id'] for e in edits[category].values() if e is not None}})
-    publish_shared(directory / 'conditions.json', conditions)
-    tests = {p['pair_id']: p for p in pairs['pairs'] if p['split'] == 'test'}
-    records = []
-    for unit in units:
-        if shard_owner(unit, count) != index:
-            continue
-        edit = None if unit['condition'] == 'none' else edits[unit['category']][unit['condition']]
-        if unit['kind'] == 'pair':
-            pair = tests[unit['key']]
-            result = dict(pair_id=pair['pair_id'], category=unit['category'], condition=unit['condition'],
-                task_id=pair['task_id'], group_id=pair['group_id'], alignment=pair['alignment'],
-                **runtime.pair(pair, edit))
-        elif unit['kind'] == 'collateral':
-            result = runtime.collateral_decision(unit['key'], edit)
-        else:
-            result = runtime.k20_task(unit['key'], edit)
-        record = dict(unit_id=digest(unit), result=result)
-        write_json(workdir / 'units' / (record['unit_id'] + '.json'), record, exclusive=True)
-        records.append(record)
-    result = dict(schema='p0-shard/1', index=index, shards=count, work_plan_sha256=digest(plan),
-        conditions_sha256=digest(conditions), model_identity=student.identity, records=records)
-    write_json(workdir / 'result.json', result, exclusive=True)
+    # Hold ownership for the entire run, including validation and receipt writes.
+    with locked(directory / f'shard-{index:04d}-of-{count:04d}.lock'):
+        result = evaluate_shard(student, pairs, directory, workdir, submissions, freeze,
+            runtime_factory, edits_factory, index, count, full_plan, resume)
     if shard is not None:
-        return dict(plan=freeze['plan'], shard=f'{index}/{count}', units=len(records), result=str(workdir / 'result.json'))
+        return result
     return merge_evaluation(pairs, submission_paths, directory, full_plan=full_plan)
+
+
+def evaluate_shard(student, pairs, directory, workdir, submissions, freeze,
+                   runtime_factory, edits_factory, index, count, full_plan, resume):
+    current = provenance(dict(evaluation_freeze=freeze['sha256'], shard=f'{index}/{count}', resume=resume))
+    records = {}
+    if resume:
+        if not workdir.is_dir():
+            raise ValueError('Resume requires an existing shard directory')
+        plan = read(directory / 'work_plan.json')
+        units = validate_plan(plan, freeze, pairs, count, full_plan)
+        collateral = dict(seed=0, decisions=plan['collateral'], sha256=digest(plan['collateral']))
+        if read(directory / 'collateral_freeze.json') != collateral:
+            raise ValueError('Collateral freeze differs')
+        conditions = read(directory / 'conditions.json')
+        assigned = {digest(u): u for u in units if shard_owner(u, count) == index}
+        records = completed_units(workdir, assigned, pairs)
+        if (workdir / 'result.json').exists():
+            saved = read(workdir / 'result.json')
+            if (set(records) != set(assigned) or saved.get('schema') != 'p0-shard/1' or
+                    saved['index'] != index or saved['shards'] != count or
+                    saved['work_plan_sha256'] != digest(plan) or saved['conditions_sha256'] != digest(conditions) or
+                    model_identity(saved['model_identity']) != model_identity(student.identity) or
+                    saved['records'] != [records[k] for k in assigned]):
+                raise ValueError('Completed shard result differs from verified units')
+        edits = restore_conditions(student, conditions, submissions)
+        publish_shared(directory / 'resume_runtime.json', resume_identity(freeze, plan, conditions, current))
+    else:
+        workdir.mkdir(parents=True, exist_ok=False)
+    ledger = JsonlLedger(workdir / 'evaluation.jsonl')
+    ledger.append(dict(event='resume' if resume else 'started', index=index, shards=count,
+        freeze_sha256=freeze['sha256'], completed_unit_ids=sorted(records),
+        model_identity=student.identity, provenance=current))
+    try:
+        runtime = None
+        if not resume or len(records) != len(assigned):
+            runtime = runtime_factory(student, pairs, workdir)
+            collateral_ids = [p['pair_id'] for p in runtime.collateral]
+            if len(collateral_ids) != 200 or len(set(collateral_ids)) != 200 or len(set(runtime.seed_ids)) != 20:
+                raise ValueError('Expected 200 unique collateral decisions and 20 unique K20 tasks')
+            units = work_units(pairs, collateral_ids, runtime.seed_ids, full_plan=full_plan)
+            candidate = dict(schema='p0-work-plan/1', plan=freeze['plan'], freeze_sha256=freeze['sha256'], shards=count,
+                units=units, collateral=runtime.collateral, seed_ids=runtime.seed_ids, seed_sources=runtime.seed_sources)
+            if resume:
+                if candidate != plan:
+                    raise ValueError('Evaluation work plan differs on resume')
+            else:
+                plan = candidate
+                publish_shared(directory / 'work_plan.json', plan)
+                publish_shared(directory / 'collateral_freeze.json', dict(seed=0, decisions=runtime.collateral,
+                                                                       sha256=digest(runtime.collateral)))
+                edits, conditions = {}, {}
+                for category in CATEGORIES:
+                    diagnosis = [p for p in pairs['pairs'] if p['split'] == 'diagnosis' and p['category'] == category]
+                    edits[category] = edits_factory(student, submissions[category], diagnosis)
+                    conditions[category] = dict(edits=edits[category], directions={
+                        str(k): {str(i): d.tolist() for i, d in student.directions[k].items()}
+                        for k in {e['direction_id'] for e in edits[category].values() if e is not None}})
+                publish_shared(directory / 'conditions.json', conditions)
+        tests = {p['pair_id']: p for p in pairs['pairs'] if p['split'] == 'test'}
+        assigned = {digest(u): u for u in units if shard_owner(u, count) == index}
+        skipped = len(records)
+        for key, unit in assigned.items():
+            if key in records:
+                continue
+            edit = None if unit['condition'] == 'none' else edits[unit['category']][unit['condition']]
+            if unit['kind'] == 'pair':
+                pair = tests[unit['key']]
+                result = dict(pair_id=pair['pair_id'], category=unit['category'], condition=unit['condition'],
+                    task_id=pair['task_id'], group_id=pair['group_id'], alignment=pair['alignment'],
+                    **runtime.pair(pair, edit))
+            elif unit['kind'] == 'collateral':
+                result = runtime.collateral_decision(unit['key'], edit)
+            else:
+                result = runtime.k20_task(unit['key'], edit)
+            record = dict(schema='p0-unit/1', unit=unit, unit_id=key, result=result)
+            write_json(workdir / 'units' / (key + '.json'), record, exclusive=True)
+            records[key] = record
+        result = dict(schema='p0-shard/1', index=index, shards=count, work_plan_sha256=digest(plan),
+            conditions_sha256=digest(conditions), model_identity=student.identity,
+            records=[records[k] for k in assigned])
+        # A complete resumed shard is a verified no-op; never rewrite its summary.
+        if not (resume and (workdir / 'result.json').exists()):
+            write_json(workdir / 'result.json', result, exclusive=True)
+        ledger.append(dict(event='completed', units=len(records), skipped=skipped,
+                           executed=len(records) - skipped, result_sha256=file_hash(workdir / 'result.json')))
+    except Exception as exc:
+        ledger.append(dict(event='failed', error_type=type(exc).__name__, completed_units=len(records)))
+        raise
+    return dict(plan=freeze['plan'], shard=f'{index}/{count}', units=len(records),
+                result=str(workdir / 'result.json'))
 
 
 def merge_evaluation(pairs, submission_paths, directory, *, full_plan=False):
@@ -365,21 +562,23 @@ def merge_evaluation(pairs, submission_paths, directory, *, full_plan=False):
             plan['freeze_sha256'] != freeze['sha256']):
         raise ValueError('Evaluation freeze mismatch')
     current = provenance()
-    if any(freeze['provenance'][k] != current[k] for k in ('code_sha256', 'dependencies')):
-        raise ValueError('Evaluation code/dependencies changed')
-    units = work_units(pairs, [p['pair_id'] for p in plan['collateral']], plan['seed_ids'], full_plan=full_plan)
-    if units != plan['units'] or len(plan['collateral']) != 200 or len(set(plan['seed_ids'])) != 20:
-        raise ValueError('Evaluation work unit manifest mismatch')
+    resumed = (directory / 'resume_runtime.json').exists()
+    check_runtime(freeze['provenance'], current, resume=resumed)
+    conditions = read(directory / 'conditions.json')
+    if resumed and read(directory / 'resume_runtime.json') != resume_identity(freeze, plan, conditions, current):
+        raise ValueError('Evaluation resume runtime differs')
+    units = validate_plan(plan, freeze, pairs, plan['shards'], full_plan)
     expected = {digest(u): u for u in units}
     count, records, shards, identities = plan['shards'], {}, set(), {}
     condition_hash = file_hash(directory / 'conditions.json')
-    conditions_digest = digest(read(directory / 'conditions.json'))
+    conditions_digest = digest(conditions)
     for path in sorted((directory / 'shards').glob('*/result.json')):
         result = read(path)
         index = result['index']
         if index in shards:
             raise ValueError('Duplicate evaluation shard')
-        if (type(index) is not int or not 0 <= index < count or result['shards'] != count or
+        if (result.get('schema') != 'p0-shard/1' or type(index) is not int or not 0 <= index < count or
+                path.parent.name != f'{index:04d}-of-{count:04d}' or result['shards'] != count or
                 result['work_plan_sha256'] != digest(plan) or result['conditions_sha256'] != conditions_digest or
                 model_identity(result['model_identity']) != identity['student']):
             raise ValueError('Evaluation shard identity mismatch')
@@ -392,6 +591,12 @@ def merge_evaluation(pairs, submission_paths, directory, *, full_plan=False):
             if key not in expected or shard_owner(expected[key], count) != index:
                 raise ValueError('Unexpected/misassigned evaluation unit')
             records[key] = row['result']
+        assigned = {k: u for k, u in expected.items() if shard_owner(u, count) == index}
+        verified = completed_units(path.parent, assigned, pairs)
+        if set(verified) != {r['unit_id'] for r in result['records']}:
+            raise ValueError('Missing evaluation units in shard result')
+        if any(row != verified[row['unit_id']] for row in result['records']):
+            raise ValueError('Shard result differs from verified unit files')
     if shards != set(range(count)) or set(records) != set(expected):
         raise ValueError('Missing evaluation shards or units')
     rows, side = [], defaultdict(list)

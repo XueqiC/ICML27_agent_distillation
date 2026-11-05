@@ -68,8 +68,8 @@ def test_evaluate_merge_does_not_load_model(tmp_path, monkeypatch, full_plan):
 
 
 @pytest.mark.parametrize('full_plan', [False, True])
-@pytest.mark.parametrize('shard', [None, '1/3'])
-def test_evaluate_forwards_explicit_plan_and_shard(tmp_path, monkeypatch, capsys, full_plan, shard):
+@pytest.mark.parametrize('shard,resume', [(None, False), ('1/3', False), ('1/3', True)])
+def test_evaluate_forwards_explicit_plan_and_shard(tmp_path, monkeypatch, capsys, full_plan, shard, resume):
     from repair import p0_eval, p0_agent
     calls = []
     monkeypatch.setattr(p0_pilot, 'load_pairs', lambda path: {'sha256': 'fake'})
@@ -78,9 +78,10 @@ def test_evaluate_forwards_explicit_plan_and_shard(tmp_path, monkeypatch, capsys
     monkeypatch.setattr(p0_eval, 'evaluate', lambda *a, **kw: calls.append(kw) or
                         {'complete': True, 'plan': 'full' if full_plan else 'prereg_minimal'})
     p0_pilot.main(['evaluate', '--pairs', 'fake', '--output', str(tmp_path),
+                   *(['--resume'] if resume else []),
                    *(['--full-plan'] if full_plan else []), *(['--shard', shard] if shard else []),
                    *sum((['--submission', f's{i}'] for i in range(5)), [])])
-    assert calls == [dict(full_plan=full_plan, shard=(1, 3) if shard else None)]
+    assert calls == [dict(full_plan=full_plan, shard=(1, 3) if shard else None, resume=resume)]
     assert ('"plan": "full"' if full_plan else '"plan": "prereg_minimal"') in capsys.readouterr().out
 
 
@@ -92,3 +93,14 @@ def test_full_plan_requires_evaluate_before_loading_inputs(tmp_path, monkeypatch
         p0_pilot.main([command, '--output', str(tmp_path), '--full-plan'])
     assert exc.value.code == 2
     assert '--full-plan requires evaluate' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('argv', [['extract'], ['smoke'], ['diagnose'], ['evaluate'],
+                                  ['evaluate', '--merge'], ['smoke', '--shard', '0/5']])
+def test_resume_requires_evaluate_shard_before_loading(tmp_path, monkeypatch, capsys, argv):
+    monkeypatch.setattr(p0_pilot, 'load_pairs', lambda *a: pytest.fail('loaded pairs'))
+    monkeypatch.setattr(p0_pilot, 'model_runtime', lambda *a: pytest.fail('loaded model'))
+    with pytest.raises(SystemExit) as exc:
+        p0_pilot.main([*argv, '--output', str(tmp_path), '--resume'])
+    assert exc.value.code == 2
+    assert '--resume requires evaluate --shard' in capsys.readouterr().err

@@ -10,9 +10,10 @@ from repair.p0_agent import freeze_submission
 from repair.p0_eval import (mcnemar_exact, compare, predictions, CONDITIONS, evaluation_barrier,
                             evaluate, restore_direction, control_edits, work_units, shard_owner,
                             merge_evaluation, parse_shard, HarnessEvaluation)
-from repair.p0_introspect import ToolSession
+from repair.p0_introspect import ToolSession, write_receipt
 from repair.p0_pairs import CATEGORIES
-from sed.storage import digest, write_json
+from repair.records import TrajectoryRecord
+from sed.storage import digest, write_json, file_hash
 from p0_fakes import tiny_student, fake_pair, sample_submission
 
 
@@ -160,20 +161,40 @@ class FakeRuntime:
     def __init__(self, student, pairs, directory):
         # The freeze MUST precede even constructing an evaluator.
         assert (directory.parent.parent / 'evaluation_freeze.json').is_file()
+        self.directory = directory
         self.collateral = [dict(pair_id=f'collateral-{i}') for i in range(200)]
         self.seed_ids = [f'train/seed/{i}' for i in range(20)]
         self.seed_sources = {key: {'fixture': True} for key in self.seed_ids}
 
     def pair(self, pair, edit):
         good = edit is not None and edit['alpha'] == .5
+        execution = TrajectoryRecord(task_id=pair['task_id'], initial=None, steps=[],
+                                     success=good, termination_reason='SUCCESS' if good else 'FAILED')
+        pairdir = self.directory / 'pairs' / pair['pair_id']
+        path = pairdir / 'executions' / (execution.trajectory_id + '.json')
+        write_receipt(path, execution.to_json())
+        data = dict(success=good, termination=execution.termination_reason, environment_steps=0,
+                    execution_sha256=file_hash(path))
+        key = digest(dict(pair=pair['pair_id'], edit=edit))
+        rollout = dict(tool='rollout', framing='free_greedy', data=data, sha256=digest(data),
+                       cache_key=key, cache_hit=False, summary='fixture')
+        write_receipt(pairdir / 'cache' / (key + '.json'), rollout)
         return dict(success=good, greedy='inventory' if good else 'look', decision_flip=good,
-                    reproduction_matches=pair['pair_id'].endswith('4') if edit is None else None)
+                    reproduction_matches=pair['pair_id'].endswith('4') if edit is None else None, rollout=rollout)
 
     def collateral_decision(self, pair_id, edit):
         return dict(pair_id=pair_id, edited='look')
 
     def k20_task(self, task_id, edit):
-        return dict(task_id=task_id, success=True, environment_steps=2)
+        return self.seed_result(task_id, True)
+
+    def seed_result(self, task_id, success):
+        execution = TrajectoryRecord(task_id=task_id, initial=None, steps=[],
+            success=success, termination_reason='SUCCESS' if success is True else 'FAILED', environment_steps=2)
+        path = self.directory / 'k20_executions' / (execution.trajectory_id + '.json')
+        write_receipt(path, execution.to_json())
+        return dict(task_id=task_id, success=success, termination=execution.termination_reason,
+                    environment_steps=2, execution_sha256=file_hash(path))
 
 
 def fake_edits(student, frozen, diagnosis):
@@ -242,7 +263,7 @@ def test_shared_none_executed_once_and_reused_for_actual_comparisons(tmp_path):
 
         def k20_task(self, task_id, edit):
             calls['k20', task_id, edit is None] += 1
-            return dict(task_id=task_id, success=edit is None, environment_steps=2)
+            return self.seed_result(task_id, edit is None)
 
     student, pairs, paths, _ = make_freezes(tmp_path)
     report = evaluate(student, pairs, paths, tmp_path / 'evaluation',
@@ -365,13 +386,10 @@ def test_shards_and_merge_reject_mixed_plans_before_runtime(tmp_path, full_plan)
 def test_shared_none_unknown_k20_prevents_complete_criterion(tmp_path):
     student, pairs, paths, _ = make_freezes(tmp_path)
     directory = tmp_path / 'evaluation'
-    fake_evaluate(student, pairs, paths, directory, shard='0/1')
-    plan = json.loads((directory / 'work_plan.json').read_text())
-    baseline = next(u for u in plan['units'] if u['kind'] == 'k20' and u['condition'] == 'none')
-    path = directory / 'shards/0000-of-0001/result.json'
-    result = json.loads(path.read_text())
-    next(r for r in result['records'] if r['unit_id'] == digest(baseline))['result']['success'] = 'unknown'
-    write_json(path, result)
+    class Runtime(FakeRuntime):
+        def k20_task(self, task_id, edit):
+            return self.seed_result(task_id, 'unknown' if edit is None and task_id == self.seed_ids[0] else True)
+    evaluate(student, pairs, paths, directory, runtime_factory=Runtime, edits_factory=fake_edits, shard='0/1')
     report = merge_evaluation(pairs, paths, directory)
     assert report['complete'] is False and report['preregistered_numeric_criterion'] is False
     assert all(report['k20'][c]['none']['rate']['unknown'] == 1 for c in CATEGORIES)
@@ -383,3 +401,303 @@ def test_submission_gpu_can_differ_but_checkpoint_cannot(tmp_path):
     evaluation_barrier(tmp_path / 'eval', pairs, paths, identity)
     with pytest.raises(ValueError, match='student differs'):
         evaluation_barrier(tmp_path / 'bad', pairs, paths, dict(identity, revision='changed'))
+
+
+def test_k20_identical_trajectories_reuse_receipt_and_reject_changed_bytes(tmp_path, monkeypatch):
+    from repair import execute
+    task_id = 'train/group/trial'
+    game = tmp_path / task_id / 'game.tw-pddl'
+    game.parent.mkdir(parents=True)
+    game.write_text('fixture')
+    runtime = HarnessEvaluation.__new__(HarnessEvaluation)
+    runtime.directory = tmp_path / 'run'
+    runtime.seed_sources = {task_id: dict(game_path=str(game), game_sha256=file_hash(game), environment_seed=0)}
+    runtime.student = SimpleNamespace(edited=lambda e: nullcontext())
+    execution = TrajectoryRecord(task_id=task_id, initial=None, steps=[], success=True, termination_reason='SUCCESS')
+    calls = []
+    monkeypatch.setattr(execute, 'execute_actions', lambda *a, **kw: calls.append(kw) or execution)
+    first = runtime.k20_task(task_id, None)
+    path = next((runtime.directory / 'k20_executions').glob('*.json'))
+    before = (path.read_bytes(), path.stat().st_mtime_ns)
+    assert runtime.k20_task(task_id, {'alpha': 0}) == first
+    assert len(calls) == 4  # Both units really execute reset + rollout.
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+    path.write_bytes(before[0] + b' ')
+    with pytest.raises(ValueError, match='receipt integrity error'):
+        runtime.k20_task(task_id, None)
+    assert path.read_bytes() == before[0] + b' '
+
+
+def test_pair_identical_trajectories_reuse_receipt_and_reject_changed_bytes(tmp_path, monkeypatch):
+    from repair.dry_fakes import FakeEnvironment
+    from p0_fakes import fake_greedy
+    student = tiny_student()
+    monkeypatch.setattr(student, 'greedy', fake_greedy)
+    pair = fake_pair(split='test')
+    session = ToolSession(student, [pair], tmp_path, env_factory=lambda p: FakeEnvironment(), scope='evaluation')
+    state = session.state(pair['pair_id'])
+    first = session.rollout(state)
+    path = next((tmp_path / 'executions').glob('*.json'))
+    before = (path.read_bytes(), path.stat().st_mtime_ns)
+    assert session.rollout(state) == first
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+    path.write_bytes(before[0] + b' ')
+    with pytest.raises(ValueError, match='receipt integrity error'):
+        session.rollout(state)
+    assert path.read_bytes() == before[0] + b' '
+
+
+@pytest.mark.parametrize('different', [False, True])
+@pytest.mark.parametrize('tool', ['action_scores', 'direction'])
+def test_cache_and_direction_publication_verify_existing_bytes(tmp_path, monkeypatch, different, tool):
+    from repair import p0_introspect
+    student, pair = tiny_student(), fake_pair()
+    session = ToolSession(student, [pair], tmp_path)
+    original_write = p0_introspect.atomic_write
+    competing = []
+    def raced_write(path, content, *, exclusive):
+        # Another publisher wins after the cache lookup. Never clobber it.
+        if not competing:
+            competing.append(path)
+            original_write(path, content + (b' ' if different else b''), exclusive=True)
+        return original_write(path, content, exclusive=exclusive)
+    monkeypatch.setattr(p0_introspect, 'atomic_write', raced_write)
+    args = (dict(state=pair['pair_id'], candidates=['look']) if tool == 'action_scores' else
+            dict(positive=[dict(state=pair['pair_id'], action='look')],
+                 negative=[dict(state=pair['pair_id'], action='inventory')], layers=[0]))
+    if different:
+        with pytest.raises(ValueError, match='receipt integrity error'):
+            session.call(tool, args)
+        assert competing[0].read_bytes().endswith(b'\n ')
+    else:
+        first = session.call(tool, args)
+        assert session.call(tool, args)['data'] == first['data']
+        assert competing
+
+
+class InterruptedRuntime(FakeRuntime):
+    remaining = 3
+    executed = []
+
+    def tick(self, kind, key, edit):
+        if self.remaining == 0:
+            raise RuntimeError('simulated interruption')
+        type(self).remaining -= 1
+        self.executed.append((kind, key, edit))
+
+    def pair(self, pair, edit):
+        self.tick('pair', pair['pair_id'], edit)
+        return super().pair(pair, edit)
+
+    def collateral_decision(self, pair_id, edit):
+        self.tick('collateral', pair_id, edit)
+        return super().collateral_decision(pair_id, edit)
+
+    def k20_task(self, task_id, edit):
+        self.tick('k20', task_id, edit)
+        return super().k20_task(task_id, edit)
+
+
+def interrupted_run(student, pairs, paths, directory, *, full_plan=False):
+    InterruptedRuntime.remaining, InterruptedRuntime.executed = 3, []
+    with pytest.raises(RuntimeError, match='simulated interruption'):
+        evaluate(student, pairs, paths, directory, runtime_factory=InterruptedRuntime,
+                 edits_factory=fake_edits, shard='0/2', full_plan=full_plan)
+    return directory / 'shards/0000-of-0002'
+
+
+@pytest.mark.parametrize('full_plan', [False, True])
+@pytest.mark.parametrize('legacy', [False, True])
+def test_resume_skips_completed_and_merge_equals_uninterrupted(tmp_path, monkeypatch, full_plan, legacy):
+    monkeypatch.setattr('repair.p0_pairs.utc_now', lambda: '2000-01-01T00:00:00Z')
+    original_edits = fake_edits
+    def distinguishable_edits(*args):
+        edits = original_edits(*args)
+        for i, name in enumerate(CONDITIONS):
+            if name not in ('none', 'teacher'):
+                edits[name]['alpha'] = .01 * (i + 1)
+        return edits
+    # Distinct condition calls must be distinguishable even when outcomes match.
+    monkeypatch.setattr(__name__ + '.fake_edits', distinguishable_edits)
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory, plain = tmp_path / 'resumed', tmp_path / 'plain'
+    workdir = interrupted_run(student, pairs, paths, directory, full_plan=full_plan)
+    if legacy:
+        for path in (workdir / 'units').glob('*.json'):
+            row = json.loads(path.read_text())
+            write_json(path, dict(unit_id=row['unit_id'], result=row['result']))
+    saved = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in (workdir / 'units').glob('*.json')}
+    frozen = {p: p.read_bytes() for p in directory.glob('*.json')}
+    # Finish the other shard with the original path, then resume only the failed one.
+    fake_evaluate(student, pairs, paths, directory, shard='1/2', full_plan=full_plan)
+    InterruptedRuntime.remaining = 100_000
+    previous_calls = list(InterruptedRuntime.executed)
+    evaluate(student, pairs, paths, directory, runtime_factory=InterruptedRuntime,
+             edits_factory=lambda *a: pytest.fail('recomputed controls'), shard='0/2',
+             full_plan=full_plan, resume=True)
+    assert all((p.read_bytes(), p.stat().st_mtime_ns) == before for p, before in saved.items())
+    assert all(p.read_bytes() == before for p, before in frozen.items())
+    assert not any(call in previous_calls for call in InterruptedRuntime.executed[len(previous_calls):])
+    result_path = workdir / 'result.json'
+    result = json.loads(result_path.read_text())
+    assert len(InterruptedRuntime.executed) == len(result['records'])
+    events = [json.loads(line) for line in (workdir / 'evaluation.jsonl').read_text().splitlines()]
+    assert events[-2]['event'] == 'resume' and len(events[-2]['completed_unit_ids']) == 3
+    assert events[-1]['skipped'] == 3 and events[-1]['executed'] == len(result['records']) - 3
+    before = (result_path.read_bytes(), result_path.stat().st_mtime_ns)
+    evaluate(student, pairs, paths, directory, runtime_factory=lambda *a: pytest.fail('completed shard runtime'),
+             shard='0/2', full_plan=full_plan, resume=True)
+    assert (result_path.read_bytes(), result_path.stat().st_mtime_ns) == before
+    expected = fake_evaluate(student, pairs, paths, plain, full_plan=full_plan)
+    assert merge_evaluation(pairs, paths, directory, full_plan=full_plan) == expected
+    for name in ('report.json', 'report.md', 'results.jsonl'):
+        assert (directory / name).read_bytes() == (plain / name).read_bytes()
+
+
+@pytest.mark.parametrize('change', ['freeze', 'submissions', 'plan', 'shards', 'runtime'])
+def test_resume_refuses_changed_identity_before_runtime(tmp_path, monkeypatch, change):
+    from repair import p0_eval
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory = tmp_path / 'run'
+    workdir = interrupted_run(student, pairs, paths, directory)
+    kwargs = dict(shard='0/2')
+    if change == 'freeze':
+        path = directory / 'evaluation_freeze.json'
+        value = json.loads(path.read_text())
+        value['sha256'] = 'changed'
+        write_json(path, value)
+    elif change == 'submissions':
+        path = directory / 'evaluation_freeze.json'
+        value = json.loads(path.read_text())
+        value['identity']['submissions'][CATEGORIES[0]] = 'changed'
+        write_json(path, value)
+    elif change == 'plan':
+        kwargs['full_plan'] = True
+    elif change == 'shards':
+        kwargs['shard'] = '0/3'
+    else:
+        original = p0_eval.provenance
+        def changed(*a, **kw):
+            value = original(*a, **kw)
+            value['code_sha256']['repair/execute.py'] = 'changed'
+            return value
+        monkeypatch.setattr(p0_eval, 'provenance', changed)
+    before = {p: p.read_bytes() for p in (workdir / 'units').glob('*.json')}
+    with pytest.raises(ValueError):
+        evaluate(student, pairs, paths, directory, runtime_factory=lambda *a: pytest.fail('runtime'),
+                 edits_factory=lambda *a: pytest.fail('directions'), resume=True, **kwargs)
+    assert all(p.read_bytes() == content for p, content in before.items())
+    assert not (directory / 'resume_runtime.json').exists()
+
+
+@pytest.mark.parametrize('change', ['schema', 'unit_key', 'result_key', 'execution', 'cache', 'data_hash', 'missing'])
+def test_resume_validates_all_completed_units_before_runtime(tmp_path, change):
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory = tmp_path / 'run'
+    workdir = interrupted_run(student, pairs, paths, directory)
+    path = sorted((workdir / 'units').glob('*.json'))[-1]
+    row = json.loads(path.read_text())
+    if change == 'schema':
+        row['schema'] = 'unsupported'
+    elif change == 'unit_key':
+        row['unit_id'] = '0' * 64
+    elif change == 'result_key':
+        row['result']['pair_id'] = 'different'
+    elif change == 'data_hash':
+        row['result']['rollout']['sha256'] = '0' * 64
+    else:
+        pairdir = workdir / 'pairs' / row['result']['pair_id']
+        target = next((pairdir / ('cache' if change == 'cache' else 'executions')).glob('*.json'))
+        if change == 'missing':
+            target.unlink()
+        else:
+            target.write_bytes(target.read_bytes() + b' ')
+    write_json(path, row)
+    with pytest.raises(ValueError):
+        evaluate(student, pairs, paths, directory, shard='0/2', resume=True,
+                 runtime_factory=lambda *a: pytest.fail('runtime before full verification'))
+    assert len(list((workdir / 'units').glob('*.json'))) == 3
+    assert not (workdir / 'result.json').exists()
+
+
+def test_resume_records_repaired_code_and_merge_accepts_mixed_provenance(tmp_path, monkeypatch):
+    from repair import p0_eval
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory = tmp_path / 'run'
+    original = p0_eval.provenance
+    def old_code(*a, **kw):
+        value = original(*a, **kw)
+        value['code_sha256']['repair/p0_eval.py'] = 'old-code'
+        return value
+    monkeypatch.setattr(p0_eval, 'provenance', old_code)
+    workdir = interrupted_run(student, pairs, paths, directory)
+    fake_evaluate(student, pairs, paths, directory, shard='1/2')
+    monkeypatch.setattr(p0_eval, 'provenance', original)
+    fake_evaluate(student, pairs, paths, directory, shard='0/2', resume=True)
+    freeze = json.loads((directory / 'evaluation_freeze.json').read_text())
+    assert freeze['provenance']['code_sha256']['repair/p0_eval.py'] == 'old-code'
+    resume = next(json.loads(line) for line in (workdir / 'evaluation.jsonl').read_text().splitlines()
+                  if json.loads(line)['event'] == 'resume')
+    assert resume['provenance']['code_sha256'] == original()['code_sha256']
+    assert merge_evaluation(pairs, paths, directory)['complete'] is True
+
+
+@pytest.mark.parametrize('change', ['k20_hash', 'shard_summary', 'work_plan', 'conditions', 'dependencies'])
+def test_resume_rejects_corrupted_completed_shard(tmp_path, change):
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory = tmp_path / 'run'
+    # A small shard that contains a K20 unit; only fake interactions execute.
+    units = work_units(pairs, [f'collateral-{i}' for i in range(200)], [f'train/seed/{i}' for i in range(20)])
+    index = shard_owner(next(u for u in units if u['kind'] == 'k20'), 100)
+    fake_evaluate(student, pairs, paths, directory, shard=f'{index}/100')
+    workdir = directory / 'shards' / f'{index:04d}-of-0100'
+    if change == 'k20_hash':
+        path = next((workdir / 'k20_executions').glob('*.json'))
+        path.write_bytes(path.read_bytes() + b' ')
+    else:
+        path = (workdir / 'result.json' if change == 'shard_summary' else
+                directory / {'work_plan': 'work_plan.json', 'conditions': 'conditions.json',
+                             'dependencies': 'evaluation_freeze.json'}[change])
+        value = json.loads(path.read_text())
+        if change == 'shard_summary':
+            value['records'] = []
+        elif change == 'work_plan':
+            value['units'].pop()
+        elif change == 'conditions':
+            value[CATEGORIES[0]]['directions'] = {}
+        else:
+            value['provenance']['dependencies']['torch'] = 'changed'
+        write_json(path, value)
+    with pytest.raises(ValueError):
+        evaluate(student, pairs, paths, directory, shard=f'{index}/100', resume=True,
+                 runtime_factory=lambda *a: pytest.fail('runtime'))
+
+
+def test_resume_after_last_unit_before_shard_summary_never_runs_runtime(tmp_path, monkeypatch):
+    from repair import p0_eval
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    directory = tmp_path / 'run'
+    original = p0_eval.write_json
+    def interrupt_summary(path, value, **kwargs):
+        if path.name == 'result.json':
+            raise RuntimeError('interrupted summary')
+        return original(path, value, **kwargs)
+    monkeypatch.setattr(p0_eval, 'write_json', interrupt_summary)
+    with pytest.raises(RuntimeError, match='interrupted summary'):
+        fake_evaluate(student, pairs, paths, directory, shard='0/100')
+    monkeypatch.setattr(p0_eval, 'write_json', original)
+    result = evaluate(student, pairs, paths, directory, shard='0/100', resume=True,
+                      runtime_factory=lambda *a: pytest.fail('runtime'))
+    assert result['units'] > 0
+    assert json.loads((directory / 'shards/0000-of-0100/result.json').read_text())['records']
+
+
+def test_resume_requires_existing_freeze_and_shard(tmp_path):
+    student, pairs, paths, _ = make_freezes(tmp_path)
+    with pytest.raises(ValueError, match='explicit --shard'):
+        fake_evaluate(student, pairs, paths, tmp_path / 'run', resume=True)
+    with pytest.raises(ValueError, match='existing evaluation freeze'):
+        fake_evaluate(student, pairs, paths, tmp_path / 'run', shard='0/2', resume=True)
+    fake_evaluate(student, pairs, paths, tmp_path / 'run', shard='1/100')
+    with pytest.raises(ValueError, match='existing shard directory'):
+        fake_evaluate(student, pairs, paths, tmp_path / 'run', shard='0/100', resume=True)

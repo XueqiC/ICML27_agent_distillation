@@ -180,7 +180,11 @@ def main(argv=None):
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument('--shard', help='evaluate only: zero-based i/n stable-hash shard (0 <= i < n)')
     execution.add_argument('--merge', action='store_true', help='evaluate only: verify and merge shards on CPU')
+    parser.add_argument('--resume', action='store_true',
+                        help='evaluate --shard only: verify and skip completed units under the existing freeze')
     args = parser.parse_args(argv)
+    if args.resume and (args.command != 'evaluate' or args.shard is None or args.merge):
+        parser.error('--resume requires evaluate --shard and cannot be used with --merge')
     if (args.shard is not None or args.merge) and args.command != 'evaluate':
         parser.error('--shard/--merge require evaluate')
     if args.full_plan and args.command != 'evaluate':
@@ -249,7 +253,8 @@ def main(argv=None):
         report = merge_evaluation(pairs, args.submission, args.output, full_plan=args.full_plan)
     else:
         student = model_runtime(args, pairs)
-        report = evaluate(student, pairs, args.submission, args.output, shard=args.shard, full_plan=args.full_plan)
+        report = evaluate(student, pairs, args.submission, args.output, shard=args.shard,
+                          full_plan=args.full_plan, resume=args.resume)
     print(json.dumps(report if args.shard is not None else
                      dict(plan=report['plan'], report=str(args.output / 'report.json'), complete=report['complete'])))
 

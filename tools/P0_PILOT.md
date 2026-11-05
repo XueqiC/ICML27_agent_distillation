@@ -217,8 +217,9 @@ the earlier P0 implementation. The underlying harness and split rule are unchang
 ## Fresh output directories
 
 Run from this worktree. All outputs below are new directories. Frozen artifacts
-are exclusive writes; the agent/evaluator refuses restart that would reset
-budgets. Tool caches can restore content-bound directions/states. V0 transport
+are exclusive writes; diagnosis refuses restart that would reset budgets.
+Evaluation supports the explicit shard resume procedure below. Tool caches
+can restore content-bound directions/states. V0 transport
 retains its own durable request/usage receipts. A crashed agent is not silently
 resumed with a fresh tool budget.
 
@@ -494,7 +495,7 @@ to each process. SHA-256 of the condition, unit kind, pair/decision/task ID and
 category (when present) assigns every work unit to one shard. Shared input and
 direction freezes are checked under a lock; each shard exclusively owns
 `shards/IIII-of-NNNN/`, including execution receipts and `result.json`.
-Existing shard directories cannot be reused. K20 task executions and collateral
+Existing shard directories require explicit `--resume`. K20 task executions and collateral
 decisions use the same unit protocol in sharded and unsharded runs; K20 execution
 counts record actual work without cross-condition cache reuse.
 
@@ -506,6 +507,128 @@ publishing `results.jsonl`, `report.json`, and `report.md` exclusively. The
 unsharded command executes all units and invokes this same aggregation path.
 Reports list all execution GPU identities; statistical denominators, unknown
 outcomes, paired tests, and preregistered criteria are unchanged.
+
+## Resuming an interrupted evaluation shard
+
+Use the original pairs, five submissions, output directory, plan flag and shard
+count with `evaluate --shard i/n --resume`. One process owns each shard under a
+lock for its entire run. No worker pool or `--max-procs-hint` is needed.
+
+Resume verifies the original evaluation freeze SHA, submissions, student,
+work plan, collateral sample and frozen directions. It loads the existing
+conditions rather than recomputing directions. Before running any missing unit,
+it validates **every** completed unit in that shard: schema, filename/unit key,
+assignment, result identity, rollout data hash, exact cache receipt bytes, and
+execution receipt file hash/content ID. Legacy `{unit_id,result}` files from
+the interrupted run remain supported and unchanged; new files use `p0-unit/1`
+with the explicit unit identity. Missing/corrupt evidence fails closed. A
+completed unit is never recomputed or overwritten, including negative/unknown
+outcomes. A completed shard can be resumed as a verified no-op.
+
+K20 executions, pair executions, tool caches and direction receipts are
+immutable: an existing content-addressed path is accepted only when its bytes
+exactly match the intended canonical JSON plus newline. Differing bytes raise
+`Content-addressed receipt integrity error`. Identical trajectories from
+different edits still represent separately executed units; sharing the receipt
+does not reuse an outcome or reduce the recorded execution costs. A missing
+unit may leave orphan receipts after interruption; those are preserved and the
+unit still needs completion. Unit files and final reports remain exclusive.
+
+`evaluation_freeze.json`, `work_plan.json`, `collateral_freeze.json` and
+`conditions.json` remain unchanged. Explicit resume permits source-hash changes
+only in `repair/p0_eval.py`, `repair/p0_introspect.py` and `tools/p0_pilot.py` for
+this repair; all other frozen source hashes and dependencies must match.
+`resume_runtime.json` binds the repaired source/dependency hashes to the
+original freeze, work plan and conditions. All resumed shards and merge must
+use that same repaired runtime. Each shard appends a `resume` event to
+`evaluation.jsonl` with the completed unit IDs and current provenance, then
+records completion counts or a sanitized failure type. Original execution and
+tool ledgers are retained. CPU-only `--merge` verifies both original and resumed
+unit files and their receipts before producing the ordinary reports.
+
+The live run was inspected read-only on 2026-11-05. Freeze SHA:
+`6b7f3ba8706372d72de0400922055da77d0c6901576880f2a30047316b37f1d5`.
+All **1,073** completed unit files passed the new receipt verifier; **967** of
+the frozen **2,040** units remain. The original pair freeze and source hashes,
+five submission hashes, evaluation SHA and condition-vector hashes also passed
+read-only validation. These are integrity checks, not new evaluation results.
+
+| Shard | Verified completed | Missing | Total |
+|---|---:|---:|---:|
+| 0/5 | 186 | 217 | 403 |
+| 1/5 | 209 | 170 | 379 |
+| 2/5 | 217 | 166 | 383 |
+| 3/5 | 193 | 233 | 426 |
+| 4/5 | 268 | 181 | 449 |
+
+Exact future resume command for that run follows. **Not executed here.** Set
+`P0_TREE` to the repaired tree pinned after a separately authorized commit.
+The output and input paths stay at their original locations. Use the original
+live `p0-venv` (the CPU test venv is different) to preserve frozen dependency
+versions. This loop runs one shard process at a time on GPU 1; each retains its
+original `i/5` assignment. It stops on the first error. It does not invoke the
+old launcher, which is pinned to the broken tree.
+
+```bash
+: "${P0_TREE:?Set P0_TREE to the repaired tree pinned after commit}"
+P0_LIVE=/home/xueqi/hq/projects/ICML27_run_repair_eval_0410c67
+P0_DIAG=/home/xueqi/hq/projects/ICML27_run_repair_eval_76caaa8/reports/p0_runs/diagnose_v4
+P0_PY=/home/xueqi/hq/projects/ICML27_agent_distillation/envs/p0-venv/bin/python
+P0_ARGS=(--pairs "$P0_LIVE/reports/p0_tooling/extraction_v3/pairs.json"
+         --output "$P0_LIVE/reports/p0_runs/evaluate_v4_min")
+for category in goal_misread missing_precondition refused_action search_incomplete_or_loop wrong_object_or_target; do
+  P0_ARGS+=(--submission "$P0_DIAG/$category/submission.json")
+done
+export ALFWORLD_DATA=/home/xueqi/hq/projects/tc-alignment-vllm/envs/alfworld/data/json_2.1.1
+export ALFWORLD_DATA_ROOT="$ALFWORLD_DATA"
+export PYTHONPATH="$P0_TREE/src:$P0_TREE" CUDA_DEVICE_ORDER=PCI_BUS_ID
+export TORCH_COMPILE_DISABLE=1 TORCHDYNAMO_DISABLE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+for i in 0 1 2 3 4; do
+  CUDA_VISIBLE_DEVICES=1 "$P0_PY" "$P0_TREE/tools/p0_pilot.py" evaluate \
+    "${P0_ARGS[@]}" --shard "$i/5" --resume || exit 1
+done
+CUDA_VISIBLE_DEVICES='' "$P0_PY" "$P0_TREE/tools/p0_pilot.py" evaluate \
+  "${P0_ARGS[@]}" --merge
+```
+
+Do not add `--full-plan`: this run froze `prereg_minimal`. Do not pass
+`--resume` to `--merge`; merge automatically validates the recorded resume
+runtime. No commit, staging, GPU, teacher/API or network execution was performed
+by this repair task.
+
+## Validation status for receipt integrity and resume
+
+All **443 tests passed**: **349 P0 tests** and **94 regressions**. The final
+evaluation/CLI pass ran 103 tests in 316.37 seconds; the other P0 modules and
+regressions ran 340 tests in 103.76 seconds. Tests used the requested CPU venv,
+hidden CUDA, offline settings and the repository's network/API-blocking fixture.
+No live evaluation was resumed.
+
+Coverage includes identical K20/pair trajectory receipts, differing-byte
+rejection, concurrent cache/direction publication, unchanged completed files,
+restored controls, legacy unit files, repeated resume, a crash before the shard
+summary, changed freeze/submissions/plan/dependencies, corrupt/missing receipt
+hashes, and CPU merge of original plus resumed units. Both plans produce
+byte-identical JSON, Markdown and JSONL reports to uninterrupted fake runs.
+An initial test fixture gave several controls the same edit spec, making its
+call-identity assertion ambiguous; the corrected fixture distinguishes controls
+without changing production behavior. The final pass has no failures.
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_p0_eval.py tests/test_p0_cli.py \
+  --junitxml=/tmp/p0-resume-focused-final.xml
+
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py \
+  --junitxml=/tmp/p0-resume-regressions.xml
+```
 
 ## Validation status for the preregistered minimum plan
 
