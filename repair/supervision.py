@@ -431,7 +431,7 @@ def trajectory_messages(episode):
 
 
 def build_trajectory(episode, *, arm, source, episode_ref, policy):
-    if arm not in ARMS or source not in ('offline_teacher', 'k20_replay'):
+    if arm not in ARMS or source not in ('offline_teacher', 'k10_replay', 'k20_replay', 'k30_replay'):
         raise ValueError('Unknown trajectory arm/source')
     if not (episode.get('success') is True and episode.get('complete') is True and
             episode.get('status') == 'ok' and episode.get('split') == 'train' and episode.get('sealed') is False):

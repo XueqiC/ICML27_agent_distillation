@@ -135,7 +135,7 @@ def choose_episodes(attempts, repairs, *, expanded=False):
 
 
 def build_seed_replay(directory, manifest, args, config, theta0):
-    """Seal K10/K30 receipts with the V2 trajectory renderer and source tag.
+    """Seal K10/K30 receipts with the V2 renderer and K-specific replay tag.
 
     V2's pool and K20-specific selection are not inputs to the new seed view.
     Only its frozen evaluation exclusions and shared receipt checks are reused.
@@ -144,7 +144,7 @@ def build_seed_replay(directory, manifest, args, config, theta0):
     """
     from repair.artifacts import checked_document
     from repair.supervision import build_trajectory, group_id, seal_dataset
-    from repair.v0_common import check_theta0, code_identity, seed_manifest_k
+    from repair.v0_common import check_theta0, code_identity, code_revision, seed_manifest_k
     from sed.provenance import versions
     from tools.build_v2_dataset import load_teacher_episode, read_bound
 
@@ -204,10 +204,12 @@ def build_seed_replay(directory, manifest, args, config, theta0):
         if source['category'] in names:
             forbidden.update(source['group_ids'])
 
+    replay_source = f'k{manifest.k}_replay'
+
     class SeedPolicy:
         def check(self, tid, source):
             group = group_id(tid)
-            if tid not in manifest.seeds or group in forbidden or source != 'k20_replay':
+            if tid not in manifest.seeds or group in forbidden or source != replay_source:
                 raise ValueError('V0 replay outside frozen seeds or overlaps evaluation')
             return group, group.split('/')[-1].split('-')[0]
 
@@ -220,15 +222,17 @@ def build_seed_replay(directory, manifest, args, config, theta0):
         episode, ref = load_teacher_episode(collection, receipt, inputs)
         if episode['game_sha256'] != evidence['game_sha256'] or episode['seed'] != 0:
             raise ValueError('V0 replay environment differs from synthesis')
-        rows.append(build_trajectory(episode, arm='CONTINUE', source='k20_replay',
+        rows.append(build_trajectory(episode, arm='CONTINUE', source=replay_source,
                                      episode_ref=ref, policy=policy))
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=False)
+    # V2 consumers require this exact identity whitelist. The full serving
+    # identity remains in the sealed label plan, with checkpoint files in inputs.
+    replay_theta0 = dict(adapter_path=str(checkpoint), adapter_weights_sha256=theta0['adapter_weights_sha256'])
     return seal_dataset(directory, rows, policy=policy, arm='CONTINUE', inputs=inputs,
-        splits_sha256=file_hash(args.splits), theta0=theta0, excluded=Counter(), K=manifest.k,
-        code_sha256=code_identity(), dependency_versions=versions(),
+        splits_sha256=file_hash(args.splits), theta0=replay_theta0, excluded=Counter(), K=manifest.k,
+        code_revision=code_revision(), code_sha256=code_identity(), dependency_versions=versions(),
         effective_config=dict(student=config['models']['student'], environment=config['environment']),
-        source_tag_note='k20_replay is the unchanged V2 seed-replay interchange tag; K records the trajectory count',
         checkpoint_evidence='served identity and final training_state.json; original training provenance not required',
         new_teacher_calls=0, new_environment_steps=0, actual_training_exposures=0)
 
@@ -244,10 +248,9 @@ def check_replay(directory, seed_ids, theta0=None):
     check_inputs(manifest['inputs'])
     rows = [json.loads(line) for line in (directory / 'examples.jsonl').read_text().splitlines()]
     k = checked_k(len(seed_ids))
-    # k20_replay is the legacy V2 interchange source tag, also used for K10/30.
     if (len(rows) != k or sorted(r['task_id'] for r in rows) != sorted(seed_ids)
             or digest([r['example_id'] for r in rows]) != manifest['example_ids_sha256']
-            or any(r['kind'] != 'trajectory' or r['source'] != 'k20_replay'
+            or any(r['kind'] != 'trajectory' or r['source'] != f'k{k}_replay'
                    or r['evidence']['episode_success'] is not True for r in rows)):
         raise ValueError(f'V0 replay differs from executed K{k} seed receipts')
     if theta0 and manifest['theta0']['adapter_weights_sha256'] != theta0['adapter_weights_sha256']:

@@ -81,6 +81,11 @@ def code_identity():
     return {str(p.relative_to(ROOT)): file_hash(p) for p in paths}
 
 
+def code_revision():
+    """Bind V0 phase and interchange provenance to the running checkout."""
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+
+
 def phase(directory, identity, *, resume=False):
     """Reserve a phase, or require the identical frozen plan on explicit resume."""
     directory = Path(directory)
@@ -93,7 +98,7 @@ def phase(directory, identity, *, resume=False):
     else:
         directory.mkdir(parents=True, exist_ok=False)
         write_json(path, dict(identity=identity, run_sha256=digest(identity), created=utc_now(),
-            code_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+            code_revision=code_revision(),
             training_exposure=0), exclusive=True)
     check_inputs(identity.get('inputs', {}))
     return read(path)

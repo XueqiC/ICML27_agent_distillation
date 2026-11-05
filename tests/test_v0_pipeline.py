@@ -59,7 +59,7 @@ def replay_bundle(path, seeds):
         execution = execute_actions(FakeEnvironment, tid, N, 40)
         episode = dict(schema_version=2, task_id=tid, success=True, complete=True, status='ok',
             split='train', sealed=False, initial=execution.initial, steps=execution.steps)
-        rows.append(build_trajectory(episode, arm='CONTINUE', source='k20_replay', episode_ref='seed/' + tid,
+        rows.append(build_trajectory(episode, arm='CONTINUE', source=f'k{len(seeds)}_replay', episode_ref='seed/' + tid,
                                      policy=Policy()))
     path.mkdir(parents=True)
     seal_dataset(path, rows, policy=Policy(), arm='CONTINUE', inputs={}, splits_sha256='c' * 64,

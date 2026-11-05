@@ -158,14 +158,37 @@ def test_serving_requires_matching_k_model_and_adapter(tmp_path, monkeypatch, k,
 @pytest.mark.parametrize('k', [10, 20, 30])
 def test_replay_count_is_seed_count_not_synthetic_count(tmp_path, k):
     bundle = replay_bundle(tmp_path / 'replay', seed_ids(k))
-    assert len(check_replay(bundle, seed_ids(k))[1]) == k
+    manifest, rows = check_replay(bundle, seed_ids(k))
+    assert len(rows) == k
+    assert manifest['counts']['by_source'] == {f'k{k}_replay': k}
     with pytest.raises(ValueError, match='seed receipts'):
         check_replay(bundle, seed_ids(30 if k == 10 else 10))
 
 
 @pytest.mark.parametrize('k', [10, 30])
+def test_replay_rejects_legacy_source_even_with_consistent_seals(tmp_path, k):
+    from collections import Counter
+    import json
+    from repair.supervision import seal_dataset
+
+    bundle = replay_bundle(tmp_path / 'replay', seed_ids(k))
+    rows = [json.loads(line) for line in (bundle / 'examples.jsonl').read_text().splitlines()]
+    for row in rows:
+        row.update(source='k20_replay', example_id=digest([
+            row['arm'], 'k20_replay', row['task_id'], row['evidence']['episode_ref'], None]))
+    legacy = tmp_path / 'legacy'
+    legacy.mkdir()
+    policy = SimpleNamespace(check=lambda tid, source: (tid.rsplit('/', 1)[0], 'pick_and_place_simple'))
+    seal_dataset(legacy, rows, policy=policy, arm='CONTINUE', inputs={}, splits_sha256='c' * 64,
+                 theta0=fake_adapter(k), excluded=Counter(), code_revision='fake')
+    with pytest.raises(ValueError, match=f'executed K{k} seed receipts'):
+        check_replay(legacy, seed_ids(k))
+
+
+@pytest.mark.parametrize('k', [10, 30])
 @pytest.mark.parametrize('evaluation_overlap', [False, True])
-def test_build_automatically_replays_exact_seed_receipts(tmp_path, k, evaluation_overlap):
+@pytest.mark.parametrize('explicit_seed_paths', [False, True])
+def test_build_automatically_replays_exact_seed_receipts(tmp_path, k, evaluation_overlap, explicit_seed_paths):
     from repair.artifacts import seal
     from sed.seed_evidence import artifact_hashes
     from test_supervision import as_episode, record
@@ -221,6 +244,9 @@ def test_build_automatically_replays_exact_seed_receipts(tmp_path, k, evaluation
     phase(labels, dict(command='fake-label', inputs={}, theta0=adapter, complete_task_coverage=True))
     write_json(labels / 'rows.json', [])
     finish(labels)
+    if explicit_seed_paths:
+        args.verified_root = str(collection)
+        args.theta0_training_dir = str(checkpoint.parent)
     if evaluation_overlap:
         with pytest.raises(ValueError, match='overlaps evaluation'):
             cli.build_dataset(args, root, manifest, labels)
@@ -230,11 +256,72 @@ def test_build_automatically_replays_exact_seed_receipts(tmp_path, k, evaluation
     assert result['K'] == result['counts']['D']['episodes'] == k
     _, rows = check_replay(root / 'dataset/replay', manifest.seeds, adapter)
     assert {r['task_id'] for r in rows} == manifest.seeds
+    assert {r['source'] for r in rows} == {f'k{k}_replay'}
+    assert all(r['example_id'] == digest([r['arm'], r['source'], r['task_id'],
+                                       r['evidence']['episode_ref'], None]) for r in rows)
     assert all('SECRET' not in str(r['messages']) for r in rows)
     replay = read(root / 'dataset/replay/manifest.json')
     assert replay['K'] == k and replay['new_teacher_calls'] == replay['actual_training_exposures'] == 0
+    assert replay['counts']['by_source'] == {f'k{k}_replay': k}
+    assert replay['example_ids_sha256'] == digest([r['example_id'] for r in rows])
+    assert 'source_tag_note' not in replay
     assert str(subset / 'manifest.json') in replay['inputs']
     assert str(checkpoint / 'training_state.json') in replay['inputs']
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=cli.ROOT, text=True).strip()
+    assert result['code_revision'] == replay['code_revision'] == revision
+    assert result['theta0'] == replay['theta0'] == dict(
+        adapter_path=str(checkpoint), adapter_weights_sha256=hashes['adapter_model.safetensors'])
+    assert replay['splits_sha256'] == file_hash(args.splits)
+    assert artifacts(root / 'dataset/replay') == artifacts(root / 'dataset_build/v2_continue')
+    assert_training_reader_accepts(root / 'dataset/replay', checkpoint, tmp_path)
+
+
+def assert_training_reader_accepts(bundle, checkpoint, cwd):
+    # Cross-tree integration contract: use the actual consumer's
+    # repair/v2_validation.py::_read_bundle, including evidence/count/exposure
+    # validation. A subprocess keeps its repair/sed imports out of the producer.
+    training_tree = Path('/home/xueqi/hq/projects/ICML27_run_repair_train_085b46b')
+    if not (training_tree / 'repair/v2_validation.py').is_file():
+        pytest.skip('Cross-tree integration requires the TRAINING checkout')
+    code = '''
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+sys.dont_write_bytecode = True
+tree, root, theta0 = map(Path, sys.argv[1:])
+sys.path[:0] = [str(tree), str(tree / 'src')]
+from repair.v2_inputs import Relocation, ValidationError
+from repair.v2_validation import _json, _read_bundle
+from repair.v2_train import validate_example, training_pools
+assert Path(sys.modules['repair.v2_validation'].__file__).resolve() == tree / 'repair/v2_validation.py'
+manifest = _json((root / 'manifest.json').read_text())
+bundle = dict(root=root, manifest=manifest,
+              examples_sha256=(root / 'examples.sha256').read_text().strip())
+files = SimpleNamespace(relocation=Relocation(root))
+loaded = _read_bundle(bundle, theta0, files)
+assert len(loaded['rows']) == manifest['K']
+rows, k = loaded['rows'], manifest['K']
+allowed = ({r['task_id'] for r in rows}, {r['group_id'] for r in rows})
+for row in rows:
+    task = dict(task_id=row['task_id'], group_id=row['group_id'], task_type=row['task_type'],
+                split='train', sealed=False)
+    validate_example(row, 'CONTINUE', task, allowed, (set(), set()), seed_k=k)
+assert len(training_pools(rows, arm='CONTINUE', seed_k=k)['replay']) == k
+# Prove the integration exercises both original defects, without rewriting seals.
+for field, invalid, message in (
+    ('code_revision', None, 'Missing interchange provenance'),
+    ('theta0', dict(manifest['theta0'], path=str(theta0)), 'Invalid theta0 identity'),
+):
+    try:
+        _read_bundle(dict(bundle, manifest=dict(manifest, **{field: invalid})), theta0, files)
+    except ValidationError as exc:
+        assert str(exc) == message
+    else:
+        raise AssertionError('Training reader accepted invalid ' + field)
+'''
+    result = subprocess.run([sys.executable, '-c', code, str(training_tree), str(bundle), str(checkpoint)],
+                            cwd=cwd, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize('k', [10, 30])
@@ -295,6 +382,23 @@ def test_expansion_counts_distinct_failed_items_and_original_seed_parents(tmp_pa
 
 REAL_K20 = Path('/home/xueqi/hq/projects/ICML27_v0_runs/v0_k20_r1')
 REAL_SHA = '4df53e36906111105035aa0bfdcecf153de766b65efc7cae60fb00b1763cfd00'
+
+
+@pytest.mark.skipif(not (REAL_K20 / 'dataset/replay/examples.jsonl').is_file(), reason='real K20 replay unavailable')
+def test_real_k20_replay_renderer_stays_byte_identical():
+    import json
+    from repair.supervision import build_trajectory
+    from sed.storage import canonical_bytes
+
+    path = REAL_K20 / 'dataset/replay/examples.jsonl'
+    original = path.read_bytes()
+    rows = [json.loads(line) for line in original.splitlines()]
+    tasks = {r['task_id']: (r['group_id'], r['task_type']) for r in rows}
+    policy = SimpleNamespace(check=lambda tid, source: tasks[tid])
+    rebuilt = [build_trajectory(read(r['evidence']['episode_ref']), arm='CONTINUE', source='k20_replay',
+                               episode_ref=r['evidence']['episode_ref'], policy=policy) for r in rows]
+    assert len(rebuilt) == 20
+    assert b''.join(canonical_bytes(r) + b'\n' for r in rebuilt) == original
 
 
 @pytest.mark.skipif(not (REAL_K20 / 'synth/manifest.json').is_file(), reason='real K20 receipts unavailable')
