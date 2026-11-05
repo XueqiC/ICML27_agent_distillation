@@ -199,8 +199,114 @@ def test_excluded_rows_still_verified(filter_corpus, capsys):
     assert "successful episodes" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("keep,drop", [(True, False), (False, True), (True, True)])
+def test_episode_selection_evidence_and_sampling(filter_corpus, tmp_path, capsys, monkeypatch, keep, drop):
+    import torch
+    torch.set_num_threads(1)
+    monkeypatch.setattr(v2, "load_existing_adapter", lambda *a, **kw: pytest.fail("Real model loading"))
+    c = filter_corpus
+    rows = read(c)["rows"]
+    originals = {p: p.read_bytes() for p in c["root"].rglob("*") if p.is_file()}
+    selection = tmp_path / "keep.json"
+    ids = ["R-1", "R-3"]
+    write_json(selection, {"bucket": "R", "episode_ids": ids})
+    flags = (["--keep-episodes", str(selection)] if keep else []) + (["--drop-buckets", "G", "S"] if drop else [])
+    capsys.readouterr()
+    assert trainer.main(["inputs", "--check", *arguments(c), *flags]) == 0
+    check = json.loads(capsys.readouterr().out)
+    output = tmp_path / "trained"
+    assert trainer.main(["run", *arguments(c), *flags, "--output", str(output), "--updates", "8",
+                         "--checkpoints", "8", "--dry-run", "--dry-run-tokenizer", "bytes"]) == 0
+    manifest = read_json(output / "manifest.json")
+    record = manifest["filter"]
+    assert_record(record, rows)
+    prov = read_json(output / "provenance.json")
+    assert record == check["filter"] == prov["details"]["filter"] == prov["config"]["v0_training"]["filter"]
+    assert record["keep_episodes"] == (str(selection) if keep else None)
+    assert record["keep_episodes_sha256"] == (file_hash(selection) if keep else None)
+    assert record["keep_bucket"] == ("R" if keep else None)
+    assert record["drop_buckets"] == (["G", "S"] if drop else None)
+    if keep:
+        assert record["kept_episode_ids"]["R"] == ids
+        assert prov["inputs"][str(selection)] == file_hash(selection)
+    probabilities = {"R": 5 / 6, "D": 1 / 6} if drop else trainer.DEFAULT_MIXTURE
+    assert record["effective_bucket_probabilities"] == pytest.approx(probabilities)
+    assert manifest["effective_bucket_probabilities"] == record["effective_bucket_probabilities"]
+    assert manifest["selected_real_tensors"] is None
+    assert manifest["actual_trainable_parameter_names"] == ["lora_A", "lora_B"]
+    assert manifest["episode_weights_sha256"] == digest({})
+    expected = {i for i, r in enumerate(rows) if (not drop or r["v0"]["bucket"] not in ("G", "S"))
+                and (not keep or r["v0"]["bucket"] != "R" or r["v0"]["episode_id"] in ids)}
+    # A larger schedule checks every surviving original index and uniform episode weights.
+    batches, mixture = trainer.batch_schedule(rows, updates=1000, seed=8, filter_record=record)
+    assert mixture == pytest.approx(probabilities)
+    assert {i for batch in batches for i in batch["indices"]} == expected
+    for batch in [*batches, *read_json(output / "batches.json")]:
+        for item in batch["selections"]:
+            assert item["index"] in expected
+            assert rows[item["index"]]["v0"]["episode_id"] == item["episode_id"]
+    if keep:
+        exposures = trainer.exposure_counts(batches)[1000]["episode_exposures"]
+        assert exposures[ids[0]] / sum(exposures[eid] for eid in ids) == pytest.approx(.5, abs=.02)
+    sources = read_json(output / "example_sources.json")
+    assert [s["example_id"] for s in sources] == [r["example_id"] for r in rows]
+    assert {p: p.read_bytes() for p in c["root"].rglob("*") if p.is_file()} == originals
+
+
+@pytest.mark.parametrize("command", ["inputs", "run"])
+@pytest.mark.parametrize("selection,dropped,match", [
+    ({"bucket": "R", "episode_ids": ["missing"]}, [], "unknown id"),
+    ({"bucket": "R", "episode_ids": ["R-0", "R-0"]}, [], "sorted unique string"),
+    ({"bucket": "R", "episode_ids": ["R-1", "R-0"]}, [], "sorted unique string"),
+    ({"bucket": "R", "episode_ids": [1]}, [], "sorted unique string"),
+    ({"bucket": "R", "episode_ids": ["G-0"]}, [], "bucket mismatch"),
+    ({"bucket": "X", "episode_ids": ["R-0"]}, [], "bucket/schema"),
+    (None, ["R", "G", "S", "D"], "positive mass"),
+    ({"bucket": "R", "episode_ids": ["R-0"]}, ["R"], "Cannot drop the bucket"),
+])
+def test_selection_refusals(filter_corpus, tmp_path, capsys, command, selection, dropped, match):
+    flags = []
+    if selection is not None:
+        path = tmp_path / "keep.json"
+        write_json(path, selection)
+        flags += ["--keep-episodes", str(path)]
+    if dropped:
+        flags += ["--drop-buckets", *dropped]
+    extra = ["--check"] if command == "inputs" else [
+        "--output", str(tmp_path / "trained"), "--updates", "1", "--checkpoints", "1", "--dry-run"]
+    assert trainer.main([command, *arguments(filter_corpus), *flags, *extra]) == 1
+    assert match in capsys.readouterr().err
+    assert not (tmp_path / "trained").exists()
+
+
+@pytest.mark.parametrize("command", ["inputs", "run"])
+@pytest.mark.parametrize("filter_flags", [["--keep-episodes", "unused.json"], ["--drop-buckets", "G", "S"]])
+@pytest.mark.parametrize("other,match", [
+    (["--weights", "unused.json"], "uniform weights and all tensors"),
+    (["--trainable-modules", "unused.json"], "uniform weights and all tensors"),
+    (["--exclude-generators", "G1"], "mutually exclusive"),
+    (["--episode-fraction", ".5", "--subsample-seed", "0"], "mutually exclusive"),
+])
+def test_selection_incompatible_flags(command, filter_flags, other, match, tmp_path, capsys):
+    test_flag_refusals(command, filter_flags + other, match, False, tmp_path, capsys)
+
+
+def test_drop_all_positive_custom_mixture_and_absent_buckets(corpus, tmp_path, capsys):
+    assert trainer.main(["run", *arguments(corpus), "--drop-buckets", "R",
+                         "--bucket-probabilities", "1", "0", "0", "0", "--output", str(tmp_path / "trained"),
+                         "--updates", "1", "--checkpoints", "1", "--dry-run"]) == 1
+    assert "positive mass" in capsys.readouterr().err
+    # Naturally absent G/S buckets are allowed for the new selection filters.
+    path = tmp_path / "keep.json"
+    write_json(path, {"bucket": "R", "episode_ids": ["repair-a"]})
+    assert trainer.main(["inputs", "--check", *arguments(corpus), "--keep-episodes", str(path)]) == 0
+    assert json.loads(capsys.readouterr().out)["filter"]["effective_bucket_probabilities"] == pytest.approx(
+        {"R": 5 / 6, "D": 1 / 6})
+
+
+@pytest.mark.parametrize("revision", ["085b46b", "41b9138"])
 @pytest.mark.parametrize("choices", [False, True])
-def test_no_flags_byte_identical_to_085b46b(corpus, tmp_path, monkeypatch, choices):
+def test_no_flags_byte_identical_to_revision(corpus, tmp_path, monkeypatch, choices, revision):
     """Compare every output byte at one path with clocks/UUID/cache state fixed.
 
     Both implementations hash the same on-disk code, holding code identity fixed
@@ -214,9 +320,9 @@ def test_no_flags_byte_identical_to_085b46b(corpus, tmp_path, monkeypatch, choic
     monkeypatch.setattr(provenance, "utc_now", lambda: "2026-11-05T00:00:00+00:00")
     monkeypatch.setattr(provenance.uuid, "uuid4", lambda: "fixed-test-run-id")
     monkeypatch.setattr(fsdp_train, "time", SimpleNamespace(monotonic=lambda: 100.0))
-    source = subprocess.check_output(["git", "show", "085b46b:tools/train_v0_arm.py"],
+    source = subprocess.check_output(["git", "show", f"{revision}:tools/train_v0_arm.py"],
                                      cwd=Path(trainer.__file__).resolve().parents[1], text=True)
-    baseline = ModuleType("tools.train_v0_arm_085b46b")
+    baseline = ModuleType(f"tools.train_v0_arm_{revision}")
     baseline.__file__ = trainer.__file__
     baseline.__package__ = "tools"
     exec(compile(source, trainer.__file__, "exec"), baseline.__dict__)

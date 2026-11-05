@@ -29,11 +29,13 @@ from tools.v0_groups import episode_weights
 DEFAULT_MIXTURE = {"R": .50, "G": .25, "S": .15, "D": .10}
 
 
-def episode_filter(rows, args):
+def episode_filter(rows, args, *, keep_path=None):
     """Select whole episodes without changing the verified rows or their indices."""
     excluded = getattr(args, "exclude_generators", None)
     fraction = getattr(args, "episode_fraction", None)
-    if excluded is None and fraction is None:
+    keep_file = getattr(args, "keep_episodes", None)
+    drop_buckets = getattr(args, "drop_buckets", None)
+    if excluded is None and fraction is None and keep_file is None and drop_buckets is None:
         return None
     seed = getattr(args, "subsample_seed", None)
     grouped = episodes(rows)
@@ -43,14 +45,31 @@ def episode_filter(rows, args):
         require(len(identities) == 1, "Episode crosses buckets or generators")
         bucket, _ = identities.pop()
         buckets[bucket].append(eid)
+    selection = None
+    if keep_file is not None:
+        keep_path = Path(keep_file) if keep_path is None else keep_path
+        selection = read_json(keep_path)
+        require(isinstance(selection, dict) and set(selection) == {"bucket", "episode_ids"}
+                and selection["bucket"] in BUCKETS, "Invalid --keep-episodes bucket/schema")
+        ids = selection["episode_ids"]
+        require(isinstance(ids, list) and all(isinstance(eid, str) and eid for eid in ids)
+                and ids == sorted(set(ids)), "--keep-episodes requires sorted unique string episode_ids")
+        require(all(eid in buckets[selection["bucket"]] for eid in ids),
+                "--keep-episodes contains an unknown id or bucket mismatch")
+        require(selection["bucket"] not in (drop_buckets or []),
+                "Cannot drop the bucket named in --keep-episodes")
     kept, dropped = {}, {}
     rng = random.Random(seed)
     for bucket, ids in buckets.items():
         chosen = set(ids)
-        if bucket != "D":
+        if bucket in (drop_buckets or []):
+            chosen = set()
+        elif selection is not None and bucket == selection["bucket"]:
+            chosen = set(selection["episode_ids"])
+        elif bucket != "D":
             if excluded is not None:
                 chosen = {eid for eid in ids if rows[grouped[eid][0]]["v0"]["generator"] not in excluded}
-            elif ids:
+            elif fraction is not None and ids:
                 shuffled = sorted(ids)
                 rng.shuffle(shuffled)
                 chosen = set(shuffled[:max(1, round(fraction * len(ids)))])
@@ -66,10 +85,14 @@ def episode_filter(rows, args):
                 counts["rows"] += len(indices)
                 counts["episodes"] += 1
     kept_rows = sum(counts["rows"] for counts in bucket_counts.values())
-    return {"exclude_generators": excluded, "episode_fraction": fraction, "subsample_seed": seed,
+    record = {"exclude_generators": excluded, "episode_fraction": fraction, "subsample_seed": seed,
             "kept_episode_ids": kept, "dropped_episode_ids": dropped,
             "buckets": bucket_counts, "generators": generator_counts, "kept_rows": kept_rows,
             "updates_for_4_passes": math.ceil(4 * kept_rows / 16)}
+    if keep_file is not None or drop_buckets is not None:
+        record.update(keep_episodes=keep_file, keep_episodes_sha256=file_hash(keep_path) if selection is not None else None,
+                      keep_bucket=selection["bucket"] if selection is not None else None, drop_buckets=drop_buckets)
+    return record
 
 
 def batch_schedule(rows, *, updates, seed, weights=None, mixture=None, filter_record=None):
@@ -79,6 +102,8 @@ def batch_schedule(rows, *, updates, seed, weights=None, mixture=None, filter_re
     mixture = DEFAULT_MIXTURE if mixture is None else mixture
     require(set(mixture) == set(BUCKETS) and all(type(v) in (int, float) and math.isfinite(v) and v >= 0
                                               for v in mixture.values()), "Invalid bucket mixture")
+    if filter_record is not None:
+        mixture = {b: 0 if b in (filter_record.get("drop_buckets") or []) else p for b, p in mixture.items()}
     grouped = episodes(rows)
     if filter_record is not None:
         kept = {eid for ids in filter_record["kept_episode_ids"].values() for eid in ids}
@@ -86,7 +111,7 @@ def batch_schedule(rows, *, updates, seed, weights=None, mixture=None, filter_re
     require(set(weights) <= set(grouped) and all(type(w) in (int, float) and math.isfinite(w) and w >= 0
                                                for w in weights.values()), "Invalid episode weights")
     buckets = {b: [eid for eid, indices in grouped.items() if rows[indices[0]]["v0"]["bucket"] == b] for b in BUCKETS}
-    if filter_record is not None:
+    if filter_record is not None and "drop_buckets" not in filter_record:
         for bucket in BUCKETS:
             require(mixture[bucket] == 0 or buckets[bucket],
                     f"Episode filter leaves bucket {bucket} empty with positive mixture probability")
@@ -254,11 +279,20 @@ def validate_inputs(args, *, rank=0, world=1, group=None, broadcast=None):
     """Broadcast rank 0's complete verified objects; peers never open input files."""
     def validate():
         data = load_args(args)
-        if hasattr(args, "exclude_generators") or hasattr(args, "episode_fraction"):
-            data["filter"] = episode_filter(data["rows"], args)
+        keep_path = (data["inspection"]["files"].relocation.path(args.keep_episodes)
+                     if hasattr(args, "keep_episodes") else None)
+        if any(hasattr(args, name) for name in ("exclude_generators", "episode_fraction", "keep_episodes", "drop_buckets")):
+            data["filter"] = episode_filter(data["rows"], args, keep_path=keep_path)
         inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"],
                                            args.updates if args.command == "run" else 1, seed_k=data["K"])
         weights, selected, extra = load_choices(data, inherited, weights=args.weights, modules=args.trainable_modules)
+        if keep_path is not None:
+            extra.append(keep_path)
+        if hasattr(args, "keep_episodes") or hasattr(args, "drop_buckets"):
+            _, mixture = batch_schedule(data["rows"], updates=1, seed=0, weights=weights,
+                mixture=dict(zip(BUCKETS, args.bucket_probabilities)) if args.command == "run" else None,
+                filter_record=data["filter"])
+            data["filter"]["effective_bucket_probabilities"] = mixture
         extra.append(data["inspection"]["files"].relocation.path(args.config))
         data["input_validation"] = {"rank": 0, "dataset_sha256": data["dataset_sha256"],
                                     "hash_cache": cache_provenance()}
@@ -440,6 +474,10 @@ def main(argv=None):
         filters.add_argument("--episode-fraction", type=float, default=argparse.SUPPRESS,
                              help="Keep round(F * episodes), at least one, within each of R/G/S")
         command.add_argument("--subsample-seed", type=int, default=argparse.SUPPRESS)
+        command.add_argument("--keep-episodes", default=argparse.SUPPRESS, metavar="FILE",
+                             help="Keep only the listed episode IDs in the JSON file's bucket")
+        command.add_argument("--drop-buckets", choices=BUCKETS, nargs="+", default=argparse.SUPPRESS,
+                             help="Drop these buckets and renormalize the remaining mixture")
         command.add_argument("--output", required=command is runner)
     runner.add_argument("--updates", type=int, required=True)
     runner.add_argument("--checkpoints", type=int, nargs="+", required=True)
@@ -468,7 +506,11 @@ def main(argv=None):
 def execute(args):
     # The scope covers provenance as well as checking. Distributed runs
     # establish their CPU broadcast group before rank 0 reads any inputs.
-    filtered = hasattr(args, "exclude_generators") or hasattr(args, "episode_fraction")
+    legacy_filter = hasattr(args, "exclude_generators") or hasattr(args, "episode_fraction")
+    selection_filter = hasattr(args, "keep_episodes") or hasattr(args, "drop_buckets")
+    require(not (legacy_filter and selection_filter),
+            "--keep-episodes/--drop-buckets are mutually exclusive with --exclude-generators/--episode-fraction")
+    filtered = legacy_filter or selection_filter
     require(not filtered or (args.weights is None and args.trainable_modules is None),
             "Episode filters require uniform weights and all tensors; omit --weights and --trainable-modules")
     if hasattr(args, "episode_fraction"):
@@ -490,8 +532,8 @@ def execute(args):
             "trainable_parameter_count": sum(inherited["parameters"][n] for n in
                                              (selected if selected is not None else inherited["parameters"]))}
         if "filter" in data:
-            result["filter"] = {k: v for k, v in data["filter"].items()
-                                if k not in ("kept_episode_ids", "dropped_episode_ids")}
+            result["filter"] = (data["filter"] if selection_filter else
+                {k: v for k, v in data["filter"].items() if k not in ("kept_episode_ids", "dropped_episode_ids")})
         if args.output:
             destination = safe_output(args.output, data)
             write_json(destination, result, exclusive=True)
