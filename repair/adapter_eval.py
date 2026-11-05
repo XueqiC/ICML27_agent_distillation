@@ -53,7 +53,7 @@ def assert_no_teacher_calls(rows, output=None):
         raise AssertionError('Guidance found in eval-adapter run')
 
 
-def _exposure(manifest):
+def _exposure(manifest, *, synthetic_groups=None):
     """Read explicit exposure fields, including interchange's group-valued tasks.
 
     A scalar training_exposure is a count, not a list of IDs. Bundle inventories
@@ -71,7 +71,12 @@ def _exposure(manifest):
                 raise ValueError('Invalid training exposure identifier')
             if len(parts) == 3:
                 tasks.add(value)
-                groups.add('/'.join(parts[:2]))
+                if synthetic_groups is not None and parts[:2] == ['train', 'synth']:
+                    if value not in synthetic_groups:
+                        raise ValueError('V0 training exposure has an unmapped synthetic task')
+                    groups.add(synthetic_groups[value])
+                else:
+                    groups.add('/'.join(parts[:2]))
             else:
                 groups.add(value if len(parts) == 2 else 'train/' + value)
 
@@ -99,32 +104,135 @@ def _exposure(manifest):
     return dict(task_ids=sorted(tasks), group_ids=sorted(groups)), sources
 
 
+def _v0_exposure(run, update, run_path):
+    """Exclude the complete, hash-bound R/G/S/D inventory, even unsampled rows.
+
+    V0 realised_exposure/buckets contain counts and opaque episode IDs, while
+    example_sources.json binds each episode to its task and explicit group.
+    Synthetic groups are fingerprints, not the shared train/synth directory.
+    The input synthesis manifest also contains held-out tasks: it is not a
+    training inventory and must not be swept into exposure.
+    """
+    path = run_path.parent / 'example_sources.json'
+    expected = run.get('artifacts_sha256', {}).get(path.name)
+    if not isinstance(expected, str) or not re.fullmatch(r'[0-9a-f]{64}', expected):
+        raise ValueError('V0 training exposure requires a hash-bound example_sources.json')
+    if file_hash(path) != expected:
+        raise ValueError('V0 training exposure example_sources.json hash mismatch')
+    rows = read_json(path)
+    if not isinstance(rows, list) or not rows:
+        raise ValueError('V0 training exposure requires nonempty example sources')
+    tasks, episodes = {}, {}
+    buckets = {b: dict(rows=0, episodes=set()) for b in 'RGSD'}
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get('v0'), dict):
+            raise ValueError('V0 training exposure requires episode metadata for every example')
+        task, group = row.get('task_id'), row.get('group_id')
+        for value, size in ((task, 3), (group, 2)):
+            if (not isinstance(value, str) or len(value.split('/')) != size
+                    or any(p in ('', '.', '..') for p in value.split('/'))):
+                raise ValueError('V0 training exposure requires valid task and group IDs')
+        if (task.startswith('train/synth/') and not group.startswith('synth/')
+                or not task.startswith('train/synth/') and group != task.rsplit('/', 1)[0]):
+            raise ValueError('V0 training exposure task/group mismatch')
+        bucket, episode = row['v0'].get('bucket'), row['v0'].get('episode_id')
+        if (not isinstance(bucket, str) or bucket not in buckets
+                or not isinstance(episode, str) or not episode):
+            raise ValueError('V0 training exposure requires R/G/S/D bucket and episode IDs')
+        if tasks.setdefault(task, group) != group or episodes.setdefault(episode, (task, group, bucket)) != (task, group, bucket):
+            raise ValueError('V0 training exposure has conflicting episode/task identities')
+        buckets[bucket]['rows'] += 1
+        buckets[bucket]['episodes'].add(episode)
+
+    def check_count(document, key, actual, source):
+        if key in document and (type(document[key]) is not int or document[key] != actual):
+            raise ValueError(f'V0 training exposure {source}.{key} differs from example sources')
+
+    inventory = dict(task_ids=sorted(tasks), group_ids=sorted(set(tasks.values())))
+    for key, count in (('unique_instances', len(tasks)), ('task_groups', len(inventory['group_ids'])),
+                       ('episodes', len(episodes))):
+        check_count(run, key, count, 'run')
+    input_manifest = run.get('input_manifest', {})
+    if not isinstance(input_manifest, dict):
+        raise ValueError('V0 input_manifest must be an object')
+    for source, counts in (('run.buckets', run.get('buckets')),
+                           ('input_manifest.counts', input_manifest.get('counts', run.get('buckets')))):
+        if not isinstance(counts, dict) or not counts or set(counts) - buckets.keys():
+            raise ValueError('V0 training exposure requires R/G/S/D bucket counts')
+        for bucket, actual in buckets.items():
+            declared = counts.get(bucket, {})
+            if (not isinstance(declared, dict)
+                    or (actual['rows'] and not {'rows', 'episodes'} <= declared.keys())):
+                raise ValueError('V0 training exposure has an incomplete bucket inventory')
+            check_count(declared, 'rows', actual['rows'], source + '.' + bucket)
+            check_count(declared, 'episodes', len(actual['episodes']), source + '.' + bucket)
+
+    sources = ['run.example_sources.json (sha256=' + expected + '; all R/G/S/D examples)']
+    for source, accounting in (('run.realised_exposure', run.get('realised_exposure', {})),
+                                ('checkpoint', update),
+                                ('checkpoint.realised_exposure', update.get('realised_exposure', {}))):
+        if not isinstance(accounting, dict):
+            raise ValueError('V0 realised exposure must be an object')
+        if 'episode_exposures' not in accounting:
+            continue
+        counts = accounting['episode_exposures']
+        if not isinstance(counts, dict) or any(type(n) is not int or n < 0 for n in counts.values()):
+            raise ValueError('V0 episode exposure counts must be nonnegative integers')
+        seen = {episode for episode, n in counts.items() if n}
+        if seen - episodes.keys():
+            raise ValueError('V0 training exposure contains unknown exposed episodes')
+        check_count(accounting, 'unique_instances_seen', len({episodes[e][0] for e in seen}), source)
+        check_count(accounting, 'task_groups_seen', len({episodes[e][1] for e in seen}), source)
+        sources.append(source + '.episode_exposures')
+
+    # Explicit run, embedded interchange, and update exclusions are additive.
+    for source, document in (('run', run), ('run.input_manifest', input_manifest), ('checkpoint', update)):
+        exposure, declared_sources = _exposure(document, synthetic_groups=tasks)
+        for key in inventory:
+            inventory[key] = sorted(set(inventory[key]) | set(exposure[key]))
+        sources.extend(source + '.' + s for s in declared_sources)
+    return inventory, sources, [str(path)]
+
+
 def training_identity(adapter):
     checkpoint = Path(adapter['path']).resolve()
     if checkpoint.name != 'checkpoint' or not re.fullmatch(r'update-\d+', checkpoint.parent.name):
         return None, []
-    # A recognizable V2 checkpoint may not silently lose its training manifest.
+    # A recognizable training checkpoint may not silently lose its manifest.
     run_path, update_path = checkpoint.parent.parent / 'manifest.json', checkpoint.parent / 'manifest.json'
     run, update = read_json(run_path), read_json(update_path)
-    if run.get('schema') != 'v2-training-run/1':
-        raise ValueError('Expected V2 training run manifest')
+    if run.get('schema') not in ('v2-training-run/1', 'v0-training-run/1'):
+        raise ValueError('Expected V2 or V0 training run manifest')
+    v0 = run['schema'] == 'v0-training-run/1'
+    version = 'V0' if v0 else 'V2'
+    arm = run.get('variant', run.get('dataset_sha256')) if v0 else run.get('arm')
     updates = update.get('optimizer_updates')
     if (type(updates) is not int or updates < 0 or updates != int(checkpoint.parent.name.split('-')[1])
-            or not isinstance(run.get('arm'), str) or not run['arm']):
-        raise ValueError('Invalid V2 arm or checkpoint optimizer_updates')
+            or not isinstance(arm, str) or not arm):
+        raise ValueError(f'Invalid {version} arm or checkpoint optimizer_updates')
     for name, field in [('adapter_model.safetensors', 'adapter_weights_sha256'),
                         ('adapter_config.json', 'adapter_config_sha256')]:
-        if update.get('sha256', {}).get(name) != adapter[field]:
-            raise ValueError('V2 checkpoint manifest differs from evaluated adapter')
-    exposure, sources = _exposure(run)
-    update_exposure, update_sources = _exposure(update)
-    for key in exposure:
-        exposure[key] = sorted(set(exposure[key]) | set(update_exposure[key]))
+        expected = update.get('sha256', {}).get(name)
+        if (not isinstance(expected, str) or not re.fullmatch(r'[0-9a-f]{64}', expected)
+                or expected != adapter.get(field)):
+            raise ValueError(f'{version} checkpoint manifest differs from evaluated adapter')
+    inputs = [str(run_path), str(update_path)]
+    if v0:
+        exposure, sources, exposure_inputs = _v0_exposure(run, update, run_path)
+        inputs.extend(exposure_inputs)
+        arm = 'v0:' + arm
+        scope = 'declared IDs plus conservative complete R/G/S/D example inventory exclusions'
+    else:
+        exposure, sources = _exposure(run)
+        update_exposure, update_sources = _exposure(update)
+        for key in exposure:
+            exposure[key] = sorted(set(exposure[key]) | set(update_exposure[key]))
+        sources = ['run.' + s for s in sources] + ['checkpoint.' + s for s in update_sources]
+        scope = 'declared IDs plus conservative interchange pool exclusions'
     return dict(manifest_path=str(run_path), manifest_sha256=file_hash(run_path),
                 checkpoint_manifest_path=str(update_path), checkpoint_manifest_sha256=file_hash(update_path),
-                arm=run['arm'], optimizer_updates=updates, training_exposure=exposure,
-                exposure_sources=['run.' + s for s in sources] + ['checkpoint.' + s for s in update_sources],
-                exposure_scope='declared IDs plus conservative interchange pool exclusions'), [str(run_path), str(update_path)]
+                arm=arm, optimizer_updates=updates, training_exposure=exposure,
+                exposure_sources=sources, exposure_scope=scope), inputs
 
 
 def leakage_check(cases, evaluated_adapter):
