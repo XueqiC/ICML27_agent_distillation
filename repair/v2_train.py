@@ -39,9 +39,9 @@ def _members(value):
     return set(tasks), set(groups)
 
 
-def validate_example(row, arm, task, allowed, forbidden):
+def validate_example(row, arm, task, allowed, forbidden, *, seed_k=20):
     """Validate decisions strictly; return informational trajectory turn counts."""
-    require(row["arm"] == arm and row["source"] in ARMS[arm] | {"k20_replay"}, "Arm/source mismatch")
+    require(row["arm"] == arm and row["source"] in ARMS[arm] | {f"k{seed_k}_replay"}, "Arm/source mismatch")
     require(row["kind"] in {"trajectory", "decision"}, "Unknown example kind")
     require(type(row["weight"]) in (int, float) and row["weight"] == 1.0,
             "Inherited SFT has no sample-weight hook: weights must all be 1.0")
@@ -55,7 +55,7 @@ def validate_example(row, arm, task, allowed, forbidden):
     _validate_evidence(row)
     require(row["example_id"] == digest([arm, row["source"], row["task_id"],
                                          evidence["episode_ref"], evidence["step"]]), "Canonical example ID mismatch")
-    if row["source"] in {"k20_replay", "offline_teacher"}:
+    if row["source"] in {f"k{seed_k}_replay", "offline_teacher"}:
         require(row["kind"] == "trajectory", "Replay/offline supervision must be a trajectory")
     messages = row["messages"]
     require(isinstance(messages, list) and len(messages) >= 3 and len(messages) % 2 == 1,
@@ -96,10 +96,11 @@ def validate_example(row, arm, task, allowed, forbidden):
 
 
 def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, dev140=None,
-                 relocate=(), _inspection=None):
+                 relocate=(), _inspection=None, seed_k=None):
     """No eval-side imports. Both inline replay and a sealed replay/ bundle work."""
     inspection = _inspection or inspect_inputs(directory, theta0=theta0, config=config,
-        splits=splits, repair_splits=repair_splits, dev140=dev140, relocate=relocate, runtime=False)
+        splits=splits, repair_splits=repair_splits, dev140=dev140, relocate=relocate, runtime=False, seed_k=seed_k)
+    seed_k = 20 if seed_k is None else seed_k
     files = inspection["files"]
     require(files.all_hashes_verified, "Dataset requires a completed input hash verification")
     theta0, config, splits = (inspection[k] for k in ("theta0", "config", "splits"))
@@ -107,7 +108,7 @@ def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, 
     bundles = [main]
     if len(inspection["bundles"]) > 1:
         bundles.append(_read_bundle(inspection["bundles"][1], theta0, files))
-        require(all(row["source"] == "k20_replay" for row in bundles[1]["rows"]),
+        require(all(row["source"] == f"k{seed_k}_replay" for row in bundles[1]["rows"]),
                 "replay/ must contain only k20_replay examples")
     if splits is None:
         candidates = [p for p in main["inputs"] if p.name == "method_v1_splits.json"]
@@ -151,12 +152,12 @@ def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, 
         members = _members(sets[name])
         forbidden[0].update(members[0]); forbidden[1].update(members[1])
     inputs = [*[p for bundle in bundles for p in bundle["inputs"]], *sources.values()]
-    if "K20" in sets:
-        replay = _members(sets["K20"])
+    if f"K{seed_k}" in sets:
+        replay = _members(sets[f"K{seed_k}"])
     else:
         # The contract permits the original K20 view instead of a split entry.
         view, collection = (inspection[k] for k in ("training_view", "training_collection"))
-        require(collection["K"] == 20, "Expected original K20 view")
+        require(collection["K"] == seed_k, f"Expected original K{seed_k} view")
         replay = ({r["task_id"] for r in collection["verified"]}, {r["group_id"] for r in collection["verified"]})
         inputs.append(view / "manifest.json")
     require(not (pool[0] & replay[0] or pool[1] & replay[1]), "V2_pool overlaps K20")
@@ -167,14 +168,14 @@ def read_dataset(directory, *, theta0, config, splits=None, repair_splits=None, 
         for row in bundle["rows"]:
             task = resolve_task(frozen, freeze, row["task_id"])
             diagnostics = validate_example(row, bundle["manifest"]["arm"], task,
-                                           replay if row["source"] == "k20_replay" else pool, forbidden)
+                                           replay if row["source"] == f"k{seed_k}_replay" else pool, forbidden, seed_k=seed_k)
             if row["kind"] == "trajectory":
                 trajectory_diagnostics.append({"example_id": row["example_id"], **diagnostics})
             rows.append(row)
             origins.append(str(bundle["root"] / "examples.jsonl"))
     require(rows, "Empty training dataset")
     pools = training_pools(rows, arm=main["manifest"]["arm"],
-                           root_count=len(main["rows"]) if len(bundles) > 1 else None)
+                           root_count=len(main["rows"]) if len(bundles) > 1 else None, seed_k=seed_k)
     return {"arm": main["manifest"]["arm"], "rows": rows, "origins": origins,
             "pools": pools,
             "trajectory_diagnostics": trajectory_diagnostics,
@@ -204,17 +205,17 @@ def _replay_key(row):
     return digest({k: v for k, v in row.items() if k not in {"arm", "example_id"}})
 
 
-def training_pools(rows, *, arm, root_count=None):
+def training_pools(rows, *, arm, root_count=None, seed_k=20):
     if arm == "CONTINUE":
-        require(all(r["source"] == "k20_replay" for r in rows), "CONTINUE can only train original K20 replay")
+        require(all(r["source"] == f"k{seed_k}_replay" for r in rows), "CONTINUE can only train original K20 replay")
         # Keep both copies and their origins: root supplies the arm share,
         # replay/ supplies the common replay share. A root-only bundle keeps
         # the existing independent epoch streams over the same K20 pool.
         pools = {"new": list(range(len(rows) if root_count is None else root_count)),
                  "replay": list(range(0 if root_count is None else root_count, len(rows)))}
     else:
-        pools = {"new": [i for i, r in enumerate(rows) if r["source"] != "k20_replay"],
-                 "replay": [i for i, r in enumerate(rows) if r["source"] == "k20_replay"]}
+        pools = {"new": [i for i, r in enumerate(rows) if r["source"] != f"k{seed_k}_replay"],
+                 "replay": [i for i, r in enumerate(rows) if r["source"] == f"k{seed_k}_replay"]}
     for name, indices in pools.items():
         require(len({_replay_key(rows[i]) for i in indices}) == len(indices),
                 f"Duplicate {name} trajectories; a row in both pools is only allowed for CONTINUE")
@@ -288,8 +289,8 @@ def accounting(examples, batches, *, world_size=1):
     return result
 
 
-def continuation_recipe(theta0, config, snapshot, updates):
-    inherited = inherited_recipe(theta0, config, snapshot)
+def continuation_recipe(theta0, config, snapshot, updates, *, seed_k=20):
+    inherited = inherited_recipe(theta0, config, snapshot, seed_k=seed_k)
     recipe = inherited["recipe"]
     require(recipe["optimizer"] == {"name": "AdamW", "betas": [.9, .999], "eps": 1e-8}
         and recipe["compute_dtype"] == recipe["frozen_base_dtype"] == "bfloat16"

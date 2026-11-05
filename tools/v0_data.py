@@ -20,6 +20,16 @@ V0_FIELDS = {"bucket", "episode_id", "generator", "bin", "edit_decision", "synth
 BIN_GENERATORS = {"near": ("G1", "G3"), "mid": ("G2",), "far": ("G2",), "very_far": ("G5",)}
 GENERATORS = ("G1", "G2", "G3", "G5", "seed")
 BINS = (*BIN_GENERATORS, "seed")
+SEED_COUNTS = (10, 20, 30)
+
+
+def round_seed_count(manifest, synthetic=None):
+    """K is declared by the round/synthetic manifest, never inferred from tasks."""
+    values = [doc["K"] for doc in (manifest, synthetic) if doc is not None and "K" in doc]
+    require(values and all(type(k) is int and k in SEED_COUNTS for k in values),
+            "V0 requires explicit K in {10, 20, 30} in the round/synthetic manifest")
+    require(len(set(values)) == 1, "Round/synthetic manifest K mismatch")
+    return values[0]
 
 
 def episodes(rows):
@@ -144,18 +154,20 @@ def read_dataset(directory, *, theta0, snapshot=None, config, synthetic_manifest
             "Invalid V0 dataset manifest")
     require(all(isinstance(manifest.get(k), str) and manifest[k] for k in ("created", "code_revision")),
             "Missing V0 dataset provenance")
+    seed_k = round_seed_count(manifest, read_json(relocation.path(synthetic_manifest))
+                              if synthetic_manifest is not None else None)
     # The replay bundle is unchanged V2: retain its mature evidence/split checks.
     inspection = v2.inspect_inputs(root / "replay", theta0=theta0, snapshot=snapshot, config=config,
         splits=splits, relocate=Relocation(root / "replay", relocate),
-        repair_splits=repair_splits, dev140=dev140)
-    return _finish_read(root, manifest, inspection, synthetic_manifest)
+        repair_splits=repair_splits, dev140=dev140, seed_k=seed_k)
+    return _finish_read(root, manifest, inspection, synthetic_manifest, seed_k)
 
 
-def _finish_read(root, manifest, inspection, synthetic_manifest):
+def _finish_read(root, manifest, inspection, synthetic_manifest, seed_k):
     files = inspection["files"]
     theta0, config = inspection["theta0"], inspection["config"]
-    replay = v2.read_dataset(root / "replay", theta0=theta0, config=config, _inspection=inspection)
-    require(all(r["source"] == "k20_replay" for r in replay["rows"]), "replay/ must contain only K seed rows")
+    replay = v2.read_dataset(root / "replay", theta0=theta0, config=config, _inspection=inspection, seed_k=seed_k)
+    require(all(r["source"] == f"k{seed_k}_replay" for r in replay["rows"]), "replay/ must contain only K seed rows")
     # CONTINUE may store the same seeds in both its main and replay bundles.
     # V2 uses both shares; V0's D bucket contains each example exactly once.
     seen, replay_rows, replay_origins = {}, [], []
@@ -173,7 +185,9 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
         # inspect_inputs already ran this exact validation for the K fallback.
         view, collection = inspection["training_view"], inspection["training_collection"]
     else:
-        view, collection = training_view_inputs(files, inspection["theta0_provenance"], validate=True, config=config)
+        view, collection = training_view_inputs(files, inspection["theta0_provenance"], validate=True,
+                                               config=config, seed_k=seed_k)
+    require(collection["K"] == seed_k, "Round K differs from theta0's original support manifest")
     seeds = {r["task_id"] for r in collection["verified"]}
     require(len(collection["verified"]) == collection["K"], "K must count verified seed trajectories")
     require(Counter(r["task_id"] for r in replay_rows) == Counter(r["task_id"] for r in collection["verified"]),
@@ -206,11 +220,14 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     rows = [_json(line) for line in (root / "examples.jsonl").read_text().splitlines() if line.strip()]
     frozen, freeze = load_frozen(config["paths"]["manifest"], config["paths"]["split_freeze"])
     sets = read_json(inspection["splits"])["sets"]
+    if f"K{seed_k}" in sets:
+        require(v2._members(sets[f"K{seed_k}"]) == (seeds, {r["group_id"] for r in collection["verified"]}),
+                "Frozen K membership differs from theta0's original support manifest")
     # The V2 reader already checks all external diagnostic sources and overlap
     # against K. Synthetic identities must not masquerade as those instances.
     forbidden_tasks, forbidden_groups = set(), set()
     for name, members in sets.items():
-        if name not in ("K20", "V2_pool"):
+        if name not in (f"K{seed_k}", "V2_pool"):
             tasks, groups = v2._members(members)
             forbidden_tasks.update(tasks); forbidden_groups.update(groups)
     sources = inspection["split_sources"]
@@ -225,7 +242,8 @@ def _finish_read(root, manifest, inspection, synthetic_manifest):
     for row in rows:
         validate_row(row)
         meta, tid = row["v0"], row["task_id"]
-        require(meta["bucket"] != "D" and row["source"] != "k20_replay", "D rows must come from unchanged replay/")
+        require(meta["bucket"] != "D" and row["source"] not in {f"k{k}_replay" for k in SEED_COUNTS},
+                "D rows must come from unchanged replay/")
         require(row["kind"] == "decision", "Non-D V0 rows must be decisions")
         if tid.startswith("train/synth/"):
             require(synthetic_manifest is not None, "Synthetic task requires --synthetic-manifest")

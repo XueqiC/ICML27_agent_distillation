@@ -285,8 +285,8 @@ class InputFiles:
                 "groups": [{"prefix": prefix, "files": files} for prefix, files in sorted(groups.items())]}
 
 
-def training_view_inputs(files, source, *, validate=False, config=None):
-    """Inventory the original K20 view when membership must be read from it.
+def training_view_inputs(files, source, *, validate=False, config=None, seed_k=None):
+    """Inventory the original support view when membership must be read from it.
 
     Follow only the evidence reader's explicit filesystem fields. In check mode,
     use its unchanged recursive hash and semantic validation before covering any
@@ -303,6 +303,11 @@ def training_view_inputs(files, source, *, validate=False, config=None):
         cache.register_relocation(files.relocation)
         files.collection_artifact_inventory = "recursive_collection_validation"
     original = Path(source["config"]["baseline_training"]["verified"])
+    if seed_k is not None:
+        require(type(seed_k) is int and seed_k in (10, 20, 30), "Unsupported V0 seed K")
+        require(source["config"]["baseline_training"].get("K") == seed_k
+                and original.parts[-2:] == ("subsets", f"k{seed_k}"),
+                "Round K differs from theta0's original support manifest subsets/k{K}")
     sha = source.get("inputs", {}).get(str(original / "manifest.json"))
     require(_sha(sha), "K20 view differs from theta0's original support manifest")
     view_manifest = files.reference(original / "manifest.json", sha,
@@ -387,6 +392,8 @@ def training_view_inputs(files, source, *, validate=False, config=None):
             collection, _, _ = load_verified_collection(view, frozen, freeze)
         except (OSError, ValueError, KeyError, TypeError, RuntimeError):
             raise ValidationError(f"K20 collection validation failed: {json.dumps(str(view))}") from None
+        if seed_k is not None:
+            require(collection["K"] == seed_k, "Round K differs from theta0's original support manifest")
         # The loader recursively checks the source, support and extension roots
         # followed above. Register coverage only after all of it succeeds.
         files.collection_roots.update(seen)
@@ -462,7 +469,7 @@ def _example_summary(bundles, theta0, files):
 @input_hash_policy
 def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=None,
                    splits=None, repair_splits=None, dev140=None, inputs=(), check=True, runtime=True,
-                   full_rehash=False):
+                   full_rehash=False, seed_k=None):
     """Inventory and verify inputs and examples; no tokenizer/model/training imports.
 
     Snapshot defaults to the sealed tokenizer location, then theta0's recorded
@@ -470,6 +477,10 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
     Historical theta0 training inputs are followed only when the reader can
     reach its original-K20 membership fallback; other history is not opened.
     """
+    # Only V0 opts into an explicit K; standalone V2 keeps its original gates.
+    if seed_k is not None:
+        require(type(seed_k) is int and seed_k in (10, 20, 30), "Unsupported V0 seed K")
+    seed_set = f"K{20 if seed_k is None else seed_k}"
     relocation = relocate if isinstance(relocate, Relocation) else Relocation(dataset, relocate)
     files = InputFiles(relocation)
     root = relocation.dataset
@@ -522,7 +533,7 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
     split_sources = split_source_inputs(files, splits, split_doc, repair_splits=repair_splits, dev140=dev140)
     result = {"files": files, "bundles": bundles, "theta0": theta0,
               "config": local_config, "splits": splits, "split_sources": split_sources}
-    if not runtime and "K20" in split_doc["sets"]:
+    if not runtime and seed_set in split_doc["sets"]:
         if check:
             files.verify()
             result.update(_example_summary(bundles, theta0, files))
@@ -558,8 +569,9 @@ def inspect_inputs(dataset, *, theta0=None, relocate=(), snapshot=None, config=N
     for path in sorted(snapshot.rglob("*")):
         if path.is_file() or path.is_symlink():
             files.add(path)
-    if "K20" not in split_doc["sets"]:
-        view, collection = training_view_inputs(files, source, validate=check, config=local_config)
+    if seed_set not in split_doc["sets"]:
+        view, collection = training_view_inputs(files, source, validate=check, config=local_config,
+                                               seed_k=seed_k)
         result.update(training_view=view, training_collection=collection)
     if check:
         files.verify()

@@ -5,8 +5,9 @@ This is the V0 training contract aligned with the eval producer at `e5bf24f`
 `tools/V0_ROUND.md` in `ICML27_wt_repair_eval`). The implementations are
 `v0_data.py`, `v0_grad_features.py`,
 `v0_groups.py`, and `train_v0_arm.py`. They import the V2 reader, encoder,
-adapter loader, scorer, training loop, accounting, and exporter; no V2 module
-is patched. There are no teacher, generator, or environment calls here.
+adapter loader, scorer, training loop, accounting, and exporter. V0 passes an
+explicit seed K to the shared replay/recipe readers; standalone V2 keeps its
+K20 defaults. There are no teacher, generator, or environment calls here.
 
 The controlling design is the main checkout's
 `docs/direction/2026-11-02_v0_prereg_ZH.md` §2 D/E and
@@ -99,6 +100,7 @@ Root `manifest.json` requires:
 {
   "schema": "v0-train-interchange/1",
   "arm": "V0",
+  "K": 20,
   "created": "<producer timestamp>",
   "code_revision": "<producer revision>",
   "examples_sha256": "<raw examples.jsonl file hash>",
@@ -125,11 +127,28 @@ producer's success claims. Unknown or failed episode-success labels cannot
 be used as successful training trajectories. Rejections and unknowns stay in
 the producer's audit artifacts, not the training rows.
 
-The unchanged replay bundle has the complete existing V2 contract, including
-hashed method split inputs and exclusions. θ₀ must pass V2's registered
-E4B K20 recipe checks. The reader **always** follows θ₀'s original hashed
+K must be an integer in `{10, 20, 30}`, declared in the round dataset manifest
+or the supplied synthetic manifest. If both declare K they must agree. A task
+count cannot supply a missing K. The seed-0 theta0 recipes are K10/e32,
+K20/e32 and K30/e64, all at lr5e-5.
+
+K20 continues to consume its existing V2 CONTINUE bundle unchanged. For
+K10/K30, `tools/v0_replay.py` builds one trajectory row per original executed
+seed, with source `k10_replay` or `k30_replay`. It uses the V2 trajectory
+renderer, targets, example-ID construction and evidence fields. All original
+seed turns are retained; all failed attempts and teacher records remain bound
+through the original evidence bank. The builder validates before publishing
+a new directory, refuses overwrites, and records zero new teacher calls,
+environment steps and training exposures. No tokenizer/model/environment is
+loaded. Commands and K20 regression results are in
+`reports/engineering/v0_k_grid_validation.md`.
+
+Replay bundles retain the existing V2 contract, including hashed method split
+inputs and exclusions. θ₀ must pass the registered recipe checks for its K.
+The reader **always** follows θ₀'s original hashed
 `baseline_training.verified` view and validates its executed seed receipts,
-even when the method split already lists K20. A CONTINUE bundle may contain
+requiring `subsets/k{K}`, even when the method split already lists `K{K}`.
+Frozen K membership, when present, must match that support. A CONTINUE bundle may contain
 the same K rows in both its main and nested replay files. After validating
 both sealed bundles, the V0 reader deduplicates by `example_id`, requiring
 identical canonical JSON bytes for every duplicate (including evidence and

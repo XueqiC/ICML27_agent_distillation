@@ -263,7 +263,7 @@ def main(argv=None):
         _, _, _, selections = select_episodes(data["rows"], data["episodes"], buckets=args.buckets,
             max_episodes=args.max_episodes, allow_no_edit=args.allow_no_edit)
         output = safe_output(args.output, data)
-        inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"], 1)
+        inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"], 1, seed_k=data["K"])
         device = torch.device(args.device)
         torch.cuda.set_device(device)
         from train.dataset import load_tokenizer

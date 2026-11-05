@@ -17,24 +17,27 @@ from test_v2_train import example, seal_bundle
 
 @pytest.fixture
 def corpus(seed_corpus, tmp_path):
+    return make_corpus(seed_corpus, tmp_path)
+
+
+def make_corpus(c, tmp_path, seed_k=20):
     from sed.seed_evidence import load_verified_collection
     from sed.manifest import load_frozen
-    c = seed_corpus
     frozen, freeze = load_frozen(c.config["paths"]["manifest"], c.config["paths"]["split_freeze"])
     collection, _, _ = load_verified_collection(c.view, frozen, freeze)
     sets = {name: {"task_ids": [], "group_ids": []} for name in v2.FORBIDDEN_SETS}
     sets["V2_pool"] = {"task_ids": [], "group_ids": []}
-    sets["K20"] = {"task_ids": sorted({r["task_id"] for r in collection["verified"]}),
+    sets[f"K{seed_k}"] = {"task_ids": sorted({r["task_id"] for r in collection["verified"]}),
                    "group_ids": sorted({r["group_id"] for r in collection["verified"]})}
     splits = tmp_path / "method_v1_splits.json"
     write_json(splits, {"sets": sets})
     root = tmp_path / "v0"
-    replay = [example(tid, "k20_replay", "trajectory", "CONTINUE") for tid in sets["K20"]["task_ids"]]
+    replay = [example(tid, f"k{seed_k}_replay", "trajectory", "CONTINUE") for tid in sets[f"K{seed_k}"]["task_ids"]]
     seal_bundle(root / "replay", replay, c.theta, splits, "CONTINUE")
     synthetic = tmp_path / "synthetic.json"
-    write_json(synthetic, {"schema": "v0-synthetic-tasks/1", "seed_task_ids": sets["K20"]["task_ids"],
+    write_json(synthetic, {"schema": "v0-synthetic-tasks/1", "K": seed_k, "seed_task_ids": sets[f"K{seed_k}"]["task_ids"],
         "tasks": [{"task_id": "train/synth/a",
-        "parent_seed_task_id": sets["K20"]["task_ids"][0], "group_id": "synthetic/a",
+        "parent_seed_task_id": sets[f"K{seed_k}"]["task_ids"][0], "group_id": "synthetic/a",
         "task_type": "pick_and_place_simple", "generator": "G1", "bin": "near", "split": "train",
         "sealed": False, "heldout_probe": False, "status": "valid", "item_fingerprint": digest("a")}]})
     row = example("train/synth/a", "joint_local", "decision", "V0")
@@ -43,7 +46,7 @@ def corpus(seed_corpus, tmp_path):
         "edit_decision": True, "synthetic_manifest_sha256": file_hash(synthetic)})
     config_path = tmp_path / "v0-config.json"
     write_json(config_path, c.config)
-    result = {"root": root, "rows": [row], "theta": c.theta, "snapshot": c.snapshot,
+    result = {"K": seed_k, "root": root, "rows": [row], "theta": c.theta, "snapshot": c.snapshot,
               "config": c.config, "config_path": config_path, "splits": splits, "synthetic": synthetic}
     seal(result)
     return result
@@ -53,7 +56,7 @@ def seal(c):
     path = c["root"] / "examples.jsonl"
     path.write_text("".join(json.dumps(r) + "\n" for r in c["rows"]))
     inputs = [c["splits"], c["synthetic"], *[Path(c["config"]["paths"][k]) for k in ("manifest", "split_freeze")]]
-    write_json(c["root"] / "manifest.json", {"schema": "v0-train-interchange/1", "arm": "V0",
+    write_json(c["root"] / "manifest.json", {"schema": "v0-train-interchange/1", "arm": "V0", "K": c.get("K", 20),
         "created": "test-only", "code_revision": "test-only", "examples_sha256": file_hash(path),
         "inputs": {str(p): file_hash(p) for p in inputs}, "splits_sha256": file_hash(c["splits"]),
         "replay_manifest_sha256": file_hash(c["root"] / "replay/manifest.json"),

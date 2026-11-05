@@ -90,11 +90,14 @@ def load_fresh_adapter(snapshot, device, inherited, student):
     return model
 
 
-def inherited_recipe(theta0, config, snapshot):
+def inherited_recipe(theta0, config, snapshot, *, seed_k=20):
     if (config['environment']['max_episode_steps'] != 40 or config['training']['thinking_mode'] != 'off' or
             config['training']['student_step_token_cap'] != 1024):
         raise ValueError('Inherited H/thinking/output-cap protocol differs')
-    identity = inspect_adapter(THETA0_NAME, theta0, config['models']['student'], snapshot)
+    require(type(seed_k) is int and seed_k in (10, 20, 30), 'Unsupported V0 seed K')
+    epochs = 64 if seed_k == 30 else 32
+    name = f'e4b-tsft-k{seed_k}-e{epochs}-lr5e-5'
+    identity = inspect_adapter(name, theta0, config['models']['student'], snapshot)
     source = read_json(Path(theta0).parent / 'provenance.json')
     recipe = source['config']['baseline_training']
     # The grid changed only these run choices from Kang's registered recipe.
@@ -102,9 +105,9 @@ def inherited_recipe(theta0, config, snapshot):
     required = {k: RECIPE[k] for k in ('scheduler', 'warmup_ratio', 'warmup_steps',
         'weight_decay', 'packing', 'max_length')}
     required.update(objective='sft', adaptation=RECIPE['adaptation'], learning_rate=5e-5,
-                    scoring='shared_history', epochs=32, seed=RECIPE['training_seed'], K=20)
+                    scoring='shared_history', epochs=epochs, seed=RECIPE['training_seed'], K=seed_k)
     if any(recipe.get(k) != v for k, v in required.items()):
-        raise ValueError('theta0 is not the registered E4B tsft K20 e32 lr5e-5 recipe')
+        raise ValueError(f'theta0 is not the registered E4B tsft K{seed_k} e{epochs} lr5e-5 recipe')
     if config['models']['student']['requested_repo'] != 'google/gemma-4-E4B-it':
         raise ValueError('Repair pilot requires the configured E4B student')
     adapter = read_json(Path(theta0) / 'adapter_config.json')

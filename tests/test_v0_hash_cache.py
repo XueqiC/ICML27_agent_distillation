@@ -484,10 +484,10 @@ def test_only_rank_zero_validates_and_failure_is_fatal(monkeypatch, failure):
         if failure:
             raise ValueError("bad input")
         files = InputFiles(Relocation(Path.cwd(), ()))
-        return {"theta0": "theta", "config": {}, "snapshot": "snapshot", "dataset_sha256": "verified",
+        return {"K": 20, "theta0": "theta", "config": {}, "snapshot": "snapshot", "dataset_sha256": "verified",
                 "inspection": {"files": files}}
     monkeypatch.setattr(trainer, "load_args", load)
-    monkeypatch.setattr(trainer.v2, "continuation_recipe", lambda *args: {})
+    monkeypatch.setattr(trainer.v2, "continuation_recipe", lambda *args, **kwargs: {})
     monkeypatch.setattr(trainer, "load_choices", lambda *args, **kwargs: ({}, None, []))
     if failure:
         with pytest.raises(ValueError, match="bad input"):

@@ -205,7 +205,7 @@ def validate_inputs(args, *, rank=0, world=1, group=None, broadcast=None):
     def validate():
         data = load_args(args)
         inherited = v2.continuation_recipe(data["theta0"], data["config"], data["snapshot"],
-                                           args.updates if args.command == "run" else 1)
+                                           args.updates if args.command == "run" else 1, seed_k=data["K"])
         weights, selected, extra = load_choices(data, inherited, weights=args.weights, modules=args.trainable_modules)
         extra.append(data["inspection"]["files"].relocation.path(args.config))
         data["input_validation"] = {"rank": 0, "dataset_sha256": data["dataset_sha256"],
