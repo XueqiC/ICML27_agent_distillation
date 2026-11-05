@@ -7,7 +7,7 @@ import pytest
 
 from repair.runtime import CaseStopped
 from repair.takeover import SharedTeacherBudget
-from sed.storage import canonical_bytes
+from sed.storage import canonical_bytes, JsonlLedger
 from tools import budget_recover
 
 
@@ -20,10 +20,13 @@ def budget(tmp_path):
     return SharedTeacherBudget(tmp_path / 'budget.jsonl', input_tokens=1000, output_tokens=500)
 
 
-def recover(path, capsys, *, expect='teacher_quota', reason='quota_topped_up', dry_run=False):
+def recover(path, capsys, *, expect='teacher_quota', reason='quota_topped_up', dry_run=False,
+            acknowledge=()):
     args = ['--ledger', str(path), '--expect-stop', expect, '--reason', reason]
     if dry_run:
         args.append('--dry-run')
+    for request_id in acknowledge:
+        args.extend(['--acknowledge-quota-rejected', request_id])
     code = budget_recover.main(args)
     captured = capsys.readouterr()
     assert not captured.err
@@ -219,3 +222,223 @@ def test_post_append_verification_failure_reports_durable_row(budget, capsys, mo
     appended = budget.path.read_bytes()[len(before):]
     assert len(appended.splitlines()) == 1
     assert json.loads(appended)['event'] == 'recovered'
+
+
+def quota_budget(tmp_path, request_ids=('quota',)):
+    from tools.v0_round import CAPS
+    budget = SharedTeacherBudget(tmp_path / 'teacher_budget.jsonl', **CAPS)
+    settle(budget, 'reported')  # Preserve both known counts and unknown metadata.
+    for request_id in request_ids:
+        usage = JsonlLedger(tmp_path / request_id / 'usage.jsonl')
+        budget.reserve(request_id, 80, 30, usage_ledger=str(usage.path))
+        usage.append(dict(call_id=request_id, status='started', usage=None))
+        usage.append(dict(call_id=request_id, status='failed', error_type='TeacherQuotaError',
+                          usage=None, http_status=None))
+        budget.settle(request_id, None)  # The public API intentionally leaves this open.
+    budget.halt('teacher_quota')
+    budget.halt('teacher_quota')
+    return budget
+
+
+@pytest.mark.parametrize('request_ids', [('quota',), ('quota', 'second')])
+def test_acknowledge_quota_preserves_bounds_and_resumes_v0(tmp_path, capsys, request_ids):
+    from repair.ledger import teacher_token_usage
+    from tools.v0_round import budget_for
+    budget = quota_budget(tmp_path, request_ids)
+    before = budget.path.read_bytes()
+    state = budget.summary()
+    reason = 'credits restored; provider rejected call, bound kept'
+    code, report = recover(budget.path, capsys, acknowledge=request_ids, reason=reason)
+    assert code == 0 and report['status'] == 'ok'
+    assert report['acknowledged_ids'] == report['settlement_rows_durable'] == list(request_ids)
+    assert report['unsettled_attempts_before'] == len(request_ids)
+    assert report['unsettled_attempts_after'] == 0
+    assert report['rows_after'] == report['rows_before'] + len(request_ids) + 1
+    assert report['recovery_row_durable'] is True
+    after = budget.path.read_bytes()
+    assert after.startswith(before)
+    appended = [json.loads(line) for line in after[len(before):].splitlines()]
+    unknown = dict(state['unknown_quantities'])
+    prefix = before
+    for request_id, row in zip(request_ids, appended[:-1], strict=True):
+        usage = tmp_path / request_id / 'usage.jsonl'
+        for key in teacher_token_usage({}):
+            unknown[key] = unknown.get(key, 0) + 1
+        assert row == {
+            'event': 'settlement', 'request_id': request_id, 'timestamp': row['timestamp'],
+            'acknowledged': 'teacher_quota_rejection', 'reason': reason,
+            'usage_ledger': str(usage), 'usage_ledger_sha256': hashlib.sha256(usage.read_bytes()).hexdigest(),
+            'usage': {key: None for key in state['reported_usage']},
+            **{key: state[key] for key in STATE_FIELDS}, 'unknown_quantities': dict(unknown),
+            'stop_reason': 'teacher_quota',
+        }
+        assert datetime.fromisoformat(row['timestamp']).utcoffset() == timezone.utc.utcoffset(None)
+        prefix += canonical_bytes(row) + b'\n'
+        # Each intermediate row must be independently loadable as a checkpoint.
+        checkpoint = tmp_path / f'{request_id}-checkpoint.jsonl'
+        checkpoint.write_bytes(prefix)
+        loaded = SharedTeacherBudget(checkpoint, **budget.caps).summary()
+        assert loaded['unknown_quantities'] == unknown
+        assert loaded['tokens_or_unsettled_bounds'] == state['tokens_or_unsettled_bounds']
+        assert loaded['reported_usage'] == state['reported_usage']
+    assert appended[-1] == {
+        'event': 'recovered', 'reason': reason, 'previous_stop_reason': 'teacher_quota',
+        'timestamp': appended[-1]['timestamp'], 'through_rows': len(prefix.splitlines()),
+        'ledger_prefix_sha256': hashlib.sha256(prefix).hexdigest(),
+        **{key: state[key] for key in STATE_FIELDS}, 'unknown_quantities': unknown, 'stop_reason': None,
+    }
+    summary = SharedTeacherBudget(budget.path, **budget.caps).summary()
+    assert summary['stop_reason'] is None and summary['unsettled_attempts'] == 0
+    assert report['state_before'] == {key: state[key] for key in (*STATE_FIELDS, 'stop_reason')}
+    assert report['state_after'] == {key: summary[key] for key in (*STATE_FIELDS, 'stop_reason')}
+    for key in STATE_FIELDS:
+        assert summary[key] == (unknown if key == 'unknown_quantities' else state[key])
+    assert budget_for(tmp_path).summary() == summary
+    assert budget.path.read_bytes() == after  # No v0_unsettled_teacher_attempt halt.
+
+
+@pytest.mark.parametrize('failure,message', [
+    ('known_usage', 'receipt with usage'),
+    ('completed_usage', 'receipt with usage'),
+    ('success_usage', 'receipt with usage'),
+    ('rejected_usage', 'receipt with usage'),
+    ('other_error', 'must end with TeacherQuotaError'),
+    ('not_reserved', 'exactly one reservation'),
+    ('duplicate_reservation', 'exactly one reservation'),
+    ('already_settled', 'already settled'),
+    ('missing_ledger', 'usage ledger is missing'),
+    ('missing_receipt', 'must end with TeacherQuotaError'),
+    ('missing_usage', 'must end with TeacherQuotaError'),
+    ('unfinished', 'must end with TeacherQuotaError'),
+    ('damaged_receipts', 'Damaged usage ledger'),
+    ('other_unsettled', 'Other unsettled reservations'),
+    ('duplicate_flag', 'Duplicate --acknowledge'),
+    ('wrong_expect', 'requires --expect-stop teacher_quota'),
+    ('stop_mismatch', 'does not match --expect-stop'),
+])
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_quota_acknowledgement_refuses_without_writes(tmp_path, capsys, failure, message, dry_run):
+    budget = quota_budget(tmp_path, ('quota', 'other') if failure == 'other_unsettled' else ('quota',))
+    usage = tmp_path / 'quota/usage.jsonl'
+    receipts = [json.loads(line) for line in usage.read_bytes().splitlines()]
+    ids, expect = ['quota'], 'teacher_quota'
+    if failure == 'known_usage':
+        receipts[-1]['usage'] = {'input_tokens': 0, 'output_tokens': 0}
+    elif failure in ('completed_usage', 'success_usage', 'rejected_usage'):
+        receipts.insert(1, dict(call_id='quota', status=failure.removesuffix('_usage'),
+                                usage={'input_tokens': 1}))
+    elif failure == 'other_error':
+        receipts[-1]['error_type'] = 'TeacherCallError'
+    elif failure == 'not_reserved':
+        ids = ['absent']
+    elif failure == 'duplicate_reservation':
+        rows = [json.loads(line) for line in budget.path.read_bytes().splitlines()]
+        reservation = next(row for row in rows if row.get('request_id') == 'quota')
+        JsonlLedger(budget.path).append({**reservation, **budget.summary()})
+    elif failure == 'already_settled':
+        budget.settle('quota', {'input_tokens': 1, 'output_tokens': 1})
+    elif failure == 'missing_receipt':
+        receipts = [dict(call_id='other', status='failed', error_type='TeacherQuotaError', usage=None)]
+    elif failure == 'missing_usage':
+        del receipts[-1]['usage']
+    elif failure == 'unfinished':
+        receipts.append(dict(call_id='quota', status='started', usage=None))
+    elif failure == 'duplicate_flag':
+        ids *= 2
+    elif failure == 'wrong_expect':
+        expect = 'teacher_halted'
+        budget.halt(expect)
+    elif failure == 'stop_mismatch':
+        budget.halt('teacher_halted')
+    usage.write_bytes(b''.join(canonical_bytes(row) + b'\n' for row in receipts))
+    if failure == 'damaged_receipts':
+        usage.write_bytes(usage.read_bytes()[:-1])
+    if failure == 'missing_ledger':
+        usage.unlink()
+    before = budget.path.read_bytes()
+    code, report = recover(budget.path, capsys, acknowledge=ids, expect=expect, dry_run=dry_run)
+    assert code != 0 and report['status'] == 'error'
+    assert report['error_type'] == 'ValueError' and message in report['message']
+    assert budget.path.read_bytes() == before
+
+
+def test_quota_dry_run_is_read_only_and_reports_exact_planned_rows(tmp_path, capsys, monkeypatch):
+    import builtins
+    import os
+    budget = quota_budget(tmp_path)
+    # Unrelated calls must neither supply evidence nor disqualify this call.
+    JsonlLedger(tmp_path / 'quota/usage.jsonl').append(
+        dict(call_id='unrelated', status='success', usage={'input_tokens': 3, 'output_tokens': 1}))
+    before = {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()}
+    original_open = builtins.open
+
+    def read_only_open(file, mode='r', *args, **kwargs):
+        assert not any(flag in mode for flag in 'wax+')
+        return original_open(file, mode, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Dry run attempted a write or created a lock')
+
+    with monkeypatch.context() as patch:
+        patch.setattr(builtins, 'open', read_only_open)
+        patch.setattr(os, 'open', forbidden)  # Includes sed.storage.locked's O_CREAT.
+        patch.setattr(JsonlLedger, 'append', forbidden)
+        code, report = recover(budget.path, capsys, acknowledge=['quota'], dry_run=True)
+    assert code == 0 and report['status'] == 'ok'
+    assert report['acknowledged_ids'] == ['quota']
+    assert report['unsettled_attempts_before'] == 1 and report['unsettled_attempts_after'] == 0
+    assert report['rows_before'] == report['rows_after']
+    assert report['settlement_rows_durable'] == [] and report['recovery_row_durable'] is False
+    assert {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()} == before
+    planned = report['rows_to_append']
+    assert [row['event'] for row in planned] == ['settlement', 'recovered']
+    # Publish the proposal only to a synthetic copy and exercise the real loader.
+    copy = tmp_path / 'planned.jsonl'
+    copy.write_bytes(before[budget.path] + b''.join(canonical_bytes(row) + b'\n' for row in planned))
+    summary = SharedTeacherBudget(copy, **budget.caps).summary()
+    assert summary['unsettled_attempts'] == 0
+    assert report['state_after'] == {key: summary[key] for key in (*STATE_FIELDS, 'stop_reason')}
+
+
+def test_all_acknowledgements_validate_before_any_append(tmp_path, capsys):
+    budget = quota_budget(tmp_path, ('quota', 'second'))
+    (tmp_path / 'second/usage.jsonl').unlink()
+    before = budget.path.read_bytes()
+    code, report = recover(budget.path, capsys, acknowledge=['quota', 'second'])
+    assert code != 0 and 'usage ledger is missing' in report['message']
+    assert budget.path.read_bytes() == before
+
+
+@pytest.mark.parametrize('failure', ['unsettled_attempts', 'tokens_or_unsettled_bounds', 'reported_usage'])
+def test_quota_post_append_checks_unsettled_and_preserved_totals(tmp_path, capsys, monkeypatch, failure):
+    budget = quota_budget(tmp_path)
+    original = SharedTeacherBudget.summary
+
+    def changed_summary(self):
+        result = original(self)
+        if failure == 'unsettled_attempts':
+            result[failure] = 1
+        else:
+            result[failure]['input_tokens'] -= 1
+        return result
+
+    monkeypatch.setattr(SharedTeacherBudget, 'summary', changed_summary)
+    code, report = recover(budget.path, capsys, acknowledge=['quota'])
+    assert code != 0 and report['recovery_row_durable'] is True
+    assert report['settlement_rows_durable'] == ['quota']
+    assert 'already durable' in report['note']
+
+
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_no_acknowledgement_retains_exact_legacy_report(tmp_path, capsys, dry_run):
+    budget = quota_budget(tmp_path)
+    state, before = budget.summary(), budget.path.read_bytes()
+    code, report = recover(budget.path, capsys, dry_run=dry_run)
+    assert code == 0
+    count = len(before.splitlines())
+    assert report == {
+        'ledger': str(budget.path), 'dry_run': dry_run, 'recovery_row_durable': not dry_run,
+        'rows_before': count, 'rows_after': count + int(not dry_run),
+        'previous_stop_reason': 'teacher_quota', **{key: state[key] for key in STATE_FIELDS},
+        'unsettled_attempts': 1, 'status': 'ok',
+    }
