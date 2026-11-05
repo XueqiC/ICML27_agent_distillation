@@ -3258,3 +3258,4 @@ smoke on a fixed dev subset, hpg environment + profiling report.
 - 11-05 10:1x CST: git push works again (c2c7f9b..d22eed2, 13 commits); the commit_refs_rules rejection was transient.
 - 11-05 10:3x CST: probe support committed wt_repair_eval c6ce120 (pinned; 303 CPU tests pass; my rerun probe+expand 81 pass; real K10 adapter accepted, rejected for K30). K10 theta1 probes RUNNING rai GPU 3 (run_v0_k10_r1_probes_all.sh, pid 3899796, log logs/v0_k10_r1_probes_all.log): D-data, uniform, D-param, Dparam-full sequential.
 - 11-05 11:3x CST: K10 theta1 probes DONE (GPU 3 free): greedy theta0 47.2, D-data 86.1, uniform 75.0, D-param 72.2, Dparam-full 83.3 (dev140 72/90/86/79/93) -> order close to dev140 at K10 (unlike K20); between-arm differences n.s. on 36 tasks.
+- 11-05 11:3x CST: ablation G2 49724527 RUNNING (from ~11:30 CST); G5 submitted 49764223 (Nice=200); frac28/G1/G3 PENDING QOSGrpGRES. GPU check watcher on G2.
