@@ -9,6 +9,20 @@ from sed.react import build_messages
 from sed.storage import digest
 
 
+def batch_reply(messages, form):
+    """Raw replies exercise canonical, legacy and prose-extraction paths."""
+    if form == 'canonical':
+        return json.dumps(dict(calls=messages))
+    if form == 'array':
+        return json.dumps(messages)
+    if form.startswith('prose_'):
+        shape = form.removeprefix('prose_')
+        value = messages[0] if shape == 'object' else dict(calls=messages) if shape == 'canonical' else messages
+        return "I'll compare the actions first, then test the edit." + json.dumps(value) + '\nDone.'
+    separator = {'concatenated': '', 'newlines': '\n', 'whitespace': ' \t\r\n '}[form]
+    return ' \n' + separator.join(json.dumps(message) for message in messages) + '\t '
+
+
 class TinyTokenizer:
     all_special_ids = [1, 50, 106]
 

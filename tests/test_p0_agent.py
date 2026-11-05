@@ -13,7 +13,7 @@ from repair.dry_fakes import FakeEnvironment
 from sed.config import load_config
 from sed.storage import write_json, canonical_bytes, digest
 from tools.p0_pilot import ScriptedTeacherClient
-from p0_fakes import tiny_student, fake_pair, sample_submission, fake_greedy
+from p0_fakes import tiny_student, fake_pair, sample_submission, fake_greedy, batch_reply
 
 
 @pytest.fixture
@@ -34,14 +34,77 @@ def add_direction(session):
     '{"submit":{"x":NaN}}', '{"tool":[],"args":{}}', '{"tool":{},"args":{}}',
     '{"tool":"rollout","args":[]}', '{"submit":[]}',
     '[{"tool":"rollout","args":{}},false]',
-    '{"tool":"rollout","args":{}}, {"tool":"rollout","args":{}}',
-    '[{"tool":"rollout","args":{}}] {"tool":"rollout","args":{}}',
-    '[{"tool":"rollout","args":{}}] trailing prose',
     '{"tool":"rollout","args":{}} {"tool":"rollout","args":{"x":1,"x":2}}',
     '[{"tool":"rollout","args":{}},{"tool":"rollout","args":{"x":Infinity}}]',
     '{"tool":"rollout","args":{"x":-Infinity}}',
     '{"tool":"rollout","args":{"x":1e999}}'])
 def test_strict_json_protocol_rejects_invalid(raw):
+    with pytest.raises(ValueError):
+        parse_turn(raw)
+
+
+@pytest.mark.parametrize('form,path', [
+    ('canonical', 'canonical'), ('array', 'v3'), ('newlines', 'v3'),
+    ('concatenated', 'v3'), ('whitespace', 'v3'), ('prose_object', 'extracted'),
+    ('prose_array', 'extracted'), ('prose_canonical', 'extracted')])
+def test_parse_canonical_legacy_and_prose_calls(form, path):
+    calls = [dict(tool='action_scores', args=dict(state='pair-0', candidates=['look']))]
+    raw, metadata = batch_reply(calls, form), {}
+    assert parse_turn(raw, metadata=metadata) == calls
+    assert metadata['parse_path'] == path
+    expected_ignored = len("I'll compare the actions first, then test the edit.\nDone.") if path == 'extracted' else 0
+    assert metadata['ignored_prose_length'] == expected_ignored
+
+
+@pytest.mark.parametrize('prefix,path', [('', 'canonical'), ('Submission follows. ', 'extracted')])
+def test_parse_submit_alone(prefix, path):
+    message = dict(submit=sample_submission('fixture-direction'))
+    metadata = {}
+    assert parse_turn(prefix + json.dumps(message), metadata=metadata) == [message]
+    assert metadata == dict(parse_path=path, ignored_prose_length=len(prefix))
+
+
+@pytest.mark.parametrize('raw,path', [
+    ('[]', 'v3'), ('I will compare first.[]', 'extracted'), ('{"calls":[]}', 'canonical'),
+    ('Calls follow. {"calls":[]}', 'extracted'), ('No JSON here.', 'extracted'),
+    ('{} 42 null [false]', 'extracted')])
+def test_no_calls_is_protocol_error(raw, path):
+    metadata = {}
+    with pytest.raises(ValueError, match='^no tool calls found$'):
+        parse_turn(raw, metadata=metadata)
+    assert metadata['parse_path'] == path
+
+
+def test_extraction_skips_unrelated_values_and_preserves_order_without_mining_nested_json():
+    calls = [dict(tool='action_scores', args=dict(state='pair-0', candidates=['look'])),
+             dict(tool='rollout', args=dict(state='pair-1'))]
+    # A nested tool-like object is data, even when its enclosing object is skipped.
+    ignored = 'Before {not JSON} ' + json.dumps(dict(unrelated=calls[1])) + ' [false] '
+    first, second = json.dumps(calls[0]), json.dumps(dict(calls=calls[1:]))
+    metadata = {}
+    raw = ignored + first + ' then ' + second + ' after'
+    assert parse_turn(raw, metadata=metadata) == calls
+    assert metadata == dict(parse_path='extracted', ignored_prose_length=len(raw) - len(first) - len(second))
+
+
+@pytest.mark.parametrize('separator', [', ', ' trailing prose ', '\n[]\n'])
+def test_extraction_accepts_values_between_separators(separator):
+    call = dict(tool='rollout', args={})
+    metadata = {}
+    assert parse_turn(json.dumps([call]) + separator + json.dumps(call), metadata=metadata) == [call, call]
+    assert metadata['parse_path'] == 'extracted'
+
+
+@pytest.mark.parametrize('raw', [
+    '{"calls":[{"tool":"rollout","args":{}}],"submit":{}}',
+    'Before {"submit":{}} then {"calls":[{"tool":"rollout","args":{}}]}',
+    'Before [{"tool":"rollout","args":{}},{"submit":{}}]',
+    '{"calls":[{"submit":{}}]}',
+    'Before {"tool":"rollout","tool":"direction","args":{}}',
+    'Before {"calls":[{"tool":"rollout","args":{"x":NaN}}]}',
+    'Before [{"tool":"rollout","args":{"x":1e999}}]',
+])
+def test_extraction_never_bypasses_submit_or_strict_json_rules(raw):
     with pytest.raises(ValueError):
         parse_turn(raw)
 
@@ -205,6 +268,7 @@ def test_429_storm_probes_once_then_halts_loudly(tmp_path, fast_clock):
         def create(self, **kwargs):
             self.calls += 1
             assert kwargs['reasoning'] == {'effort': 'high'}
+            assert kwargs['text'] == {'format': {'type': 'json_object'}}
             raise http_429()
     client = Storm()
     transport = make_transport(load_config('configs/base_e4b.yaml'), 'refused_action', tmp_path, client=client)
@@ -243,9 +307,11 @@ def test_azure_first_uses_existing_transport_injection(monkeypatch, tmp_path):
     monkeypatch.setattr(openai, 'AzureOpenAI', FakeSDK)
     monkeypatch.setattr(openai, 'OpenAI', lambda **k: pytest.fail('Azure must be first'))
     client = ProviderClient(600, tmp_path / 'provider.json')
-    assert client.create(model='gpt-6-luna', reasoning={'effort': 'high'}) == 'fake response'
+    assert client.create(model='gpt-6-luna', reasoning={'effort': 'high'},
+                         text={'format': {'type': 'json_object'}}) == 'fake response'
     assert client.provider == 'azure' and called[0]['max_retries'] == 0
     assert json.loads((tmp_path / 'provider.json').read_text())['reasoning'] == {'effort': 'high'}
+    assert json.loads((tmp_path / 'provider.json').read_text())['text'] == {'format': {'type': 'json_object'}}
 
 
 def test_incomplete_azure_never_silently_falls_back(monkeypatch):
@@ -265,14 +331,32 @@ def scripted_agent(session, tmp_path, script, *, budget=None):
     return agent, client, transport
 
 
-def batch_reply(messages, form):
-    if form == 'array':
-        return json.dumps(messages)
-    separator = {'concatenated': '', 'newlines': '\n', 'whitespace': ' \t\r\n '}[form]
-    return ' \n' + separator.join(json.dumps(message) for message in messages) + '\t '
+def test_every_teacher_turn_records_parse_path_and_ignored_length(session, tmp_path, fast_clock):
+    submission = sample_submission(add_direction(session))
+    call = dict(tool='action_scores', args=dict(state='pair-0', candidates=['look']))
+    raw_prose = batch_reply([call], 'prose_object')
+    raw_empty_calls = 'I will compare first.[]'
+    script = [dict(calls=[dict(tool='rollout', args=dict(state='pair-0', edit=submission['edit']))]),
+              call, raw_prose, raw_empty_calls, ' \n', dict(calls=[]), dict(submit=submission)]
+    agent, client, transport = scripted_agent(session, tmp_path, script)
+    result = agent.run()
+    rows = [json.loads(line) for line in agent.ledger.path.read_text().splitlines()]
+    turns = [row for row in rows if row['event'] == 'teacher_turn']
+    assert [row['parse_path'] for row in turns] == [
+        'canonical', 'v3', 'extracted', 'extracted', 'extracted', 'canonical', 'canonical']
+    assert [row['ignored_prose_length'] for row in turns] == [
+        0, 0, len(raw_prose) - len(json.dumps(call)), len(raw_empty_calls) - 2, 2, 0, 0]
+    errors = [row for row in rows if row['event'] == 'protocol_error']
+    assert len(errors) == agent.protocol_errors == 2
+    assert all(row['result']['protocol_error'] == 'no tool calls found' for row in errors)
+    assert turns[2]['raw_output'] == raw_prose
+    assert result['budget']['tool_calls'] == 6 and client.calls == 7
+    assert result['budget']['rollouts'] == 1
+    assert transport.budget.summary()['unsettled_attempts'] == 0
 
 
-@pytest.mark.parametrize('form', ['concatenated', 'newlines', 'whitespace', 'array'])
+@pytest.mark.parametrize('form', ['canonical', 'concatenated', 'newlines', 'whitespace', 'array',
+                                  'prose_array', 'prose_canonical'])
 def test_batch_executes_in_order_and_returns_each_result(session, tmp_path, fast_clock, form):
     calls = [dict(tool='action_scores', args=dict(state='pair-0', candidates=['look'])),
              dict(tool='direction', args=dict(positive=[dict(state='pair-0', action='look')],
@@ -296,7 +380,7 @@ def test_batch_executes_in_order_and_returns_each_result(session, tmp_path, fast
     assert transport.budget.summary()['unsettled_attempts'] == 0
 
 
-@pytest.mark.parametrize('form', ['concatenated', 'array'])
+@pytest.mark.parametrize('form', ['canonical', 'concatenated', 'array', 'prose_canonical'])
 def test_eight_call_batch_can_use_last_tool_slot_then_submit(session, tmp_path, fast_clock, form):
     submission = sample_submission(add_direction(session))
     calls = [dict(tool='action_scores', args=dict(state='pair-0', candidates=['look']))] * 7
@@ -510,7 +594,7 @@ def test_error_limits_still_halt_at_and_across_tool_exhaustion(session, tmp_path
     assert rows[-1]['event'] == 'halted' and reason in rows[-1]['reason']
 
 
-@pytest.mark.parametrize('form', ['concatenated', 'newlines', 'array'])
+@pytest.mark.parametrize('form', ['canonical', 'concatenated', 'newlines', 'array', 'prose_array', 'prose_canonical'])
 @pytest.mark.parametrize('invalid', ['nine_calls', 'submit_first', 'submit_last', 'duplicate_key', 'nonfinite'])
 def test_invalid_batch_is_one_protocol_error_with_nothing_executed(session, tmp_path, fast_clock, form, invalid):
     submission = sample_submission(add_direction(session))
@@ -522,7 +606,14 @@ def test_invalid_batch_is_one_protocol_error_with_nothing_executed(session, tmp_
     if invalid in ('duplicate_key', 'nonfinite'):
         malformed = ('{"tool":"rollout","args":{"state":"pair-0","state":"pair-1"}}'
                      if invalid == 'duplicate_key' else '{"tool":"rollout","args":{"edit":{"alpha":NaN}}}')
-        raw = '[' + json.dumps(call) + ',' + malformed + ']' if form == 'array' else json.dumps(call) + '\n' + malformed
+        if form in ('array', 'prose_array', 'canonical', 'prose_canonical'):
+            raw = '[' + json.dumps(call) + ',' + malformed + ']'
+            if form in ('canonical', 'prose_canonical'):
+                raw = '{"calls":' + raw + '}'
+        else:
+            raw = json.dumps(call) + '\n' + malformed
+        if form.startswith('prose_'):
+            raw = 'Inspect first. ' + raw
     def recovery(payload):
         assert len(payload['transcript']) == 1 and payload['transcript'][0]['protocol_error']
         assert payload['budget']['tool_calls'] == 1
@@ -691,7 +782,7 @@ def test_prompt_messages_keep_stable_prefix_and_trailing_budget(session, tmp_pat
             # list/object delimiters move as history is appended before the budget.
             assert history.startswith(previous[:-2])
         previous = history
-        assert turn['request']['kind'] == 'p0-agent/3'
+        assert turn['request']['kind'] == 'p0-agent/4'
         assert turn['request']['template_sha256'] == digest([SYSTEM, TOOL_DOCS, PROMPT_LAYOUT])
 
 
@@ -702,7 +793,8 @@ def test_prompt_envelope_binds_new_layout_and_rejects_old_or_changed_template(tm
     def visible(envelope):
         return dict(observation=canonical_bytes(envelope).decode(), admissible_commands=[])
     assert teacher.prompt([], {}, visible(prompt.to_json())) == prompt.messages()
-    for changes in (dict(kind='p0-agent/1'), dict(template_sha256=digest([SYSTEM, TOOL_DOCS])), dict(extra='unknown')):
+    for changes in (dict(kind='p0-agent/1'), dict(kind='p0-agent/3'),
+                    dict(template_sha256=digest([SYSTEM, TOOL_DOCS])), dict(extra='unknown')):
         with pytest.raises(ValueError, match='Invalid P0 prompt envelope'):
             teacher.prompt([], {}, visible(dict(prompt.to_json(), **changes)))
     with pytest.raises(ValueError, match='Invalid P0 prompt envelope'):
@@ -788,22 +880,49 @@ def test_validation_feedback_includes_message_without_paths(session, tmp_path, f
     assert result['budget']['tool_calls'] == 2
 
 
-def test_reasoning_high_in_every_request_and_transport_disclosure(session, tmp_path, fast_clock):
+def test_json_mode_and_reasoning_high_in_every_request_and_transport_disclosure(session, tmp_path, fast_clock):
     submission = sample_submission(add_direction(session))
     agent, client, _ = scripted_agent(session, tmp_path, ['prose',
         dict(tool='rollout', args=dict(state='pair-0', edit=submission['edit'])), dict(submit=submission)])
     agent.run()
     assert len(client.requests) == 3
     assert all(request['reasoning'] == {'effort': 'high'} for request in client.requests)
+    assert all(request['text'] == {'format': {'type': 'json_object'}} for request in client.requests)
     rows = [json.loads(line) for line in (tmp_path / 'transport/transport/usage.jsonl').read_text().splitlines()]
     # state_link rows bind cached transport identity; they are not API attempts.
     rows = [row for row in rows if row['status'] != 'state_link']
     assert len([row for row in rows if row['status'] == 'started']) == 3
     assert all(row['sampling']['reasoning'] == {'effort': 'high'} for row in rows)
     assert all(row['baseline_transport']['reasoning'] == {'effort': 'high'} for row in rows)
+    assert all(row['sampling']['text'] == {'format': {'type': 'json_object'}} for row in rows)
+    assert all(row['baseline_transport']['text'] == {'format': {'type': 'json_object'}} for row in rows)
 
 
-def test_reasoning_high_on_output_cap_retry(tmp_path, fast_clock):
+def test_json_mode_is_bound_to_cache_and_durable_counter_identity(tmp_path, fast_clock):
+    client = ScriptedTeacherClient([dict(calls=[dict(tool='action_scores', args={})])])
+    transport = make_transport(load_config('configs/base_e4b.yaml'), 'refused_action', tmp_path, client=client)
+    prompt = empty_prompt()
+    transport(prompt)
+    capped = transport.teacher
+    identity = json.loads(capped.counter_path.read_text())['identity']
+    assert identity['sampling']['text'] == {'format': {'type': 'json_object'}}
+    assert identity['baseline_transport']['text'] == {'format': {'type': 'json_object'}}
+    teacher = capped.teacher
+    visible = dict(observation=canonical_bytes(prompt.to_json()).decode(), admissible_commands=[])
+    json_mode_key = teacher.cache_key([], transport.task, visible)
+    old_sampling = dict(teacher.sampling)
+    old_sampling.pop('text')
+    teacher.sampling = old_sampling
+    assert teacher.cache_key([], transport.task, visible) != json_mode_key
+    # Simulate reopening an older counter, with every other identity field intact.
+    counter = json.loads(capped.counter_path.read_text())
+    counter['identity']['sampling'].pop('text')
+    write_json(capped.counter_path, counter)
+    with pytest.raises(ValueError, match='Collector identity/cap changed'):
+        capped._read_counter()
+
+
+def test_json_mode_and_reasoning_high_on_output_cap_retry(tmp_path, fast_clock):
     class TruncatedThenCompleted(ScriptedTeacherClient):
         def create(self, **kwargs):
             if not self.requests:
@@ -820,21 +939,24 @@ def test_reasoning_high_on_output_cap_retry(tmp_path, fast_clock):
     assert parse_turn(transport(empty_prompt()))[0]['tool'] == 'action_scores'
     assert [request['max_output_tokens'] for request in client.requests] == [16384, 32768]
     assert all(request['reasoning'] == {'effort': 'high'} for request in client.requests)
+    assert all(request['text'] == {'format': {'type': 'json_object'}} for request in client.requests)
     assert transport.budget.summary()['unsettled_attempts'] == 0
 
 
-def test_base_teacher_still_rejects_reasoning_sampling(tmp_path):
+@pytest.mark.parametrize('option', [dict(reasoning={'effort': 'high'}), dict(text={'format': {'type': 'json_object'}})])
+def test_base_teacher_still_rejects_p0_sampling_options(tmp_path, option):
     from teachers.openai_teacher import Teacher
     with pytest.raises(ValueError, match='Unsupported sampling'):
         Teacher(cache_dir=tmp_path / 'cache', usage_ledger=tmp_path / 'usage.jsonl', run_id='base',
-                sampling={'max_output_tokens': 32, 'reasoning': {'effort': 'high'}})
+                sampling={'max_output_tokens': 32, **option})
 
 
-def test_reasoning_parameter_rejection_halts_without_fallback(tmp_path, fast_clock):
+@pytest.mark.parametrize('parameter', ['reasoning', 'text', 'text.format'])
+def test_p0_parameter_rejection_halts_without_fallback(tmp_path, fast_clock, parameter):
     from teachers.openai_teacher import TeacherCallError
     class UnsupportedParameter(Exception):
         status_code = 400
-        body = {'error': {'code': 'unsupported_parameter', 'param': 'reasoning'}}
+        body = {'error': {'code': 'unsupported_parameter', 'param': parameter}}
     class RejectReasoning(ScriptedTeacherClient):
         def create(self, **kwargs):
             self.requests.append(kwargs)
@@ -845,6 +967,7 @@ def test_reasoning_parameter_rejection_halts_without_fallback(tmp_path, fast_clo
     with pytest.raises(TeacherCallError, match='halted'):
         transport(empty_prompt())
     assert client.calls == 1 and client.requests[0]['reasoning'] == {'effort': 'high'}
+    assert client.requests[0]['text'] == {'format': {'type': 'json_object'}}
     assert transport.budget.summary()['stop_reason']
     rows = (tmp_path / 'transport/usage.jsonl').read_text()
     assert 'Raw SDK exception' not in rows
@@ -857,4 +980,4 @@ def test_cli_refuses_existing_diagnosis_directory_before_loading(tmp_path, monke
         pilot.main(['diagnose', '--output', str(tmp_path), '--pairs', 'unused.json',
                     '--category', 'refused_action', '--allow-teacher-api'])
     assert exc.value.code == 2
-    assert 'reports/p0_runs/diagnose_v3/<category>' in capsys.readouterr().err
+    assert 'reports/p0_runs/diagnose_v4/<category>' in capsys.readouterr().err

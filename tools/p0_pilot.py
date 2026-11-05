@@ -171,7 +171,7 @@ def main(argv=None):
     parser.add_argument('--output-token-cap', type=int, default=500_000)
     args = parser.parse_args(argv)
     if args.command == 'diagnose' and args.output.exists():
-        parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v3/<category> directory')
+        parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v4/<category> directory')
     if args.command == 'extract':
         value = extract_pairs(args.round_dir)
         write_json(args.output / 'pairs.json', value, exclusive=True)

@@ -52,8 +52,11 @@ Greedy Thought is cached per state and active edit. current_thought is a labelle
 span that counterfactual_context can rewrite (include Thought: and trailing newline).
 Rollouts and greedy reproduction always generate freely from the state.
 Only real environment success verifies behavior; correlations are hypotheses.
-You may send up to 8 tool calls per reply: {"tool":"name","args":{...}},
-as a JSON array or whitespace-separated objects (concatenated objects also work).
+Every reply must be a single JSON object of exactly one of these two shapes:
+{"calls":[{"tool":"name","args":{...}}, ...]} with 1 to 8 tool calls, or
+{"submit":{...}} alone. Prose belongs nowhere outside these JSON objects.
+Reasoning is private; do not include it in the reply. No markdown or JSON arrays
+at the top level. Never mix calls and submit in one reply.
 Calls execute in order and results come back in order; each call costs a tool slot
 and is checked against the remaining budgets.
 Exhausted rollout/edit/step budgets reject only that call; exhausting tool slots
@@ -83,14 +86,20 @@ Five consecutive empty replies halt the run.
 """
 SUBMIT_ONLY_NOTICE = ('Tool budget exhausted. Only {"submit":...} is accepted; '
                       'the submit gate (a completed rollout of the exact edit) still applies.')
-EXPECTED_TURN = ('1..8 tool-call objects {"tool":...,"args":...} in a JSON array or '
-                 'whitespace-separated/concatenated sequence, or {"submit":...} alone')
+EXPECTED_TURN = ('one JSON object: {"calls":[1..8 objects {"tool":...,"args":{...}}]} '
+                 'or {"submit":{...}} alone; no surrounding prose')
 PROMPT_LAYOUT = ('system: SYSTEM + tool documentation', 'user: canonical JSON {category,pairs}',
                  'user: canonical JSON {transcript}\nBUDGET canonical JSON budget status')
 
 
-def parse_turn(raw):
-    """Validate the entire reply before executing any calls; always return a list."""
+def parse_turn(raw, *, metadata=None):
+    """Return validated calls; optionally record the parse path, even on rejection.
+
+    Extraction skips whole decoded values, never mining their nested arguments.
+    Duplicate keys and nonfinite numbers remain fatal on every path.
+    """
+    metadata = {} if metadata is None else metadata
+    metadata.update(parse_path='extracted', ignored_prose_length=len(raw) if isinstance(raw, str) else 0)
     def unique(items):
         d = {}
         for k, v in items:
@@ -107,36 +116,84 @@ def parse_turn(raw):
         return value
     decoder = json.JSONDecoder(object_pairs_hook=unique, parse_constant=nonfinite,
                                parse_float=finite_float)
+
+    def tool_call(value):
+        return (isinstance(value, dict) and set(value) == {'tool', 'args'}
+                and isinstance(value['tool'], str) and value['tool'] in TOOL_DOCS
+                and isinstance(value['args'], dict))
+
+    def unpack(value):
+        if isinstance(value, dict):
+            if 'submit' in value and ('calls' in value or 'tool' in value):
+                raise ValueError('Submit must be the only object in its reply')
+            if set(value) == {'submit'} and isinstance(value['submit'], dict):
+                return [value]
+            if set(value) == {'calls'} and isinstance(value['calls'], list):
+                if not value['calls']:
+                    raise ValueError('no tool calls found')
+                return unpack(value['calls'])
+            if tool_call(value):
+                return [value]
+        if isinstance(value, list):
+            if any(isinstance(item, dict) and 'submit' in item for item in value):
+                raise ValueError('Submit must be the only object in its reply')
+            if all(tool_call(item) for item in value):
+                return value
+        return None
+
+    def validate(messages):
+        if not messages:
+            raise ValueError('no tool calls found')
+        if any('submit' in message for message in messages) and len(messages) != 1:
+            raise ValueError('Submit must be the only object in its reply')
+        if len(messages) > 8:
+            raise ValueError('At most 8 tool calls per reply')
+        return messages
+
+    if not isinstance(raw, str):
+        raise ValueError('Expected JSON text')
+    values, pos = [], 0
     try:
-        if not isinstance(raw, str):
-            raise ValueError('Expected JSON text')
-        values, pos = [], 0
         while pos < len(raw):
-            # Only JSON whitespace may separate objects; commas/prose/fences fail.
             while pos < len(raw) and raw[pos] in ' \t\r\n':
                 pos += 1
             if pos == len(raw):
                 break
+            metadata.update(parse_path='v3', ignored_prose_length=0)
             value, pos = decoder.raw_decode(raw, pos)
             values.append(value)
-            if len(values) > 8:
-                raise ValueError('At most 8 objects per reply')
-    except (ValueError, TypeError):
-        raise ValueError('Expected 1..8 strict JSON objects or a JSON array of them') from None
-    messages = values[0] if len(values) == 1 and isinstance(values[0], list) else values
-    if not 1 <= len(messages) <= 8:
-        raise ValueError('Expected 1..8 objects per reply')
-    if any(not isinstance(message, dict) for message in messages):
-        raise ValueError('Expected tool-call objects')
-    if any('submit' in message for message in messages) and len(messages) != 1:
-        raise ValueError('Submit must be the only object in its reply')
-    for message in messages:
-        if set(message) == {'submit'} and isinstance(message['submit'], dict):
+    except json.JSONDecodeError:
+        pass  # Prose, fences and other separators require extraction below.
+    else:
+        if len(values) == 1 and isinstance(values[0], dict) and {'calls', 'submit'} & values[0].keys():
+            metadata.update(parse_path='canonical', ignored_prose_length=0)
+            return validate(unpack(values[0]))
+        if values and (len(values) == 1 and isinstance(values[0], list)
+                       or all(isinstance(v, dict) and 'calls' not in v for v in values)):
+            metadata.update(parse_path='v3', ignored_prose_length=0)
+            # Preserve the v3 singleton submit-array form as well.
+            messages = values[0] if len(values) == 1 and isinstance(values[0], list) else values
+            if all(tool_call(message) or isinstance(message, dict) and set(message) == {'submit'}
+                   and isinstance(message['submit'], dict) for message in messages):
+                return validate(messages)
+
+    metadata.update(parse_path='extracted', ignored_prose_length=len(raw))
+    messages, pos = [], 0
+    while pos < len(raw):
+        if raw[pos] not in '{[':
+            pos += 1
             continue
-        if (set(message) != {'tool', 'args'} or not isinstance(message['tool'], str)
-                or message['tool'] not in TOOL_DOCS or not isinstance(message['args'], dict)):
-            raise ValueError('Invalid tool-call protocol')
-    return messages
+        try:
+            value, end = decoder.raw_decode(raw, pos)
+        except json.JSONDecodeError:
+            pos += 1
+            continue
+        batch = unpack(value)
+        if batch is not None:
+            messages.extend(batch)
+            metadata['ignored_prose_length'] -= end - pos
+        pos = end
+    return validate(messages)
 
 
 def reject_placeholders(value):
@@ -184,16 +241,17 @@ class AgentPrompt:
                 dict(role='user', content=history + '\nBUDGET ' + budget)]
 
     def to_json(self):
-        return dict(kind='p0-agent/3', template_sha256=digest([SYSTEM, TOOL_DOCS, PROMPT_LAYOUT]), payload=self.payload)
+        return dict(kind='p0-agent/4', template_sha256=digest([SYSTEM, TOOL_DOCS, PROMPT_LAYOUT]), payload=self.payload)
 
 
 @dataclass(frozen=True)
 class P0TransportPolicy(V0TransportPolicy):
     rate_limit_attempts: int = 2
-    version: str = 'p0-v0-transport-one-429-probe/2'
+    version: str = 'p0-v0-transport-one-429-probe/3'
 
     def disclosure(self):
         return dict(super().disclosure(), reasoning={'effort': 'high'},
+            text={'format': {'type': 'json_object'}},
             **{'429_policy': 'initial attempt plus one rate-limit probe; quota/exhaustion halt; no provider failover'})
 
 
@@ -207,6 +265,7 @@ class P0Teacher(V0TeacherMixin, Teacher):
         # P0-only request option, included in cache/counter identities and usage
         # receipts. The base Teacher sampling whitelist remains unchanged.
         self.sampling['reasoning'] = {'effort': 'high'}
+        self.sampling['text'] = {'format': {'type': 'json_object'}}
 
     def prompt(self, history, task, visible_context):
         value = json.loads(visible_context['observation'])
@@ -248,7 +307,7 @@ class ProviderClient:
             if self.selection_path:
                 write_json(self.selection_path, dict(provider=self.provider, provider_order=['azure', 'openai'],
                     requested_alias='gpt-6-luna', timestamp=utc_now(),
-                    reasoning=kwargs['reasoning'],
+                    reasoning=kwargs['reasoning'], text=kwargs['text'],
                     api_version=os.environ.get('AZURE_OPENAI_API_VERSION') if self.provider == 'azure' else None),
                     exclusive=True)
         return self.client.responses.with_raw_response.create(**kwargs)
@@ -490,15 +549,19 @@ class P0Agent:
             prompt = AgentPrompt(dict(category=self.category, pairs=initial, transcript=self.transcript,
                                       budget=self.budget.status()))
             raw = self.transport(prompt)  # Errors, 429 storms, unknown usage escape loudly.
-            self.ledger.append(dict(event='teacher_turn', turn=turn, request=prompt.to_json(), raw_output=raw))
+            parse_metadata, parse_error = {}, None
+            try:
+                messages = parse_turn(raw, metadata=parse_metadata)
+            except ValueError as exc:
+                parse_error = exc
+            self.ledger.append(dict(event='teacher_turn', turn=turn, request=prompt.to_json(),
+                                    raw_output=raw, **parse_metadata))
             if isinstance(raw, str) and not raw.strip():
                 self.empty_reply(turn)
                 continue
             self.consecutive_empty_replies = 0
-            try:
-                messages = parse_turn(raw)
-            except ValueError as exc:
-                self.protocol_error(exc, turn)
+            if parse_error is not None:
+                self.protocol_error(parse_error, turn)
                 continue
             message = messages[0]
             if 'submit' in message:

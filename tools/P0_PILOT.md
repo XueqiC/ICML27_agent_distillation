@@ -11,7 +11,7 @@ is performed. Existing modules are imported without edits.
 |---|---|
 | `repair/p0_pairs.py` | Read-only R-bucket extraction, first-divergence audit, instance-group split freeze, native prompt spans, S-decision sampling |
 | `repair/p0_introspect.py` | Local merged bf16 student, nine JSON tool endpoints, content caches, reversible weight edits, checked harness rollouts |
-| `repair/p0_agent.py` | Strict teacher protocol, diagnosis capabilities, budgets, existing V0 transport/settlement, submission freeze |
+| `repair/p0_agent.py` | JSON-mode teacher protocol with strict JSON validation and prose extraction, diagnosis capabilities, budgets, existing V0 transport/settlement, submission freeze |
 | `repair/p0_eval.py` | Teacher-free conditions, collateral/K20 evaluation, exact paired statistics, prediction scoring, JSON/Markdown reports |
 | `tools/p0_pilot.py` | `extract`, `smoke`, `diagnose`, `evaluate`; scripted fake Responses client |
 | `tests/p0_fakes.py`, `tests/test_p0_*.py` | CPU/offline native tiny Gemma4, fake env/teacher, real-record extraction tests |
@@ -221,10 +221,10 @@ budgets. Tool caches can restore content-bound directions/states. V0 transport
 retains its own durable request/usage receipts. A crashed agent is not silently
 resumed with a fresh tool budget.
 
-## Teacher-agent protocol v3
+## Teacher-agent protocol v4
 
-Protocol v3 keeps the v3 pair freeze and existing tool, visibility, edit,
-budget limits and evaluation rules. The SYSTEM prompt explicitly asks the teacher
+Protocol v4 keeps the v3 pair freeze and all v3/v3b tool, visibility, edit,
+budget, SUBMIT-ONLY, rollout-gate and evaluation rules. The SYSTEM prompt explicitly asks the teacher
 to explain why theta0 chooses a_f instead of a_r and submit ONE deployable edit
 that improves greedy rollout success from the decision state on UNSEEN test
 pairs of the same category. It states all three controls: unedited theta0,
@@ -239,14 +239,37 @@ testing them causally with `patch`, `counterfactual_context` and `apply_edit`,
 and comparing edited and unedited real rollouts on diagnosis pairs. Large alpha
 and many edited layers are explicitly identified as collateral risks.
 
-Each reply accepts **1–8 tool-call objects**, either a JSON array or a sequence
-of JSON objects separated only by whitespace (including no whitespace).
-`json.JSONDecoder.raw_decode` parses the sequence; duplicate keys and nonfinite
-numbers, including overflowing float literals, are rejected at every depth.
-The entire reply is validated before execution. More than eight objects, a
-`submit` mixed with any other object, prose, unknown tools, and invalid object
-shapes each produce one protocol error with nothing executed from that reply.
-`submit` must be the only object in its reply.
+Every reply must be **one JSON object**, either
+`{"calls":[{"tool":"name","args":{...}}, ...]}` with **1–8 tool calls**, or
+`{"submit":{...}}` alone. SYSTEM forbids surrounding prose and markdown, and
+states that reasoning is private. The explanation belongs in the submission's
+documented fields. The parser tries these paths in order:
+
+1. **canonical**: the single `calls` or `submit` envelope.
+2. **v3**: a single tool-call object, a JSON array of tool-call objects, or
+   whitespace-separated/concatenated objects. Legacy standalone submissions
+   remain supported, including the v3 singleton submit array.
+3. **extracted**: scan left to right; at each `{` or `[` try
+   `json.JSONDecoder.raw_decode`. Retain tool-call objects, tool-call arrays,
+   `calls` envelopes and standalone `submit` objects. Skip other decoded values
+   whole; never rescan their nested arguments as additional calls. Malformed
+   JSON starts are skipped so scanning can continue.
+
+Duplicate keys and nonfinite numbers, including overflowing float literals,
+remain fatal at every depth on every path. Unknown tools and invalid shapes
+are never executed. The entire collected batch is validated before execution;
+more than eight calls or mixing a submission with calls rejects the reply with
+nothing executed. Empty `calls` envelopes and replies with no collected calls
+or submission produce **`no tool calls found`**. A reply containing only prose
+and a trailing `[]` is a protocol error, not an empty reply.
+
+Each `teacher_turn` receipt retains the raw output and adds `parse_path`
+(`canonical`, `v3`, or `extracted`) and `ignored_prose_length`. The latter counts
+characters outside retained JSON spans on extraction, including separators and
+skipped values, without interpreting their meaning; it is zero on the other
+paths. Rejected replies record the attempted path. Empty/whitespace-only
+replies record `extracted` with their character count, while keeping the
+separate empty-reply budget and halt rules below.
 
 Valid tool calls execute in order, each reserving its own tool slot and checking
 the rollout, distinct-edit and real-step budgets before execution. Cached and
@@ -290,7 +313,7 @@ still run; no placeholder substitution is attempted.
 Malformed replies produce a transcript item:
 
 ```json
-{"protocol_error":"short reason","expected":"1..8 tool-call objects {\"tool\":...,\"args\":...} in a JSON array or whitespace-separated/concatenated sequence, or {\"submit\":...} alone"}
+{"protocol_error":"short reason","expected":"one JSON object: {\"calls\":[1..8 objects {\"tool\":...,\"args\":{...}}]} or {\"submit\":{...}} alone; no surrounding prose"}
 ```
 
 In the normal phase, each protocol error consumes one tool-call slot. Up to
@@ -317,7 +340,7 @@ Messages put changing budget status after the reusable prompt prefix:
 
 Transcript entries are append-only: prior entries retain their exact bytes while
 the closing JSON delimiters move and the trailing budget line changes. No budget
-field precedes pairs or transcript. `AgentPrompt.to_json()` uses `p0-agent/3` and
+field precedes pairs or transcript. `AgentPrompt.to_json()` uses `p0-agent/4` and
 hashes SYSTEM, tool docs and the message-layout descriptor. `P0Teacher.prompt`
 checks that envelope before reconstructing the same three messages; old prompt
 envelopes are refused. The scripted fake client reads this same layout.
@@ -335,18 +358,20 @@ five-distinct-spec budget, including rejected submissions.
 Attempting a sixth distinct submission edit returns a `candidate_edits` budget
 rejection and leaves the run available for a previously explored edit.
 
-Every P0 Responses request sets `reasoning={"effort":"high"}`, including
-connection/rate-limit and output-cap retries. The effort is recorded in
-`provider.json`, transport disclosure, and sampling identities/usage receipts.
-This option is added only in `P0Teacher`; the base teacher sampling whitelist
-is unchanged. Provider rejection fails loudly without removing the option or
-falling back. Only sampled text/actions and usage counts are consumed; reasoning
+Every P0 Responses request sets `reasoning={"effort":"high"}` alongside
+`text={"format":{"type":"json_object"}}`, including connection/rate-limit and
+output-cap retries. Both options are recorded in `provider.json`, transport
+disclosure, cache/counter identities and sampling usage receipts. They are added
+only in `P0Teacher`; the base teacher sampling whitelist is unchanged. Provider
+rejection of either option fails loudly without removing it or falling back.
+Only sampled text/actions and usage counts are consumed; reasoning
 token counts are accounting metadata, not access to hidden reasoning.
 
-Live v3 output directories are **`reports/p0_runs/diagnose_v3/<category>`**.
+Live v4 output directories are **`reports/p0_runs/diagnose_v4/<category>`**.
 The CLI refuses an existing diagnosis output directory before loading data or
-models. Preserve the original `reports/p0_runs/diagnose/<category>` and
-`reports/p0_runs/diagnose_v2/<category>` receipts; never reuse them or reset their
+models. Preserve the original `reports/p0_runs/diagnose/<category>`,
+`reports/p0_runs/diagnose_v2/<category>` and `reports/p0_runs/diagnose_v3/<category>`
+receipts; never reuse them or reset their
 budgets. No live run is authorized by this implementation task.
 
 ## Offline and future run commands
@@ -361,7 +386,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
   tests/test_p0_agent.py tests/test_p0_eval.py
 ```
 
-Future smoke command, **on rai GPU 1**. This protocol-v3 task authorizes no GPU,
+Future smoke command, **on rai GPU 1**. This protocol-v4 task authorizes no GPU,
 teacher/API or network execution; the command below was not run:
 
 ```bash
@@ -392,7 +417,7 @@ JSON response is the only teacher output requested. No logprobs or hidden
 teacher internals are requested.
 
 For an independently authorized future run, use
-`--output reports/p0_runs/diagnose_v3/<category>` with `diagnose`; the directory
+`--output reports/p0_runs/diagnose_v4/<category>` with `diagnose`; the directory
 must not already exist. Retain the GPU/runtime flags and frozen v3 pairs above.
 
 `make_transport` injects a lazy provider client beneath the existing
@@ -408,7 +433,7 @@ connection/truncation retries; P0 tightens rate-limit retries to the original
 attempt plus one probe. Quota, another 429, truncation at both output caps,
 unknown transport outcomes and exhausted caps fail loudly; raw SDK exception
 text is never persisted. Completed replies with protocol errors receive the
-v3 feedback described above.
+v4 feedback described above.
 
 Future evaluation requires five `--submission` arguments. The evaluator verifies
 every submission and the shared pair freeze, writes `evaluation_freeze.json`,
@@ -417,7 +442,36 @@ training data. Outputs include `results.jsonl`, all real execution receipts,
 condition/direction freezes, collateral/K20 decisions, per-category and pooled
 McNemar tests, individual prediction results, `report.json`, and `report.md`.
 
-## Validation status for the v3 budget follow-up
+## Validation status for teacher-agent protocol v4
+
+All **356 tests passed**: 262 P0 tests and the requested **94 regressions**, in
+132.75 seconds. JUnit: `/tmp/p0-agent-v4-tests.xml`. The focused agent run also
+passed all 176 tests in 83.82 seconds.
+
+Coverage includes canonical calls/submissions, legacy batches, prose around
+objects/arrays/`calls` envelopes, exact parse-path and ignored-character receipts,
+empty-array errors, strict duplicate/nonfinite rejection and mixed/oversized
+batches with no partial execution. Fake Responses tests check JSON mode and
+high reasoning on normal requests, 429 probes and output-cap retries; provider
+disclosure, cache/counter identity and rejection without fallback are covered.
+Existing v3/v3b budget, SUBMIT-ONLY, placeholder, exact-rollout gate, empty-reply
+and protocol-error-limit tests remain in the suite.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py tests/test_p0_eval.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py --junitxml=/tmp/p0-agent-v4-tests.xml
+```
+
+Only `repair/p0_agent.py`, `tools/p0_pilot.py`, `tools/P0_PILOT.md`,
+`tests/test_p0_agent.py` and `tests/p0_fakes.py` changed. No staging, commits,
+GPU, teacher/API or network calls were performed. Existing v3 receipts were
+read only; parser replay did not execute their calls. These checks establish
+offline protocol behavior, not live provider acceptance or edit efficacy.
+
+## Historical validation status for the v3 budget follow-up
 
 All **307 tests passed**: 213 P0 tests and the requested 94 regressions, in
 115.70 seconds. JUnit: `/tmp/p0-budget-followup-tests.xml`. Coverage includes
