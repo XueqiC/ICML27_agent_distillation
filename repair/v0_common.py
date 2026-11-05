@@ -49,6 +49,32 @@ def check_theta0(k, name, path):
         raise ValueError(f'V0 K{k} requires the configured final seed-0 theta0 training state')
 
 
+def check_probe_adapter(k, name, path):
+    """Isolated probes may also serve a V0 checkpoint trained from this theta0."""
+    try:
+        check_theta0(k, name, path)
+        return
+    except (ValueError, FileNotFoundError):
+        pass
+    from repair.adapter_eval import training_identity
+    path = Path(path).resolve()
+    training, _ = training_identity(dict(path=str(path),
+        adapter_weights_sha256=file_hash(path / 'adapter_model.safetensors'),
+        adapter_config_sha256=file_hash(path / 'adapter_config.json')))
+    if training is None:
+        raise ValueError('V0 isolated probe requires theta0 or a V0 training-run checkpoint')
+    run = read(training['manifest_path'])
+    source = run.get('input_manifest', {})
+    expected = THETA0_CELLS[checked_k(k)]
+    cells = set(THETA0_CELLS.values()).intersection(
+        Path(source.get('theta0', {}).get('adapter_path', '')).parts)
+    if (run['schema'] != 'v0-training-run/1' or name != expected or cells != {expected}
+            or type(source.get('K')) is not int or source['K'] != k
+            or type(run.get('K_trusted_seed_trajectories')) is not int
+            or run['K_trusted_seed_trajectories'] != k):
+        raise ValueError(f'V0 isolated probe K{k} requires a V0 training run from {expected} with K={k}')
+
+
 def read(path):
     return json.loads(Path(path).read_text())
 

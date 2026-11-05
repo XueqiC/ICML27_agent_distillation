@@ -15,7 +15,7 @@ if __package__ in (None, ''):
     sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
 
 from repair.v0_common import (CAPS, DECODINGS, SyntheticManifest, artifacts, bind, completed,
-    check_theta0, finish, phase, read, round_identity, safe_effective, seed_manifest_k, THETA0_CELLS)
+    check_probe_adapter, check_theta0, finish, phase, read, round_identity, safe_effective, seed_manifest_k, THETA0_CELLS)
 from repair.v0_labeling import LabelReuseSource, LabelSetupError, label_tokenizer
 from sed.config import load_config
 from sed.storage import canonical_bytes, digest, file_hash, locked, write_json
@@ -62,7 +62,10 @@ def serving(args, config):
     spec, adapter, inputs = serving_spec(SimpleNamespace(**{**vars(args), 'dry_run': False}), config)
     from students.vllm_student import context_options
     spec.update(context_options(config))  # Server provenance has now been loaded, as in v2_task_eval.
-    check_theta0(args.K, adapter['name'], adapter['path'])
+    if getattr(args, 'command', None) == 'probe' and getattr(args, 'attempt_dir', None):
+        check_probe_adapter(args.K, adapter['name'], adapter['path'])
+    else:
+        check_theta0(args.K, adapter['name'], adapter['path'])
     expected_seeds = getattr(args, 'seed_manifest_sha256', None)
     if expected_seeds and config['lora_equivalence']['identity']['verified_manifest_sha256'] != expected_seeds:
         raise ValueError('V0 serving gate used a different verified seed manifest')

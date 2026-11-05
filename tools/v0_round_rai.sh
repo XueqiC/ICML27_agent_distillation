@@ -40,8 +40,9 @@ source scripts/repair_stage_env.sh
 # Fail before starting the GPU server if the round, seed view or adapter differ.
 CUDA_VISIBLE_DEVICES='' "$ENV_PYTHON" - "$V0_ROUND_OUT" "$VERIFIED" "$MODEL_NAME" "$ADAPTER" <<'PY'
 import sys
+import os
 from pathlib import Path
-from repair.v0_common import SyntheticManifest, check_theta0, read, round_identity, seed_manifest_k
+from repair.v0_common import SyntheticManifest, check_probe_adapter, check_theta0, read, round_identity, seed_manifest_k
 from sed.storage import file_hash
 root, verified, name, adapter = sys.argv[1:]
 k = seed_manifest_k(Path(verified) / 'manifest.json')
@@ -50,7 +51,10 @@ if read(Path(root) / 'round.json') != round_identity(k) or manifest.k != k:
     raise ValueError('V0 round and VERIFIED K differ')
 if manifest.value['source_seed_manifest_sha256'] != file_hash(Path(verified) / 'manifest.json'):
     raise ValueError('V0 VERIFIED differs from the frozen seed manifest')
-check_theta0(k, name, adapter)
+if os.environ['V0_STAGE'] == 'probe' and os.environ.get('V0_ATTEMPT_DIR'):
+    check_probe_adapter(k, name, adapter)
+else:
+    check_theta0(k, name, adapter)
 PY
 repair_work() {
     local extra=(--workers "${WORKERS:-8}")
