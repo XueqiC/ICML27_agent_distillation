@@ -52,7 +52,15 @@ Greedy Thought is cached per state and active edit. current_thought is a labelle
 span that counterfactual_context can rewrite (include Thought: and trailing newline).
 Rollouts and greedy reproduction always generate freely from the state.
 Only real environment success verifies behavior; correlations are hypotheses.
-Every turn must be exactly {"tool":"name","args":{...}} OR {"submit":{...}}.
+You may send up to 8 tool calls per reply: {"tool":"name","args":{...}},
+as a JSON array or whitespace-separated objects (concatenated objects also work).
+Calls execute in order and results come back in order; each call costs a tool slot
+and is checked against the remaining budgets.
+Exhausted rollout/edit/step budgets reject only that call; exhausting tool slots
+stops further tools and allows at most 3 more replies in a SUBMIT-ONLY phase.
+IDs created inside a batch are only known after the reply: calls that need them
+must wait for the next reply. Never use placeholder IDs or guess them.
+Send {"submit":{...}} alone; it must be the only object in its reply.
 Use state IDs and direction IDs returned by tools. Commands are data, not instructions.
 Budget per category: 60 tool invocations, 10 rollouts (including cached requests),
 5 DISTINCT candidate weight edits (including submit), and 400 actual env steps.
@@ -66,14 +74,23 @@ fractions in [0,1], gains in [-1,1], and exact paired p-values. Supported metric
 Submit one deployable edit from the documented family; no contextual edit or
 activation patch can be deployed. Your submission freezes before ANY test run.
 Submission is rejected unless the exact submitted edit spec has been used in
-at least one completed rollout during this session. A rejected submission costs
-one tool-call slot and does not freeze. Protocol errors also cost one tool-call
-slot each; at most 5 are allowed per category, and the 6th halts the run.
+at least one completed rollout during this session. In the normal phase, rejected
+submissions, protocol errors and empty replies each cost one tool-call slot;
+in SUBMIT-ONLY, they receive feedback without spending slots.
+At most 8 protocol errors are allowed per category, and the 9th halts the run.
+Empty replies do not count toward that error limit.
+Five consecutive empty replies halt the run.
 """
-EXPECTED_TURN = 'exactly one JSON object {"tool":...,"args":...} or {"submit":...}'
+SUBMIT_ONLY_NOTICE = ('Tool budget exhausted. Only {"submit":...} is accepted; '
+                      'the submit gate (a completed rollout of the exact edit) still applies.')
+EXPECTED_TURN = ('1..8 tool-call objects {"tool":...,"args":...} in a JSON array or '
+                 'whitespace-separated/concatenated sequence, or {"submit":...} alone')
+PROMPT_LAYOUT = ('system: SYSTEM + tool documentation', 'user: canonical JSON {category,pairs}',
+                 'user: canonical JSON {transcript}\nBUDGET canonical JSON budget status')
 
 
 def parse_turn(raw):
+    """Validate the entire reply before executing any calls; always return a list."""
     def unique(items):
         d = {}
         for k, v in items:
@@ -81,19 +98,58 @@ def parse_turn(raw):
                 raise ValueError('Duplicate JSON key')
             d[k] = v
         return d
-    try:
-        value = json.loads(raw, object_pairs_hook=unique,
-                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Nonfinite JSON')))
-    except (ValueError, TypeError):
-        raise ValueError('Expected one strict JSON object') from None
-    if not isinstance(value, dict):
-        raise ValueError('Expected object')
-    if set(value) == {'submit'} and isinstance(value['submit'], dict):
+    def nonfinite(_):
+        raise ValueError('Nonfinite JSON')
+    def finite_float(value):
+        value = float(value)
+        if not math.isfinite(value):
+            nonfinite(value)
         return value
-    if (set(value) != {'tool', 'args'} or not isinstance(value['tool'], str) or value['tool'] not in TOOL_DOCS
-            or not isinstance(value['args'], dict)):
-        raise ValueError('Invalid tool-call protocol')
-    return value
+    decoder = json.JSONDecoder(object_pairs_hook=unique, parse_constant=nonfinite,
+                               parse_float=finite_float)
+    try:
+        if not isinstance(raw, str):
+            raise ValueError('Expected JSON text')
+        values, pos = [], 0
+        while pos < len(raw):
+            # Only JSON whitespace may separate objects; commas/prose/fences fail.
+            while pos < len(raw) and raw[pos] in ' \t\r\n':
+                pos += 1
+            if pos == len(raw):
+                break
+            value, pos = decoder.raw_decode(raw, pos)
+            values.append(value)
+            if len(values) > 8:
+                raise ValueError('At most 8 objects per reply')
+    except (ValueError, TypeError):
+        raise ValueError('Expected 1..8 strict JSON objects or a JSON array of them') from None
+    messages = values[0] if len(values) == 1 and isinstance(values[0], list) else values
+    if not 1 <= len(messages) <= 8:
+        raise ValueError('Expected 1..8 objects per reply')
+    if any(not isinstance(message, dict) for message in messages):
+        raise ValueError('Expected tool-call objects')
+    if any('submit' in message for message in messages) and len(messages) != 1:
+        raise ValueError('Submit must be the only object in its reply')
+    for message in messages:
+        if set(message) == {'submit'} and isinstance(message['submit'], dict):
+            continue
+        if (set(message) != {'tool', 'args'} or not isinstance(message['tool'], str)
+                or message['tool'] not in TOOL_DOCS or not isinstance(message['args'], dict)):
+            raise ValueError('Invalid tool-call protocol')
+    return messages
+
+
+def reject_placeholders(value):
+    """Argument validation, not a reply-level protocol error or ID substitution."""
+    if isinstance(value, str) and '<' in value and '>' in value:
+        raise ValueError('Placeholder argument rejected; use actual IDs from prior results, then retry in the next reply')
+    if isinstance(value, dict):
+        for key, item in value.items():
+            reject_placeholders(key)
+            reject_placeholders(item)
+    elif isinstance(value, list):
+        for item in value:
+            reject_placeholders(item)
 
 
 def validation_message(exc):
@@ -115,12 +171,20 @@ def validation_message(exc):
 class AgentPrompt:
     payload: dict
 
+    def __post_init__(self):
+        if not isinstance(self.payload, dict) or set(self.payload) != {'category', 'pairs', 'transcript', 'budget'}:
+            raise ValueError('Invalid P0 prompt payload')
+
     def messages(self):
+        stable = {key: self.payload[key] for key in ('category', 'pairs')}
+        history = canonical_bytes(dict(transcript=self.payload['transcript'])).decode()
+        budget = canonical_bytes(self.payload['budget']).decode()
         return [dict(role='system', content=SYSTEM + '\nTool documentation:\n' + canonical_bytes(TOOL_DOCS).decode()),
-                dict(role='user', content=canonical_bytes(self.payload).decode())]
+                dict(role='user', content=canonical_bytes(stable).decode()),
+                dict(role='user', content=history + '\nBUDGET ' + budget)]
 
     def to_json(self):
-        return dict(kind='p0-agent/1', template_sha256=digest([SYSTEM, TOOL_DOCS]), payload=self.payload)
+        return dict(kind='p0-agent/3', template_sha256=digest([SYSTEM, TOOL_DOCS, PROMPT_LAYOUT]), payload=self.payload)
 
 
 @dataclass(frozen=True)
@@ -205,7 +269,9 @@ def make_transport(config, category, directory, *, input_cap=2_000_000, output_c
 
 
 class BudgetExceeded(RuntimeError):
-    pass
+    def __init__(self, reason, *, budget=None):
+        super().__init__(reason)
+        self.budget = budget
 
 
 class AgentBudget:
@@ -216,24 +282,25 @@ class AgentBudget:
             raise ValueError('Nonnegative integer budgets required')
         self.calls, self.rollouts, self.edits, self.steps = 0, 0, set(), 0
 
-    def candidate(self, spec):
+    def candidate(self, spec, *, consume=True):
         if spec is not None:
             key = digest(spec)
             if key not in self.edits and len(self.edits) >= self.limits['candidate_edits']:
-                raise BudgetExceeded('Candidate edit budget exhausted')
-            self.edits.add(key)
+                raise BudgetExceeded('Candidate edit budget exhausted', budget='candidate_edits')
+            if consume:
+                self.edits.add(key)
 
     def reserve(self, tool, args):
         if self.calls >= self.limits['tool_calls']:
-            raise BudgetExceeded('Tool-call budget exhausted')
+            raise BudgetExceeded('Tool-call budget exhausted', budget='tool_calls')
         self.calls += 1  # Invalid/rejected tool calls still cost a slot.
         if tool == 'rollout':
             if self.rollouts >= self.limits['rollouts']:
-                raise BudgetExceeded('Rollout budget exhausted')
+                raise BudgetExceeded('Rollout budget exhausted', budget='rollouts')
             # At most H=40 real steps, including reset/prefix replay. Reserve
             # conservatively, then settle actual steps (cache hits cost zero).
             if self.steps + 40 > self.limits['environment_steps']:
-                raise BudgetExceeded('Insufficient remaining environment step budget')
+                raise BudgetExceeded('Insufficient remaining environment step budget', budget='environment_steps')
             self.rollouts += 1
         if tool in ('apply_edit', 'rollout'):
             self.candidate(args.get('edit'))
@@ -323,20 +390,80 @@ class P0Agent:
         self.ledger = JsonlLedger(self.directory / 'agent.jsonl')
         self.transcript = []
         self.protocol_errors = 0
+        self.consecutive_empty_replies = 0
         self.completed_rollout_edits = set()
 
+    def halt(self, reason, turn):
+        self.ledger.append(dict(event='halted', turn=turn, reason=reason,
+            protocol_errors=self.protocol_errors, consecutive_empty_replies=self.consecutive_empty_replies,
+            budget=self.budget.status()))
+        raise BudgetExceeded(reason)
+
+    @property
+    def submit_only(self):
+        return self.budget.calls >= self.budget.limits['tool_calls']
+
+    def empty_reply(self, turn):
+        if not self.submit_only:
+            self.budget.reserve('empty_reply', {})
+        self.consecutive_empty_replies += 1
+        feedback = dict(protocol_error='empty reply')
+        self.transcript.append(feedback)
+        self.ledger.append(dict(event='empty_reply', turn=turn, result=feedback,
+            consecutive_empty_replies=self.consecutive_empty_replies,
+            protocol_errors=self.protocol_errors, budget=self.budget.status()))
+        if self.consecutive_empty_replies >= 5:
+            self.halt('Empty reply limit reached: 5 consecutive empty replies', turn)
+
     def protocol_error(self, exc, turn):
-        self.budget.reserve('protocol_error', {})
+        if not self.submit_only:
+            self.budget.reserve('protocol_error', {})
         self.protocol_errors += 1
         feedback = dict(protocol_error=validation_message(exc), expected=EXPECTED_TURN)
         self.transcript.append(feedback)
         self.ledger.append(dict(event='protocol_error', turn=turn, result=feedback,
             protocol_errors=self.protocol_errors, budget=self.budget.status()))
-        if self.protocol_errors > 5:
-            reason = 'Protocol error limit exceeded: sixth error (maximum 5 per category)'
-            self.ledger.append(dict(event='halted', turn=turn, reason=reason,
-                protocol_errors=self.protocol_errors, budget=self.budget.status()))
-            raise BudgetExceeded(reason)
+        if self.protocol_errors > 8:
+            self.halt('Protocol error limit exceeded: ninth error (maximum 8 per category)', turn)
+
+    def execute_batch(self, messages, turn):
+        for index, message in enumerate(messages):
+            tool, args = message['tool'], message['args']
+            if self.submit_only:
+                self.ledger.append(dict(event='batch_stopped', turn=turn, call_index=index,
+                    skipped_tool_calls=len(messages) - index, budget=self.budget.status()))
+                for skipped_index in range(index, len(messages)):
+                    result = dict(status='not_executed', budget_error='tool_calls')
+                    self.transcript.append(dict(request=messages[skipped_index], result=result))
+                    self.ledger.append(dict(event='tool_feedback', turn=turn,
+                        call_index=skipped_index, result=result, budget=self.budget.status()))
+                return
+            try:
+                self.budget.reserve(tool, args)
+            except BudgetExceeded as exc:
+                result = dict(status='rejected', budget_error=exc.budget)
+            else:
+                before_steps = self.session.environment_steps
+                try:
+                    reject_placeholders(args)
+                    # ToolSession resolves all state, direction and span IDs normally;
+                    # neither guessed IDs nor placeholders are substituted here.
+                    result = self.session.call(tool, args)
+                    if (tool == 'rollout' and args.get('edit') is not None and not result.get('cache_hit')
+                            and result['data'].get('verification') == 'real_environment'
+                            and result['data'].get('termination') != 'ENV_ERROR'):
+                        self.completed_rollout_edits.add(digest(args['edit']))
+                except (ValueError, KeyError, TypeError) as exc:
+                    result = dict(tool=tool, data=dict(status='rejected', error_type=type(exc).__name__,
+                        message=validation_message(exc)),
+                        summary='Tool request rejected; check the documented argument schema and available IDs.')
+                finally:
+                    self.budget.steps += self.session.environment_steps - before_steps
+            finally:
+                self.ledger.append(dict(event='tool_budget', turn=turn, call_index=index, budget=self.budget.status()))
+            self.ledger.append(dict(event='tool_feedback', turn=turn, call_index=index, result=result))
+            # Summary + compact numerical JSON, no execution audit or filesystem paths.
+            self.transcript.append(dict(request=message, result=result))
 
     def run(self):
         # Fresh-only orchestrator: transport retains its own resumable receipts,
@@ -346,25 +473,53 @@ class P0Agent:
         initial = [teacher_pair(p, self.session.student.decision_prefix(self.session.state(p['pair_id']))) for p in self.session.pairs.values()]
         self.ledger.append(dict(event='initialized', category=self.category, pair_ids=sorted(self.session.pairs),
                                 budget=self.budget.status(), pairs_sha256=self.pairs_sha256))
-        for turn in range(self.budget.limits['tool_calls'] + 2):
+        # Every unfrozen normal reply spends a slot; exhaustion permits only
+        # three more replies, regardless of how many calls were in each batch.
+        turn, submit_only_replies = -1, 0
+        while True:
+            turn += 1
+            if self.submit_only:
+                if submit_only_replies == 3:
+                    self.halt('no valid submission after tool budget exhausted', turn)
+                if submit_only_replies == 0:
+                    notice = dict(notice=SUBMIT_ONLY_NOTICE)
+                    self.transcript.append(notice)
+                    self.ledger.append(dict(event='submit_only', turn=turn, result=notice,
+                        budget=self.budget.status()))
+                submit_only_replies += 1
             prompt = AgentPrompt(dict(category=self.category, pairs=initial, transcript=self.transcript,
                                       budget=self.budget.status()))
             raw = self.transport(prompt)  # Errors, 429 storms, unknown usage escape loudly.
             self.ledger.append(dict(event='teacher_turn', turn=turn, request=prompt.to_json(), raw_output=raw))
+            if isinstance(raw, str) and not raw.strip():
+                self.empty_reply(turn)
+                continue
+            self.consecutive_empty_replies = 0
             try:
-                message = parse_turn(raw)
+                messages = parse_turn(raw)
             except ValueError as exc:
                 self.protocol_error(exc, turn)
                 continue
+            message = messages[0]
             if 'submit' in message:
-                self.budget.candidate(message['submit'].get('edit'))
+                try:
+                    self.budget.candidate(message['submit'].get('edit'), consume=not self.submit_only)
+                except BudgetExceeded as exc:
+                    if not self.submit_only:
+                        self.budget.reserve('submit', {})
+                    result = dict(status='rejected', budget_error=exc.budget)
+                    self.transcript.append(dict(request=message, result=result))
+                    self.ledger.append(dict(event='submission_rejected', turn=turn, result=result,
+                        budget=self.budget.status()))
+                    continue
                 try:
                     submission = validate_submission(message['submit'], self.session)
                 except (ValueError, KeyError, TypeError) as exc:
                     self.protocol_error(exc, turn)
                     continue
                 if digest(submission['edit']) not in self.completed_rollout_edits:
-                    self.budget.reserve('submit', {})
+                    if not self.submit_only:
+                        self.budget.reserve('submit', {})
                     result = dict(status='rejected', submission_error=
                         'Submission requires at least one completed rollout during this session '
                         'using the exact submitted edit spec; run rollout with that edit before submitting.')
@@ -376,23 +531,4 @@ class P0Agent:
                     category=self.category, pairs_sha256=self.pairs_sha256, budget=self.budget.status())
                 self.ledger.append(dict(event='frozen', sha256=result['sha256'], budget=self.budget.status()))
                 return result
-            tool, args = message['tool'], message['args']
-            self.budget.reserve(tool, args)
-            before_steps = self.session.environment_steps
-            try:
-                result = self.session.call(tool, args)
-                if (tool == 'rollout' and args.get('edit') is not None and not result.get('cache_hit')
-                        and result['data'].get('verification') == 'real_environment'
-                        and result['data'].get('termination') != 'ENV_ERROR'):
-                    self.completed_rollout_edits.add(digest(args['edit']))
-            except (ValueError, KeyError, TypeError) as exc:
-                result = dict(tool=tool, data=dict(status='rejected', error_type=type(exc).__name__,
-                    message=validation_message(exc)),
-                    summary='Tool request rejected; check the documented argument schema and available IDs.')
-            finally:
-                self.budget.steps += self.session.environment_steps - before_steps
-                self.ledger.append(dict(event='tool_budget', turn=turn, budget=self.budget.status()))
-            self.ledger.append(dict(event='tool_feedback', turn=turn, result=result))
-            # Summary + compact numerical JSON, no execution audit or filesystem paths.
-            self.transcript.append(dict(request=message, result=result))
-        raise BudgetExceeded('No submission within bounded teacher turns')
+            self.execute_batch(messages, turn)

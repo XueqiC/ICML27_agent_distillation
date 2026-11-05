@@ -49,6 +49,9 @@ class ScriptedTeacherClient:
     def create(self, **kwargs):
         self.requests.append(kwargs)
         payload = json.loads(kwargs['input'][1]['content'])
+        history, budget = kwargs['input'][2]['content'].rsplit('\nBUDGET ', 1)
+        payload.update(json.loads(history))
+        payload['budget'] = json.loads(budget)
         turn = self.script[self.calls]
         if callable(turn):
             turn = turn(payload)
@@ -125,7 +128,7 @@ def run_smoke(args, pairs, student=None):
     for index in range(len(script)):
         raw = transport(AgentPrompt(dict(category='scripted_smoke', pairs=prompt_pairs,
             transcript=transcript, budget=budget.status())))
-        turn = parse_turn(raw)
+        turn, = parse_turn(raw)  # The smoke script deliberately uses singleton replies.
         budget.reserve(turn['tool'], turn['args'])
         started = time.perf_counter()
         before_steps = session.environment_steps
@@ -168,7 +171,7 @@ def main(argv=None):
     parser.add_argument('--output-token-cap', type=int, default=500_000)
     args = parser.parse_args(argv)
     if args.command == 'diagnose' and args.output.exists():
-        parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v2/<category> directory')
+        parser.error('diagnose output directory already exists; use a fresh reports/p0_runs/diagnose_v3/<category> directory')
     if args.command == 'extract':
         value = extract_pairs(args.round_dir)
         write_json(args.output / 'pairs.json', value, exclusive=True)

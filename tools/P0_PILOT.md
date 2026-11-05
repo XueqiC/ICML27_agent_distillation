@@ -221,10 +221,10 @@ budgets. Tool caches can restore content-bound directions/states. V0 transport
 retains its own durable request/usage receipts. A crashed agent is not silently
 resumed with a fresh tool budget.
 
-## Teacher-agent protocol v2
+## Teacher-agent protocol v3
 
-Protocol v2 keeps the v3 pair freeze and all existing tool, visibility, edit,
-budget and evaluation rules. The SYSTEM prompt now explicitly asks the teacher
+Protocol v3 keeps the v3 pair freeze and existing tool, visibility, edit,
+budget limits and evaluation rules. The SYSTEM prompt explicitly asks the teacher
 to explain why theta0 chooses a_f instead of a_r and submit ONE deployable edit
 that improves greedy rollout success from the decision state on UNSEEN test
 pairs of the same category. It states all three controls: unedited theta0,
@@ -239,30 +239,101 @@ testing them causally with `patch`, `counterfactual_context` and `apply_edit`,
 and comparing edited and unedited real rollouts on diagnosis pairs. Large alpha
 and many edited layers are explicitly identified as collateral risks.
 
-Malformed replies (including prose, concatenated JSON objects, unknown tools
-and invalid shapes) produce a transcript item:
+Each reply accepts **1–8 tool-call objects**, either a JSON array or a sequence
+of JSON objects separated only by whitespace (including no whitespace).
+`json.JSONDecoder.raw_decode` parses the sequence; duplicate keys and nonfinite
+numbers, including overflowing float literals, are rejected at every depth.
+The entire reply is validated before execution. More than eight objects, a
+`submit` mixed with any other object, prose, unknown tools, and invalid object
+shapes each produce one protocol error with nothing executed from that reply.
+`submit` must be the only object in its reply.
+
+Valid tool calls execute in order, each reserving its own tool slot and checking
+the rollout, distinct-edit and real-step budgets before execution. Cached and
+rejected calls still consume their normal slots. Exhausting `rollouts`,
+`candidate_edits`, or `environment_steps` rejects only that call with
+`{"status":"rejected","budget_error":"<budget name>"}`; later calls in the batch
+continue. The conservative H=40 real-step reservation remains in force. Results
+append to the transcript in execution order, including each rejection.
+
+Once all 60 tool slots are spent, further calls in that batch are skipped. Each
+gets `{"status":"not_executed","budget_error":"tool_calls"}` feedback without
+spending resources; a `batch_stopped` receipt records the number skipped. On the
+next reply the teacher enters **SUBMIT-ONLY**, with at most **three further
+replies**. This also applies when a rejected call, rejected submission, protocol
+error or empty reply spends the last slot. A `submit_only` receipt and this
+append-only transcript item announce the transition:
 
 ```json
-{"protocol_error":"short reason","expected":"exactly one JSON object {\"tool\":...,\"args\":...} or {\"submit\":...}"}
+{"notice":"Tool budget exhausted. Only {\"submit\":...} is accepted; the submit gate (a completed rollout of the exact edit) still applies."}
 ```
 
-Each error consumes one tool-call slot. Up to five errors per category are
-recoverable; the sixth consumes a slot, records a `halted` event with its reason,
-and stops. Raw sampled replies remain in the agent and transport ledgers.
+In SUBMIT-ONLY, tool calls receive per-call skipped feedback and never execute;
+protocol errors and empty replies receive their usual feedback. None spends
+tool slots, rollout slots or real steps. No new candidate edits are charged in
+this phase; the candidate ceiling is still checked on submissions. A valid
+standalone submission freezes only if its exact edit has a completed rollout in
+this session. Gated or invalid submissions receive the usual rejection feedback
+without spending tool slots.
+After three replies without a frozen submission, the run records `halted` with
+reason `no valid submission after tool budget exhausted`. Earlier results stay
+recorded. The ninth-protocol-error and five-consecutive-empty limits below still
+apply, including across the phase transition.
+
+IDs created by a batch become known to the teacher only when its results return;
+dependent calls must wait for the next reply. Strings containing both `<` and
+`>` anywhere in arguments are rejected as placeholders, including nested values.
+Unknown state, direction and span IDs go through normal tool validation. These
+are per-call rejections with a validation message, so later calls in the batch
+still run; no placeholder substitution is attempted.
+
+Malformed replies produce a transcript item:
+
+```json
+{"protocol_error":"short reason","expected":"1..8 tool-call objects {\"tool\":...,\"args\":...} in a JSON array or whitespace-separated/concatenated sequence, or {\"submit\":...} alone"}
+```
+
+In the normal phase, each protocol error consumes one tool-call slot. Up to
+**eight** errors per category are recoverable; the ninth records a `halted` event
+with its reason and stops. Empty or whitespace-only completed replies instead
+append `{"protocol_error":"empty reply"}` and consume one tool slot without
+incrementing the protocol-error counter (no slot is spent in SUBMIT-ONLY).
+**Five consecutive empty replies** halt with a recorded reason.
+Every nonempty reply resets that streak, even if malformed;
+the category's protocol-error count remains cumulative. Empty-reply receipts use
+the separate `empty_reply` event. Truncated replies still follow V0 transport's
+output-cap retry rules. Raw sampled replies remain in the agent and transport ledgers.
 Tool argument validation failures return the exception type and local validation
 message, sanitized before truncation to 300 characters; absolute filesystem
 paths become `<path>`. SDK exceptions and tracebacks are never used as feedback.
 
-A submission is rejected, costs one tool-call slot, and remains unfrozen until
-the **exact edit spec** has been used in a completed rollout in the current
-agent session. Changing direction ID, layers, targets or alpha requires another
-rollout. An unedited rollout, rejected rollout, or cached result originating
+Messages put changing budget status after the reusable prompt prefix:
+
+1. System: `SYSTEM` followed by the canonical tool documentation.
+2. First user message: canonical JSON of `{category, pairs}`, byte-identical
+   across turns in one category session.
+3. Second user message: canonical JSON of `{transcript}`, then a newline and
+   `BUDGET ` followed by canonical JSON of the current budget status.
+
+Transcript entries are append-only: prior entries retain their exact bytes while
+the closing JSON delimiters move and the trailing budget line changes. No budget
+field precedes pairs or transcript. `AgentPrompt.to_json()` uses `p0-agent/3` and
+hashes SYSTEM, tool docs and the message-layout descriptor. `P0Teacher.prompt`
+checks that envelope before reconstructing the same three messages; old prompt
+envelopes are refused. The scripted fake client reads this same layout.
+
+A submission is rejected, costs one tool-call slot in the normal phase, and
+remains unfrozen until the **exact edit spec** has been used in a completed
+rollout in the current agent session. Changing direction ID, layers, targets or
+alpha requires another rollout. An unedited rollout, rejected rollout, or cached result originating
 before this agent session does not satisfy the gate. A completed negative or
 unknown-success rollout is evidence of execution and does satisfy it; success
 is not required by this gate. The prompt asks for both edited and unedited
 comparisons; the enforced minimum is one rollout of the submitted edit.
-Candidate-edit accounting is unchanged: submissions, `apply_edit` and `rollout`
-share the same five-distinct-spec budget, including rejected submissions.
+In the normal phase, submissions, `apply_edit` and `rollout` share the same
+five-distinct-spec budget, including rejected submissions.
+Attempting a sixth distinct submission edit returns a `candidate_edits` budget
+rejection and leaves the run available for a previously explored edit.
 
 Every P0 Responses request sets `reasoning={"effort":"high"}`, including
 connection/rate-limit and output-cap retries. The effort is recorded in
@@ -272,11 +343,11 @@ is unchanged. Provider rejection fails loudly without removing the option or
 falling back. Only sampled text/actions and usage counts are consumed; reasoning
 token counts are accounting metadata, not access to hidden reasoning.
 
-Live v2 output directories are **`reports/p0_runs/diagnose_v2/<category>`**.
+Live v3 output directories are **`reports/p0_runs/diagnose_v3/<category>`**.
 The CLI refuses an existing diagnosis output directory before loading data or
-models. Preserve the original `reports/p0_runs/diagnose/<category>` receipts;
-never reuse them or reset their budgets. No live run is authorized by this
-implementation task.
+models. Preserve the original `reports/p0_runs/diagnose/<category>` and
+`reports/p0_runs/diagnose_v2/<category>` receipts; never reuse them or reset their
+budgets. No live run is authorized by this implementation task.
 
 ## Offline and future run commands
 
@@ -290,7 +361,7 @@ CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
   tests/test_p0_agent.py tests/test_p0_eval.py
 ```
 
-Future smoke command, **on rai GPU 1**. This protocol-v2 task authorizes no GPU,
+Future smoke command, **on rai GPU 1**. This protocol-v3 task authorizes no GPU,
 teacher/API or network execution; the command below was not run:
 
 ```bash
@@ -321,7 +392,7 @@ JSON response is the only teacher output requested. No logprobs or hidden
 teacher internals are requested.
 
 For an independently authorized future run, use
-`--output reports/p0_runs/diagnose_v2/<category>` with `diagnose`; the directory
+`--output reports/p0_runs/diagnose_v3/<category>` with `diagnose`; the directory
 must not already exist. Retain the GPU/runtime flags and frozen v3 pairs above.
 
 `make_transport` injects a lazy provider client beneath the existing
@@ -337,7 +408,7 @@ connection/truncation retries; P0 tightens rate-limit retries to the original
 attempt plus one probe. Quota, another 429, truncation at both output caps,
 unknown transport outcomes and exhausted caps fail loudly; raw SDK exception
 text is never persisted. Completed replies with protocol errors receive the
-v2 feedback described above.
+v3 feedback described above.
 
 Future evaluation requires five `--submission` arguments. The evaluator verifies
 every submission and the shared pair freeze, writes `evaluation_freeze.json`,
@@ -346,7 +417,62 @@ training data. Outputs include `results.jsonl`, all real execution receipts,
 condition/direction freezes, collateral/K20 decisions, per-category and pooled
 McNemar tests, individual prediction results, `report.json`, and `report.md`.
 
-## Validation status for teacher-agent protocol v2
+## Validation status for the v3 budget follow-up
+
+All **307 tests passed**: 213 P0 tests and the requested 94 regressions, in
+115.70 seconds. JUnit: `/tmp/p0-budget-followup-tests.xml`. Coverage includes
+the eleventh rollout, sixth distinct edit (via `apply_edit`, `rollout` or
+submission), 400 actually executed fake-environment steps, continuation after
+resource rejection, and feedback for every call skipped at the tool ceiling.
+Each way of spending the sixtieth slot enters SUBMIT-ONLY; a valid submission
+can freeze on its first or third reply, while three unsuccessful replies halt.
+Tools, malformed/empty replies and invalid/gated submissions spend no further
+agent budgets in that phase. Exact-edit gating, ninth-error and five-empty
+limits remain enforced, including across the phase transition.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py tests/test_p0_eval.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py --junitxml=/tmp/p0-budget-followup-tests.xml
+```
+
+This follow-up changes only `repair/p0_agent.py`, `tools/P0_PILOT.md` and
+`tests/test_p0_agent.py`, preserving the existing uncommitted v3 changes.
+No staging, commits, GPU, teacher/API or network calls were performed. The
+existing offline fixture blocks network and live OpenAI transport; tests use
+fake clients and environments. Historical validation artifacts remain untouched.
+
+## Historical validation status for teacher-agent protocol v3
+
+All **284 tests passed**: 190 P0 tests and the requested 94 regressions, in
+89.10 seconds. JUnit: `/tmp/p0-agent-v3-tests.xml`. Fake Responses tests cover
+concatenated, newline/whitespace-separated and array batches; the eight-call
+boundary; per-call tool/rollout/edit/environment budgets and stopped batches;
+nine-object and mixed-submit atomic rejection; duplicate/nonfinite rejection;
+placeholder and unknown-ID rejection with later calls continuing; empty reply
+accounting, streak resets and five-empty halt; eight-error recovery and ninth-error
+halt; and stable message bytes, trailing budget and versioned envelope checks.
+Existing rollout gating, visibility, transport and evaluation checks also pass.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py tests/test_p0_eval.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py --junitxml=/tmp/p0-agent-v3-tests.xml
+```
+
+Changes are confined to `repair/p0_agent.py`, `tools/p0_pilot.py`,
+`tools/P0_PILOT.md` and `tests/test_p0_agent.py`. No staging, commits, GPU,
+teacher/API or network calls were performed. The existing autouse fixture blocks
+network and live OpenAI transport and clears CUDA visibility. Live v2 receipts
+and historical validation artifacts remain untouched. These checks establish
+offline protocol behavior; live prompt-cache gains and edit efficacy remain
+unmeasured.
+
+## Historical validation status for teacher-agent protocol v2
 
 All **237 tests passed**: 143 P0 tests and the requested 94 regressions, in
 63.72 seconds. JUnit: `/tmp/p0-agent-v2-tests.xml`. The fake Responses transport
