@@ -175,12 +175,16 @@ def main(argv=None):
     parser.add_argument('--allow-teacher-api', action='store_true', help='Explicit future-run gate; never needed for smoke')
     parser.add_argument('--input-token-cap', type=int, default=2_000_000)
     parser.add_argument('--output-token-cap', type=int, default=500_000)
+    parser.add_argument('--full-plan', action='store_true',
+                        help='evaluate only: measure collateral/K20 for every condition and category (default: preregistered minimum)')
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument('--shard', help='evaluate only: zero-based i/n stable-hash shard (0 <= i < n)')
     execution.add_argument('--merge', action='store_true', help='evaluate only: verify and merge shards on CPU')
     args = parser.parse_args(argv)
     if (args.shard is not None or args.merge) and args.command != 'evaluate':
         parser.error('--shard/--merge require evaluate')
+    if args.full_plan and args.command != 'evaluate':
+        parser.error('--full-plan requires evaluate')
     if args.shard is not None:
         from repair.p0_eval import parse_shard
         try:
@@ -242,12 +246,12 @@ def main(argv=None):
     for p in args.submission:
         load_submission(p, pairs_sha256=pairs['sha256'])
     if args.merge:
-        report = merge_evaluation(pairs, args.submission, args.output)
+        report = merge_evaluation(pairs, args.submission, args.output, full_plan=args.full_plan)
     else:
         student = model_runtime(args, pairs)
-        report = evaluate(student, pairs, args.submission, args.output, shard=args.shard)
+        report = evaluate(student, pairs, args.submission, args.output, shard=args.shard, full_plan=args.full_plan)
     print(json.dumps(report if args.shard is not None else
-                     dict(report=str(args.output / 'report.json'), complete=report['complete'])))
+                     dict(plan=report['plan'], report=str(args.output / 'report.json'), complete=report['complete'])))
 
 
 if __name__ == '__main__':

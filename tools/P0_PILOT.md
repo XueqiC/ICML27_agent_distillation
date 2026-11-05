@@ -205,9 +205,10 @@ the earlier P0 implementation. The underlying harness and split rule are unchang
   an ambiguity in the draft. Per-category p-values are unadjusted/descriptive.
 * S sampling is 200 individual non-prefix student decisions from successful
   attempts, sorted by attempt ID/step and sampled without replacement at seed
-  zero. Every category-specific edit is evaluated on that same draw and on the
-  original K20. Pooled collateral gate requires every category's teacher edit
-  to be at most 5%; every category's K20 rate must not decline. There is no
+  zero. Every category's teacher edit is evaluated on that same draw and on the
+  original K20, compared with one shared unedited run of each. Pooled collateral
+  gate requires every category's teacher edit to be at most 5%; every category's
+  K20 rate must not decline. There is no
   invented deploy-time classifier that knows a new failure's category.
 * Multiple pairs from one instance violate a naive independent-task interpretation
   of paired tests even with instance-disjoint splits. Reports expose counts and use the field
@@ -442,6 +443,44 @@ training data. Outputs include `results.jsonl`, all real execution receipts,
 condition/direction freezes, collateral/K20 decisions, per-category and pooled
 McNemar tests, individual prediction results, `report.json`, and `report.md`.
 
+The default evaluation plan is `prereg_minimal`, following preregistration §5:
+
+| Work | Conditions | Units for the frozen 90 test pairs |
+|---|---|---:|
+| Test pairs of each category | none, teacher, random_0–4, fixed | 90 × 8 = 720 |
+| S decisions, shared baseline | none, once across categories | 200 |
+| S decisions, each category's edit | teacher only | 200 × 5 = 1,000 |
+| K20 tasks, shared baseline | none, once across categories | 20 |
+| K20 tasks, each category's edit | teacher only | 20 × 5 = 100 |
+| Total | | **2,040** |
+
+For other pair counts, the default has `8 * test_pairs + 6 * (200 + 20)`
+units. At the supplied measured throughput of about 1.5 units/minute on one
+GPU, 2,040 units extrapolate to about 22.7 GPU-hours; actual runtime depends on
+the mix of decisions and rollouts. This is a planning estimate, not a new run.
+
+The original **9,520-unit** plan remains available only with `--full-plan` on
+`evaluate`. It measures all eight conditions on collateral/K20 for every
+category, including separate category-specific none runs. Pass the same flag
+on every shard and on `--merge` for a full-plan run. The selected `plan`
+(`prereg_minimal` or `full`) is recorded in `work_plan.json`,
+`evaluation_freeze.json` and its hashed identity, JSON/Markdown reports, and
+CLI summaries. Mixed plans fail validation. Use a fresh output directory;
+existing freezes and results are never rewritten or converted.
+
+Minimal-plan collateral/K20 none units have no `category` field and run once.
+Each edited collateral unit performs only its edited greedy forward; merge
+computes changes against the explicit none result, even when another shard
+owns that baseline. Every category reuses the same 200 baseline decisions and
+20 baseline task results. The repeated none entries in category reports refer
+to this shared work; do not sum their execution counts across categories.
+`side_measurements` records the measured conditions for collateral and K20
+and whether none is shared. Only teacher edits have those measurements under
+the default plan; random/fixed controls remain measured on every test pair.
+Their collateral/K20 entries are absent from JSON and shown as **not measured**
+in Markdown. Missing outcomes from scheduled work remain unknown and prevent
+a complete evaluation; intentionally unscheduled controls do not.
+
 The CLI now accepts exactly one physical GPU index `0`–`7` in
 `CUDA_VISIBLE_DEVICES`; `CUDA_DEVICE_ORDER=PCI_BUS_ID`,
 `TORCH_COMPILE_DISABLE=1`, and `TORCHDYNAMO_DISABLE=1` remain required.
@@ -451,9 +490,9 @@ diagnosis and evaluation while the checkpoint identity must match.
 
 For parallel evaluation, pass `--shard i/n` with **zero-based** indices
 `0 <= i < n`, the same pairs, all five submissions, and the same output directory
-to each process. SHA-256 of the category, condition, unit kind and pair/decision/
-task ID assigns every work unit to one shard. Shared input and direction freezes
-are checked under a lock; each shard exclusively owns
+to each process. SHA-256 of the condition, unit kind, pair/decision/task ID and
+category (when present) assigns every work unit to one shard. Shared input and
+direction freezes are checked under a lock; each shard exclusively owns
 `shards/IIII-of-NNNN/`, including execution receipts and `result.json`.
 Existing shard directories cannot be reused. K20 task executions and collateral
 decisions use the same unit protocol in sharded and unsharded runs; K20 execution
@@ -468,7 +507,46 @@ unsharded command executes all units and invokes this same aggregation path.
 Reports list all execution GPU identities; statistical denominators, unknown
 outcomes, paired tests, and preregistered criteria are unchanged.
 
-## Validation status for teacher-agent protocol v4
+## Validation status for the preregistered minimum plan
+
+All **405 tests passed**: **311 P0 tests** across all five modules and the same
+**94 regressions** documented below. Two batches avoided repeating tests:
+evaluation/CLI passed 65 tests in 141.20 seconds; the remaining P0 modules and
+regressions passed 340 tests in 106.35 seconds. JUnit receipts:
+`/tmp/p0-prereg-minimal-focused.xml` and
+`/tmp/p0-prereg-minimal-regressions.xml`.
+
+New checks cover the frozen dimensions (2,040 default units, 9,520 full-plan
+units, identical 720 pair units), exactly one shared none execution per side
+item, no implicit collateral baseline forwards, reused category comparisons,
+unchanged paired statistics, unknown baseline outcomes, plan metadata and
+measured-condition disclosure. Both plans have sharded/unsharded report parity;
+missing shared baselines, duplicate units and mixed plans are rejected. CLI
+tests cover default/explicit selection, shard forwarding and CPU-only merge.
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_p0_eval.py tests/test_p0_cli.py \
+  --junitxml=/tmp/p0-prereg-minimal-focused.xml
+
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. \
+  /home/xueqi/hq/projects/tc-alignment-taskeq/.venv/bin/python -m pytest -q -p no:cacheprovider \
+  tests/test_p0_pairs.py tests/test_p0_introspect.py tests/test_p0_agent.py \
+  tests/test_repair_patch_align.py tests/test_repair_execute.py tests/test_repair_determinism.py \
+  tests/test_v0_transport.py tests/test_v0_truncation.py \
+  --junitxml=/tmp/p0-prereg-minimal-regressions.xml
+```
+
+Only `repair/p0_eval.py`, `tools/p0_pilot.py`, `tests/test_p0_eval.py`,
+`tests/test_p0_cli.py` and this document were edited for this change. The
+concurrent v0 work was left untouched. No staging, commits, GPU, teacher/API
+or network calls were performed. These tests validate offline behavior;
+no live evaluation or new efficacy result is claimed.
+
+## Historical validation status for teacher-agent protocol v4
 
 All **356 tests passed**: 262 P0 tests and the requested **94 regressions**, in
 132.75 seconds. JUnit: `/tmp/p0-agent-v4-tests.xml`. The focused agent run also

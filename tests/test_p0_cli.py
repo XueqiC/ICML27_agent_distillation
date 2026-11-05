@@ -52,13 +52,43 @@ def test_other_gpu_guards_remain_required(monkeypatch, flag):
         p0_pilot.model_runtime(None, None)
 
 
-def test_evaluate_merge_does_not_load_model(tmp_path, monkeypatch):
+@pytest.mark.parametrize('full_plan', [False, True])
+def test_evaluate_merge_does_not_load_model(tmp_path, monkeypatch, full_plan):
     from repair import p0_eval, p0_agent
     calls = []
     monkeypatch.setattr(p0_pilot, 'load_pairs', lambda path: {'sha256': 'fake'})
     monkeypatch.setattr(p0_agent, 'load_submission', lambda *a, **kw: None)
     monkeypatch.setattr(p0_pilot, 'model_runtime', lambda *a: pytest.fail('model loaded during merge'))
-    monkeypatch.setattr(p0_eval, 'merge_evaluation', lambda *a: calls.append(a) or {'complete': True})
+    monkeypatch.setattr(p0_eval, 'merge_evaluation', lambda *a, **kw: calls.append(kw) or
+                        {'complete': True, 'plan': 'full' if full_plan else 'prereg_minimal'})
     p0_pilot.main(['evaluate', '--pairs', 'fake', '--output', str(tmp_path), '--merge',
+                   *(['--full-plan'] if full_plan else []),
                    *sum((['--submission', f's{i}'] for i in range(5)), [])])
-    assert len(calls) == 1
+    assert calls == [dict(full_plan=full_plan)]
+
+
+@pytest.mark.parametrize('full_plan', [False, True])
+@pytest.mark.parametrize('shard', [None, '1/3'])
+def test_evaluate_forwards_explicit_plan_and_shard(tmp_path, monkeypatch, capsys, full_plan, shard):
+    from repair import p0_eval, p0_agent
+    calls = []
+    monkeypatch.setattr(p0_pilot, 'load_pairs', lambda path: {'sha256': 'fake'})
+    monkeypatch.setattr(p0_agent, 'load_submission', lambda *a, **kw: None)
+    monkeypatch.setattr(p0_pilot, 'model_runtime', lambda *a: SimpleNamespace(identity={'fake': True}))
+    monkeypatch.setattr(p0_eval, 'evaluate', lambda *a, **kw: calls.append(kw) or
+                        {'complete': True, 'plan': 'full' if full_plan else 'prereg_minimal'})
+    p0_pilot.main(['evaluate', '--pairs', 'fake', '--output', str(tmp_path),
+                   *(['--full-plan'] if full_plan else []), *(['--shard', shard] if shard else []),
+                   *sum((['--submission', f's{i}'] for i in range(5)), [])])
+    assert calls == [dict(full_plan=full_plan, shard=(1, 3) if shard else None)]
+    assert ('"plan": "full"' if full_plan else '"plan": "prereg_minimal"') in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('command', ['extract', 'smoke', 'diagnose'])
+def test_full_plan_requires_evaluate_before_loading_inputs(tmp_path, monkeypatch, capsys, command):
+    monkeypatch.setattr(p0_pilot, 'load_pairs', lambda *a: pytest.fail('loaded pairs'))
+    monkeypatch.setattr(p0_pilot, 'model_runtime', lambda *a: pytest.fail('loaded model'))
+    with pytest.raises(SystemExit) as exc:
+        p0_pilot.main([command, '--output', str(tmp_path), '--full-plan'])
+    assert exc.value.code == 2
+    assert '--full-plan requires evaluate' in capsys.readouterr().err

@@ -111,7 +111,7 @@ def model_identity(identity):
     return {k: v for k, v in identity.items() if k != 'runtime_device'}
 
 
-def evaluation_identity(pairs, submission_paths, student_identity):
+def evaluation_identity(pairs, submission_paths, student_identity, *, full_plan=False):
     submissions = [load_submission(p, pairs_sha256=pairs['sha256']) for p in submission_paths]
     if len(submissions) != 5 or {s['category'] for s in submissions} != set(CATEGORIES):
         raise ValueError('All five category submissions must freeze before evaluation')
@@ -120,21 +120,23 @@ def evaluation_identity(pairs, submission_paths, student_identity):
                           if p['split'] == 'diagnosis' and p['category'] == s['category'])
         if s['diagnosis_pair_ids'] != expected or model_identity(s['student_identity']) != model_identity(student_identity):
             raise ValueError('Submission diagnosis set/student differs')
-    identity = dict(pairs_sha256=pairs['sha256'], submissions={s['category']: s['sha256'] for s in submissions},
+    identity = dict(plan='full' if full_plan else 'prereg_minimal',
+                    pairs_sha256=pairs['sha256'], submissions={s['category']: s['sha256'] for s in submissions},
                     student=model_identity(student_identity), statistical_plan=STATISTICAL_PLAN)
     return {s['category']: s for s in submissions}, identity
 
 
-def evaluation_barrier(directory, pairs, submission_paths, student_identity, *, shared=False):
+def evaluation_barrier(directory, pairs, submission_paths, student_identity, *, shared=False, full_plan=False):
     """Validate all FIVE freezes, then publish plan before any model test call."""
     directory = Path(directory)
-    submissions, identity = evaluation_identity(pairs, submission_paths, student_identity)
-    value = dict(identity=identity, sha256=digest(identity), provenance=provenance(identity))
+    submissions, identity = evaluation_identity(pairs, submission_paths, student_identity, full_plan=full_plan)
+    value = dict(plan=identity['plan'], identity=identity, sha256=digest(identity), provenance=provenance(identity))
     with locked(directory / 'evaluation.lock'):
         path = directory / 'evaluation_freeze.json'
         if shared and path.exists():
             existing = read(path)
-            if (existing['identity'] != identity or existing['sha256'] != value['sha256'] or
+            if (existing.get('plan') != value['plan'] or existing['identity'] != identity or
+                    existing['sha256'] != value['sha256'] or
                     any(existing['provenance'][k] != value['provenance'][k]
                         for k in ('code_sha256', 'dependencies'))):
                 raise ValueError('Evaluation freeze differs across shards')
@@ -187,7 +189,6 @@ class HarnessEvaluation:
         self.sessions = {}
         self.collateral = collateral_sample(pairs['provenance']['effective_config']['round_dir'])
         self.collateral_states = [render_state(p, student.tokenizer) for p in self.collateral]
-        self.baseline_collateral = {}
         self.seed_ids = sorted(self.manifest.value['seed_task_ids'])
         self.seed_sources = self.manifest.value['seed_sources']
         if len(self.seed_ids) != 20 or set(self.seed_sources) != set(self.seed_ids):
@@ -214,12 +215,11 @@ class HarnessEvaluation:
 
     def collateral_decision(self, pair_id, edit):
         state = self.collateral_states[self.collateral_by_id[pair_id]]
-        if pair_id not in self.baseline_collateral:
-            self.baseline_collateral[pair_id] = self.student.greedy(state)['action']
-        original = self.baseline_collateral[pair_id]
         with self.student.edited(edit):
-            action = original if edit is None else self.student.greedy(state)['action']
-        return dict(pair_id=pair_id, original=original, edited=action, changed=original != action)
+            action = self.student.greedy(state)['action']
+        # Compare against the explicit none unit at merge, including when it
+        # belongs to another shard. Never run a hidden unedited forward here.
+        return dict(pair_id=pair_id, edited=action)
 
     def k20_task(self, task_id, edit):
         from harness.alfworld_env import Environment
@@ -269,16 +269,23 @@ def shard_owner(unit, count):
     return int(digest(unit), 16) % count
 
 
-def work_units(pairs, collateral_ids, seed_ids):
+def side_conditions(full_plan=False):
+    return CONDITIONS if full_plan else ('none', 'teacher')
+
+
+def work_units(pairs, collateral_ids, seed_ids, *, full_plan=False):
     """Stable identities, independent of process, GPU and output path."""
     units = []
     for category in CATEGORIES:
         for pair in sorted((p for p in pairs['pairs'] if p['split'] == 'test' and p['category'] == category),
                            key=lambda p: p['pair_id']):
             units.extend(dict(kind='pair', category=category, condition=c, key=pair['pair_id']) for c in CONDITIONS)
-        for condition in CONDITIONS:
+        for condition in CONDITIONS if full_plan else ('teacher',):
             for kind, keys in [('collateral', collateral_ids), ('k20', sorted(seed_ids))]:
                 units.extend(dict(kind=kind, category=category, condition=condition, key=key) for key in keys)
+    if not full_plan:
+        for kind, keys in [('collateral', collateral_ids), ('k20', sorted(seed_ids))]:
+            units.extend(dict(kind=kind, condition='none', key=key) for key in keys)
     if len({digest(u) for u in units}) != len(units):
         raise ValueError('Duplicate evaluation work units')
     return units
@@ -294,12 +301,13 @@ def publish_shared(path, value):
 
 
 def evaluate(student, pairs, submission_paths, directory, *, runtime_factory=HarnessEvaluation,
-             edits_factory=control_edits, shard=None):
+             edits_factory=control_edits, shard=None, full_plan=False):
     index, count = (0, 1) if shard is None else parse_shard(shard) if isinstance(shard, str) else shard
     if type(index) is not int or type(count) is not int or not 0 <= index < count:
         raise ValueError('Invalid evaluation shard')
     directory = Path(directory)
-    submissions, freeze = evaluation_barrier(directory, pairs, submission_paths, student.identity, shared=True)
+    submissions, freeze = evaluation_barrier(directory, pairs, submission_paths, student.identity,
+                                           shared=True, full_plan=full_plan)
     workdir = directory / 'shards' / f'{index:04d}-of-{count:04d}'
     # Exclusive ownership also protects all runtime caches, logs and executions.
     workdir.mkdir(parents=True, exist_ok=False)
@@ -307,8 +315,8 @@ def evaluate(student, pairs, submission_paths, directory, *, runtime_factory=Har
     collateral_ids = [p['pair_id'] for p in runtime.collateral]
     if len(collateral_ids) != 200 or len(set(collateral_ids)) != 200 or len(set(runtime.seed_ids)) != 20:
         raise ValueError('Expected 200 unique collateral decisions and 20 unique K20 tasks')
-    units = work_units(pairs, collateral_ids, runtime.seed_ids)
-    plan = dict(schema='p0-work-plan/1', freeze_sha256=freeze['sha256'], shards=count,
+    units = work_units(pairs, collateral_ids, runtime.seed_ids, full_plan=full_plan)
+    plan = dict(schema='p0-work-plan/1', plan=freeze['plan'], freeze_sha256=freeze['sha256'], shards=count,
         units=units, collateral=runtime.collateral, seed_ids=runtime.seed_ids, seed_sources=runtime.seed_sources)
     publish_shared(directory / 'work_plan.json', plan)
     publish_shared(directory / 'collateral_freeze.json', dict(seed=0, decisions=runtime.collateral,
@@ -326,7 +334,7 @@ def evaluate(student, pairs, submission_paths, directory, *, runtime_factory=Har
     for unit in units:
         if shard_owner(unit, count) != index:
             continue
-        edit = edits[unit['category']][unit['condition']]
+        edit = None if unit['condition'] == 'none' else edits[unit['category']][unit['condition']]
         if unit['kind'] == 'pair':
             pair = tests[unit['key']]
             result = dict(pair_id=pair['pair_id'], category=unit['category'], condition=unit['condition'],
@@ -343,21 +351,23 @@ def evaluate(student, pairs, submission_paths, directory, *, runtime_factory=Har
         conditions_sha256=digest(conditions), model_identity=student.identity, records=records)
     write_json(workdir / 'result.json', result, exclusive=True)
     if shard is not None:
-        return dict(shard=f'{index}/{count}', units=len(records), result=str(workdir / 'result.json'))
-    return merge_evaluation(pairs, submission_paths, directory)
+        return dict(plan=freeze['plan'], shard=f'{index}/{count}', units=len(records), result=str(workdir / 'result.json'))
+    return merge_evaluation(pairs, submission_paths, directory, full_plan=full_plan)
 
 
-def merge_evaluation(pairs, submission_paths, directory):
+def merge_evaluation(pairs, submission_paths, directory, *, full_plan=False):
     """CPU-only validation and aggregation; never construct a model/environment."""
     directory = Path(directory)
     freeze, plan = read(directory / 'evaluation_freeze.json'), read(directory / 'work_plan.json')
-    submissions, identity = evaluation_identity(pairs, submission_paths, freeze['identity']['student'])
-    if freeze['identity'] != identity or freeze['sha256'] != digest(identity) or plan['freeze_sha256'] != freeze['sha256']:
+    submissions, identity = evaluation_identity(pairs, submission_paths, freeze['identity']['student'], full_plan=full_plan)
+    if (freeze.get('plan') != identity['plan'] or plan.get('plan') != identity['plan'] or
+            freeze['identity'] != identity or freeze['sha256'] != digest(identity) or
+            plan['freeze_sha256'] != freeze['sha256']):
         raise ValueError('Evaluation freeze mismatch')
     current = provenance()
     if any(freeze['provenance'][k] != current[k] for k in ('code_sha256', 'dependencies')):
         raise ValueError('Evaluation code/dependencies changed')
-    units = work_units(pairs, [p['pair_id'] for p in plan['collateral']], plan['seed_ids'])
+    units = work_units(pairs, [p['pair_id'] for p in plan['collateral']], plan['seed_ids'], full_plan=full_plan)
     if units != plan['units'] or len(plan['collateral']) != 200 or len(set(plan['seed_ids'])) != 20:
         raise ValueError('Evaluation work unit manifest mismatch')
     expected = {digest(u): u for u in units}
@@ -394,17 +404,24 @@ def merge_evaluation(pairs, submission_paths, directory):
         else:
             if result['pair_id' if unit['kind'] == 'collateral' else 'task_id'] != unit['key']:
                 raise ValueError('Side result identity mismatch')
-            side[unit['category'], unit['condition'], unit['kind']].append(result)
-    collateral, k20 = {}, {}
+            side[unit.get('category'), unit['condition'], unit['kind']].append(result)
+    collateral, k20, summaries = {}, {}, {}
     for category in CATEGORIES:
         collateral[category], k20[category] = {}, {}
-        for condition in CONDITIONS:
-            decisions = side[category, condition, 'collateral']
-            seeds = side[category, condition, 'k20']
-            collateral[category][condition] = dict(fraction=sum(r['changed'] for r in decisions) / 200,
-                                                   n=200, decisions=decisions)
-            k20[category][condition] = dict(rate=rate([r['success'] for r in seeds]), rows=seeds,
-                cache_hit=False, executed_environment_steps=sum(r['environment_steps'] for r in seeds))
+        baseline_category = category if full_plan else None
+        baseline = {r['pair_id']: r['edited'] for r in side[baseline_category, 'none', 'collateral']}
+        for condition in side_conditions(full_plan):
+            scope = baseline_category if condition == 'none' else category
+            key = (scope, condition)
+            if key not in summaries:
+                decisions = [dict(r, original=baseline[r['pair_id']], changed=r['edited'] != baseline[r['pair_id']])
+                             for r in side[scope, condition, 'collateral']]
+                seeds = side[scope, condition, 'k20']
+                summaries[key] = (dict(fraction=sum(r['changed'] for r in decisions) / 200,
+                                       n=200, decisions=decisions),
+                    dict(rate=rate([r['success'] for r in seeds]), rows=seeds,
+                         cache_hit=False, executed_environment_steps=sum(r['environment_steps'] for r in seeds)))
+            collateral[category][condition], k20[category][condition] = summaries[key]
     # All coverage checks finish before publishing anything. Concurrent merges
     # serialize; exclusive report writes reject retries without overwriting.
     with locked(directory / 'evaluation.lock'):
@@ -416,6 +433,7 @@ def merge_evaluation(pairs, submission_paths, directory):
 
 
 def write_report(pairs, submissions, directory, freeze, rows, collateral, k20, identities):
+    measured = side_conditions(freeze['plan'] == 'full')
     category_reports = {}
     for category in CATEGORIES:
         comparison = compare([r for r in rows if r['category'] == category])
@@ -426,7 +444,7 @@ def write_report(pairs, submissions, directory, freeze, rows, collateral, k20, i
     pooled = compare(rows)
     teacher_rate = pooled['metrics']['teacher']['rollout_success']['value']
     complete = all(type(r['success']) is bool for r in rows)
-    complete = complete and all(k20[c][k]['rate']['unknown'] == 0 for c in CATEGORIES for k in CONDITIONS)
+    complete = complete and all(k20[c][k]['rate']['unknown'] == 0 for c in CATEGORIES for k in measured)
     superior = teacher_rate is not None and all(
         pooled['metrics'][c]['rollout_success']['value'] is not None
         and teacher_rate > pooled['metrics'][c]['rollout_success']['value']
@@ -436,7 +454,9 @@ def write_report(pairs, submissions, directory, freeze, rows, collateral, k20, i
         k20[c]['teacher']['rate']['value'] is not None and k20[c]['none']['rate']['value'] is not None and
         k20[c]['teacher']['rate']['value'] >= k20[c]['none']['rate']['value'] for c in CATEGORIES)
     all_predictions = [p for c in category_reports.values() for p in c['predictions']]
-    report = dict(schema='p0-evaluation/1', freeze_sha256=freeze['sha256'], teacher_calls=0,
+    report = dict(schema='p0-evaluation/1', plan=freeze['plan'], freeze_sha256=freeze['sha256'], teacher_calls=0,
+        side_measurements=dict(collateral=list(measured), k20=list(measured),
+                               none_shared_across_categories=freeze['plan'] == 'prereg_minimal'),
         model_identities=identities,
         pairs_sha256=pairs['sha256'], categories=category_reports, pooled=pooled,
         collateral=collateral, k20=k20, counts=pairs['counts'], statistical_plan=STATISTICAL_PLAN,
@@ -446,7 +466,11 @@ def write_report(pairs, submissions, directory, freeze, rows, collateral, k20, i
         inference_limitation='Pair-level analysis; repeated pairs within task instances are not independent tasks.',
         provenance=provenance(dict(evaluation_freeze=freeze['sha256'])))
     write_json(directory / 'report.json', report, exclusive=True)
-    lines = ['# P0 evaluation', '', '| Category | N | None | Teacher | Random (5-seed mean) | Fixed |',
+    lines = ['# P0 evaluation', '', f"Plan: `{freeze['plan']}`.", '',
+             'Collateral/K20 measured conditions: ' + ', '.join(measured) + '.',
+             ('Unedited none results are shared across categories; only teacher edits have collateral/K20 measured.'
+              if freeze['plan'] == 'prereg_minimal' else 'Each category has its own unedited none side runs.'), '',
+             '| Category | N | None | Teacher | Random (5-seed mean) | Fixed |',
              '|---|---:|---:|---:|---:|---:|']
     for name, c in [*category_reports.items(), ('pooled', pooled)]:
         vals = [c['metrics'][k]['rollout_success']['value'] for k in ('none', 'teacher', 'random_mean', 'fixed')]
@@ -464,14 +488,18 @@ def write_report(pairs, submissions, directory, freeze, rows, collateral, k20, i
         return 'unknown' if v is None else f'{v:.3f}'
     for category in CATEGORIES:
         for condition in ('none', 'teacher', 'random_mean', 'fixed'):
-            if condition == 'random_mean':
+            if condition not in measured and not (condition == 'random_mean' and 'random_0' in measured):
+                side_display = k_display = 'not measured'
+            elif condition == 'random_mean':
                 side = sum(collateral[category][f'random_{s}']['fraction'] for s in range(5)) / 5
                 k_values = [k20[category][f'random_{s}']['rate']['value'] for s in range(5)]
                 k = sum(k_values) / 5 if None not in k_values else None
+                side_display, k_display = fmt(side), fmt(k)
             else:
                 side, k = collateral[category][condition]['fraction'], k20[category][condition]['rate']['value']
+                side_display, k_display = fmt(side), fmt(k)
             flip = category_reports[category]['metrics'][condition]['decision_flip_rate']['value']
-            lines.append(f'| {category} | {condition} | {fmt(flip)} | {fmt(side)} | {fmt(k)} |')
+            lines.append(f'| {category} | {condition} | {fmt(flip)} | {side_display} | {k_display} |')
     lines += ['', '| Category | McNemar vs none | vs random (max seed p) | vs fixed |',
               '|---|---:|---:|---:|']
     for name, c in [*category_reports.items(), ('pooled', pooled)]:
