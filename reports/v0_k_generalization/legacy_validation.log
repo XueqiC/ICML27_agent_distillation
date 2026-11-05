@@ -1,0 +1,22 @@
+{"phase": "attempt", "valid": true}
+{"phase": "dataset_build", "valid": true}
+{"phase": "expand-D-data/attempt", "valid": true}
+{"phase": "expand-D-data", "valid": true}
+{"phase": "expand-D-data/dataset_build", "valid": true}
+{"phase": "expand-D-data/label", "valid": true}
+{"phase": "expand-D-data/review", "valid": true}
+{"phase": "expand-D-data/synth", "valid": true}
+{"phase": "expand-D-param/attempt", "valid": true}
+{"phase": "expand-D-param", "valid": true}
+{"phase": "expand-D-param/dataset_build", "valid": true}
+{"phase": "expand-D-param/label", "valid": true}
+{"phase": "expand-D-param/review", "valid": true}
+{"phase": "expand-D-param/synth", "valid": true}
+{"phase": "label", "valid": true}
+{"phase": "probe_attempt", "valid": true}
+{"phase": "review", "valid": true}
+{"phase": "synth", "valid": true}
+{"dataset": "dataset", "valid": true, "K": 20, "rows": 5531}
+{"dataset": "expand-D-data/dataset", "valid": true, "K": 20, "rows": 8752}
+{"dataset": "expand-D-param/dataset", "valid": true, "K": 20, "rows": 8388}
+{"all_valid": true}

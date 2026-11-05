@@ -17,7 +17,7 @@ import sys
 
 from repair import synth_tasks as factory
 from repair.align import normalized_distance
-from repair.v0_common import BINS, QUOTAS, ROOT, bind, completed, finish, phase, read
+from repair.v0_common import BINS, QUOTAS, ROOT, bind, check_inputs, checked_k, completed, finish, phase, read
 from sed.storage import digest, file_hash, write_json
 
 ERRORS = ('refused_action', 'wrong_object', 'useless_search', 'wrong_receptacle')
@@ -283,7 +283,35 @@ def stats(tasks, candidates, allocation, seed_ids):
         teacher_calls=0, student_calls=0, teacher_tokens=0, training_exposure=0)
 
 
-def synthesize(*, seeds_path, data_root, output, main_checkout, seed=0, workers=4, resume=False):
+def synthesis_freeze(data_root, main_checkout, split_freeze=None):
+    """Allow exact frozen inputs across worktrees, never weaker exclusions.
+
+    Absolute source paths are part of the historical manifest hash. A supplied
+    freeze may retain those paths only when every source content hash and the
+    complete exclusion set still match a fresh identity-only scan.
+    """
+    current = factory.freeze_heldout(data_root, main_checkout, ROOT)
+    if split_freeze is None:
+        return current
+    frozen = read(split_freeze)
+    def contents(value):
+        return Counter((Path(s['path']).name, s['sha256'], s['groups'], s['identity_only'])
+                       for s in value['sources'])
+    if ({k: v for k, v in frozen.items() if k != 'sources'} !=
+            {k: v for k, v in current.items() if k != 'sources'} or contents(frozen) != contents(current)):
+        raise ValueError('V0 supplied split freeze differs from current held-out identities or source contents')
+    check_inputs({s['path']: s['sha256'] for s in frozen['sources'] if Path(s['path']).is_file()})
+    for source in frozen['sources']:
+        path = Path(source['path'])
+        if not path.is_file():
+            names = sorted(p.name for p in path.iterdir() if p.is_dir() and factory.GROUP_RE.fullmatch(p.name))
+            if factory.digest(names) != source['sha256']:
+                raise ValueError('V0 frozen held-out directory identities changed')
+    return frozen
+
+
+def synthesize(*, seeds_path, data_root, output, main_checkout, seed=0, workers=4, resume=False,
+               split_freeze=None):
     output, data_root, main_checkout = map(lambda p: Path(p).resolve(), (output, data_root, main_checkout))
     if seed != 0 or workers < 1:
         raise ValueError('V0 first round requires seed 0 and positive CPU workers')
@@ -291,17 +319,18 @@ def synthesize(*, seeds_path, data_root, output, main_checkout, seed=0, workers=
         if output.is_relative_to(protected) or protected.is_relative_to(output):
             raise ValueError('V0 output overlaps read-only input')
     seeds, source = factory.load_seeds(seeds_path, data_root)
-    if len(seeds) != 20:
-        raise ValueError('V0 requires exactly K20 verified seed trajectories')
+    k = checked_k(source['K'])
+    if len(seeds) != k:
+        raise ValueError('V0 K differs from executed seed trajectory count')
     if any(s.provenance['environment_seed'] != seed for s in seeds):
         raise ValueError('V0 seed trajectories use a different environment seed')
-    freeze = factory.freeze_heldout(data_root, main_checkout, ROOT)
+    freeze = synthesis_freeze(data_root, main_checkout, split_freeze)
     inputs = bind([seeds_path, *[p for s in seeds for p in (
         s.provenance['game_path'], s.provenance['episode_path'], s.provenance['events_path'])],
         *[s['path'] for s in freeze['sources'] if Path(s['path']).is_file()]])
     directory = output / 'synth'
     phase(directory, dict(command='synth', seed=seed, workers=workers, quotas=QUOTAS, probes_per_bin=1,
-        inputs=inputs, data_root=str(data_root), split_freeze=freeze, K=20,
+        inputs=inputs, data_root=str(data_root), split_freeze=freeze, K=k,
         validation_seconds_per_candidate=120, validation_timeout_policy='unknown feasibility; retain partial transitions',
         G5_definition='cross-type seed goal plus relocation of the new goal object; explicit user specification'), resume=resume)
     if completed(directory):
@@ -338,7 +367,7 @@ def synthesize(*, seeds_path, data_root, output, main_checkout, seed=0, workers=
             tasks.append(row)
     manifest = dict(schema='v0-synthetic-tasks/1', seed_task_ids=[s.task_id for s in seeds], tasks=tasks,
         split_freeze_sha256=file_hash(directory / 'split_freeze.json'), source_seed_manifest_sha256=file_hash(seeds_path),
-        seed_sources={s.task_id: s.provenance for s in seeds}, K=20, seed=seed,
+        seed_sources={s.task_id: s.provenance for s in seeds}, K=k, seed=seed,
         group_rule='effective initial state/goal or recovery-state fingerprint; native groups remain in fingerprint.group',
         witness_policy='private validation only; never a policy/label input')
     write_json(directory / 'attempts.json', all_candidates)

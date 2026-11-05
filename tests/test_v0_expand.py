@@ -172,6 +172,7 @@ def test_plan_retains_all_eligible_repairs_even_when_not_allocated(tmp_path, mon
 
 @pytest.mark.parametrize('strict', [False, True])
 def test_round_cli_records_strict_fill_and_dry_run(tmp_path, monkeypatch, strict):
+    monkeypatch.setattr(v0_round, 'round_root', lambda args: tmp_path)
     monkeypatch.setattr(v0_round, 'manifest_for', lambda *args: None)
     captured = []
     monkeypatch.setattr(v0_expand, 'expand', lambda args, *a: captured.append(args) or {})

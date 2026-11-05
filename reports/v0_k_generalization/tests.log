@@ -1,0 +1,65 @@
+.......FF............................................................... [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+........................................................................ [ 31%]
+........................................................................ [ 39%]
+........................................................F............... [ 47%]
+........................................................................ [ 55%]
+........................................................................ [ 63%]
+........................................................................ [ 70%]
+........................................................................ [ 78%]
+........................................................................ [ 86%]
+........................................................................ [ 94%]
+.................................................                        [100%]
+=================================== FAILURES ===================================
+____________ test_round_cli_records_strict_fill_and_dry_run[False] _____________
+tests/test_v0_expand.py:180: in test_round_cli_records_strict_fill_and_dry_run
+    assert v0_round.main(argv + (['--strict-fill'] if strict else [])) == 0
+tools/v0_round.py:557: in main
+    root = round_root(args)
+tools/v0_round.py:31: in round_root
+    k = seed_manifest_k(seeds)
+repair/v0_common.py:29: in seed_manifest_k
+    value = read(path)
+repair/v0_common.py:47: in read
+    return json.loads(Path(path).read_text())
+../../../.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+../../../.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'fake'
+_____________ test_round_cli_records_strict_fill_and_dry_run[True] _____________
+tests/test_v0_expand.py:180: in test_round_cli_records_strict_fill_and_dry_run
+    assert v0_round.main(argv + (['--strict-fill'] if strict else [])) == 0
+tools/v0_round.py:557: in main
+    root = round_root(args)
+tools/v0_round.py:31: in round_root
+    k = seed_manifest_k(seeds)
+repair/v0_common.py:29: in seed_manifest_k
+    value = read(path)
+repair/v0_common.py:47: in read
+    return json.loads(Path(path).read_text())
+../../../.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+../../../.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+E   FileNotFoundError: [Errno 2] No such file or directory: 'fake'
+______ test_sharded_merge_equals_unsharded_and_refuses_missing_duplicate _______
+tests/test_p0_eval.py:226: in test_sharded_merge_equals_unsharded_and_refuses_missing_duplicate
+    merge_evaluation(pairs, paths, sharded)
+repair/p0_eval.py:359: in merge_evaluation
+    """CPU-only validation and aggregation; never construct a model/environment."""
+E   ValueError: Evaluation code/dependencies changed
+
+During handling of the above exception, another exception occurred:
+tests/test_p0_eval.py:225: in test_sharded_merge_equals_unsharded_and_refuses_missing_duplicate
+    with pytest.raises(ValueError, match='Missing'):
+E   AssertionError: Regex pattern did not match.
+E    Regex: 'Missing'
+E    Input: 'Evaluation code/dependencies changed'
+- generated xml file: /home/xueqi/hq/projects/ICML27_wt_repair_eval/reports/v0_k_generalization/tests.xml -
+=========================== short test summary info ============================
+FAILED tests/test_v0_expand.py::test_round_cli_records_strict_fill_and_dry_run[False]
+FAILED tests/test_v0_expand.py::test_round_cli_records_strict_fill_and_dry_run[True]
+FAILED tests/test_p0_eval.py::test_sharded_merge_equals_unsharded_and_refuses_missing_duplicate
+3 failed, 910 passed in 503.12s (0:08:23)

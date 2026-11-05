@@ -102,7 +102,7 @@ def expansion_plan(dataset, rows, attempts, manifest, *, variant, groups=None, w
                 restriction=edit_kind(task)))
     return dict(variant=variant, failed_training_task_ids=failed, requested_items=len(failed),
         allocation=counts, units=units, group_sources=sources, ignored_groups_without_repaired_episodes=ignored,
-        fallback_rule='after exhausting all K20 seeds, try other repairs in the same group/category by episode_id',
+        fallback_rule=f'after exhausting all K{manifest.k} seeds, try other repairs in the same group/category by episode_id',
         rule='largest remainder over eligible repaired-episode groups/categories; deterministic lexical ties', seed=seed)
 
 
@@ -119,7 +119,7 @@ def generate(request, *, env_factory=None):
     seeds, _ = factory.load_seeds(request['seeds'], request['data_root'])
     if (set(s.task_id for s in seeds) != set(request['seed_task_ids'])
             or any(s.task_id.startswith('train/synth/') for s in seeds)):
-        raise ValueError('V0 expansion seeds differ from frozen K20')
+        raise ValueError('V0 expansion seeds differ from the frozen seeds')
     if request.get('seed_sources') and any(any(s.provenance[k] != request['seed_sources'][s.task_id][k]
             for k in ('game_sha256', 'episode_sha256', 'events_sha256', 'environment_seed')) for s in seeds):
         raise ValueError('V0 expansion seed execution/game receipts changed')
@@ -186,7 +186,7 @@ def expand(args, root, manifest):
         raise ValueError('V0 expansion requires the input dataset synthetic manifest')
     if (manifest.value.get('source_seed_manifest_sha256') is not None and
             file_hash(args.seeds) != manifest.value['source_seed_manifest_sha256']):
-        raise ValueError('V0 expansion must use the original K20 seed receipt manifest')
+        raise ValueError('V0 expansion must use the original seed receipt manifest')
     attempts_dir = Path(args.attempts or root / 'attempt')
     attempts = sealed_records(attempts_dir, 'records.json')
     if any(r['synthetic_manifest_sha256'] != manifest.sha256 for r in attempts):

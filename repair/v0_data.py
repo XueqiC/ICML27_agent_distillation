@@ -15,7 +15,7 @@ from repair.prompts import rationale_prompt
 from repair.schemas import SchemaError, parse_label
 from repair.supervision import (ByteBoundTokenizer, GUIDANCE, InvalidExample,
     _grounded, _example, action_line, inspect_steps, public_visible, thought, validate_example)
-from repair.v0_common import bind, check_inputs, read
+from repair.v0_common import bind, check_inputs, checked_k, read
 from repair.v0_transport import TeacherOutputTruncated, TeacherTimeout
 from sed.provenance import utc_now
 from sed.react import build_messages
@@ -134,6 +134,105 @@ def choose_episodes(attempts, repairs, *, expanded=False):
     return selected
 
 
+def build_seed_replay(directory, manifest, args, config, theta0):
+    """Seal K10/K30 receipts with the V2 trajectory renderer and source tag.
+
+    V2's pool and K20-specific selection are not inputs to the new seed view.
+    Only its frozen evaluation exclusions and shared receipt checks are reused.
+    The serving gate already binds the configured student and verified view;
+    copied rai checkpoints need no unavailable training-machine provenance file.
+    """
+    from repair.artifacts import checked_document
+    from repair.supervision import build_trajectory, group_id, seal_dataset
+    from repair.v0_common import check_theta0, code_identity, seed_manifest_k
+    from sed.provenance import versions
+    from tools.build_v2_dataset import load_teacher_episode, read_bound
+
+    inputs = bind([args.config, args.splits, manifest.path])
+    if args.verified_root:
+        root = Path(args.verified_root).resolve()
+        seeds_path = root / 'manifest.json'
+        if read(seeds_path).get('K') != manifest.k:
+            seeds_path = root / f'subsets/k{manifest.k}/manifest.json'
+    else:
+        identity = read(manifest.path.parent / 'plan.json')['identity']
+        candidates = [Path(p) for p, sha in identity['inputs'].items()
+                      if sha == manifest.value['source_seed_manifest_sha256']]
+        if len(candidates) != 1:
+            raise ValueError('V0 cannot locate the frozen seed manifest; supply --verified-root')
+        seeds_path = candidates[0]
+    seed_doc = read_bound(seeds_path, inputs, manifest.value['source_seed_manifest_sha256'])
+    if seed_manifest_k(seeds_path) != manifest.k or {r['task_id'] for r in seed_doc['verified']} != manifest.seeds:
+        raise ValueError('V0 replay seed identities differ from synthesis')
+    selection = read_bound(seeds_path.parent / 'selection.json', inputs)
+    identity = read_bound(seeds_path.parent / 'identity.json', inputs)
+    if (seed_doc.get('status') != 'complete' or seed_doc['selection_sha256'] != digest(selection)
+            or seed_doc['identity_sha256'] != digest(identity) or identity['selection'] != selection
+            or selection['K'] != manifest.k
+            or selection['task_order'] != [r['task_id'] for r in seed_doc['verified']]):
+        raise ValueError('V0 replay seed selection is not frozen')
+    collection = (seeds_path.parent / seed_doc['source_collection']['path']).resolve()
+    source = read_bound(collection / 'manifest.json', inputs)
+    receipts = {digest(r) for r in source['verified']}
+    if (source['status'] != 'complete' or digest(source) != seed_doc['source_collection']['manifest_sha256']
+            or any(digest(r) not in receipts for r in seed_doc['verified'])):
+        raise ValueError('V0 replay receipts differ from the verified source collection')
+
+    checkpoint = Path(theta0['path']).resolve()
+    if args.theta0_training_dir and (Path(args.theta0_training_dir) / 'checkpoint').resolve() != checkpoint:
+        raise ValueError('V0 replay checkpoint differs from served theta0')
+    check_theta0(manifest.k, theta0['name'], checkpoint)
+    state = read_bound(checkpoint / 'training_state.json', inputs)
+    if (state.get('N_examples') != manifest.k or state.get('final') is not True
+            or state.get('seed') != 0 or state.get('epochs') != (64 if manifest.k == 30 else 32)):
+        raise ValueError('V0 replay requires the configured final seed-0 theta0 checkpoint')
+    for name, field in (('adapter_model.safetensors', 'adapter_weights_sha256'),
+                        ('adapter_config.json', 'adapter_config_sha256')):
+        actual = file_hash(checkpoint / name)
+        if actual != theta0[field] or actual != state['artifact_sha256'][name]:
+            raise ValueError('V0 replay theta0 checkpoint hash differs')
+        inputs[str(checkpoint / name)] = actual
+
+    splits = checked_document(args.splits)
+    forbidden = set()
+    names = {'U_dev', 'U_mech', 'D_probe', 'D_unseen_quick', 'dev140'}
+    for name, view in splits['sets'].items():
+        if name in names:
+            forbidden.update(view.get('group_ids', []))
+            forbidden.update(t.rsplit('/', 1)[0] for t in view.get('task_ids', []))
+    for source in splits.get('exclusion_sources', []):
+        if source['category'] in names:
+            forbidden.update(source['group_ids'])
+
+    class SeedPolicy:
+        def check(self, tid, source):
+            group = group_id(tid)
+            if tid not in manifest.seeds or group in forbidden or source != 'k20_replay':
+                raise ValueError('V0 replay outside frozen seeds or overlaps evaluation')
+            return group, group.split('/')[-1].split('-')[0]
+
+    policy, rows = SeedPolicy(), []
+    for receipt in seed_doc['verified']:
+        evidence = manifest.value['seed_sources'][receipt['task_id']]
+        if any(receipt['episode_hashes'][name] != evidence[field] for name, field in (
+                ('episode.json', 'episode_sha256'), ('events.jsonl', 'events_sha256'))):
+            raise ValueError('V0 replay execution receipts differ from synthesis')
+        episode, ref = load_teacher_episode(collection, receipt, inputs)
+        if episode['game_sha256'] != evidence['game_sha256'] or episode['seed'] != 0:
+            raise ValueError('V0 replay environment differs from synthesis')
+        rows.append(build_trajectory(episode, arm='CONTINUE', source='k20_replay',
+                                     episode_ref=ref, policy=policy))
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=False)
+    return seal_dataset(directory, rows, policy=policy, arm='CONTINUE', inputs=inputs,
+        splits_sha256=file_hash(args.splits), theta0=theta0, excluded=Counter(), K=manifest.k,
+        code_sha256=code_identity(), dependency_versions=versions(),
+        effective_config=dict(student=config['models']['student'], environment=config['environment']),
+        source_tag_note='k20_replay is the unchanged V2 seed-replay interchange tag; K records the trajectory count',
+        checkpoint_evidence='served identity and final training_state.json; original training provenance not required',
+        new_teacher_calls=0, new_environment_steps=0, actual_training_exposures=0)
+
+
 def check_replay(directory, seed_ids, theta0=None):
     """Read a sealed V2 CONTINUE bundle without changing any row/mask bytes."""
     directory = Path(directory).resolve()
@@ -144,11 +243,13 @@ def check_replay(directory, seed_ids, theta0=None):
         raise ValueError('V0 replay requires a sealed V2 CONTINUE bundle')
     check_inputs(manifest['inputs'])
     rows = [json.loads(line) for line in (directory / 'examples.jsonl').read_text().splitlines()]
-    if (len(rows) != 20 or sorted(r['task_id'] for r in rows) != sorted(seed_ids)
+    k = checked_k(len(seed_ids))
+    # k20_replay is the legacy V2 interchange source tag, also used for K10/30.
+    if (len(rows) != k or sorted(r['task_id'] for r in rows) != sorted(seed_ids)
             or digest([r['example_id'] for r in rows]) != manifest['example_ids_sha256']
             or any(r['kind'] != 'trajectory' or r['source'] != 'k20_replay'
                    or r['evidence']['episode_success'] is not True for r in rows)):
-        raise ValueError('V0 replay differs from executed K20 seed receipts')
+        raise ValueError(f'V0 replay differs from executed K{k} seed receipts')
     if theta0 and manifest['theta0']['adapter_weights_sha256'] != theta0['adapter_weights_sha256']:
         raise ValueError('V0 replay and served theta0 differ')
     return manifest, rows
@@ -199,7 +300,7 @@ def publish_dataset(directory, rows, *, manifest, replay, inputs, metadata, inhe
         examples_sha256=file_hash(directory / 'examples.jsonl'), replay_manifest_sha256=file_hash(target / 'manifest.json'),
         splits_sha256=replay_manifest['splits_sha256'], theta0=replay_manifest['theta0'], inputs=inputs,
         synthetic_manifest=str(manifest.path), counts=dataset_counts(rows, replay_rows),
-        K=20, unique_seed_instances=len(manifest.seeds), training_exposure=0,
+        K=manifest.k, unique_seed_instances=len(manifest.seeds), training_exposure=0,
         extension='Explicit 2026-11-02 user contract: required v0.bin and G5; older five-key train reader needs updating')
     check_inputs(inputs)
     write_json(directory / 'manifest.json', value, exclusive=True)

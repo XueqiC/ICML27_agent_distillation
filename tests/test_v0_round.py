@@ -42,10 +42,14 @@ def task_row(tid=TASK, generator='G1', bin_name='near', probe=False):
         edit=dict(destination_receptacle_type='CounterTop'))
 
 
-def manifest_at(tmp_path, rows=None):
+def seed_ids(k=20):
+    return [SEED] + [f'train/pick_and_place_simple-Mug-None-CounterTop-{i+100}/trial_0' for i in range(k-1)]
+
+
+def manifest_at(tmp_path, rows=None, k=20):
     path = tmp_path / 'manifest.json'
-    write_json(path, dict(schema='v0-synthetic-tasks/1', seed_task_ids=[SEED], tasks=rows or [task_row()]))
-    return SyntheticManifest(path, [SEED])
+    write_json(path, dict(schema='v0-synthetic-tasks/1', seed_task_ids=seed_ids(k), tasks=rows or [task_row()]))
+    return SyntheticManifest(path)
 
 
 def failure():

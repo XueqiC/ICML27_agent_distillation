@@ -15,6 +15,38 @@ BINS = ('near', 'mid', 'far', 'very_far')
 QUOTAS = dict(near=6, mid=4, far=2, very_far=1)
 CAPS = dict(input_tokens=60_000_000, output_tokens=6_000_000)
 DECODINGS = [('greedy', None), ('sampled', 0), ('sampled', 1), ('sampled', 2)]
+THETA0_CELLS = {10: 'e4b-tsft-k10-e32-lr5e-5', 20: 'e4b-tsft-k20-e32-lr5e-5',
+                30: 'e4b-tsft-k30-e64-lr5e-5'}
+
+
+def checked_k(value):
+    if type(value) is not int or value not in THETA0_CELLS:
+        raise ValueError('V0 requires K in {10, 20, 30} verified seed trajectories')
+    return value
+
+
+def seed_manifest_k(path):
+    value = read(path)
+    k = checked_k(value.get('K'))
+    if not isinstance(value.get('verified'), list) or len(value['verified']) != k:
+        raise ValueError('V0 K differs from verified seed trajectory count')
+    return k
+
+
+def round_identity(k):
+    return dict(schema='v0-round/1', seed=0, K=checked_k(k), caps=CAPS, training_exposure=0)
+
+
+def check_theta0(k, name, path):
+    expected = THETA0_CELLS[checked_k(k)]
+    path = Path(path).resolve()
+    cells = set(THETA0_CELLS.values()).intersection(path.parts)
+    if name != expected or cells != {expected}:
+        raise ValueError(f'V0 K{k} requires MODEL_NAME and ADAPTER from {expected}')
+    state = read(path / 'training_state.json')
+    if (state.get('N_examples') != k or state.get('final') is not True or state.get('seed') != 0
+            or state.get('epochs') != (64 if k == 30 else 32)):
+        raise ValueError(f'V0 K{k} requires the configured final seed-0 theta0 training state')
 
 
 def read(path):
@@ -98,7 +130,13 @@ class SyntheticManifest:
         self.value, self.sha256 = read(path), file_hash(path)
         if self.value.get('schema') != 'v0-synthetic-tasks/1':
             raise ValueError('V0 synthetic manifest schema')
-        self.seeds = set(seed_ids if seed_ids is not None else self.value['seed_task_ids'])
+        ids = self.value['seed_task_ids']
+        self.k = checked_k(self.value.get('K', len(ids)))
+        if len(ids) != self.k or len(set(ids)) != len(ids):
+            raise ValueError('V0 K differs from frozen seed trajectory identities')
+        self.seeds = set(ids)
+        if seed_ids is not None and set(seed_ids) != self.seeds:
+            raise ValueError('V0 synthetic manifest seeds differ from the original seeds')
         self.tasks, fingerprints, groups = {}, set(), {'train': set(), 'holdout': set()}
         for row in self.value['tasks']:
             tid = row['task_id']

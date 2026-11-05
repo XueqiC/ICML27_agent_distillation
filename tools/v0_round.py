@@ -1,4 +1,4 @@
-"""One preregistered K20/seed-0 V0 round. No training or server launch here."""
+"""One preregistered K10/K20/K30 seed-0 V0 round. No training or server launch here."""
 import argparse
 from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
@@ -15,7 +15,7 @@ if __package__ in (None, ''):
     sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
 
 from repair.v0_common import (CAPS, DECODINGS, SyntheticManifest, artifacts, bind, completed,
-    finish, phase, read, safe_effective)
+    check_theta0, finish, phase, read, round_identity, safe_effective, seed_manifest_k, THETA0_CELLS)
 from repair.v0_labeling import LabelReuseSource, LabelSetupError, label_tokenizer
 from sed.config import load_config
 from sed.storage import canonical_bytes, digest, file_hash, locked, write_json
@@ -26,12 +26,16 @@ def round_root(args):
     if args.seed != 0:
         raise ValueError('V0 first round is preregistered at seed 0')
     # A fresh round root; later subcommands add their own fresh phase directory.
+    seeds = getattr(args, 'seeds', None)
+    if seeds:
+        k = seed_manifest_k(seeds)
+    else:
+        k = manifest_for(args, root).k
+    identity = round_identity(k)
     if not root.exists() or (root.is_dir() and not any(root.iterdir())):
         root.mkdir(parents=True, exist_ok=True)
-        write_json(root / 'round.json', dict(schema='v0-round/1', seed=0, K=20, caps=CAPS,
-                                           training_exposure=0), exclusive=True)
-    elif not (root / 'round.json').is_file() or read(root / 'round.json') != dict(
-            schema='v0-round/1', seed=0, K=20, caps=CAPS, training_exposure=0):
+        write_json(root / 'round.json', identity, exclusive=True)
+    elif not (root / 'round.json').is_file() or read(root / 'round.json') != identity:
         raise ValueError('V0 output must be a fresh directory or this round root')
     return root
 
@@ -45,16 +49,23 @@ def config_for(args):
 
 def manifest_for(args, root):
     path = Path(args.synthetic_manifest) if args.synthetic_manifest else root / 'synth/manifest.json'
-    return SyntheticManifest(path)
+    manifest = SyntheticManifest(path)
+    if (root / 'round.json').exists() and read(root / 'round.json') != round_identity(manifest.k):
+        raise ValueError('V0 synthetic manifest K differs from the round')
+    return manifest
 
 
 def serving(args, config):
+    if args.model_name != THETA0_CELLS[args.K]:
+        raise ValueError(f'V0 K{args.K} requires its configured seed-0 theta0 adapter')
     from repair.adapter_eval import serving_spec
     spec, adapter, inputs = serving_spec(SimpleNamespace(**{**vars(args), 'dry_run': False}), config)
     from students.vllm_student import context_options
     spec.update(context_options(config))  # Server provenance has now been loaded, as in v2_task_eval.
-    if args.model_name != 'e4b-tsft-k20-e32-lr5e-5':
-        raise ValueError('V0 first round requires the configured K20 seed-0 theta0 adapter')
+    check_theta0(args.K, adapter['name'], adapter['path'])
+    expected_seeds = getattr(args, 'seed_manifest_sha256', None)
+    if expected_seeds and config['lora_equivalence']['identity']['verified_manifest_sha256'] != expected_seeds:
+        raise ValueError('V0 serving gate used a different verified seed manifest')
     weights = Path(adapter['path']).resolve() / 'adapter_model.safetensors'
     if file_hash(weights) != adapter['adapter_weights_sha256']:
         raise ValueError('V0 served adapter weights changed')
@@ -170,7 +181,8 @@ def run_attempts(args, root, manifest, *, directory=None, probes=False):
     config = config_for(args)
     # Serving validation may create its student log directory. Keep it inside
     # this phase too, including when the round itself is a read-only input.
-    spec, adapter, inputs = serving(SimpleNamespace(**{**vars(args), 'output': str(directory)}), config)
+    spec, adapter, inputs = serving(SimpleNamespace(**{**vars(args), 'output': str(directory),
+        'K': manifest.k, 'seed_manifest_sha256': manifest.value.get('source_seed_manifest_sha256')}), config)
     inputs += [args.config, manifest.path, config['paths']['manifest'], config['paths']['split_freeze']]
     phase(directory, dict(command='probe' if probes else 'attempt', inputs=bind(inputs),
         config=safe_effective(config), adapter=adapter, serving=spec, task_ids=ids,
@@ -286,7 +298,8 @@ def run_reviews(args, root, manifest, attempts_dir, *, directory=None):
         raise ValueError('V0 probes cannot be sent to trajectory review')
     directory = Path(directory or root / 'review')
     config = config_for(args)
-    spec, adapter, inputs = serving(args, config)
+    spec, adapter, inputs = serving(SimpleNamespace(**{**vars(args), 'K': manifest.k,
+        'seed_manifest_sha256': manifest.value.get('source_seed_manifest_sha256')}), config)
     old_adapter = read(Path(attempts_dir) / 'plan.json')['identity']['adapter']
     if any(adapter[k] != old_adapter[k] for k in ('adapter_weights_sha256', 'adapter_config_sha256', 'revision')):
         raise ValueError('V0 handback adapter differs from the failed student')
@@ -440,13 +453,18 @@ def build_dataset(args, root, manifest, labels_dir, *, directory=None, inherited
     if args.replay:
         replay = Path(args.replay)
     else:
-        from tools.build_v2_dataset import build
         replay = build_dir / 'v2_continue'
         if not (replay / 'manifest.json').exists():
-            build(SimpleNamespace(arm='CONTINUE', splits=args.splits, inputs=[], output=str(replay),
-                config=args.config, verified_root=args.verified_root, theta0_training_dir=args.theta0_training_dir,
-                snapshot=args.snapshot, label_workers=worker_count(args, 'label_workers'), rationale_teacher=False, dry_run=False,
-                budget_ledger=None, max_teacher_input_tokens=None, max_teacher_output_tokens=None))
+            if manifest.k == 20:
+                from tools.build_v2_dataset import build
+                build(SimpleNamespace(arm='CONTINUE', splits=args.splits, inputs=[], output=str(replay),
+                    config=args.config, verified_root=args.verified_root, theta0_training_dir=args.theta0_training_dir,
+                    snapshot=args.snapshot, label_workers=worker_count(args, 'label_workers'), rationale_teacher=False, dry_run=False,
+                    budget_ledger=None, max_teacher_input_tokens=None, max_teacher_output_tokens=None))
+            else:
+                from repair.v0_data import build_seed_replay
+                build_seed_replay(replay, manifest, args, config,
+                    read(Path(labels_dir) / 'plan.json')['identity']['theta0'])
     if (directory / 'manifest.json').exists():
         from repair.v0_data import load_dataset
         result, _ = load_dataset(directory)
@@ -477,6 +495,7 @@ def main(argv=None):
             p.add_argument('--main-checkout', required=True)
         if command == 'synth':
             p.add_argument('--workers', type=int, default=4)
+            p.add_argument('--split-freeze', help='Reuse original freeze paths after checking identical exclusions and source hashes')
         if command in ('attempt', 'probe', 'review', 'expand'):
             p.add_argument('--workers', type=int, default=1, help='Concurrent isolated episodes/failures (default: 1)')
             for field in ('endpoint', 'model-name', 'server-provenance', 'lora-check'):
@@ -527,11 +546,10 @@ def main(argv=None):
         if directory.exists() or args.attempt_dir.is_symlink():
             raise FileExistsError('V0 attempt directory must not exist')
         root = Path(args.output).resolve()
-        if args.seed != 0 or read(root / 'round.json') != dict(
-                schema='v0-round/1', seed=0, K=20, caps=CAPS, training_exposure=0):
+        manifest = manifest_for(args, root)
+        if args.seed != 0 or read(root / 'round.json') != round_identity(manifest.k):
             raise ValueError('V0 probe requires an existing seed-0 round')
         # No round_root() or round.lock: isolated probes only read round inputs.
-        manifest = manifest_for(args, root)
         run_attempts(args, root, manifest, directory=directory, probes=True)
         if not completed(directory):
             raise ValueError('V0 probe report requires completed attempts')
@@ -543,7 +561,8 @@ def main(argv=None):
         if args.command == 'synth':
             from repair.v0_synth import synthesize
             result = synthesize(seeds_path=args.seeds, data_root=args.data_root, output=root,
-                main_checkout=args.main_checkout, seed=args.seed, workers=args.workers, resume=args.resume)
+                main_checkout=args.main_checkout, seed=args.seed, workers=args.workers, resume=args.resume,
+                split_freeze=args.split_freeze)
         else:
             manifest = manifest_for(args, root)
             if args.command in ('attempt', 'probe'):
