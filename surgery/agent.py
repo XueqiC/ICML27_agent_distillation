@@ -48,7 +48,8 @@ Reply with ONE JSON object: {"calls":[{"tool":"name","args":{...}},...]} (1..8 c
 or {"submit":{"mechanism":"brief explanation","edit":[...]}}, alone. Optional locus
 and predictions are allowed. No hidden reasoning, prose outside JSON, placeholders or
 guessed IDs. Wait for returned IDs before dependent calls. Use returned IDs exactly.
-After tool slots are exhausted only submit is permitted (three replies maximum).
+After tool slots are exhausted or token budget is nearly exhausted only submit
+is permitted (three replies maximum, subject to remaining token budget).
 Five consecutive empty replies or a ninth protocol error halts. Invalid calls cost slots.
 '''
 
@@ -59,6 +60,27 @@ parse_turn = FunctionType(p0.parse_turn.__code__, dict(p0.parse_turn.__globals__
 parse_turn.__kwdefaults__ = p0.parse_turn.__kwdefaults__
 
 
+TOKEN_SUBMIT_ONLY_NOTICE = p0.SUBMIT_ONLY_NOTICE.replace(
+    'Tool budget exhausted.', 'Token budget nearly exhausted.')
+
+
+def summarize_tool_result(result):
+    """Teacher-only rounding view; full receipts and their hashes stay on disk."""
+    result = deepcopy(result)
+    data = result.get('data', {})
+    for name in ('receipt', 'edit_receipt'):
+        rounding = data.get(name, {}).get('rounding')
+        if not rounding:
+            continue
+        for report in [rounding, *rounding.get('per_edit', [])]:
+            tensors = report.pop('tensors', None)
+            if tensors is not None:
+                report.update(tensor_count=len(tensors),
+                    vanished_tensor_count=sum(bool(t.get('vanished')) for t in tensors.values()),
+                    tensor_details_on_disk=True)
+    return result
+
+
 def compact(transcript, keep=20):
     indices = [i for i, row in enumerate(transcript) if 'request' in row and 'result' in row]
     old = set(indices[:-keep]) if keep else set(indices)
@@ -67,6 +89,8 @@ def compact(transcript, keep=20):
         full = result[i]['result']
         result[i]['result'] = dict(summary=full.get('summary', full.get('status', 'completed')),
             sha256=full.get('sha256', digest(full)), compacted=True)
+    for i in set(indices) - old:
+        result[i]['result'] = summarize_tool_result(result[i]['result'])
     return result
 
 
@@ -101,6 +125,20 @@ class Teacher(p0.P0Teacher):
         return prompt.messages()
 
 
+class Transport(StructuredTransport):
+    def reservation_estimate(self, prompt):
+        """Mirror StructuredTransport's byte bound, including truncation retry.
+
+        No settlement discount: either completion can consume its full bound.
+        Connection failures remain governed by the unchanged transport ledger.
+        """
+        messages = prompt.messages()
+        bound = len(canonical_bytes(messages)) + 16 * (len(messages) + 1)
+        caps = list(dict.fromkeys((self.output_cap, self.retry_output_cap)))
+        return dict(input_bound=bound, output_caps=caps,
+                    input_tokens=bound * len(caps), output_tokens=sum(caps))
+
+
 def make_transport(config, category, directory, *, kind='category', client=None, input_cap=None, output_cap=None):
     caps = TOKEN_CAPS[kind]
     input_cap = caps[0] if input_cap is None else input_cap
@@ -112,7 +150,7 @@ def make_transport(config, category, directory, *, kind='category', client=None,
     if client is None:
         import httpx
         client = p0.ProviderClient(httpx.Timeout(600, connect=5), directory / 'provider.json')
-    return StructuredTransport(config, 'train/p1/' + category, directory / 'transport', budget,
+    return Transport(config, 'train/p1/' + category, directory / 'transport', budget,
         teacher_class=Teacher, output_cap=16384, retry_output_cap=32768, phase='p1_diagnosis',
         validator=lambda raw, prompt: parse_turn(raw), client=client)
 
@@ -180,11 +218,63 @@ class Agent(p0.P0Agent):
         self.budget = budget or Budget(kind)
         self.ledger = JsonlLedger(self.directory / 'agent.jsonl')
         self.transcript, self.protocol_errors, self.consecutive_empty_replies = [], 0, 0
+        self.token_submit_only = False
+        self.submit_only_announced = False
         self.completed_rollout_edits = set()
         self.submissions = integration_inputs(session, submissions, pairs_sha256) if kind == 'integration' else []
         self.allowed = [edit_structure(e) for s in self.submissions for e in s['edit']]
         if kind == 'integration':
             self.session.integration_structures = deepcopy(self.allowed)
+
+    @property
+    def submit_only(self):
+        return self.token_submit_only or super().submit_only
+
+    def prompt(self, initial, notice=None):
+        transcript = compact(self.transcript)
+        if notice is not None:
+            transcript.append(dict(notice=notice))
+        return Prompt(dict(category=self.category, pairs=initial, submissions=self.submissions,
+                           transcript=transcript, budget=self.budget.status()))
+
+    def announce_submit_only(self, notice, reason, turn):
+        self.transcript.append(dict(notice=notice))
+        self.submit_only_announced = True
+        self.ledger.append(dict(event='submit_only', turn=turn, reason=reason,
+                                result=dict(notice=notice), budget=self.budget.status()))
+
+    def prepare_turn(self, initial, turn):
+        if self.submit_only and not self.submit_only_announced:
+            self.announce_submit_only(p0.SUBMIT_ONLY_NOTICE, 'tool_budget_exhausted', turn)
+        prompt = self.prompt(initial)
+        estimate = self.transport.reservation_estimate(prompt)
+        # The minimum extra exchange is one submit reply, with the current
+        # evidence and a notice. Keep the same output/retry caps and latest 20
+        # results; never assume a cheap reply or invent a tested fallback edit.
+        submit_prompt = prompt if self.submit_only else self.prompt(initial, TOKEN_SUBMIT_ONLY_NOTICE)
+        submit_estimate = self.transport.reservation_estimate(submit_prompt)
+        state = self.transport.budget.summary()
+        remaining = {k: state['caps'][k] - state['tokens_or_unsettled_bounds'][k]
+                     for k in ('input_tokens', 'output_tokens')}
+        required = {k: estimate[k] + (0 if self.submit_only else submit_estimate[k]) for k in remaining}
+        shortfalls = [k for k in remaining if required[k] > remaining[k]]
+        triggered = bool(shortfalls) and not self.submit_only and not state['stop_reason']
+        if triggered:
+            self.token_submit_only = True
+            self.announce_submit_only(TOKEN_SUBMIT_ONLY_NOTICE, 'token_budget_nearly_exhausted', turn)
+        selected = submit_estimate if self.submit_only else estimate
+        insufficient = [k for k in remaining if selected[k] > remaining[k]]
+        stop_reason = state['stop_reason'] or ('insufficient_token_budget_for_submit_only' if insufficient else None)
+        self.ledger.append(dict(event='token_budget_preflight', turn=turn,
+            reservation_estimate=estimate, submit_only_reservation_estimate=submit_estimate,
+            selected_reservation_estimate=selected, remaining_budget=remaining,
+            required_with_submit_only=required, limiting_budgets=shortfalls,
+            submit_only=self.submit_only, submit_only_triggered=triggered,
+            reason='token_budget_nearly_exhausted' if triggered else None, stop_reason=stop_reason))
+        if stop_reason:
+            self.halt('Insufficient token budget for submit-only turn (' + ', '.join(insufficient) + ')'
+                      if insufficient else 'Teacher budget halted: ' + stop_reason, turn)
+        return submit_prompt if self.submit_only else prompt
 
     def execute_batch(self, messages, turn):
         before = len(self.transcript)
@@ -235,12 +325,11 @@ class Agent(p0.P0Agent):
                                 pairs_sha256=self.pairs_sha256, provenance=provenance()))
         turn, submit_only_replies = 0, 0
         while True:
+            if self.submit_only and submit_only_replies >= 3:
+                self.halt('No valid submission after submit-only reply limit', turn)
+            prompt = self.prepare_turn(initial, turn)
             if self.submit_only:
-                if submit_only_replies >= 3:
-                    self.halt('No valid submission after tool exhaustion', turn)
                 submit_only_replies += 1
-            prompt = Prompt(dict(category=self.category, pairs=initial, submissions=self.submissions,
-                transcript=compact(self.transcript), budget=self.budget.status()))
             raw = self.transport(prompt)
             self.ledger.append(dict(event='teacher_turn', turn=turn, request=prompt.to_json(), raw_output=raw))
             turn += 1
@@ -254,6 +343,8 @@ class Agent(p0.P0Agent):
                     frozen = self.submit(messages[0]['submit'])
                     self.ledger.append(dict(event='frozen', sha256=frozen['sha256'], budget=self.budget.status()))
                     return frozen
+                if self.submit_only:
+                    raise ValueError('Submit-only mode: only {"submit":...} is accepted')
                 self.execute_batch(messages, turn)
             except p0.BudgetExceeded as exc:
                 if not self.submit_only:

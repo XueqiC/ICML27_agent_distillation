@@ -167,12 +167,79 @@ slots but no real steps. Local training spends a candidate; reusing its returned
 unscaled delta counts as the same candidate. Compositions/rescalings are distinct.
 Rollout reserves H=40 conservatively and settles actual replay/continuation steps.
 `agent.jsonl` and `tools/tools.jsonl` retain full requests, responses, failures,
-usage and training exposures. Only the teacher-facing copy replaces tool results
-older than the latest 20 with P0-style summaries. Teacher transport remains
-`StructuredTransport` + `SharedTeacherBudget` + the joint rate limiter, including
+usage and training exposures. The teacher-facing copy replaces tool results
+older than the latest 20 with P0-style summaries. Within the latest 20, edit
+receipts retain aggregate and per-edit rounding totals, norms, finite/vanished
+flags, tensor counts and vanished-tensor counts; the per-tensor rounding tables
+remain in the full disk receipts. Gradient rankings and other result fields
+remain intact. Teacher transport remains a P1 subclass of `StructuredTransport`
+with `SharedTeacherBudget` and the joint rate limiter, including
 P0 JSON mode, retries, requested/returned model IDs and timestamps. All sessions
 must use the same `--rate-limit-dir`. The teacher is always `gpt-6-luna` and needs
 `--allow-teacher-api`.
+
+### Submit-only token headroom
+
+Before every category, integration or global-B teacher turn, the P1 guard reads
+remaining caps minus **tokens or unsettled bounds**, not merely reported usage.
+It mirrors the transport reservation exactly: input bound = canonical UTF-8
+message bytes + `16 * (message_count + 1)` per attempt. A turn includes both the
+16,384-output attempt and the possible 32,768-output truncation retry: two input
+bounds and 49,152 output tokens, with no assumed settlement discount.
+
+A normal turn is allowed only when both remaining budgets cover that turn
+**plus one further submit-only exchange**, including its notice and retry.
+Equality is allowed; a one-token deficit switches immediately to submit-only.
+The extra exchange uses the current evidence and the same output caps: it does
+not assume a short/cheap answer or discard the latest 20 results. Every following
+reply is checked again against its actual prompt, including newly returned tool
+results or rejection feedback; future result growth is not assumed bounded.
+
+The notice states `Token budget nearly exhausted` and requires only `submit`.
+Tool calls are rejected without execution. The existing exact-rollout gate,
+integration ALL-pair validation, and maximum three submit-only replies still
+apply. If even the submit-only exchange is unaffordable, the agent records
+`insufficient_token_budget_for_submit_only` and halts with `BudgetExceeded`
+before transport, leaving no submission file. Existing fatal shared-budget
+stops remain fatal; this guard does not override transport accounting.
+
+`agent.jsonl` records a `token_budget_preflight` for every proposed turn: normal,
+submit-only and selected reservation estimates, remaining input/output budgets,
+required headroom, limiting budgets, trigger flag/reason and any stop reason.
+The separate `submit_only` event records when and why the notice was issued.
+
+### Tool-result payload sizes
+
+The reported 2026-11-05 trial had approximately 48 KB gradient-attribution
+results and 14–20 KB apply-edit results. Those trial receipts are not present in
+this checkout, so these figures are user-reported, not remeasured here.
+
+Reproducible **synthetic schema fixture** measurements from
+`tests/test_p1_payloads.py`, in canonical UTF-8 bytes of each complete result:
+
+| Tool | Before | Teacher view after |
+|---|---:|---:|
+| `gradient_attribution` | 36,806 | 36,806 |
+| `rollout` | 10,773 | 1,459 |
+| `apply_edit` | 10,716 | 1,402 |
+
+This fixture uses a 32-layer × seven-projection gradient ranking, and an edit
+touching 16 tensors with one ordered prefix. It measures serialization size,
+not model behavior or a trial replay. Rounding tables dominate the edit receipts;
+their teacher-only summary saves about 87%. The gradient ranking is the largest
+remaining fixture result and is preserved because it guides edit selection.
+Tests also run apply-edit/rollout on the CPU tiny student and fake environment,
+verify cached and on-disk receipts remain byte-identical, and check the latest-20
+window, aggregate values and vanished flags. These actual CPU tool results
+measure 3,631 → 3,078 bytes for `apply_edit` and 2,262 → 1,709 for `rollout`
+(one tensor); the larger fixture above isolates scaling with tensor count.
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:. \
+  "$PY" -m pytest -q -s tests/test_p1_payloads.py
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:. \
+  "$PY" -m pytest -q tests/test_p1_*.py tests/test_p0_*.py
+```
 
 ## Host setup
 
