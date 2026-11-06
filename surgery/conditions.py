@@ -9,6 +9,7 @@ from sed.storage import digest
 from surgery.common import checked, publish, read, provenance
 from surgery.edits import load_delta, save_delta, module_at, validate_edits
 from surgery.runtime import identity_key
+from surgery.backward import PEAK_MEMORY
 
 ALPHAS = (0.25, 0.5, 1.0)
 LRS = (1e-5, 3e-5, 1e-4)
@@ -172,7 +173,8 @@ def automatic_finetune(student, diagnosis, rollout, directory):
             trained = student.local_finetune(examples, modules, rank=16, lr=lr, steps=steps,
                 directory=directory, pair_ids=[p['pair_id'] for p in diagnosis], framing='original_thought')
             edits = [trained['edit']]
-            candidates.append(dict(lr=lr, steps=steps, edits=edits, evaluation=score(edits, diagnosis, rollout)))
+            memory = {PEAK_MEMORY: trained[PEAK_MEMORY]} if PEAK_MEMORY in trained else {}
+            candidates.append(dict(lr=lr, steps=steps, edits=edits, evaluation=score(edits, diagnosis, rollout), **memory))
     best = choose(candidates)
     return best['edits'], dict(snr_definition='||mean(g)||F / sqrt(mean(||g-mean(g)||F^2)); epsilon=1e-12',
         ranking=stats, top_fraction=0.25, top_count=len(modules), rank=16,

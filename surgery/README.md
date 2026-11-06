@@ -96,6 +96,30 @@ P0 tools and rendering are reused. The extra teacher tools are
 `gradient_attribution(pair_ids)`, `neuron_attribution(pair_ids,layer,top_n)`, and
 `local_finetune(pair_ids,modules,rank,lr,steps)`. Modules are strings such as
 `20:mlp.down_proj`. All decision tools accept P0 `framing` values.
+
+Backward tools (`gradient_statistics`/`gradient_attribution`, `neuron_attribution`,
+and `local_finetune`, including E5/B5) temporarily checkpoint decoder forwards
+with `use_reentrant=False`, preserve eval mode, isolate shared-KV replay, and
+restore the exact original forwards even on exceptions. Weight gradients stream
+to CPU one tensor at a time; the two margin branches run separately and combine
+in the original dtype on CPU before the unchanged fp32 per-pair moments. Each
+action graph is freed before the next forward, and logits remain limited to
+scored positions. Forward-only tools retain their native execution. On CUDA,
+`cuda_peak_memory_allocated_bytes` records `torch.cuda.max_memory_allocated`
+after resetting peak statistics at call entry: at the tool-result top level,
+on each `gradient_statistics` row, and on each E5/B5 finetune grid candidate.
+It includes resident model allocations, excludes allocator reservations/other
+processes, and is absent on CPU; cached receipts retain the original call's
+peak. For an 8.3k-token sequence with a short action suffix, the pinned E4B bf16
+model has about 14.8 GiB of resident weights, 1.7 GiB of residual checkpoints
+plus 0.17 GiB of per-layer inputs, and at most about 50 MiB per projection
+gradient (instead of a full 7.25 GiB set). Allowing for shared KV, logits,
+recomputed layer activations and SDPA workspace gives a planning estimate of
+roughly 24–34 GiB allocated, expected to fit 48 GB; this is not a GPU measurement
+and depends on the SDPA kernel and suffix length. CPU pair gradients and fp32
+moment accumulators need roughly 22 GiB of host RAM. Use the receipts to verify
+headroom on the actual Ada/A100 run.
+
 Teacher submissions use `{"mechanism":"...","edit":[...]}`. Edit schemas:
 
 ```json

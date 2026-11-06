@@ -56,14 +56,17 @@ def test_fixed_grid_and_category_order_only_diagnosis():
         fixed_rule(s, diagnosis + [fake_pair(999, split='test')], rollout, setting='A')
 
 
-def test_automatic_snr_top_quarter_grid_rank16_and_diagnosis(tmp_path):
+@pytest.mark.parametrize('peak', [None, 123456])
+def test_automatic_snr_top_quarter_grid_rank16_and_diagnosis(tmp_path, peak):
+    from surgery.backward import PEAK_MEMORY
     diagnosis = [fake_pair()]
     trained = []
     def train(examples, modules, **kwargs):
         assert modules == ['7:mlp.down_proj', '6:mlp.down_proj']
         assert kwargs['rank'] == 16 and kwargs['pair_ids'] == ['pair-0']
         trained.append((kwargs['lr'], kwargs['steps']))
-        return dict(edit=dict(type='fixture', lr=kwargs['lr'], steps=kwargs['steps']))
+        return dict(edit=dict(type='fixture', lr=kwargs['lr'], steps=kwargs['steps']),
+                    **({PEAK_MEMORY: peak} if peak is not None else {}))
     s = SimpleNamespace(tokenizer=TinyTokenizer(), gradient_statistics=lambda *a, **k:
         [dict(tensor=f'{i}:mlp.down_proj', snr=i) for i in range(8)], local_finetune=train)
     seen = []
@@ -75,6 +78,7 @@ def test_automatic_snr_top_quarter_grid_rank16_and_diagnosis(tmp_path):
     assert trained == [(lr, steps) for lr in LRS for steps in STEPS]
     assert selection['chosen'] == dict(lr=3e-5, steps=200)
     assert len(seen) == 6
+    assert all(row.get(PEAK_MEMORY) == peak for row in selection['grid'])
     with pytest.raises(ValueError):
         automatic_finetune(s, [fake_pair(split='test')], rollout, tmp_path)
 

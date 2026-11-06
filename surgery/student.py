@@ -7,6 +7,7 @@ from repair.p0_introspect import StudentTools, tensor_hash
 from sed.storage import digest
 from surgery.common import Relocation
 from surgery.edits import all_modules, module_at, tensor_name, save_delta, edited, finite
+from surgery.backward import checkpoint_layers, peak_memory, PEAK_MEMORY
 
 
 class Student(StudentTools):
@@ -43,25 +44,46 @@ class Student(StudentTools):
                 w.requires_grad_(flag)
                 w.grad = grad
 
+    @peak_memory
     def gradient_statistics(self, examples, *, margin=False, framing='original_thought'):
         """Stream per-pair gradients; fp32 CPU moments, no train updates."""
         import torch
         if not examples:
             raise ValueError('Choose at least one diagnosis pair')
         modules = all_modules(self)
-        sums, squares = {}, {}
-        with self.differentiable(modules):
-            for state, a_f, a_r in examples:
-                objective = self.log_probability(state, a_r, framing=framing)
-                objective = objective - self.log_probability(state, a_f, framing=framing) if margin else -objective
-                gradients = torch.autograd.grad(objective, [m.weight for m in modules.values()], allow_unused=True)
-                for key, module, grad in zip(modules, modules.values(), gradients):
-                    g = torch.zeros_like(module.weight, dtype=torch.float32, device='cpu') if grad is None else grad.detach().cpu().float()
-                    if key not in sums:
-                        sums[key] = torch.zeros_like(g)
-                        squares[key] = 0.0
-                    sums[key].add_(g)
-                    squares[key] += float(g.square().sum())
+        sums = {k: torch.zeros_like(m.weight, dtype=torch.float32, device='cpu') for k, m in modules.items()}
+        squares = dict.fromkeys(modules, 0.0)
+        handles, pair_gradients = [], {}
+        with self.differentiable(modules), checkpoint_layers(self.layers):
+            try:
+                for key, module in modules.items():
+                    def accumulate(weight, key=key):
+                        # Separate action backwards avoid retaining a full set of
+                        # pending weight gradients between the margin branches.
+                        g = weight.grad.detach().cpu()
+                        weight.grad = None
+                        if key in pair_gradients:
+                            # Match the original native-dtype autograd sum BEFORE
+                            # conversion to fp32 (in particular, round bf16 once).
+                            pair_gradients[key].add_(g)
+                        else:
+                            pair_gradients[key] = g
+                    handles.append(module.weight.register_post_accumulate_grad_hook(accumulate))
+                for state, a_f, a_r in examples:
+                    actions = ((a_r, 1), (a_f, -1)) if margin else ((a_r, -1),)
+                    for action, sign in actions:
+                        objective = self.log_probability(state, action, framing=framing)
+                        objective = objective if sign == 1 else -objective
+                        torch.autograd.backward(objective, inputs=[m.weight for m in modules.values()])
+                        del objective  # Free even the first margin graph before the next forward.
+                    for key, grad in pair_gradients.items():
+                        g = grad.float()
+                        sums[key].add_(g)
+                        squares[key] += float(g.square().sum())
+                    pair_gradients.clear()
+            finally:
+                for handle in handles:
+                    handle.remove()
         rows, n = [], len(examples)
         for key in modules:
             mean = sums.pop(key) / n
@@ -76,12 +98,16 @@ class Student(StudentTools):
         rows = self.gradient_statistics(examples, margin=True, framing=framing)
         from surgery.edits import TARGETS
         present = {r['tensor'] for r in rows}
+        memory = {PEAK_MEMORY: rows[0][PEAK_MEMORY]} if PEAK_MEMORY in rows[0] else {}
+        for row in rows:
+            row.pop(PEAK_MEMORY, None)
         return dict(ranking=sorted(rows, key=lambda r: (-r['gradient_norm'], r['tensor'])),
             unavailable=[dict(layer=i, module=t, status='absent_native_projection')
                          for i in range(len(self.layers)) for t in TARGETS if tensor_name(i, t) not in present],
             definition='Frobenius norm of gradient of mean(log P(a_r)-log P(a_f)); native absent shared-KV tensors omitted',
-            pairs=len(examples), framing=framing)
+            pairs=len(examples), framing=framing, **memory)
 
+    @peak_memory
     def neuron_attribution(self, examples, layer, top_n, *, framing='original_thought'):
         import torch
         module = module_at(self, layer, 'mlp.down_proj')
@@ -89,21 +115,25 @@ class Student(StudentTools):
         if type(top_n) is not int or not 1 <= top_n <= width or not examples:
             raise ValueError('top_n must be between 1 and the MLP intermediate width')
         total = torch.zeros(width)
-        for state, a_f, a_r in examples:
-            decision = len(self.ids(self.decision_prefix(state, framing))) - 1
-            for action, sign in ((a_r, 1), (a_f, -1)):
-                captured = []
-                def hook(mod, args):
-                    activation = args[0].detach().requires_grad_(True)
-                    captured.append(activation)
-                    return (activation, *args[1:])
-                handle = module.register_forward_pre_hook(hook)
-                try:
-                    objective = self.log_probability(state, action, framing=framing)
-                    grad, = torch.autograd.grad(objective, captured)
-                    total += sign * (captured[0][0, decision].detach().float() * grad[0, decision].float()).cpu()
-                finally:
-                    handle.remove()
+        with checkpoint_layers(self.layers):
+            for state, a_f, a_r in examples:
+                decision = len(self.ids(self.decision_prefix(state, framing))) - 1
+                for action, sign in ((a_r, 1), (a_f, -1)):
+                    captured = []
+                    def hook(mod, args):
+                        activation = args[0].detach().requires_grad_(True)
+                        if not captured:  # Replay must not retain another activation/graph.
+                            captured.append(activation)
+                        return (activation, *args[1:])
+                    handle = module.register_forward_pre_hook(hook)
+                    try:
+                        objective = self.log_probability(state, action, framing=framing)
+                        grad, = torch.autograd.grad(objective, captured)
+                        total += sign * (captured[0][0, decision].detach().float() * grad[0, decision].float()).cpu()
+                        del objective, grad
+                    finally:
+                        handle.remove()
+                        captured.clear()
         total /= len(examples)
         # IDs are usable as the input-side vector b of a down_proj rank-one edit.
         norm = total.norm()
@@ -117,6 +147,7 @@ class Student(StudentTools):
             direction_id=ident, vector_space='MLP intermediate', framing=framing,
             definition='mean signed activation x gradient of repair-minus-fail sequence score at last decision-prefix token; ranked by magnitude')
 
+    @peak_memory
     def local_finetune(self, examples, modules, *, rank, lr, steps, directory, pair_ids, framing='original_thought'):
         """Train only LoRA factors; persist fp32 BA and restore all hooks/weights."""
         import torch
@@ -143,7 +174,7 @@ class Student(StudentTools):
         losses, exposures = [], []
         try:
             # Local RNG context keeps future controls/generation independent of training.
-            with torch.random.fork_rng(devices=[self.device.index or 0] if self.device.type == 'cuda' else []):
+            with torch.random.fork_rng(devices=[self.device.index or 0] if self.device.type == 'cuda' else []), checkpoint_layers(self.layers):
                 torch.manual_seed(0)
                 for key, module in selected.items():
                     out_dim, in_dim = module.weight.shape
@@ -167,6 +198,7 @@ class Student(StudentTools):
                     loss.backward()
                     optimizer.step()
                     losses.append(float(loss.detach()))
+                    del loss
                     exposures.append(pair_ids[index])
                     ledger.append(dict(event='updated', step=i, pair_id=pair_ids[index], loss=losses[-1],
                                        student_usage=deepcopy(self.usage)))
