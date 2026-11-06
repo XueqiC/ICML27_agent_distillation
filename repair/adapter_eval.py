@@ -104,14 +104,67 @@ def _exposure(manifest, *, synthetic_groups=None):
     return dict(task_ids=sorted(tasks), group_ids=sorted(groups)), sources
 
 
+def _v0_kept_episodes(run_filter, rows, buckets):
+    """Validate a pre-training partition against the complete example inventory."""
+    if not isinstance(run_filter, dict):
+        raise ValueError('V0 run.filter must be an object')
+    selections, assigned = {}, set()
+    for key in ('kept_episode_ids', 'dropped_episode_ids'):
+        mapping = run_filter.get(key)
+        if not isinstance(mapping, dict) or set(mapping) - buckets.keys():
+            raise ValueError(f'V0 run.filter.{key} must be an R/G/S/D episode mapping')
+        selections[key] = {}
+        for bucket, ids in mapping.items():
+            if (not isinstance(ids, list) or any(not isinstance(e, str) or not e for e in ids)
+                    or len(ids) != len(set(ids))):
+                raise ValueError(f'V0 run.filter.{key}.{bucket} must be a list of nonempty unique strings')
+            if assigned.intersection(ids):
+                raise ValueError('V0 run.filter episode IDs must be disjoint across kept/dropped and buckets')
+            assigned.update(ids)
+            selections[key][bucket] = set(ids)
+    kept = selections['kept_episode_ids']
+    dropped = selections['dropped_episode_ids']
+    for bucket, actual in buckets.items():
+        if kept.get(bucket, set()) | dropped.get(bucket, set()) != actual['episodes']:
+            raise ValueError(f'V0 run.filter episode partition for {bucket} differs from example sources')
+    kept_ids = set().union(*kept.values())
+    if not kept_ids:
+        raise ValueError('V0 run.filter must keep at least one episode')
+    kept_rows = {b: 0 for b in buckets}
+    for row in rows:
+        if row['v0']['episode_id'] in kept_ids:
+            kept_rows[row['v0']['bucket']] += 1
+    counts = run_filter.get('buckets')
+    if not isinstance(counts, dict) or set(counts) - buckets.keys():
+        raise ValueError('V0 run.filter.buckets must contain R/G/S/D bucket counts')
+    for bucket in buckets:
+        declared = counts.get(bucket, dict(rows=0, episodes=0))
+        actual = dict(rows=kept_rows[bucket], episodes=len(kept.get(bucket, set())))
+        for key, count in actual.items():
+            if (not isinstance(declared, dict) or type(declared.get(key)) is not int
+                    or declared[key] != count):
+                raise ValueError(f'V0 run.filter.buckets.{bucket}.{key} differs from kept example sources')
+    if 'kept_rows' in run_filter and (type(run_filter['kept_rows']) is not int
+                                    or run_filter['kept_rows'] != sum(kept_rows.values())):
+        raise ValueError('V0 run.filter.kept_rows differs from kept example sources')
+    drop_buckets = run_filter.get('drop_buckets', [])
+    if not isinstance(drop_buckets, list) or any(not isinstance(b, str) or b not in buckets for b in drop_buckets):
+        raise ValueError('V0 run.filter.drop_buckets must be a list of R/G/S/D buckets')
+    if any(kept.get(b) for b in drop_buckets):
+        raise ValueError('V0 run.filter.drop_buckets contains a bucket with kept episodes')
+    return kept_ids
+
+
 def _v0_exposure(run, update, run_path):
-    """Exclude the complete, hash-bound R/G/S/D inventory, even unsampled rows.
+    """Exclude the hash-bound R/G/S/D training inventory, even unsampled rows.
 
     V0 realised_exposure/buckets contain counts and opaque episode IDs, while
     example_sources.json binds each episode to its task and explicit group.
     Synthetic groups are fingerprints, not the shared train/synth directory.
     The input synthesis manifest also contains held-out tasks: it is not a
     training inventory and must not be swept into exposure.
+    Validate the complete inventory first, then restrict it to kept episodes
+    only when run.filter records a consistent pre-training partition.
     """
     path = run_path.parent / 'example_sources.json'
     expected = run.get('artifacts_sha256', {}).get(path.name)
@@ -168,9 +221,10 @@ def _v0_exposure(run, update, run_path):
             check_count(declared, 'episodes', len(actual['episodes']), source + '.' + bucket)
 
     sources = ['run.example_sources.json (sha256=' + expected + '; all R/G/S/D examples)']
-    for source, accounting in (('run.realised_exposure', run.get('realised_exposure', {})),
-                                ('checkpoint', update),
-                                ('checkpoint.realised_exposure', update.get('realised_exposure', {}))):
+    accounting_sources = (('run.realised_exposure', run.get('realised_exposure', {})),
+                          ('checkpoint', update),
+                          ('checkpoint.realised_exposure', update.get('realised_exposure', {})))
+    for source, accounting in accounting_sources:
         if not isinstance(accounting, dict):
             raise ValueError('V0 realised exposure must be an object')
         if 'episode_exposures' not in accounting:
@@ -184,6 +238,18 @@ def _v0_exposure(run, update, run_path):
         check_count(accounting, 'unique_instances_seen', len({episodes[e][0] for e in seen}), source)
         check_count(accounting, 'task_groups_seen', len({episodes[e][1] for e in seen}), source)
         sources.append(source + '.episode_exposures')
+
+    run_filter = run.get('filter')
+    if run_filter is not None:
+        kept = _v0_kept_episodes(run_filter, rows, buckets)
+        for source, accounting in accounting_sources:
+            if any(n and e not in kept for e, n in accounting.get('episode_exposures', {}).items()):
+                raise ValueError(f'V0 {source}.episode_exposures contains episodes not kept by run.filter')
+        inventory = dict(task_ids=sorted({episodes[e][0] for e in kept}),
+                         group_ids=sorted({episodes[e][1] for e in kept}))
+        sources[0] = ('run.example_sources.json (sha256=' + expected +
+                      '; R/G/S/D examples of run.filter.kept_episode_ids, keep_episodes_sha256=' +
+                      str(run_filter.get('keep_episodes_sha256')) + '; dropped before training)')
 
     # Explicit run, embedded interchange, and update exclusions are additive.
     for source, document in (('run', run), ('run.input_manifest', input_manifest), ('checkpoint', update)):
@@ -222,6 +288,9 @@ def training_identity(adapter):
         inputs.extend(exposure_inputs)
         arm = 'v0:' + arm
         scope = 'declared IDs plus conservative complete R/G/S/D example inventory exclusions'
+        if run.get('filter') is not None:
+            scope = ('declared IDs plus conservative kept-episode R/G/S/D inventory exclusions '
+                     '(pre-training filter)')
     else:
         exposure, sources = _exposure(run)
         update_exposure, update_sources = _exposure(update)
