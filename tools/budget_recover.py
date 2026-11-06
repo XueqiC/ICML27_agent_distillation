@@ -1,10 +1,11 @@
-"""Clear an explicitly expected teacher halt without refunding shared usage."""
+"""Clear an explicitly expected teacher or transport halt without refunding shared usage."""
 import argparse
 from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
 from pathlib import Path
+import re
 
 from repair.ledger import teacher_token_usage
 from repair.takeover import SharedTeacherBudget
@@ -35,9 +36,10 @@ def _accounting_lock(path, read_only):
             yield
 
 
-def _quota_settlements(request_ids, budget, rows, reason):
+def _rejection_settlements(request_ids, budget, rows, reason, *, provider_error=False):
     if len(set(request_ids)) != len(request_ids):
-        raise ValueError('Duplicate --acknowledge-quota-rejected ID')
+        flag = '--acknowledge-provider-error' if provider_error else '--acknowledge-quota-rejected'
+        raise ValueError(f'Duplicate {flag} ID')
     evidence = []
     settled = {row['request_id'] for row in rows if row['event'] == 'settlement'}
     for request_id in request_ids:
@@ -61,13 +63,20 @@ def _quota_settlements(request_ids, budget, rows, reason):
             raise ValueError('Invalid usage ledger')
         receipts = [row for row in receipts if row.get('call_id') == request_id]
         # Reject contradictory usage anywhere in this call's history, including
-        # a completed/rejected receipt preceding the final quota error.
+        # a completed/rejected receipt preceding the final error.
         if any(row.get('usage') is not None for row in receipts):
             raise ValueError('Acknowledged call has a receipt with usage')
-        if (not receipts or receipts[-1].get('status') != 'failed'
-                or receipts[-1].get('error_type') != 'TeacherQuotaError'
-                or 'usage' not in receipts[-1]):
-            raise ValueError('Acknowledged call must end with TeacherQuotaError and null usage')
+        last = receipts[-1] if receipts else {}
+        if provider_error:
+            matches_error = (last.get('error_type') in (
+                'InternalServerError', 'ServiceUnavailableError', 'BadGatewayError', 'GatewayTimeoutError')
+                or last.get('http_status') in (500, 502, 503, 504))
+            error_label = 'provider 5xx failure'
+        else:
+            matches_error = last.get('error_type') == 'TeacherQuotaError'
+            error_label = 'TeacherQuotaError'
+        if last.get('status') != 'failed' or not matches_error or 'usage' not in last:
+            raise ValueError(f'Acknowledged call must end with {error_label} and null usage')
         evidence.append(dict(request_id=request_id, usage_ledger=receipt_path,
                              usage_ledger_sha256=hashlib.sha256(content).hexdigest()))
     reservations = {row['request_id'] for row in rows if row['event'] == 'reservation'}
@@ -83,7 +92,8 @@ def _quota_settlements(request_ids, budget, rows, reason):
             budget.unknown_quantities[key] = budget.unknown_quantities.get(key, 0) + 1
         settlements.append({
             'event': 'settlement', **receipt, 'timestamp': utc_now(),
-            'acknowledged': 'teacher_quota_rejection', 'reason': reason,
+            'acknowledged': 'provider_5xx_rejection' if provider_error else 'teacher_quota_rejection',
+            'reason': reason,
             'usage': dict(usage), **budget.summary(),
         })
     return settlements
@@ -94,9 +104,14 @@ def _recover(args, report):
         raise ValueError('--reason must be at most 200 characters')
     if any(char in args.reason for char in '\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029'):
         raise ValueError('--reason must not contain newlines')
-    acknowledge = args.acknowledge_quota_rejected
-    if acknowledge and args.expect_stop != 'teacher_quota':
+    transport_stop = re.fullmatch(r'^[a-z0-9_]+_transport_failed$', args.expect_stop)
+    if args.expect_stop not in ('teacher_quota', 'teacher_halted') and not transport_stop:
+        raise ValueError('--expect-stop must be teacher_quota, teacher_halted, or <phase>_transport_failed')
+    if args.acknowledge_quota_rejected and args.expect_stop != 'teacher_quota':
         raise ValueError('--acknowledge-quota-rejected requires --expect-stop teacher_quota')
+    if args.acknowledge_provider_error and not transport_stop:
+        raise ValueError('--acknowledge-provider-error requires --expect-stop <phase>_transport_failed')
+    acknowledge = args.acknowledge_quota_rejected + args.acknowledge_provider_error
 
     path = Path(args.ledger)
     report.update(ledger=str(path), dry_run=args.dry_run, recovery_row_durable=False)
@@ -133,7 +148,8 @@ def _recover(args, report):
         settlements = []
         if acknowledge:
             before = {**copied, 'stop_reason': previous}
-            settlements = _quota_settlements(acknowledge, budget, rows, args.reason)
+            settlements = _rejection_settlements(acknowledge, budget, rows, args.reason,
+                                                provider_error=bool(args.acknowledge_provider_error))
             after = budget.summary()
             copied = {key: after[key] for key in _STATE_FIELDS}
             report.update(acknowledged_ids=acknowledge, settlement_rows_durable=[],
@@ -177,11 +193,14 @@ def main(argv=None):
     try:
         parser = _Parser(description=__doc__)
         parser.add_argument('--ledger', required=True)
-        parser.add_argument('--expect-stop', required=True, choices=('teacher_quota', 'teacher_halted'))
+        parser.add_argument('--expect-stop', required=True,
+                            help='teacher_quota, teacher_halted, or <phase>_transport_failed')
         parser.add_argument('--reason', required=True)
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--acknowledge-quota-rejected', action='append', default=[],
                             metavar='REQUEST_ID', help='Resolve a quota-rejected reservation without refunding its bound')
+        parser.add_argument('--acknowledge-provider-error', action='append', default=[],
+                            metavar='REQUEST_ID', help='Resolve a provider 5xx reservation without refunding its bound')
         args = parser.parse_args(argv)
         _recover(args, report)
     except Exception as exc:

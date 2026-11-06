@@ -442,3 +442,171 @@ def test_no_acknowledgement_retains_exact_legacy_report(tmp_path, capsys, dry_ru
         'previous_stop_reason': 'teacher_quota', **{key: state[key] for key in STATE_FIELDS},
         'unsettled_attempts': 1, 'status': 'ok',
     }
+
+
+def provider_budget(tmp_path, request_ids=('provider',), stop='review_transport_failed'):
+    budget = SharedTeacherBudget(tmp_path / 'teacher_budget.jsonl', input_tokens=1000, output_tokens=500)
+    settle(budget, 'reported')
+    for request_id in request_ids:
+        usage = JsonlLedger(tmp_path / request_id / 'usage.jsonl')
+        budget.reserve(request_id, 80, 30, usage_ledger=str(usage.path))
+        usage.append(dict(call_id=request_id, status='started', usage=None))
+        usage.append(dict(call_id=request_id, status='failed', error_type='InternalServerError',
+                          http_status=503, usage=None))
+    budget.halt(stop)
+    return budget
+
+
+def recover_provider(path, capsys, *, request_ids=('provider',), expect='review_transport_failed',
+                     dry_run=False):
+    args = ['--ledger', str(path), '--expect-stop', expect,
+            '--reason', 'provider back; bound kept']
+    for request_id in request_ids:
+        args.extend(['--acknowledge-provider-error', request_id])
+    if dry_run:
+        args.append('--dry-run')
+    code = budget_recover.main(args)
+    captured = capsys.readouterr()
+    assert not captured.err and len(captured.out.splitlines()) == 1
+    return code, json.loads(captured.out)
+
+
+@pytest.mark.parametrize('stop', ['review_transport_failed', 'label_transport_failed', 'phase_2_transport_failed'])
+@pytest.mark.parametrize('request_ids', [('provider',), ('provider', 'second')])
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_provider_recovery_preserves_bounds_and_dry_run_is_read_only(
+        tmp_path, capsys, monkeypatch, stop, request_ids, dry_run):
+    import builtins
+    import io
+    import os
+    budget = provider_budget(tmp_path, request_ids, stop)
+    # Only this call's receipts determine whether it may be acknowledged.
+    JsonlLedger(tmp_path / 'provider/usage.jsonl').append(
+        dict(call_id='unrelated', status='success', usage={'input_tokens': 1}))
+    state = budget.summary()
+    before = {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()}
+    original_open = builtins.open
+
+    def read_only_open(file, mode='r', *args, **kwargs):
+        assert not any(flag in mode for flag in 'wax+')
+        return original_open(file, mode, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Dry run attempted a write or created a lock')
+
+    with monkeypatch.context() as patch:
+        if dry_run:
+            patch.setattr(builtins, 'open', read_only_open)
+            patch.setattr(io, 'open', read_only_open)
+            patch.setattr(os, 'open', forbidden)
+            patch.setattr(JsonlLedger, 'append', forbidden)
+        code, report = recover_provider(budget.path, capsys, request_ids=request_ids,
+                                        expect=stop, dry_run=dry_run)
+    assert code == 0 and report['status'] == 'ok'
+    assert report['acknowledged_ids'] == list(request_ids)
+    assert report['unsettled_attempts_before'] == len(request_ids)
+    assert report['unsettled_attempts_after'] == 0
+    assert report['rows_before'] == len(before[budget.path].splitlines())
+    assert report['rows_after'] == report['rows_before'] + (0 if dry_run else len(request_ids) + 1)
+    assert report['recovery_row_durable'] is (not dry_run)
+    assert report['settlement_rows_durable'] == ([] if dry_run else list(request_ids))
+    if dry_run:
+        assert {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()} == before
+        appended = report['rows_to_append']
+    else:
+        assert budget.path.read_bytes().startswith(before[budget.path])
+        appended = [json.loads(line) for line in budget.path.read_bytes()[len(before[budget.path]):].splitlines()]
+    prefix, unknown = before[budget.path], dict(state['unknown_quantities'])
+    for request_id, row in zip(request_ids, appended[:-1], strict=True):
+        usage = tmp_path / request_id / 'usage.jsonl'
+        unknown = {key: unknown.get(key, 0) + 1 for key in state['reported_usage']}
+        assert row == {
+            'event': 'settlement', 'request_id': request_id, 'timestamp': row['timestamp'],
+            'acknowledged': 'provider_5xx_rejection', 'reason': 'provider back; bound kept',
+            'usage_ledger': str(usage), 'usage_ledger_sha256': hashlib.sha256(before[usage]).hexdigest(),
+            'usage': {key: None for key in state['reported_usage']},
+            **{key: state[key] for key in STATE_FIELDS}, 'unknown_quantities': unknown,
+            'stop_reason': stop,
+        }
+        prefix += canonical_bytes(row) + b'\n'
+    assert appended[-1] == {
+        'event': 'recovered', 'reason': 'provider back; bound kept', 'previous_stop_reason': stop,
+        'timestamp': appended[-1]['timestamp'], 'through_rows': len(prefix.splitlines()),
+        'ledger_prefix_sha256': hashlib.sha256(prefix).hexdigest(),
+        **{key: state[key] for key in STATE_FIELDS}, 'unknown_quantities': unknown, 'stop_reason': None,
+    }
+    # Verify both the appended result and the dry-run proposal with the real loader.
+    copy = tmp_path / 'recovered-copy.jsonl'
+    copy.write_bytes(prefix + canonical_bytes(appended[-1]) + b'\n')
+    summary = SharedTeacherBudget(copy if dry_run else budget.path, **budget.caps).summary()
+    assert summary['unsettled_attempts'] == 0 and summary['stop_reason'] is None
+    assert report['state_before'] == {key: state[key] for key in (*STATE_FIELDS, 'stop_reason')}
+    assert report['state_after'] == {key: summary[key] for key in (*STATE_FIELDS, 'stop_reason')}
+
+
+@pytest.mark.parametrize('error_type,http_status', [
+    ('InternalServerError', None), ('ServiceUnavailableError', None),
+    ('BadGatewayError', None), ('GatewayTimeoutError', None),
+    ('APIStatusError', 500), ('APIStatusError', 502), ('APIStatusError', 503), ('APIStatusError', 504),
+])
+def test_provider_error_accepts_named_error_or_http_status(tmp_path, capsys, error_type, http_status):
+    budget = provider_budget(tmp_path)
+    JsonlLedger(tmp_path / 'provider/usage.jsonl').append(
+        dict(call_id='provider', status='failed', error_type=error_type, http_status=http_status, usage=None))
+    code, report = recover_provider(budget.path, capsys, dry_run=True)
+    assert code == 0 and report['rows_to_append'][0]['acknowledged'] == 'provider_5xx_rejection'
+
+
+@pytest.mark.parametrize('failure,message', [
+    ('4xx', 'provider 5xx failure'),
+    ('usage', 'receipt with usage'),
+    ('earlier_usage', 'receipt with usage'),
+    ('missing_usage', 'null usage'),
+    ('unfinished', 'provider 5xx failure'),
+    ('other_unsettled', 'Other unsettled reservations'),
+    ('duplicate_flag', 'Duplicate --acknowledge-provider-error'),
+    ('teacher_quota', 'requires --expect-stop <phase>_transport_failed'),
+    ('teacher_halted', 'requires --expect-stop <phase>_transport_failed'),
+    ('stop_mismatch', 'does not match --expect-stop'),
+])
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_provider_acknowledgement_refuses_without_writes(tmp_path, capsys, failure, message, dry_run):
+    ids, expect = ['provider'], 'review_transport_failed'
+    budget = provider_budget(tmp_path, ('provider', 'other') if failure == 'other_unsettled' else ids)
+    usage = tmp_path / 'provider/usage.jsonl'
+    receipts = [json.loads(line) for line in usage.read_bytes().splitlines()]
+    if failure == '4xx':
+        receipts[-1].update(error_type='BadRequestError', http_status=400)
+    elif failure == 'usage':
+        receipts[-1]['usage'] = {}
+    elif failure == 'earlier_usage':
+        receipts.insert(1, dict(call_id='provider', status='success', usage={'input_tokens': 1}))
+    elif failure == 'missing_usage':
+        del receipts[-1]['usage']
+    elif failure == 'unfinished':
+        receipts[-1]['status'] = 'started'
+    elif failure == 'duplicate_flag':
+        ids *= 2
+    elif failure in ('teacher_quota', 'teacher_halted'):
+        expect = failure
+        budget.halt(expect)
+    elif failure == 'stop_mismatch':
+        budget.halt('label_transport_failed')
+    usage.write_bytes(b''.join(canonical_bytes(row) + b'\n' for row in receipts))
+    before = {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()}
+    code, report = recover_provider(budget.path, capsys, request_ids=ids, expect=expect, dry_run=dry_run)
+    assert code != 0 and report['status'] == 'error'
+    assert report['error_type'] == 'ValueError' and message in report['message']
+    assert {path: path.read_bytes() for path in tmp_path.rglob('*') if path.is_file()} == before
+
+
+@pytest.mark.parametrize('stop', [
+    '_transport_failed', 'Review_transport_failed', 'review-2_transport_failed',
+    'review_transport_failed_extra', 'review_transport_failed\n', '',
+])
+def test_invalid_transport_stop_pattern_refused_without_writes(tmp_path, capsys, stop):
+    budget = provider_budget(tmp_path, stop=stop)
+    before = budget.path.read_bytes()
+    code, report = recover_provider(budget.path, capsys, expect=stop)
+    assert code != 0 and '--expect-stop must be' in report['message']
+    assert budget.path.read_bytes() == before
