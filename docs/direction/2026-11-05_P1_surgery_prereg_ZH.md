@@ -132,3 +132,9 @@ teacher token 只设失控上限：每个会话输入 60M、输出 3M；较早�
   - 设置 B 全局会话：rollout = 80 + 4 × 90 = 440，环境步 17,600；工具调用 500、候选编辑 40 不变。
 - **运行地点**：会话、对照构造、M1–M3、导出和 dev140 全部在 rsi（3 张 RTX PRO 6000 Blackwell 96 GB，同一种卡）上进行；hpg B200 不再用于 P1。E0（合并后的 θ₀）同样在 rsi 上评测，作为全部条件的参照；与 LoRA 路径 θ₀ 的 78/140（B200）的差别作为跨硬件说明报告。
 - 代码：修订 2 的实现为 ICML27_wt_repair_eval **d082a6a**（在 29162fc 之上：verify-before-submit 与上述预算；另含不影响 P1 的 tools/budget_recover.py 改动）。全部正式会话、对照、评测、导出都用 d082a6a；rsi 上为同一绝对路径的 git checkout（/home/xueqi/hq/projects/ICML27_run_repair_eval_d082a6a）。作废的修订 1 会话目录移到 ../ICML27_run_repair_eval_29162fc/reports/p1_runs/_void/missing_precondition_rev1_unverified。
+
+## 11. 运行中偏差记录（以上各节不改）
+
+- **E4 冻结的防泄漏检查误报（11-06 04:1x CST）**：freeze-e4 要求 E4 的训练暴露集与测试配对不重叠。旧实现（repair/adapter_eval.py `_v0_exposure`）把 E4 训练目录 example_sources.json 的全部清单算作暴露，共 308 个任务（R 82、G 85、S 175、D 20），其中包括 df414df 训练器按 e4_keep_episodes.json（82314fcd…）与 drop-buckets G S 在训练前就剔除的 episode。实际训练（realised_exposure）只有 75 个 episode（R 55 个诊断修复 + D 20），59 个任务；与 58 个测试配对在任务和组上都是 0 重叠。run、input_manifest、checkpoint 三处的显式排除均为空。
+- **修改**：ICML27_wt_repair_eval **3138f4a**（d082a6a 之上只改 repair/adapter_eval.py 和它的测试）。训练前过滤只要有哈希绑定的记录，暴露清单就只计入保留下来的 episode；kept/dropped 必须对每个桶恰好划分全部 episode，桶内行数、kept_rows 与实际训练暴露都要对得上，否则报错。没有过滤记录的训练目录，行为与输出逐字节不变。380 个相关测试通过；用真实 E4 记录复核：暴露 59 个任务/组，全清单 308/495 的校验仍然执行。
+- **影响范围**：P1 代码身份（surgery/*.py、tools/p1_surgery.py、repair/p0_*.py 共 31 个文件）不含 adapter_eval.py，两棵树的代码哈希完全相同（0a57b7b4…）。所以已冻结的条件、评测计划与会话身份都不受影响。只对 E4 的冻结与导出使用 rsi 上的 ../ICML27_run_repair_eval_3138f4a，输出仍写入 d082a6a 的 reports/p1_runs/A；其余阶段继续用 d082a6a。
