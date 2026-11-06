@@ -121,3 +121,14 @@ teacher token 只设失控上限：每个会话输入 60M、输出 3M；较早�
 - 设置 B 配对：reports/p1_runs/B/data/pairs.json（文件 sha256 bc74b20e…）= 20 条 K20 轨迹 315 步中的 90 个不一致步；225 个一致步作附带伤害池。抽取在 rai RTX 6000 Ada 上完成（偏差：预注册写的是 B200；配对只定义 a_f，之后所有评测仍在同一种卡上进行）。
 - 试跑（§7，不计入）：rai GPU 2，trial 目录在 ../ICML27_run_repair_eval_d3245bc/reports/p1_runs/trial；全链路通过，vLLM 能加载修复后的导出。
 - 硬件偏差：B200 排不上队时，诊断会话也在 rai 48 GB 卡和 LONI A100 上运行（会话只产出编辑本身，换卡后照样加载）；M1–M3 与 dev140 统一在同一种卡上评测。
+
+## 10. 运行前修订 2（11-05 23:5x CST，用户 23:01 CST 同意；在任何新协议会话之前）
+
+- **起因**：第一个正式会话（missing_precondition，20:04 CST，代码 29162fc）只用了 300 次工具调用中的 33 次、50 次 rollout 中的 2 次就提交，部署的编辑只在 2 个诊断配对上做过真实验证。这测到的是"teacher 自己决定何时停"，而不是"充分验证后的最佳手术"。该提交作废，不进入任何条件。
+- **新规则（所有会话：类别、整合、设置 B）**：teacher 提交时，若部署的编辑列表尚未在本会话**全部**诊断配对上做过真实 greedy rollout（H=40，编辑前、编辑后各一次；会话内已有的同一编辑、同一状态的回执可复用），系统自动补跑，并把逐配对对照表作为工具结果返回给 teacher。teacher 以同一编辑再次提交才冻结；也可以修改后再提交，新编辑重新验证。自动 rollout 计入 rollout 与环境步预算，不占工具调用次数。若预算不够完成验证，提交仍冻结，但明确标记为"预算耗尽未验证"，单独报告。
+- **预算**（在修订 1 的探索预算之上加两轮全量验证，每轮 = 编辑前 + 编辑后）：
+  - 类别会话：rollout = 50 + 4 × 诊断配对数（goal_misread 102、missing_precondition 122、refused_action 86、search_incomplete_or_loop 74、wrong_object_or_target 86），环境步 = 40 × rollout；工具调用、候选编辑不变（300 / 25）；
+  - 整合会话：rollout = 30 + 4 × 55 = 250，环境步 10,000；工具调用 100、候选编辑 10 不变；
+  - 设置 B 全局会话：rollout = 80 + 4 × 90 = 440，环境步 17,600；工具调用 500、候选编辑 40 不变。
+- **运行地点**：会话、对照构造、M1–M3、导出和 dev140 全部在 rsi（3 张 RTX PRO 6000 Blackwell 96 GB，同一种卡）上进行；hpg B200 不再用于 P1。E0（合并后的 θ₀）同样在 rsi 上评测，作为全部条件的参照；与 LoRA 路径 θ₀ 的 78/140（B200）的差别作为跨硬件说明报告。
+- 代码：修订 2 的实现为 ICML27_wt_repair_eval **d082a6a**（在 29162fc 之上：verify-before-submit 与上述预算；另含不影响 P1 的 tools/budget_recover.py 改动）。全部正式会话、对照、评测、导出都用 d082a6a；rsi 上为同一绝对路径的 git checkout（/home/xueqi/hq/projects/ICML27_run_repair_eval_d082a6a）。作废的修订 1 会话目录移到 ../ICML27_run_repair_eval_29162fc/reports/p1_runs/_void/missing_precondition_rev1_unverified。
