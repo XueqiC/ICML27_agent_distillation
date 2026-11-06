@@ -114,4 +114,10 @@ teacher token 只设失控上限：每个会话输入 60M、输出 3M；较早�
 
 ## 9. 冻结记录（运行前补记，以上各节不改）
 
-（划分文件 sha256、各类别诊断/测试数量、代码版本）
+冻结于 11-05 19:4x CST，任何正式会话之前：
+- 代码：ICML27_wt_repair_eval **29162fc**（固定 worktree ../ICML27_run_repair_eval_29162fc；hpg 上为同一提交的 git checkout）。在 b800d97 之上的三处工程修改：反向传播省显存（d3245bc，结果逐位不变）、token 预算不足时自动只许提交（3eecb63）、导出补齐共享 KV 张量以便 vLLM 加载（29162fc）。
+- 设置 A 划分：reports/p1_runs/A/data/pairs.json（文件 sha256 9d7e5579…，split_sha256 5dfde976…）。诊断 55 对 / 测试 58 对；各类别诊断/测试：goal_misread 13/14、missing_precondition 18/19、refused_action 9/10、search_incomplete_or_loop 6/6、wrong_object_or_target 9/9；诊断 39 个、测试 35 个任务实例，不重叠。
+- E4 训练集：e4_keep_episodes.json（sha256 82314fcd…）= 55 个诊断配对所在的修复 episode，与测试 episode 无交集；1,177 行（R 1,157 + D 20），295 次更新，train tree df414df，hpg 作业 49855561。
+- 设置 B 配对：reports/p1_runs/B/data/pairs.json（文件 sha256 bc74b20e…）= 20 条 K20 轨迹 315 步中的 90 个不一致步；225 个一致步作附带伤害池。抽取在 rai RTX 6000 Ada 上完成（偏差：预注册写的是 B200；配对只定义 a_f，之后所有评测仍在同一种卡上进行）。
+- 试跑（§7，不计入）：rai GPU 2，trial 目录在 ../ICML27_run_repair_eval_d3245bc/reports/p1_runs/trial；全链路通过，vLLM 能加载修复后的导出。
+- 硬件偏差：B200 排不上队时，诊断会话也在 rai 48 GB 卡和 LONI A100 上运行（会话只产出编辑本身，换卡后照样加载）；M1–M3 与 dev140 统一在同一种卡上评测。
