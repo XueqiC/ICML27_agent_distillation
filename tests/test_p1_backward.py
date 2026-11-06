@@ -531,7 +531,7 @@ def test_rollout_evaluation_export_unchanged_after_backward(tmp_path, monkeypatc
         outputs.append((result, evaluation, predictions))
         condition = freeze(directory / 'condition.json', model, 'pairs', 'A', 'E0', [])
         snapshot_dir = directory / 'snapshot'
-        model.model.config.save_pretrained(snapshot_dir)
+        model.model.save_pretrained(snapshot_dir)
         report = export_model(model, condition, snapshot_dir, directory / 'export', inputs=[[130, 131]],
             loader=lambda p: Gemma4ForCausalLM.from_pretrained(p, local_files_only=True,
                 dtype=torch.bfloat16, attn_implementation='sdpa'))

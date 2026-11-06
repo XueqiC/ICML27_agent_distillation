@@ -99,7 +99,7 @@ def test_export_tiny_native_model_manifest_reload_and_tamper(tmp_path, monkeypat
     s = checkpoint_student(tmp_path)
     snapshot = tmp_path / 'snapshot'
     snapshot.mkdir()
-    s.model.config.save_pretrained(snapshot)
+    s.model.save_pretrained(snapshot)
     (snapshot / 'chat_template.jinja').write_text('fixture chat template')
     (snapshot / 'tokenizer.json').write_text('{}')
     delta = save_delta(tmp_path / 'deltas', {'0:mlp.down_proj': torch.full((16, 24), 1e-5),
@@ -147,7 +147,7 @@ def test_export_rejects_byte_mismatch_even_when_logits_match(tmp_path, monkeypat
     original.data[0, 0] = -0.0
     before = hashes(s)
     snapshot = tmp_path / 'snapshot'; snapshot.mkdir()
-    s.model.config.save_pretrained(snapshot)
+    s.model.save_pretrained(snapshot)
     condition = freeze(tmp_path / 'condition.json', s, 'pairs', 'A', 'E1', [project(s, 0)])
     save = s.model.save_pretrained
     def corrupt(path, **kwargs):
@@ -172,7 +172,7 @@ def test_export_rejects_byte_mismatch_even_when_logits_match(tmp_path, monkeypat
 def test_export_rejects_incorrect_reload(tmp_path):
     s = student()
     snapshot = tmp_path / 'snapshot'; snapshot.mkdir()
-    s.model.config.save_pretrained(snapshot)
+    s.model.save_pretrained(snapshot)
     condition = freeze(tmp_path / 'condition.json', s, 'pairs', 'A', 'E0', [])
     def wrong_loader(path):
         other = student().model

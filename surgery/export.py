@@ -1,17 +1,20 @@
 """Standalone bf16 publication with full-vocabulary fixed-input reload checks."""
 from pathlib import Path
+from contextlib import contextmanager
 import gc
+import logging
 import shutil
+import warnings
 
 from sed.react import build_messages
 from sed.storage import digest, file_hash, write_json
 from train.merge_lora import next_token_logits, _compare_logits
 from train.modeling import copy_base_assets
-from repair.p0_introspect import tensor_hash
-from surgery.common import checked, publish, provenance
+from surgery.common import checked, publish, provenance, read
 from surgery.conditions import restore
-from surgery.edits import module_at
 from surgery.runtime import identity_key
+from surgery.checkpoint import (checkpoint_files, edit_tensor_names, merged_tensor_names,
+    assert_copy_untouched, snapshot_record, copy_missing_tensors, all_weight_checks)
 
 
 def fixed_inputs(student):
@@ -24,34 +27,23 @@ def fixed_inputs(student):
     return result
 
 
-def exported_weight_checks(student, output, tensors):
-    """Compare serialized bytes to the installed tensors, including signed zero."""
-    import torch
-    from safetensors import safe_open
-    names = {id(module): name for name, module in student.model.named_modules()}
-    files = {}
-    for path in sorted(Path(output).glob('*.safetensors')):
-        with safe_open(path, framework='pt', device='cpu') as handle:
-            for name in handle.keys():
-                if name in files:
-                    raise ValueError('Duplicate exported tensor')
-                files[name] = path
-    checks = {}
-    for key in tensors:
-        layer, target = key.split(':')
-        module = module_at(student, int(layer), target)
-        name = names[id(module)] + '.weight'
-        installed = module.weight.detach().cpu().contiguous()
-        check = dict(tensor=name, installed_sha256=tensor_hash(installed),
-                     dtype=str(installed.dtype).removeprefix('torch.'), shape=list(installed.shape), exact=False)
-        if name in files:
-            with safe_open(files[name], framework='pt', device='cpu') as handle:
-                exported = handle.get_tensor(name).contiguous()
-                check.update(exported_sha256=tensor_hash(exported),
-                    exact=(installed.dtype == exported.dtype and installed.shape == exported.shape
-                           and torch.equal(installed.view(torch.uint8), exported.view(torch.uint8))))
-        checks[key] = check
-    return checks
+@contextmanager
+def reload_warnings():
+    """Preserve HF log warnings and Python warnings without making them failures."""
+    messages = []
+    class Capture(logging.Handler):
+        def emit(self, record):
+            messages.append(dict(source=record.name, message=record.getMessage()))
+    handler = Capture(level=logging.WARNING)
+    logger = logging.getLogger('transformers')
+    logger.addHandler(handler)
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            yield messages
+        messages.extend(dict(source=w.category.__name__, message=str(w.message)) for w in caught)
+    finally:
+        logger.removeHandler(handler)
 
 
 def export_model(student, condition, snapshot, output, *, loader=None, inputs=None):
@@ -62,6 +54,11 @@ def export_model(student, condition, snapshot, output, *, loader=None, inputs=No
     if any(p.is_floating_point() and p.dtype != torch.bfloat16 for p in student.model.parameters()):
         raise ValueError('Standalone export requires native bf16 parameters before evaluation')
     output, snapshot = Path(output), Path(snapshot)
+    base_files = checkpoint_files(snapshot)
+    base_snapshot = snapshot_record(student, snapshot, base_files)
+    edited_names = edit_tensor_names(student, condition['edits'])
+    merged_names = merged_tensor_names(student, base_files)
+    assert_copy_untouched(set(base_files) - set(student.model.state_dict()), edited_names.values(), merged_names)
     output.mkdir(parents=True, exist_ok=False)
     restore(student, condition)
     inputs = inputs or fixed_inputs(student)
@@ -70,7 +67,9 @@ def export_model(student, condition, snapshot, output, *, loader=None, inputs=No
         reference = [next_token_logits(student.model, ids) for ids in inputs]
         # Serialize exactly the weights already used for evaluation. No dtype conversion.
         student.model.save_pretrained(output, safe_serialization=True)
-        weight_checks = exported_weight_checks(student, output, edit_receipt['rounding']['tensors'])
+        copied = copy_missing_tensors(output, base_files, edited_names.values(), merged_names)
+        weight_checks = all_weight_checks(student, output, base_files, copied)
+        edited_checks = {key: weight_checks[edited_names[key]] for key in edit_receipt['rounding']['tensors']}
         if hasattr(student.tokenizer, 'save_pretrained'):
             student.tokenizer.save_pretrained(output)
         copy_base_assets(snapshot, output)
@@ -86,9 +85,20 @@ def export_model(student, condition, snapshot, output, *, loader=None, inputs=No
     if loader is None:
         from transformers import Gemma4ForConditionalGeneration
         loader = lambda p: Gemma4ForConditionalGeneration.from_pretrained(p, local_files_only=True,
-            trust_remote_code=False, dtype=torch.bfloat16, attn_implementation='sdpa', device_map={'': str(device)})
-    model = loader(output).eval()
+            trust_remote_code=False, dtype=torch.bfloat16, attn_implementation='sdpa',
+            device_map={'': str(device)}, output_loading_info=True)
+    model = None
+    unexpected_keys = []
     try:
+        with reload_warnings() as recorded_warnings:
+            loaded = loader(output)
+        if isinstance(loaded, tuple):
+            model, info = loaded
+            unexpected_keys = sorted(info.get('unexpected_keys', []))
+        else:
+            model = loaded
+        del loaded
+        model.eval()
         reloaded = [next_token_logits(model, ids) for ids in inputs]
         for before, after in zip(reference, reloaded):
             checks.append(dict(edited_to_export=_compare_logits(before, after, atol=0.125, rtol=0.01),
@@ -101,9 +111,13 @@ def export_model(student, condition, snapshot, output, *, loader=None, inputs=No
             torch.cuda.empty_cache()
         student.model.to(device)
     weights_exact = all(c['exact'] for c in weight_checks.values())
+    edited_exact = all(c['exact'] for c in edited_checks.values())
     passed = weights_exact and all(c['edited_to_export']['passed'] and c['bf16_reload']['passed'] for c in checks)
     report = dict(passed=passed, checks=checks, fixed_input_ids=inputs, fixed_input_sha256=digest(inputs),
-        edited_weights_exact=weights_exact, edited_weight_checks=weight_checks, edit_receipt=edit_receipt,
+        weights_exact=weights_exact, weight_checks=weight_checks,
+        edited_weights_exact=edited_exact, edited_weight_checks=edited_checks, edit_receipt=edit_receipt,
+        copied_tensors=copied, base_snapshot=base_snapshot,
+        reload_warnings=recorded_warnings, reload_unexpected_keys=unexpected_keys,
         dtype='bfloat16', condition_sha256=condition['sha256'], student_identity=student.identity,
         tolerances=dict(edited_to_export=dict(atol=0.125, rtol=0.01), bf16_reload=dict(atol=0.125, rtol=0.01)),
         provenance=provenance(dict(snapshot=str(snapshot), condition=condition['name'])))
@@ -111,18 +125,19 @@ def export_model(student, condition, snapshot, output, *, loader=None, inputs=No
     manifest = publish(output / 'surgery_manifest.json', dict(schema='p1-export/1', passed=passed,
         condition_name=condition['name'], condition_sha256=condition['sha256'], pairs_sha256=condition['pairs_sha256'],
         trial=condition['trial'],
-        edited_weights_exact=weights_exact, edit_receipt=edit_receipt,
+        weights_exact=weights_exact, edited_weights_exact=edited_exact, edit_receipt=edit_receipt,
+        copied_tensors=copied, base_snapshot=base_snapshot, merged_tensor_names=sorted(merged_names),
+        reload_warnings=recorded_warnings, reload_unexpected_keys=unexpected_keys,
         files={str(p.relative_to(output)): file_hash(p) for p in sorted(output.rglob('*')) if p.is_file()},
         fixed_input_sha256=digest(inputs), dtype='bfloat16', student_identity=student.identity))
     if not passed:
         if not weights_exact:
-            raise ValueError('Exported tensors differ byte-for-byte from installed weights; failed artifact must not be served')
+            raise ValueError('Exported tensors differ byte-for-byte from installed weights or base snapshot; failed artifact must not be served')
         raise ValueError('Export/reload logits differ; failed artifact must not be served')
     return manifest
 
 
 def verify_export(directory):
-    from surgery.common import read
     directory = Path(directory)
     value = checked(read(directory / 'surgery_manifest.json'), 'p1-export/1')
     if not value['passed']:
@@ -131,6 +146,16 @@ def verify_export(directory):
               if p.is_file() and p.name != 'surgery_manifest.json'}
     if actual != value['files']:
         raise ValueError('Export file manifest changed')
+    if 'base_snapshot' not in value:
+        raise ValueError('Export lacks base snapshot tensor key set; re-export required')
+    snapshot = value['base_snapshot']
+    base = Path(snapshot['path'])
+    for name, sha in snapshot['files'].items():
+        if file_hash(base / name) != sha:
+            raise ValueError('Base snapshot file manifest changed')
+    base_files = checkpoint_files(base)
+    if set(base_files) != set(snapshot['tensor_names']) or set(checkpoint_files(directory)) != set(base_files):
+        raise ValueError('Export tensor key set differs from base snapshot')
     return value
 
 
