@@ -44,3 +44,24 @@ Pre-registered branch: criterion 1 not met → "on existing data, teacher-locali
 - SFT on the same repair data (E4) is better on every efficacy metric (M1 50.0%, dev140 58.6%, M2 51/71) but has the largest collateral (15%).
 - Path check: the unedited merged export E0 scores 78/140 vs 82/140 for theta0 through the LoRA path on the same rsi GPUs (18 task flips), so merge/export alone moves ~13% of tasks.
 - Same-hardware references (LoRA path, rsi): v0 uniform 99/140, D-data 91/140; every P1 condition is ≤ 84/140.
+
+## Appendix: dev140 run-to-run noise on the merged path (added 17:1x CST)
+
+Every A condition was evaluated a second time with the same formal runner (pre-registered 16:2x/16:5x CST; outputs `A/dev140_rep2`, not imported into the report). E0 was additionally run a third time and once with all compile caches cleared.
+
+| Condition | Run 1 (in report) | Run 2 | Outcome flips |
+|---|---:|---:|---:|
+| E0 | 78 | 76 (rep3 78, cold-cache 78) | 24 |
+| E1 | 80 | 80 | 0 |
+| E2_0 | 73 | 80 | 21 |
+| E2_1 | 84 | 78 | 16 |
+| E2_2 | 77 | 77 | 0 |
+| E2_3 | 78 | 76 | 12 |
+| E2_4 | 78 | 78 | 0 |
+| E3 | 77 | 77 | 0 |
+| E4 | 82 | 82 | 0 |
+| E5 | 74 | 71 | 25 |
+
+- Half of the conditions reproduce exactly; the other half shift by 2–7 tasks with 12–25 flips. The compile cache is not the cause (cold-cache E0 equals run 1), and the servers did not cross-talk (each client hit its own port and model). The likely source is timing-dependent request scheduling in vLLM (16 concurrent workers) that BATCH_INVARIANT=1 does not fully neutralize; not yet verified.
+- Consequence: dev140 differences of a few tasks between P1 conditions are within run-to-run noise.
+- Two-run means: E0 77.0, E1 80.0, E2 77.9, E3 77.0, E4 82.0, E5 72.5. Criterion 1 is still not met (E1 +2.1 / +1.5 / +2.1 / +5.4 pp over E0 / E2 / E3 / E5), and E1 is still below E4, so the verdict is unchanged.
