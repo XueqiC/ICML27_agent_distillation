@@ -158,14 +158,34 @@ No-op and vanished tensors retain their original parameter objects and bytes.
 
 | Session | Tools | Rollouts | Distinct candidates | Real steps | Input/output cap |
 |---|---:|---:|---:|---:|---|
-| Category (five separate jobs) | 300 | 50 | 25 | 2,000 | 60M / 3M |
-| Integration | 100 | 30 | 10 | 1,000 | 60M / 3M |
-| Global B | 500 | 80 | 40 | 4,000 | 100M / 5M |
+| goal_misread (13 diagnosis pairs) | 300 | 102 | 25 | 4,080 | 60M / 3M |
+| missing_precondition (18) | 300 | 122 | 25 | 4,880 | 60M / 3M |
+| refused_action (9) | 300 | 86 | 25 | 3,440 | 60M / 3M |
+| search_incomplete_or_loop (6) | 300 | 74 | 25 | 2,960 | 60M / 3M |
+| wrong_object_or_target (9) | 300 | 86 | 25 | 3,440 | 60M / 3M |
+| Integration (55) | 100 | 250 | 10 | 10,000 | 60M / 3M |
+| Global B (90) | 500 | 440 | 40 | 17,600 | 100M / 5M |
+
+**Prereg revision 2, before the remaining formal sessions:** category rollout
+caps are `50 + 4 * n_pairs`; global B uses `80 + 4 * n_pairs`, giving
+`80 + 4 * 90 = 440`. These preserve revision 1's 50 category and 80 global-B
+exploratory rollouts and add two complete edited and unedited verifications.
+Integration retains its 30 exploratory rollouts and adds `4 * 55`, for 250.
+All real-step caps are `40 * rollout_cap`, including
+prefix replay. `surgery.agent.LIMITS` registers the maximum category cap and
+the integration/B caps; `CATEGORY_LIMITS` lists the five exact category caps.
+`Agent` binds category and global-B budgets to the actual session pair count before use,
+including CLI-created budgets; trial overrides may only reduce those caps.
 
 Invalid/cached calls spend tool slots; cached rollout requests spend rollout
 slots but no real steps. Local training spends a candidate; reusing its returned
 unscaled delta counts as the same candidate. Compositions/rescalings are distinct.
 Rollout reserves H=40 conservatively and settles actual replay/continuation steps.
+Automatic submission checks spend rollout and real-step budgets through the
+same session rollout path, without spending teacher tool slots or charging the
+unedited baseline as an extra candidate. Reusing an already completed session
+receipt makes no new rollout request and spends nothing; an explicit cached
+teacher rollout request still spends a rollout and tool slot.
 `agent.jsonl` and `tools/tools.jsonl` retain full requests, responses, failures,
 usage and training exposures. The teacher-facing copy replaces tool results
 older than the latest 20 with P0-style summaries. Within the latest 20, edit
@@ -177,6 +197,42 @@ with `SharedTeacherBudget` and the joint rate limiter, including
 P0 JSON mode, retries, requested/returned model IDs and timestamps. All sessions
 must use the same `--rate-limit-dir`. The teacher is always `gpt-6-luna` and needs
 `--allow-teacher-api`.
+
+### Submission verification and confirmation (revision 2)
+
+In category, global-B and integration sessions, the first valid `submit` checks
+coverage for the canonical SHA of the **resolved deployed ordered edit list**
+(including frozen local-finetune delta references). Every diagnosis pair needs
+both an unedited and an edited rollout from its original decision state.
+`apply_edit` scores and counterfactual-context rollouts cannot satisfy this gate.
+The automatic checks use the normal `Session.call('rollout', ...)` path: real
+environment reset, P0 checked prefix replay, free greedy continuation, H=40.
+Completed receipts for that exact list and baseline within the session are
+reused; an empty edit list shares the baseline execution.
+
+Before starting, the entire missing batch must fit remaining rollouts and
+`40 * missing_rollouts` real steps. Actual steps settle after each call, including
+failed replay. Execution errors remain fatal and retain their receipts; they
+cannot become verified coverage. Real failures and unknown success labels stay
+in the comparison table and are counted separately.
+
+The agent returns a `submit_verification` tool result in the transcript: per-pair
+unedited/edited success, receipt and execution hashes, and success/failure/unknown
+and verified counts. It does not freeze yet. Submitting the same edit again
+confirms; further tool calls or a different edit invalidate pending confirmation.
+A revised list must have all-pair rollout coverage and return a new table before
+confirmation. Existing receipts for an unchanged list may still be reused.
+Integration retains its five-input and rescale/drop/reorder/combine restrictions;
+its final exact composition now requires these real rollouts on all 55 pairs.
+
+`submission.json` stores `verification`, full `verification_receipts`, and
+`confirmation_status`; `agent.jsonl` records verification preflights, automatic
+rollout requests/results/budgets, returned tables and the final status. If the
+batch cannot fit, freeze the proposed edit with
+`unverified_at_budget_exhaustion=true` and verification status
+`unverified_at_budget_exhaustion` ("unverified at budget exhaustion"). Preserve
+the partial table, missing entries as unknown without receipts, and the limiting
+budgets. This outcome is reported distinctly from verified submissions.
 
 ### Submit-only token headroom
 
@@ -196,9 +252,15 @@ reply is checked again against its actual prompt, including newly returned tool
 results or rejection feedback; future result growth is not assumed bounded.
 
 The notice states `Token budget nearly exhausted` and requires only `submit`.
-Tool calls are rejected without execution. The existing exact-rollout gate,
-integration ALL-pair validation, and maximum three submit-only replies still
-apply. If even the submit-only exchange is unaffordable, the agent records
+Teacher tool calls are rejected without execution; automatic verification still
+runs and the maximum three submit-only replies still applies. Insufficient
+rollout/step budget freezes the explicit unverified submission described above.
+If verification completed but tokens or the three-reply limit prevent teacher
+confirmation, preserve the pending submission and complete table with
+`confirmation_status=unconfirmed_at_budget_exhaustion`; this is distinct from
+unverified execution and from an explicit teacher confirmation.
+If even the submit-only exchange is unaffordable and there is no pending valid
+submission, the agent records
 `insufficient_token_budget_for_submit_only` and halts with `BudgetExceeded`
 before transport, leaving no submission file. Existing fatal shared-budget
 stops remain fatal; this guard does not override transport accounting.
@@ -341,8 +403,9 @@ p1_hpg integrate --pairs "$P1/A/data/pairs.json" "${SUBMISSIONS[@]}" --output "$
 
 Integration verifies exact category, split and student identities. It can
 rescale/drop/reorder/combine existing edits, but cannot train a new delta or
-deploy newly invented directions/neurons. All diagnosis pairs must be checked
-under the exact deployed list, and that list needs a completed real rollout.
+deploy newly invented directions/neurons. The exact final deployed list and the
+unedited baseline require real rollouts on every diagnosis pair, followed by the
+verification-table/confirmation exchange described above.
 
 5. Build all non-E4 controls, including diagnosis-only grid searches:
 
@@ -524,10 +587,11 @@ CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONPATH=src:.
   shuffle in each category. Mixed-category groups count toward every affected
   category; skip a group if any target would overflow. Require all targets
   exactly, with no fallback split. This produces the stated 55/58 freeze.
-* Integration's 30-rollout limit is smaller than 55 diagnosis pairs. Validation
-  of every pair means an edited action-score check or a real rollout, under the
-  exact deployed list. At least one real rollout of that list is mandatory.
-  This satisfies all-pair validation without exceeding the rollout budget.
+* Prereg revision 2 replaces the old integration score-check/one-rollout gate
+  with real edited and unedited rollouts on all 55 diagnosis pairs for the exact
+  final list. Integration has 250 rollouts / 10,000 real steps. Category/global-B
+  sessions use the same all-pair verification and confirmation protocol; their
+  exact revised limits and budget-exhaustion outcomes are documented above.
 * Gradient attribution ranks the Frobenius norm of the mean margin gradient.
   Neuron attribution is signed activation×gradient at the last decision-prefix
   token, averaged over pairs and ranked by absolute magnitude. Shared-KV tensors

@@ -13,7 +13,13 @@ from sed.storage import digest, canonical_bytes, JsonlLedger
 from surgery.common import checked, read, publish, provenance
 from surgery.runtime import identity_key
 
-LIMITS = dict(category=(300, 50, 25, 2000), integration=(100, 30, 10, 1000), global_b=(500, 80, 40, 4000))
+# Prereg revision 2: base + two complete edited/unedited verifications, H=40.
+# Category is the largest registered category (18 pairs); global B has 90.
+# Agent binds both to the actual pair count before use, including CLI budgets.
+LIMITS = dict(category=(300, 122, 25, 4880), integration=(100, 250, 10, 10000), global_b=(500, 440, 40, 17600))
+CATEGORY_LIMITS = dict(goal_misread=(300, 102, 25, 4080),
+    missing_precondition=(300, 122, 25, 4880), refused_action=(300, 86, 25, 3440),
+    search_incomplete_or_loop=(300, 74, 25, 2960), wrong_object_or_target=(300, 86, 25, 3440))
 TOKEN_CAPS = dict(category=(60_000_000, 3_000_000), integration=(60_000_000, 3_000_000), global_b=(100_000_000, 5_000_000))
 TOOL_DOCS = dict(p0.TOOL_DOCS,
     gradient_attribution='pair_ids: distinct diagnosis IDs; framing optional. Ranked layer x q/k/v/o/gate/up/down weight gradient norms of mean log P(a_r)-log P(a_f). Native absent shared-KV tensors are omitted.',
@@ -39,9 +45,14 @@ Judgment uses point estimates, never significance gates. A: dev140 gain >=3pp an
 gain >=5pp versus none/random/fixed/automatic; no K20 decline, and compare E4 SFT.
 B: dev140 >= merged trajectory-SFT seed0 and >=3pp above B0/B2/B3/B5, collateral <=5%.
 Integration receives exactly five frozen category submissions. It may only rescale,
-drop, reorder or combine those edits. It must validate its exact final list on ALL
-diagnosis pairs with apply_edit or rollout, and complete at least one real rollout.
-Category/global sessions must also complete a rollout of the exact submitted list.
+drop, reorder or combine those edits. In EVERY session, submit triggers real greedy
+H=40 rollouts of the exact deployed list AND the unedited student on ALL diagnosis
+pairs, reusing completed session receipts. Scores alone do not verify deployment.
+The verification table returns as a tool result. Confirm by submitting the same
+edit again, or revise using tools/a different edit (which must be verified again).
+Automatic rollouts spend rollout/real-step budgets, not teacher tool slots.
+If the missing checks cannot fit, submission freezes explicitly marked
+"unverified at budget exhaustion"; this is not a verified submission.
 All budgets, including distinct candidates and training calls, are enforced. Old tool
 results are compacted after 20 newer results; full receipts remain on disk.
 Reply with ONE JSON object: {"calls":[{"tool":"name","args":{...}},...]} (1..8 calls),
@@ -60,7 +71,10 @@ parse_turn = FunctionType(p0.parse_turn.__code__, dict(p0.parse_turn.__globals__
 parse_turn.__kwdefaults__ = p0.parse_turn.__kwdefaults__
 
 
-TOKEN_SUBMIT_ONLY_NOTICE = p0.SUBMIT_ONLY_NOTICE.replace(
+SUBMIT_ONLY_NOTICE = ('Tool budget exhausted. Only {"submit":...} is accepted; '
+    'automatic all-pair rollout verification and confirmation still apply. '
+    'If verification cannot fit, freeze flagged unverified at budget exhaustion.')
+TOKEN_SUBMIT_ONLY_NOTICE = SUBMIT_ONLY_NOTICE.replace(
     'Tool budget exhausted.', 'Token budget nearly exhausted.')
 
 
@@ -161,7 +175,31 @@ class Budget(p0.AgentBudget):
         if any(k not in limits or type(v) is not int or not 0 <= v <= limits[k] for k, v in overrides.items()):
             raise ValueError('Trial budgets may only reduce registered limits')
         super().__init__(**dict(limits, **overrides))
+        self.kind, self.overrides = kind, dict(overrides)
         self.delta_candidates = {}
+
+    def bind_pairs(self, count):
+        if self.calls or self.rollouts or self.steps or self.edits:
+            raise ValueError('Bind session budgets before use')
+        if self.kind in ('category', 'global_b'):
+            # Preserve revision 1 exploration; add two edited/unedited checks.
+            rollouts = (50 if self.kind == 'category' else 80) + 4 * count
+            limits = dict(self.limits, rollouts=rollouts, environment_steps=40 * rollouts)
+            if any(v > limits[k] for k, v in self.overrides.items()):
+                raise ValueError('Trial budgets may only reduce session limits')
+            self.limits = dict(limits, **self.overrides)
+
+    def reserve_verification_rollout(self):
+        """Same H=40 reservation as a teacher rollout, without a tool slot.
+
+        The submitted candidate is already charged; the baseline is not a new
+        candidate. Actual steps, including failed replay, settle at the call site.
+        """
+        if self.rollouts >= self.limits['rollouts']:
+            raise p0.BudgetExceeded('Rollout budget exhausted', budget='rollouts')
+        if self.steps + 40 > self.limits['environment_steps']:
+            raise p0.BudgetExceeded('Insufficient remaining environment step budget', budget='environment_steps')
+        self.rollouts += 1
 
     @staticmethod
     def training_candidate(args):
@@ -216,11 +254,16 @@ class Agent(p0.P0Agent):
         self.session, self.transport, self.directory = session, transport, Path(directory)
         self.category, self.pairs_sha256, self.kind, self.setting = category, pairs_sha256, kind, setting
         self.budget = budget or Budget(kind)
+        if self.budget.kind != kind:
+            raise ValueError('Session budget kind mismatch')
+        self.budget.bind_pairs(len(session.pairs))
         self.ledger = JsonlLedger(self.directory / 'agent.jsonl')
         self.transcript, self.protocol_errors, self.consecutive_empty_replies = [], 0, 0
         self.token_submit_only = False
         self.submit_only_announced = False
         self.completed_rollout_edits = set()
+        self.pending_submission = None
+        self.pending_verification = None
         self.submissions = integration_inputs(session, submissions, pairs_sha256) if kind == 'integration' else []
         self.allowed = [edit_structure(e) for s in self.submissions for e in s['edit']]
         if kind == 'integration':
@@ -245,7 +288,7 @@ class Agent(p0.P0Agent):
 
     def prepare_turn(self, initial, turn):
         if self.submit_only and not self.submit_only_announced:
-            self.announce_submit_only(p0.SUBMIT_ONLY_NOTICE, 'tool_budget_exhausted', turn)
+            self.announce_submit_only(SUBMIT_ONLY_NOTICE, 'tool_budget_exhausted', turn)
         prompt = self.prompt(initial)
         estimate = self.transport.reservation_estimate(prompt)
         # The minimum extra exchange is one submit reply, with the current
@@ -272,11 +315,14 @@ class Agent(p0.P0Agent):
             submit_only=self.submit_only, submit_only_triggered=triggered,
             reason='token_budget_nearly_exhausted' if triggered else None, stop_reason=stop_reason))
         if stop_reason:
+            if self.pending_submission and insufficient and not state['stop_reason']:
+                return None  # Preserve the verified proposal without claiming confirmation.
             self.halt('Insufficient token budget for submit-only turn (' + ', '.join(insufficient) + ')'
                       if insufficient else 'Teacher budget halted: ' + stop_reason, turn)
         return submit_prompt if self.submit_only else prompt
 
     def execute_batch(self, messages, turn):
+        self.pending_submission = self.pending_verification = None
         before = len(self.transcript)
         result = super().execute_batch(messages, turn)
         for row in self.transcript[before:]:
@@ -290,17 +336,85 @@ class Agent(p0.P0Agent):
         if self.kind == 'integration' and any(edit_structure(e) not in self.allowed for e in (edits or [])):
             raise ValueError('Integration may only rescale/drop/reorder/combine frozen category edits')
 
+    def verification(self, edits):
+        key = digest(self.session.resolve_edit(edits))
+        baseline = self.session.rollout_results.get(digest([]), {})
+        edited = self.session.rollout_results.get(key, {})
+        rows, receipts, missing = [], {}, []
+        for ident in sorted(self.session.pairs):
+            row = dict(pair_id=ident)
+            for label, results, spec in (('unedited', baseline, None), ('edited', edited, edits)):
+                result = results.get(ident)
+                row[label + '_success'] = result['data']['success'] if result else 'unknown'
+                row[label + '_receipt'] = None
+                if result:
+                    row[label + '_receipt'] = {k: result[k] for k in ('cache_key', 'sha256')}
+                    row[label + '_receipt']['execution_sha256'] = result['data']['execution_sha256']
+                    receipts[result['cache_key']] = deepcopy(result)
+                else:
+                    request = dict(tool='rollout', args=dict(state=ident, edit=spec))
+                    # [] and null deploy the same unedited list.
+                    if not (key == digest([]) and label == 'edited'):
+                        missing.append(request)
+            rows.append(row)
+        totals = {label: dict(success=sum(r[label + '_success'] is True for r in rows),
+                             failure=sum(r[label + '_success'] is False for r in rows),
+                             unknown=sum(r[label + '_success'] not in (True, False) for r in rows),
+                             verified=sum(r[label + '_receipt'] is not None for r in rows))
+                  for label in ('unedited', 'edited')}
+        table = dict(edit_sha256=key, pair_count=len(rows), rows=rows, totals=totals,
+                     complete=not missing, status='verified' if not missing else 'pending')
+        return table, receipts, missing
+
     def submit(self, submission):
+        if self.pending_submission and digest(submission.get('edit')) != digest(self.pending_submission['edit']):
+            self.pending_submission = self.pending_verification = None
         if (not {'mechanism', 'edit'} <= submission.keys() or set(submission) - {'mechanism', 'edit', 'locus', 'predictions'}
                 or not isinstance(submission['mechanism'], str) or not submission['mechanism'].strip()):
             raise ValueError('Submission needs mechanism and ordered edit list')
         self.check_combination(submission['edit'])
-        key = digest(submission['edit'])
+        if not isinstance(submission['edit'], list):
+            raise ValueError('Submission needs an ordered edit list')
+        # Resolve and validate even when the budget cannot fund verification.
+        key = digest(self.session.resolve_edit(submission['edit']))
         self.budget.candidate(submission['edit'], consume=not self.submit_only)
-        if key not in self.session.rollout_edits:
-            raise ValueError('Complete a real rollout of the exact submitted edit list first')
-        if self.kind == 'integration' and self.session.validated.get(key, set()) != set(self.session.pairs):
-            raise ValueError('Validate exact deployed edits on ALL diagnosis pairs')
+        table, receipts, missing = self.verification(submission['edit'])
+        if self.pending_verification and self.pending_verification['edit_sha256'] == key and not missing:
+            return self.freeze(submission, table, receipts, confirmation='confirmed')
+        self.pending_submission = self.pending_verification = None
+        required = dict(rollouts=len(missing), environment_steps=40 * len(missing))
+        remaining = dict(rollouts=self.budget.limits['rollouts'] - self.budget.rollouts,
+                         environment_steps=self.budget.limits['environment_steps'] - self.budget.steps)
+        limiting = [k for k in required if required[k] > remaining[k]]
+        self.ledger.append(dict(event='verification_preflight', edit_sha256=key,
+            required=required, remaining=remaining, limiting_budgets=limiting))
+        if limiting:
+            table.update(status='unverified_at_budget_exhaustion', limiting_budgets=limiting,
+                         required=required, remaining=remaining)
+            return self.freeze(submission, table, receipts, confirmation='unverified_at_budget_exhaustion')
+        for request in missing:
+            self.budget.reserve_verification_rollout()
+            before_steps = self.session.environment_steps
+            try:
+                result = self.session.call('rollout', request['args'])
+            finally:
+                self.budget.steps += self.session.environment_steps - before_steps
+                self.ledger.append(dict(event='verification_rollout_budget', request=request,
+                    edit_sha256=key, budget=self.budget.status()))
+            self.ledger.append(dict(event='verification_rollout', request=request, result=result,
+                                    edit_sha256=key))
+        table, receipts, missing = self.verification(submission['edit'])
+        if missing:
+            raise ValueError('Automatic verification did not produce all decision-state rollout receipts')
+        result = dict(tool='submit_verification', data=table, sha256=digest(table),
+            summary='All-pair verification complete. Submit the same edit to confirm, or revise.')
+        self.transcript.append(dict(request=dict(submit=deepcopy(submission)), result=result))
+        self.ledger.append(dict(event='submission_verification', result=result, receipts=receipts,
+                                budget=self.budget.status()))
+        self.pending_submission, self.pending_verification = deepcopy(submission), table
+        return None
+
+    def freeze(self, submission, table, receipts, *, confirmation):
         teacher_receipts = []
         if hasattr(self.transport, 'directory'):
             requests = self.transport.directory / 'requests.jsonl'
@@ -316,7 +430,22 @@ class Agent(p0.P0Agent):
             diagnosis_pair_ids=sorted(self.session.pairs), student_identity=self.session.student.identity,
             budget=self.budget.status(), integration_inputs=[s['sha256'] for s in self.submissions],
             teacher=dict(requested_alias='gpt-6-luna', receipts=teacher_receipts),
-            provenance=provenance(dict(kind=self.kind)), **self.session.bundle(submission)))
+            verification=table, verification_receipts=receipts, confirmation_status=confirmation,
+            unverified_at_budget_exhaustion=table['status'] == 'unverified_at_budget_exhaustion',
+            provenance=provenance(dict(kind=self.kind, prereg_revision=2)), **self.session.bundle(submission)))
+
+    def freeze_pending_at_exhaustion(self, reason):
+        table, receipts, _ = self.verification(self.pending_submission['edit'])
+        table['confirmation_budget_error'] = reason
+        return self.freeze(self.pending_submission, table, receipts,
+                           confirmation='unconfirmed_at_budget_exhaustion')
+
+    def record_frozen(self, frozen):
+        self.ledger.append(dict(event='frozen', sha256=frozen['sha256'], budget=self.budget.status(),
+            verification_status=frozen['verification']['status'],
+            confirmation_status=frozen['confirmation_status'],
+            unverified_at_budget_exhaustion=frozen['unverified_at_budget_exhaustion']))
+        return frozen
 
     def run(self):
         initial = [teacher_pair(p, self.session.student.decision_prefix(self.session.state(p['pair_id'])))
@@ -326,8 +455,12 @@ class Agent(p0.P0Agent):
         turn, submit_only_replies = 0, 0
         while True:
             if self.submit_only and submit_only_replies >= 3:
+                if self.pending_submission:
+                    return self.record_frozen(self.freeze_pending_at_exhaustion('submit_only_reply_limit'))
                 self.halt('No valid submission after submit-only reply limit', turn)
             prompt = self.prepare_turn(initial, turn)
+            if prompt is None:
+                return self.record_frozen(self.freeze_pending_at_exhaustion('confirmation_tokens'))
             if self.submit_only:
                 submit_only_replies += 1
             raw = self.transport(prompt)
@@ -341,8 +474,10 @@ class Agent(p0.P0Agent):
                 messages = parse_turn(raw)
                 if 'submit' in messages[0]:
                     frozen = self.submit(messages[0]['submit'])
-                    self.ledger.append(dict(event='frozen', sha256=frozen['sha256'], budget=self.budget.status()))
-                    return frozen
+                    if frozen is not None:
+                        return self.record_frozen(frozen)
+                    continue
+                self.pending_submission = self.pending_verification = None
                 if self.submit_only:
                     raise ValueError('Submit-only mode: only {"submit":...} is accepted')
                 self.execute_batch(messages, turn)

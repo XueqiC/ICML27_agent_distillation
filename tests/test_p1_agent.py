@@ -100,12 +100,15 @@ def test_full_fake_teacher_transport_and_submission(tmp_path):
     sess = session(tmp_path)
     client = ScriptedTeacherClient([
         dict(calls=[dict(tool='rollout', args=dict(state='pair-0', edit=[]))]),
+        dict(submit=dict(mechanism='No edit in this fixture.', edit=[])),
         dict(submit=dict(mechanism='No edit in this fixture.', edit=[]))])
     transport = make_transport(load_config('configs/base_e4b.yaml'), 'refused_action', tmp_path / 'transport', client=client)
     value = Agent(sess, transport, tmp_path / 'agent', category='refused_action', pairs_sha256='pairs').run()
     assert value['submission']['edit'] == []
-    assert client.calls == 2
-    assert value['budget']['rollouts'] == 1
+    assert client.calls == 3
+    assert value['budget']['rollouts'] == 6
+    assert value['verification']['complete']
+    assert value['confirmation_status'] == 'confirmed'
     assert 'P1 preregistered' in client.requests[0]['input'][0]['content']
     assert 'gradient_attribution' in client.requests[0]['input'][0]['content']
     usage = [json.loads(row) for row in (tmp_path / 'transport/teacher_budget.jsonl').read_text().splitlines()]
@@ -147,10 +150,14 @@ def test_integration_five_inputs_and_all_pair_gate(tmp_path):
     agent = Agent(sess, None, tmp_path / 'agent', category='integration', pairs_sha256='pairs',
         kind='integration', submissions=submissions)
     sess.rollout_edits.add(digest([]))
-    with pytest.raises(ValueError, match='ALL'):
-        agent.submit(dict(mechanism='fixture', edit=[]))
     sess.validated[digest([])] = set(sess.pairs)
-    assert agent.submit(dict(mechanism='fixture', edit=[]))['kind'] == 'integration'
+    # Legacy score coverage and a single-edit flag cannot replace receipts.
+    assert agent.submit(dict(mechanism='fixture', edit=[])) is None
+    assert not (agent.directory / 'submission.json').exists()
+    frozen = agent.submit(dict(mechanism='fixture', edit=[]))
+    assert frozen['kind'] == 'integration'
+    assert frozen['verification']['pair_count'] == 30
+    assert frozen['budget']['rollouts'] == 30
 
 
 def test_integration_only_rescale_drop_combine(tmp_path):

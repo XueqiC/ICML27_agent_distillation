@@ -18,6 +18,9 @@ class Session(ToolSession):
         self.identity['p1_code'] = provenance()['code_sha256']
         self.validated = {}
         self.rollout_edits = set()
+        # Only completed rollouts at the original decision state qualify for
+        # submission verification. Action scores/counterfactuals never do.
+        self.rollout_results = {}
         self.integration_structures = None
 
     def examples(self, pair_ids):
@@ -124,6 +127,9 @@ class Session(ToolSession):
                 self.validated.setdefault(digest(args.get('edit') or []), set()).add(state['origin_pair_id'])
                 if tool == 'rollout' and data['verification'] == 'real_environment':
                     self.rollout_edits.add(digest(args.get('edit') or []))
+                    if (state['sha256'] == self.pair_states[state['origin_pair_id']]
+                            and data['termination'] != 'ENV_ERROR'):
+                        self.rollout_results.setdefault(digest(edits), {})[state['origin_pair_id']] = deepcopy(result)
             self.ledger.append(dict(event='settled', tool=tool, args=args, result=result,
                 environment_steps=0 if result['cache_hit'] else data.get('environment_steps', 0),
                 student_usage={k: self.student.usage[k] - v for k, v in usage_before.items()},
