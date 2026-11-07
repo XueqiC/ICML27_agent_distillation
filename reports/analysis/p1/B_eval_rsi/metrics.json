@@ -1,0 +1,389 @@
+{
+ "source": "rsi:/home/xueqi/hq/projects/ICML27_run_repair_eval_d082a6a/reports/p1_runs/B/eval/report.json",
+ "report_sha256_field": "fbe15e5b172eeecd8e910fff01a5d63acd8a011ff1ad2062f293ce2d1e8ab237",
+ "complete": true,
+ "M4_complete": true,
+ "metrics": {
+  "B0": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 9,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.45
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 34,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.4788732394366197
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "53543cae2677db1b2e2c1854137357312c36aaf521c057bf30d8dec4e505f4c6",
+    "numerator": 40,
+    "status": "standalone_dev140",
+    "summary_sha256": "23014a35b9c1d065317bce4ea82c55ccb1fa7883013cd2b6cbeec17a8c33053f",
+    "unknown": 0,
+    "value": 0.2857142857142857
+   }
+  },
+  "B1": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 9,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.45
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 35,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.49295774647887325
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 2,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.01
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "d33bf6aac5bc18724a7ca9ae0b41f1683ecbba2ce7ea1aed84753156be68aab4",
+    "numerator": 45,
+    "status": "standalone_dev140",
+    "summary_sha256": "17201e665cf60af15241598b8dec178417d3c2c116f1605ca2a749ca53672dc5",
+    "unknown": 0,
+    "value": 0.32142857142857145
+   }
+  },
+  "B2_0": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 8,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.4
+   },
+   "M2_probe": {
+    "denominator": 70,
+    "numerator": 31,
+    "total": 71,
+    "unknown": 1,
+    "value": 0.44285714285714284
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "1020a53e41cf07e24261ee4d4ca65f7b39ffe80590680779d03d3307f2d55d27",
+    "numerator": 41,
+    "status": "standalone_dev140",
+    "summary_sha256": "6998e6653e65ddf06c5c589b7afd0f2f7a9aaa6fa5a454215d0cba92edafda1c",
+    "unknown": 0,
+    "value": 0.29285714285714287
+   }
+  },
+  "B2_1": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 10,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.5
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 30,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.4225352112676056
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "03efb844300fa83848f50a8d4b72b6e03833c4169ffd021b9c9c64ca9b5e5f14",
+    "numerator": 42,
+    "status": "standalone_dev140",
+    "summary_sha256": "7495e2cb45385419d0536c8c36294d2acfe36cfdae013ad7eba3694cd9a7b4d4",
+    "unknown": 0,
+    "value": 0.3
+   }
+  },
+  "B2_2": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 10,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.5
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 33,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.4647887323943662
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "bcb564613669b8f6f9bffa1adcb3e45a42765a9d637ce7f952c195fc20ad4d11",
+    "numerator": 41,
+    "status": "standalone_dev140",
+    "summary_sha256": "354a0c15c248a370e65df8e9393a4a878834c63906fcd4f733dc6f4287d68aaf",
+    "unknown": 0,
+    "value": 0.29285714285714287
+   }
+  },
+  "B2_3": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 9,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.45
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 32,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.4507042253521127
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "1a2f5897c415b85565932d0d83b4daf2fbd18a9e124849285c974379bca91fb2",
+    "numerator": 43,
+    "status": "standalone_dev140",
+    "summary_sha256": "214f42e8d4887bb9243f2928cf335808315cb3f571b295115df660adcd9d2af8",
+    "unknown": 0,
+    "value": 0.30714285714285716
+   }
+  },
+  "B2_4": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 9,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.45
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 37,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.5211267605633803
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 0,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.0
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "39c90f846cacc4e2cb40a299d7a7a5e659e8bc7a34ec97f8941c3d69a161c2e7",
+    "numerator": 41,
+    "status": "standalone_dev140",
+    "summary_sha256": "b01b53550c577555d2ae078da2b4c065864f42ae6158128e297e3dbd8170ec0b",
+    "unknown": 0,
+    "value": 0.29285714285714287
+   }
+  },
+  "B2_mean": {
+   "M1": {
+    "note": "five-seed mean; never treat seeds as independent tasks",
+    "per_seed": [
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "value": null
+   },
+   "M2_k20": {
+    "note": "five-seed mean; never treat seeds as independent tasks",
+    "per_seed": [
+     0.4,
+     0.5,
+     0.5,
+     0.45,
+     0.45
+    ],
+    "value": 0.45999999999999996
+   },
+   "M2_probe": {
+    "note": "five-seed mean; never treat seeds as independent tasks",
+    "per_seed": [
+     0.44285714285714284,
+     0.4225352112676056,
+     0.4647887323943662,
+     0.4507042253521127,
+     0.5211267605633803
+    ],
+    "value": 0.46040241448692154
+   },
+   "M3": {
+    "note": "five-seed mean; never treat seeds as independent tasks",
+    "per_seed": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "value": 0.0
+   },
+   "M4": {
+    "note": "five-seed mean; never treat seeds as independent tasks",
+    "per_seed": [
+     0.29285714285714287,
+     0.3,
+     0.29285714285714287,
+     0.30714285714285716,
+     0.29285714285714287
+    ],
+    "value": 0.29714285714285715
+   }
+  },
+  "B3": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 9,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.45
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 32,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.4507042253521127
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 3,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.015
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "2752a80824b330bddcfd9ec5e825bde5b4e35a7d0af15304e3d1b71c89473ede",
+    "numerator": 41,
+    "status": "standalone_dev140",
+    "summary_sha256": "3056c76cf14fe62328a6e32bd2b0e1d82c31703731c35a009768fd93394eb9e7",
+    "unknown": 0,
+    "value": 0.29285714285714287
+   }
+  },
+  "B5": {
+   "M1": {
+    "status": "not_applicable: all B pairs used for diagnosis",
+    "value": null
+   },
+   "M2_k20": {
+    "denominator": 20,
+    "numerator": 11,
+    "total": 20,
+    "unknown": 0,
+    "value": 0.55
+   },
+   "M2_probe": {
+    "denominator": 71,
+    "numerator": 25,
+    "total": 71,
+    "unknown": 0,
+    "value": 0.352112676056338
+   },
+   "M3": {
+    "denominator": 200,
+    "numerator": 77,
+    "total": 200,
+    "unknown": 0,
+    "value": 0.385
+   },
+   "M4": {
+    "denominator": 140,
+    "launch_sha256": "f83a053fd97f2ccb9802c98347d5ba6f50c2cc2498ab5a9bdb16fc41679322d9",
+    "numerator": 39,
+    "status": "standalone_dev140",
+    "summary_sha256": "01326d9dc2a31fc9fa0f1deb68b80ed8af6db1a6a9b1cc3d069eb4002c70c38e",
+    "unknown": 0,
+    "value": 0.2785714285714286
+   }
+  }
+ }
+}
