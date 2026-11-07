@@ -146,3 +146,14 @@ teacher token 只设失控上限：每个会话输入 60M、输出 3M；较早�
 - **B5 的重建方式**（在跑之前记录）：用一个很薄的驱动脚本（scripts/rsi_p1/rsi_p1_b5_rebuild.py，经 scripts/rsi_p1/rsi_p1_b5_rebuild.sh 调用；rsi 上的副本在 ~/hq/），逐行照搬 tools/p1_surgery.py 的 `controls` 分支和 `build_controls` 的前置检查。部署编辑的方向登记照做；它不改权重，且 B5 不引用任何方向。然后只执行 B5 那一步：调用**未修改的** `automatic_finetune`（网格、排序、`choose` 都不变），再调用**未修改的** `freeze` 发布 B/conditions/B5.json。代码树仍是 d082a6a，代码身份不变。delta 与选择用的 rollout 写到新目录 B/conditions_b5r（重启前的半成品留在 B/conditions/deltas 与 selection，不删）。`freeze` 照常把选中的 delta 打包到 B/conditions/deltas/<sha256>.safetensors；如果重启前已有同名文件，会先核对字节。
 - **确定性核对**：`local_finetune` 在每次训练前 `torch.manual_seed(0)`，所以前 5 个网格点的 delta sha256 应与重启前完全一致：1e-5/50 ff5a0b8c…、1e-5/200 49ceff18…、3e-5/50 6613ba1f…、3e-5/200 78041900…、1e-4/50 d2501a73…。有任何不一致都照实报告，B5 结果另行标注。
 - **其它**：A shard 与 B5 构建从此一律设置 OMP_NUM_THREADS=8、MKL_NUM_THREADS=8（只影响 CPU 线程数，数值都在 GPU 上算）。B5 独占 GPU 2，A 的 6 个 shard 分在 GPU 0、GPU 1 上。
+
+## 13. 设置 B 评测细节（运行前补记，11-07 00:4x CST；在任何 B 评测之前，以上各节不改）
+
+- **B5 重建结果**：§12 的确定性核对通过。前 5 个网格点的 delta sha256 与重启前逐字节一致，训练损失逐步相同。第 6 个点（1e-4/200）重启前没跑过，无从比对。`choose` 选中 lr 1e-4、200 步。B/conditions/B5.json 的条件 sha256 为 baed1c88…（文件 sha256 805a7fc1…），编辑了 65 个张量、1.27B 个参数（占 16.0%），舍入后的相对 Frobenius 范数为 0.0047。11-07 00:25 CST 冻结。
+- **条件**：B0、B1、B2_0..4、B3、B5，共 9 个，都已冻结在 B/conditions。
+- **M2/M3**：用未修改的 `evaluate`（d082a6a）跑 B/conditions，输出到 B/eval。分 6 个 shard（与 A 相同），设置 OMP_NUM_THREADS=8、MKL_NUM_THREADS=8；先启动 shard 0，等 plan.json 生成后再启动其余 shard。按 §8，20 个 K20 原题在 B 中是训练题，单独标注，不计入判定。
+- **M4 dev140**：9 个条件的导出都用与 A 相同的 rsi_p1_dev140.sh 评测，各跑两次。第 1 次输出到 B/dev140/<条件>，第 2 次输出到 B/dev140_rep2/<条件>。全部在 rsi 的同一张卡（GPU 2，与 A 同型号）上跑；vLLM 运行期间这张卡上没有别的进程。顺序：第 1 次按 B0、B1、B2_0..4、B3、B5 依次跑完，第 2 次再按同样顺序跑。
+- **判定量**：A 的重复评测显示，dev140 两次结果相差 0–7 题（A 报告附录）。所以 B 的 dev140 判定用**两次的均值**。第 1 次单独的结果（即 `evaluate --merge` 写入 report.json 的那一次）也照实报告；两者结论不同时都写出来。
+  - SFT 参照：A 的 E0（轨迹 SFT seed 0 合并后的完整模型；同一台机器、同一路径、同一脚本），两次均值为 77.0/140 = 55.0%（第 1 次 78，第 2 次 76）。
+  - 另报 LoRA 路径的三个轨迹 SFT 种子作为参照，不参与判定。
+- **§8 末条（若 B1 有提升，用 AD 数据重复一次）**：按用户 11-06 17:17 CST 的指示，做完手头的实验就停。即使条件成立，这次也不跑，只在报告里写明，由用户决定。
