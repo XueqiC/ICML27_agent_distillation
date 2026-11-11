@@ -15,8 +15,8 @@ while true; do
   out=$(timeout 90 ssh -o BatchMode=yes -o ConnectTimeout=20 hpg "grep -aE '^(FAIL|REFUSE|BUSY|EXTRA_FAIL)|^[0-9:]{8} (PASS:|DELETED |EXTRA_PASS|EXTRA_FAIL)' '$LOG' | tail -n 4; echo '@@LAST'; tail -n 2 '$LOG' | cut -c1-300; echo \"@@RUN \$(pgrep -u xc25.fsu -f '$PROC' | wc -l)\"" 2>/dev/null); rc=$?
   now=$(TZ=America/Chicago date '+%H:%M %Z')
   if [ $rc -ne 0 ] || ! printf '%s\n' "$out" | grep -q '^@@RUN '; then echo "$now SSH_FAIL rc=$rc"; exit 1; fi
-  marks=$(printf '%s\n' "$out" | sed -n '1,/^@@LAST$/p' | grep -v '^@@LAST$')
-  last=$(printf '%s\n' "$out" | sed -n '/^@@LAST$/,/^@@RUN /p' | grep -v '^@@')
+  marks=$(printf '%s\n' "$out" | awk '/^@@LAST$/{exit} {print}')
+  last=$(printf '%s\n' "$out" | awk '/^@@RUN /{exit} f{print} /^@@LAST$/{f=1}')
   run=$(printf '%s\n' "$out" | sed -n 's/^@@RUN //p')
   ev=""
   if printf '%s\n' "$marks" | grep -qE '^(FAIL|REFUSE|BUSY|EXTRA_FAIL)| EXTRA_FAIL'; then ev=FAILED
