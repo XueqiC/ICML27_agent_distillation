@@ -17,10 +17,14 @@ set -u -o pipefail
 NAME="${1:?name}"; ROOT="${2:?root}"; DSTROOT="${3:?dstroot}"; LIST="${4:?list}"; MODE="${5:-}"
 ROOT="${ROOT%/}"; DSTROOT="${DSTROOT%/}"
 case "$NAME" in *[!A-Za-z0-9._-]*|"") echo "REFUSE: bad name"; exit 2;; esac
+# allowlist: exactly tc's 13 roots (a typo must not be able to reach another project's tree)
+DEPT=/blue/fsu-compsci-dept/xc25.fsu/hq; YD=/blue/yd24f.fsu/xc25.fsu/hq
 case "$ROOT" in
-  /blue/fsu-compsci-dept/xc25.fsu/hq/*|/blue/yd24f.fsu/xc25.fsu/hq/*) ;;
+  "$DEPT/ICML27_agent_distillation"|"$DEPT/ICML27_v0_runs"|"$DEPT/ICML27_runs"|"$DEPT/tc-alignment"|"$DEPT/tc-alignment-vllm") ;;
+  "$DEPT/ICML27_p1_backup"|"$DEPT/ICML27_eval_46b8527"|"$DEPT/envs/p1-venv"|"$DEPT/.sed-hash-receipts"|"$DEPT/_trash/hf-cache-hub") ;;
+  "$YD/ICML27_archive"|"$YD/tc-alignment"|"$YD/_trash") ;;
   /orange/yd24f.fsu/xc25.fsu/tc-cold/_ops/bigmove_test/*) echo "TEST MODE: root is under bigmove_test";;
-  *) echo "REFUSE: root must be under one of our two /blue trees: $ROOT"; exit 2;;
+  *) echo "REFUSE: root is not one of tc's 13 roots: $ROOT"; exit 2;;
 esac
 case "$DSTROOT" in /orange/yd24f.fsu/xc25.fsu/*) ;; *) echo "REFUSE: dstroot must be under /orange/yd24f.fsu/xc25.fsu/: $DSTROOT"; exit 2;; esac
 case "$ROOT$DSTROOT" in *..*) echo "REFUSE: no '..' in paths"; exit 2;; esac
@@ -39,6 +43,7 @@ echo "$(ts) NAME=$NAME MODE=${MODE:-copy} host=$(hostname)"; echo "$(ts) ROOT=$R
 
 echo "$(ts) [0/5] validate the list (regular files, one link, inside root)"
 if grep -n -E '^/|(^|/)\.\.(/|$)|^$' "$L" | head -n 5 | grep -q .; then echo "REFUSE: list has an absolute, empty or '..' path"; exit 2; fi
+if grep -q $'\t' "$L"; then echo "REFUSE: a listed path contains a tab (the manifests are tab-separated)"; exit 2; fi
 ( cd "$ROOT" && xargs -d '\n' -a "$L" stat --printf='%F\t%h\t%s\t%Y\t%n\n' ) > "$RUN/src.stat0" 2> "$RUN/src.stat0.err"; rc=$?
 [ $rc -eq 0 ] || { echo "REFUSE: stat failed for some listed path (rc=$rc): $(head -n 3 "$RUN/src.stat0.err")"; exit 2; }
 [ "$(wc -l < "$RUN/src.stat0")" -eq "$N" ] || { echo "REFUSE: stat returned a different number of lines than the list"; exit 2; }
