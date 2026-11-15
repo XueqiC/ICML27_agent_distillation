@@ -2,7 +2,7 @@
 """Generate the 11-15 delete scripts for hpg (user approval in the tc channel, 2026-11-15 06:28 CST:
 "建议删除的都可以删" = items A, B, D of reports/analysis/hpg_delete_candidates_20261112_ZH.md).
 
-usage: gen_delete_1115.py MANIFEST_DIR OUT_DIR AB|D [units.tsv]
+usage: gen_delete_1115.py MANIFEST_DIR OUT_DIR AB|D|E [units.tsv]
 
 Every removal in the generated scripts is a LITERAL absolute path (no variables, no globs), guarded by an
 existence/type check; a /orange big file is removed only if its size equals the manifest size.
@@ -11,6 +11,9 @@ existence/type check; a /orange big file is removed only if its size equals the 
                             YD/tc-alignment/.venv is TRAIN_PYTHON of configs/hpg.env, found 11-15).
   D  -> tc_delete_D.sh + tc_delete_D.part{0..3}.sh : the 11 D directories on /blue (split over 4 streams by the
                             census file counts) + their 9 big files on /orange.
+  E  -> tc_delete_E.sh    : item E (approved separately, tc channel 2026-11-15 17:31 CST "1同意"): the 38 LEAP
+                            early-ladder weights of YD/ICML27_archive/baselines_evaluated_1007, all on /orange.
+                            Nothing on /blue is removed (the archive's small files stay).
 Also writes _DELETED_20261115.<key>.tsv (the manifest rows removed) per affected /orange root.
 """
 import collections, os, re, shlex, sys
@@ -30,6 +33,7 @@ ROOTS = collections.OrderedDict([
     ("dept-ICML27_v0_runs", (O + "/icml27-cold/blue-dept/ICML27_v0_runs", DEPT + "/ICML27_v0_runs")),
     ("dept-ICML27_runs", (O + "/icml27-cold/blue-dept/ICML27_runs", DEPT + "/ICML27_runs")),
     ("yd-_trash", (O + "/tc-cold/blue-yd24f/_trash", YD + "/_trash")),
+    ("yd-ICML27_archive", (O + "/icml27-cold/blue-yd24f/ICML27_archive", YD + "/ICML27_archive")),
 ])
 D_REL = ["reports/smartad-selection/chain_k500_s0_r2_e2b", "reports/smartad-selection/chain_k500_s0_r2",
          "reports/smartad-selection/k100_s0", "reports/smartad-selection/k100_s1", "reports/smartad-selection/k100_s2",
@@ -218,5 +222,34 @@ elif WHAT == "D":
     s += "echo \"$(date '+%T') DELETE_D_DONE\"\n"
     open(os.path.join(OUT, "tc_delete_D.sh"), "w").write(s)
     print("wrote", os.path.join(OUT, "tc_delete_D.sh"))
+elif WHAT == "E":
+    key = "yd-ICML27_archive"
+    rws = rows(key)
+    n = len(rws); b = sum(r[1] for r in rws)
+    print("E on /orange:", n, b)
+    # item 4.4 of the candidate list: 38 files / 460,787,521,352 B, every one a LEAP stage checkpoint
+    assert (n, b) == (38, 460787521352), (n, b)
+    ere = re.compile(r"baselines_evaluated_1007/leap-(privileged|zero)-k[0-9]+s0(-m5)?/stages/[^/]+/attempt-[0-9]+/output/"
+                     r"(checkpoint/model\.safetensors|adapter/adapter_model\.safetensors|[^/]+/(adapter_)?model\.safetensors)")
+    bad = [r[2] for r in rws if not ere.fullmatch(r[2])]
+    assert not bad, bad[:5]
+    assert len({r[2] for r in rws}) == n
+    old = ('# 06:28 CST "建议删除的都可以删" (items A, B, D of hpg_delete_candidates_20261112_ZH.md). Every removal below is a\n')
+    head = HEAD % "E"
+    assert head.count(old) == 1
+    s = head.replace(old, '# 17:31 CST "1同意" (item E = 4.4 of hpg_delete_candidates_20261112_ZH.md, asked 17:10 and 17:31 CST). Every removal below is a\n')
+    s += "quota before\n"
+    s += "echo \"== E on /orange: %d manifest-listed files, %d bytes\"\n" % (n, b)
+    dst = ROOTS[key][0]
+    for sha, size, path, man in rws:
+        s += del_file(size, dst + "/" + path)
+    deleted_tsv(key, rws, "E")
+    d = dst + "/baselines_evaluated_1007"
+    s += f"if [ -d {q(d)} ] && [ ! -L {q(d)} ]; then find {q(d)} -depth -type d -empty -delete; [ -e {q(d)} ] && echo \"KEPT non-empty: $(find {q(d)} -type f | wc -l) files under \"{q(d)} || echo \"RMDIR-EMPTY \"{q(d)}; fi\n"
+    s += place_tsv(key, "E")
+    s += "quota after-E\n"
+    s += "echo \"$(date '+%T') DELETE_E_DONE\"\n"
+    open(os.path.join(OUT, "tc_delete_E.sh"), "w").write(s)
+    print("wrote", os.path.join(OUT, "tc_delete_E.sh"), s.count("rm -f --"), "file removals,", s.count("rm -rf"), "directory removals")
 else:
-    sys.exit("AB or D")
+    sys.exit("AB, D or E")
