@@ -7,7 +7,7 @@
 set -u
 W=/work/xueqic/hq; Q=$W/ICML27_wsp/queue; T=$W/ICML27_runs/wsp_946b2a9; WRAP=$W/ICML27_loni_wrap.sh; ACCT=loni_depedlab04
 MODE="${1:?mode}"; WHAT="${2:?name}"; CAP="${3:?cap}"
-case "$CAP" in [1-9]|1[0-2]) ;; *) echo "REFUSE cap=$CAP"; exit 2;; esac
+case "$CAP" in [1-9]|1[0-6]) ;; *) echo "REFUSE cap=$CAP"; exit 2;; esac
 mkdir -p "$Q/logs" "$Q/done"; touch "$Q/submitted.tsv"
 exec 8>>"$Q/.submit.lock"; flock -n 8 || { echo "SUBMIT_BUSY"; exit 1; }
 # GPU-queue jobs and CPU (single) jobs are capped separately: CAP for wsp-* jobs on gpu partitions, 6 for wsp-* CPU jobs.
