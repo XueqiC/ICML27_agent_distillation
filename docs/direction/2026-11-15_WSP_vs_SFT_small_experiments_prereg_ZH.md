@@ -166,3 +166,14 @@ B1 和 SFT 差 31.5 题。但两者之间同时差了四样东西，当时没有
 - **评测**：dev140，greedy，`scripts/hpg_eval_adapters.slurm`（含 serving 一致性检查），每个 adapter 两次（两个不同的作业）；原始模型两次。6 个现成 adapter 在同一棵代码树里重评，作为同一口径下的参照（之前的 78/78/90 和 107/102/119 是 10-25/26 用旧评测树量的，只作背景）。
 - **报告的量**：每个臂的 dev140 两次成功数和均值；训练最后一个 epoch 的平均 loss（判断受限的臂是不是没训够）；每个 adapter 的 ‖Δ‖_F。同一 K 内和参照 a0 比。
 - 资源（来自 sacct 同类作业）：K20 训练 2 卡 / 4 核 / 40G / 1.5 h（历史 32–34 分钟，MaxRSS 11.7–22.8 GB）；K100 训练 4 卡 / 8 核 / 56G / 3 h（历史 62 分钟，31.2 GB）；评测 1 卡 / 4 核 / 32G（历史每个 adapter 约 16 分钟，10.5–14 GB）；CPU 预处理 hpg-milan 4 核 / 16G。账号总作业数 ≤ 10，每次 sbatch 前清点（`ICML27_wsp/queue/tc_wsp_submit.sh`）。
+
+## 9. 运行中偏差记录 1（11-15 22:38 CST；以上各节不改）
+
+- **代码基线错了，已在任何 GPU 作业开始前改正。** §8 的代码树 `wsp_83c99b4` 建在 `main` 上，而 E4B 学生一直是从 E 系列分支训练的（2506fa9："template-aware OFF prefix, Gemma4ForConditionalGeneration …"，`main` 里没有）。现象：CPU 预处理在编码第一条轨迹时报 `Gemma OFF generation prefix changed`。当时 hpg、LONI 上的 GPU 作业都还在排队，全部取消。
+  - 改正：分支 `wsp-eseries` = main a788e7e + cherry-pick 2506fa9（946b2a9；冲突两处：`fsdp_train.py` 的 import、`train/modeling.py` 的模块筛选，两边都保留）。470 个测试通过；E4B 的 `encode_turn` 在 rai CPU 上验过。没有带 5df9eb4（整模型导出的修复，和 adapter 无关，且有冲突）。
+  - 现行代码树：hpg `ICML27_runs/wsp_946b2a9`、LONI `/work/xueqic/hq/ICML27_runs/wsp_946b2a9`（预处理、训练、评测）；派生工具仍用 `wsp_a788e7e`（工具文件相同）。第一轮留下的 cell 目录移到 `ICML27_wsp/_failed/round1_main_tree_20261115/`。
+- **A2 的"第 28–41 层"臂**：E4B 第 24–41 层的 K/V 是共享的，没有独立的 k_proj / v_proj，所以这个臂的模块类型是 q / o / gate / up / down 五种（其余两个层段仍是七种）。
+- **K100 的臂改为 2 张卡**（§8 写的是 4 张）：hpg 两个 group 的 GPU 额度被别人的长作业占满，2 卡更容易排上，并且和 LONI 的节点（2 × A100）一致。world size 进入训练身份，所以 K100 的新参照 a0-k100-r64 也是 2 卡，臂只和它比。
+- **加了 LONI 一条线**（用户：hpg 优先，其次 LONI）：同样的 25 个训练臂和 B2 的派生在 LONI 上各做一遍，LONI 训练的只在 LONI 评测，并在 LONI 上重评现成的参照 adapter（K20 seed 0，K100 seed 0、2）和原始模型。hpg 和 LONI 的结果分开成表，不混比；两边都跑完的臂相当于多了一次重复。
+- B1 / B3 的重合度已算完（见 hpg `ICML27_wsp/analysis/`）；B3 的平均 adapter 需要三个种子，只在 hpg 上做。
+

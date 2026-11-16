@@ -8,7 +8,7 @@
 # Account for list jobs: the .res ACCOUNT if set, else the account where this user has fewer jobs right now.
 set -u
 Q=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_wsp/queue
-T=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/wsp_83c99b4
+T=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_runs/wsp_946b2a9
 MODE="${1:?mode}"; WHAT="${2:?name}"; CAP="${3:?cap}"
 case "$CAP" in [1-9]|10) ;; *) echo "REFUSE cap=$CAP"; exit 2;; esac
 mkdir -p "$Q/logs" "$Q/done"; touch "$Q/submitted.tsv"

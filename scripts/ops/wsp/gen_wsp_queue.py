@@ -12,7 +12,7 @@ from pathlib import Path
 
 H = "/blue/fsu-compsci-dept/xc25.fsu/hq"
 A = H + "/ICML27_agent_distillation"
-T = H + "/ICML27_runs/wsp_83c99b4"
+T = H + "/ICML27_runs/wsp_946b2a9"
 R = H + "/ICML27_wsp"
 Q = R + "/queue"
 MODEL = H + "/tools/hf-cache/hub/models--google--gemma-4-E4B-it/snapshots/ee0ef6023621cff504d758262d4e04895a5af4a2"
@@ -65,7 +65,9 @@ for r in (16, 4, 1):
     for lr in ("5e-5", "2e-4"):
         cell(f"a1-k20-r{r}-lr{lr}", "k20", rank=r, lr=lr)
 for tag, kw in (("mlp", dict(targets=MLP)), ("attn", dict(targets=ATT)), ("L0-13", dict(layers="0-13")),
-                ("L14-27", dict(layers="14-27")), ("L28-41", dict(layers="28-41")),
+                ("L14-27", dict(layers="14-27")),
+                # E4B layers 24-41 share K/V (no separate k_proj / v_proj), so this band lists the five types that exist
+                ("L28-41", dict(layers="28-41", targets="q_proj,o_proj,gate_proj,up_proj,down_proj")),
                 ("b1mods", dict(modules="22.down_proj,23.v_proj,41.q_proj"))):
     for lr in ("5e-5", "2e-4"):
         cell(f"a2-k20-r16-{tag}-lr{lr}", "k20", rank=16, lr=lr, **kw)

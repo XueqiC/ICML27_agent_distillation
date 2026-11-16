@@ -12,8 +12,8 @@ from pathlib import Path
 
 H = "/blue/fsu-compsci-dept/xc25.fsu/hq"
 A = H + "/ICML27_agent_distillation"
-T = H + "/ICML27_runs/wsp_83c99b4"          # train / eval tree
-TT = H + "/ICML27_runs/wsp_ee07eab"         # tool tree (derivations)
+T = H + "/ICML27_runs/wsp_946b2a9"          # train / eval tree
+TT = H + "/ICML27_runs/wsp_a788e7e"         # tool tree (derivations)
 R = H + "/ICML27_wsp"
 Q = R + "/queue"
 MODEL = H + "/tools/hf-cache/hub/models--google--gemma-4-E4B-it/snapshots/ee0ef6023621cff504d758262d4e04895a5af4a2"
