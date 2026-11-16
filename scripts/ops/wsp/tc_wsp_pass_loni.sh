@@ -10,6 +10,7 @@ echo "== $(TZ=America/Chicago date '+%F %T %Z') LONI pass"
 [ -f "$Q/done/c1.k20" ] && [ ! -f "$Q/done/c1t2.k20" ] && ! squeue -u $USER -h -o %j | grep -q -x -F wsp-cpu-c1t2_k20 && bash $S cpu c1t2_k20.sh 12
 [ ! -f "$Q/done/prep.sd-k20" ] && ! squeue -u $USER -h -o %j | grep -q -x -F wsp-prep-prep_sd && bash $S prep prep_sd.cells 12
 [ -f "$Q/done/prep.sd-k20" ] && [ ! -f "$Q/done/c1s.k20" ] && bash $S gpucmd c1s_k20.sh 12 01:00:00
+bash $S list ev_d1.list 16  # D group: teacher-written edit + random-direction controls (prereg section 16)
 bash $S list ev_t2_c1s.list 16  # closed-loop check of the action-only / thought-only one-step edits (prereg section 15)
 bash $S list ev_t2.list 16  # closed-loop step-size check on the 20 training tasks (prereg section 14)
 bash $S list ev1.list 16   # ready evaluations take free slots first; queued trainings keep theirs
