@@ -1,0 +1,31 @@
+condition | t2.run1 | dev140.run1 | dev140.run2 | errors/parser/overflow (sum)
+d-raw       | 9/20 | 40/140 | 41/140 | [0, 0, 0]
+d1-rand0    | 10/20 | 42/140 | - | [0, 0, 0]
+d1-rand1    | 8/20 | 39/140 | - | [0, 0, 0]
+d1-rand2    | 8/20 | 40/140 | - | [0, 0, 0]
+d1-rand3    | 10/20 | 43/140 | - | [0, 0, 0]
+d1-rand4    | 10/20 | 35/140 | - | [0, 0, 0]
+d1-teacher  | 9/20 | 42/140 | 42/140 | [0, 0, 0]
+d2-rand0    | 9/20 | 44/140 | - | [0, 0, 0]
+d2-rand1    | 10/20 | 44/140 | - | [0, 0, 0]
+d2-rand2    | 8/20 | 39/140 | - | [0, 0, 0]
+d2-rand3    | 9/20 | 45/140 | - | [0, 0, 0]
+d2-rand4    | 8/20 | 37/140 | - | [0, 0, 0]
+d2-teacher  | 8/20 | 41/140 | 46/140 | [0, 0, 0]
+d-raw run1 vs run2: tasks with different outcome: 1
+d1-teacher run1 vs run2: tasks with different outcome: 0
+d2-teacher run1 vs run2: tasks with different outcome: 9
+d1-rand0    vs d-raw run1: gained 6 lost 4
+d1-rand1    vs d-raw run1: gained 4 lost 5
+d1-rand2    vs d-raw run1: gained 4 lost 4
+d1-rand3    vs d-raw run1: gained 5 lost 2
+d1-rand4    vs d-raw run1: gained 3 lost 8
+d1-teacher  vs d-raw run1: gained 7 lost 5
+d2-rand0    vs d-raw run1: gained 10 lost 6
+d2-rand1    vs d-raw run1: gained 8 lost 4
+d2-rand2    vs d-raw run1: gained 4 lost 5
+d2-rand3    vs d-raw run1: gained 7 lost 2
+d2-rand4    vs d-raw run1: gained 3 lost 6
+d2-teacher  vs d-raw run1: gained 6 lost 5
+0 MiB
+105G	/home/xueqi/hq/projects/ICML27_wsp_d/export_d1;90G	/home/xueqi/hq/projects/ICML27_wsp_d/export_d2;
