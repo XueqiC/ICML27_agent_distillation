@@ -5,6 +5,8 @@ Q=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_wsp/queue; R=/blue/fsu-compsci-dept/
 S=$Q/tc_wsp_submit.sh
 echo "== $(TZ=America/Chicago date '+%F %T %Z') hpg pass"
 [ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpu c1_k20.sh 10 fsu-compsci-dept 00:45:00 48G
+[ -f "$Q/done/c1.k20" ] && [ ! -f "$Q/done/c1t2.k20" ] && ! squeue -u xc25.fsu -h -o %j | grep -q -x -F wsp-cpu-c1t2_k20 && bash $S cpu c1t2_k20.sh 10 fsu-compsci-dept
+bash $S list ev_t2.list 10  # closed-loop step-size check on the 20 training tasks (prereg section 14)
 bash $S list ev1.list 10   # evaluations run on hpg-rtx6000, the only hpg partition with capacity now
 [ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpu c1_k100.sh 10 fsu-compsci-dept 01:30:00 48G
 [ -f "$Q/derive/derive_shared.sh" ] && [ ! -f "$Q/done/derive.shared" ] && ! cut -f1 "$Q/submitted.tsv" | grep -q -x -F "cpu:derive_shared.sh" && bash $S cpu derive_shared.sh 10 yd24f.fsu
