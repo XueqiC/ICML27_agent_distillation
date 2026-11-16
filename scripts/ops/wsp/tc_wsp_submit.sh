@@ -5,6 +5,7 @@
 #   tc_wsp_submit.sh list LISTNAME CAP          submit ready jobs of lists/LISTNAME, in order
 #   tc_wsp_submit.sh prep  CELLSFILE CAP ACCT   submit one CPU preparation wave for lists/CELLSFILE
 #   tc_wsp_submit.sh cpu   SCRIPT.sh CAP ACCT   submit one CPU job running derive/SCRIPT.sh
+# CPU jobs (prep, cpu) use the burst QOS <account>-b (CPU only), so they do not take the group's main CPU quota.
 # Account for list jobs: the .res ACCOUNT if set, else the account where this user has fewer jobs right now.
 set -u
 Q=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_wsp/queue
@@ -23,7 +24,7 @@ if [ "$MODE" = prep ]; then
   [ -f "$Q/lists/$WHAT" ] || { echo "NO_CELLS_FILE"; exit 2; }
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP jobs=$NJ"; exit 0; }
-  jid=$(cd "$T" && WSP_QUEUE="$Q" PREP_LIST="$Q/lists/$WHAT" PROJECT_ROOT="$T" sbatch --parsable --account="$ACCT" --qos="$ACCT" \
+  jid=$(cd "$T" && WSP_QUEUE="$Q" PREP_LIST="$Q/lists/$WHAT" PROJECT_ROOT="$T" sbatch --parsable --account="$ACCT" --qos="$ACCT-b" \
         --job-name="wsp-prep-${WHAT%.cells}" --output="$Q/logs/slurm-prep-${WHAT%.cells}-%j.out" --export=ALL "$Q/tc_wsp_prep_wave.slurm") || { echo "SBATCH_FAILED prep $WHAT"; exit 1; }
   printf 'prep:%s\t%s\t%s\t%s\n' "$WHAT" "$jid" "$ACCT" "$(date '+%F %T')" >> "$Q/submitted.tsv"
   echo "SUBMITTED prep:$WHAT $jid $ACCT (jobs before: $NJ)"; exit 0
@@ -33,7 +34,7 @@ if [ "$MODE" = cpu ]; then   # tc_wsp_submit.sh cpu SCRIPT.sh CAP ACCT : one CPU
   [ -f "$Q/derive/$WHAT" ] && [ -f "$Q/derive/tc_wsp_cpu.slurm" ] || { echo "NO_CMD_FILE"; exit 2; }
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP jobs=$NJ"; exit 0; }
-  jid=$(cd "$T" && CMD_FILE="$Q/derive/$WHAT" sbatch --parsable --account="$ACCT" --qos="$ACCT" --job-name="wsp-cpu-${WHAT%.sh}" \
+  jid=$(cd "$T" && CMD_FILE="$Q/derive/$WHAT" sbatch --parsable --account="$ACCT" --qos="$ACCT-b" --job-name="wsp-cpu-${WHAT%.sh}" \
         --output="$Q/logs/slurm-cpu-${WHAT%.sh}-%j.out" --export=ALL "$Q/derive/tc_wsp_cpu.slurm") || { echo "SBATCH_FAILED cpu $WHAT"; exit 1; }
   printf 'cpu:%s\t%s\t%s\t%s\n' "$WHAT" "$jid" "$ACCT" "$(date '+%F %T')" >> "$Q/submitted.tsv"
   echo "SUBMITTED cpu:$WHAT $jid $ACCT (jobs before: $NJ)"; exit 0
