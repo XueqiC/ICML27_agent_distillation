@@ -18,20 +18,23 @@ for res in sorted(glob.glob(R + "/cells/*/result.json")):
         print("%-28s updates=%d train_s=%.0f loss_first_epoch=%.4f loss_last_epoch=%.5f attempts=%d" % (cell, len(L), r.get("wall_time_seconds", -1), first, last, len(outs)))
     except Exception as e:
         print("%-28s ERR %s" % (cell, e))
-print("== evaluations")
-for d in sorted(glob.glob(R + "/eval/*/*/eval")):
-    unit, name = d.split("/")[-3], d.split("/")[-2]
-    files = sorted(os.listdir(d))
-    summ = [f for f in files if f.endswith(".json")]
-    line = "%-34s %-28s files=%s" % (unit, name, ",".join(files)[:80])
-    for f in ("summary.json", "result.json", "results.json", "metrics.json"):
-        p = os.path.join(d, f)
-        if os.path.isfile(p):
-            try:
-                j = json.load(open(p))
-                keys = {k: j[k] for k in j if isinstance(j[k], (int, float, str)) and len(str(j[k])) < 40}
-                line += " | %s: %s" % (f, json.dumps(keys)[:260])
-            except Exception as e:
-                line += " | %s ERR %s" % (f, e)
-            break
-    print(line)
+print("== evaluations (dev140, greedy): unit | adapter | successes/episodes | errors, parser rejections, unknown | serving check")
+rows = []
+for d in sorted(glob.glob(R + "/eval/*/*/eval") + glob.glob(R + "/eval/*/*/*/eval")):
+    rel = d[len(R + "/eval/"):].split("/")
+    unit, name = rel[0], ("RAW:" + "/".join(rel[1:-1]) if len(rel) == 4 else rel[1])
+    p = os.path.join(d, "summary.json")
+    if not os.path.isfile(p):
+        print("%-34s %-26s (running or incomplete)" % (unit, name)); continue
+    try:
+        j = json.load(open(p))
+        n = j.get("episodes"); s = j.get("successes"); 
+        if s is None and j.get("success_rate") is not None and n: s = round(j["success_rate"] * n)
+        chk = os.path.join(os.path.dirname(d), "check", "report.json")
+        passed = json.load(open(chk))["aggregate"]["passed"] if os.path.isfile(chk) else None
+        bt = j.get("successes_by_task_type") or j.get("success_by_task_type") or {}
+        rows.append((name, unit, s, n))
+        print("%-34s %-26s %s/%s  err=%s parse=%s unknown=%s overflow=%s check=%s %s" % (unit, name, s, n, j.get("error_episodes"), j.get("parser_rejections"),
+              j.get("unknown_outcomes", j.get("unknown_episodes")), j.get("context_overflow_episodes"), passed, json.dumps(bt)[:120] if bt else ""))
+    except Exception as e:
+        print("%-34s %-26s ERR %s" % (unit, name, e))

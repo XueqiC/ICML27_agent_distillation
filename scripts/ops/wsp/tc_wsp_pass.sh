@@ -5,10 +5,10 @@ Q=/blue/fsu-compsci-dept/xc25.fsu/hq/ICML27_wsp/queue; R=/blue/fsu-compsci-dept/
 S=$Q/tc_wsp_submit.sh
 echo "== $(TZ=America/Chicago date '+%F %T %Z') hpg pass"
 [ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpu c1_k20.sh 10 fsu-compsci-dept 00:45:00 48G
-bash $S list ev1.list 7    # leave slots for trainings and the c1 jobs
+bash $S list ev1.list 10   # evaluations run on hpg-rtx6000, the only hpg partition with capacity now
 [ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpu c1_k100.sh 10 fsu-compsci-dept 01:30:00 48G
 [ -f "$Q/derive/derive_shared.sh" ] && [ ! -f "$Q/done/derive.shared" ] && ! cut -f1 "$Q/submitted.tsv" | grep -q -x -F "cpu:derive_shared.sh" && bash $S cpu derive_shared.sh 10 yd24f.fsu
-bash $S list main.list 10
+bash $S list main.list 4    # trainings need B200 (behind the reservation): keep only a few queued
 bash $S list ev2.list 10
 echo "== queue"; squeue -u xc25.fsu -h -o '%i %j %a %T %M %R' | sort -k2 | cut -c1-105
 echo "== markers: $(ls $Q/done | tr '\n' ' ')"
