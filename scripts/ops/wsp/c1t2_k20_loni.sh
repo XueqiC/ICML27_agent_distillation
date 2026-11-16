@@ -25,6 +25,9 @@ one 64 0.375 n375 || { echo "C1T2_FAIL 64 0.375"; exit 1; }
 one 1 0.0625 n062 || { echo "C1T2_FAIL 1 0.0625"; exit 1; }
 one 1 0.125 n125 || { echo "C1T2_FAIL 1 0.125"; exit 1; }
 one 1 0.375 n375 || { echo "C1T2_FAIL 1 0.375"; exit 1; }
+# the preparation config does not know the game files; the evaluation config does
+EVCFG=/work/xueqic/hq/ICML27_runs/eval_46b8527/configs_ec704e4/loni_eval.env
+ALFWORLD_DATA_ROOT=$(bash -c 'unset ALFWORLD_DATA_ROOT; PROJECT_ROOT=/work/xueqic/hq/ICML27_runs/wsp_4ba5d0e; . "$1" >/dev/null 2>&1; printf %s "${ALFWORLD_DATA_ROOT:-}"' _ "$EVCFG")
 echo "data root: ${ALFWORLD_DATA_ROOT:?}"
 miss=$("$PY" -c 'import json,sys,os; ids=json.load(open(sys.argv[1]))["task_ids"]; print(sum(not os.path.isdir(os.path.join(sys.argv[2],i)) for i in ids))' "$Q/lists/t2_k20_train.json" "$ALFWORLD_DATA_ROOT") || exit 1
 echo "training task directories missing under the data root: $miss"
