@@ -276,3 +276,27 @@ B1 和 SFT 差 31.5 题。但两者之间同时差了四样东西，当时没有
 - 如果 C1-act 在闭环里不破坏 Thought 并且超过原始模型：一步闭式改写是可行的，前提是只对决策 token 求梯度。
 - 如果 C1-act 也不行：一步梯度这个信号本身不够，不是 token 选择的问题。
 
+## 16. D 组（teacher 做 WSP，方案 1）的细节（11-16 04:02 CST 登记，先于任何会话；以上各节不改）
+
+**工具。** 沿用 11-05/11-07 的 P1 手术工具（worktree `ICML27_wt_repair_eval`，setting B = 原始 E4B、不合并任何 adapter），新分支 `wsp-d` 加了一个会话变体 `diagnose --variant d1|d2`（Codex task 9）。和 P1-B 相比改了四处，对应 §1 列的混杂：
+1. **只允许闭式改写**：`project_out`（去方向）、`add_rank1`（加性秩一）、`scale_neurons`（神经元缩放），可多位置组合；`local_finetune` 工具和编辑类型都不存在。
+2. **D1 = 只有前向读取**（action_scores、logit_lens、attention_summary、counterfactual_context、patch、direction、projection、apply_edit、单状态 rollout）；**D2 = D1 + 两个梯度归因工具**（gradient_attribution、neuron_attribution）。先跑 D1。
+3. **反馈和验收都是训练题整题 rollout**：新工具 `k20_rollouts(edit)` 在 20 个训练题上从初始状态 greedy 跑 H=40，返回改写前后逐题成败、得失题目和五个行为统计（look/help/inventory 占比、重复动作占比、Thought 为字面 `...` 的占比、不可执行动作占比、回复平均长度）。提交时自动用它验证，再提交一次相同的编辑才算确认。
+4. **输入不再只有孤立单步**：除了 setting B 的 90 个单步配对（teacher 历史上学生 greedy 动作和 teacher 不同的那些步，全部作为诊断对），再给一份 dossier：原始学生在这 20 个训练题上从头自由跑的整条轨迹，和同题 teacher 轨迹并排，加总体统计。
+
+**dossier 的来源和内容**（`build_d_dossier.py`，只用训练侧数据）。学生轨迹取自 11-07 P1 评测里条件 B0（无改写）在 K20 上的 20 条初始状态 rollout；teacher 轨迹取自 K20 的 20 条 verified 轨迹。原始学生：20 题做对 9 题；594 个动作里 36% 是 look / help / inventory，35% 是重复动作，7% 不可执行。teacher：20 题全对，315 个动作，2% look / help / inventory。11 个失败里 7 个是"声称任务已完成但继续动作"，4 个是"到步数上限还在找"。每题列出目标、两边的动作序列、第一处分歧和学生在该处及最后一步的 Thought。全文 25,476 字符，不含任何 dev / test 题，也不含从 dev140 得到的数字。
+
+**预算**（用户 10-27：没有预算上限，只留防失控的上限和用量记录）。每个会话：500 个工具调用、10 次 `k20_rollouts`、440 次单状态 rollout、40 个不同的候选编辑、28,000 个真实环境步、teacher 输入 / 输出 token 上限 1 亿 / 500 万。teacher = gpt-6-luna（黑盒 API）。
+
+**顺序。**
+1. 小预算试跑一次（`--trial`，不计入结果），只为确认真实链路：提示、API、工具分发、`k20_rollouts` 的耗时。
+2. D1 正式会话（位置由 teacher 自选）。
+3. D2 正式会话。
+4. "位置指定"和"全部模块"两种变体等 D1、D2 的结果出来再定，届时补记。
+
+**评测。** 会话确认的编辑 → `export-delta` 导出每个被改模块的稠密差值 → 分解成 LoRA adapter（差值是低秩的；秩和重构误差一并报告）→ 走和其他臂完全相同的 adapter 评测路径：T2-train（§14 的 20 题）和 dev140 各两次。
+
+**对照和判定**（§5 已写）。和原始模型、C1（§14 / §15 选出的版本）、以及同结构的随机方向对照比较；teacher 的改写高出 C1 和随机对照至少 4 题（dev140），才算"teacher 的读取有额外价值"。T2-train 上如果 D 的编辑没有超过原始模型的 9/20，记为这次会话没有找到可用的编辑，仍然评一次 dev140 作记录。
+
+**局限。** 20 个训练题既是 teacher 的反馈信号也是验收集，所以 T2-train 上的提升可能只是对这 20 题的拟合；这正是要看 dev140 的原因。D1 和 D2 各只有一次会话，会话间的波动这一轮估不出来。
+
