@@ -88,13 +88,13 @@ def check_output(source, output, rank):
     return report
 
 
-def check_gated_output(output, sources, operation, rank):
+def check_gated_output(output, sources, operation, rank, *, snapshot=None):
     checkpoint = output / "checkpoint"
     provenance = json.loads((output / "provenance.json").read_text())
     original = json.loads((sources[0].parent / "provenance.json").read_text())
     state = json.loads((checkpoint / "training_state.json").read_text())
     student = original["config"]["models"]["student"]
-    snapshot = original["config"]["sft"]["base_snapshot"]["path"]
+    snapshot = snapshot or original["config"]["sft"]["base_snapshot"]["path"]
     inspected = inspect_adapter(operation, checkpoint, student, snapshot)
     assert inspected["rank"] == rank
     assert {p.name for p in output.iterdir()} == {"checkpoint", "provenance.json"}
@@ -106,6 +106,7 @@ def check_gated_output(output, sources, operation, rank):
         inputs.append({"adapter": str(source.resolve()),
             "adapter_model_sha256": file_hash(source / "adapter_model.safetensors"),
             "adapter_config_sha256": file_hash(source / "adapter_config.json"),
+            "base_model_name_or_path": json.loads((source / "adapter_config.json").read_text())["base_model_name_or_path"],
             "training_state_sha256": file_hash(source / "training_state.json"),
             "provenance_sha256": digest(json.loads((source.parent / "provenance.json").read_text())),
             "checkpoint_metadata": {key: source_state[key] for key in ("supervised_tokens", "passes", "packing")}})
@@ -122,7 +123,7 @@ def check_gated_output(output, sources, operation, rank):
                      "artifact_sha256": hashes, **inputs[0]["checkpoint_metadata"], "wsp_sources": inputs}
     assert inspected["checkpoint_metadata"] == inputs[0]["checkpoint_metadata"]
     assert report["inputs"] == [{key: row[key] for key in (
-        "adapter", "adapter_model_sha256", "adapter_config_sha256")} for row in inputs]
+        "adapter", "adapter_model_sha256", "adapter_config_sha256", "base_model_name_or_path")} for row in inputs]
 
 
 @pytest.mark.parametrize("operation", ["truncate", "average", "scale", "chained"])
@@ -151,6 +152,35 @@ def test_derived_adapters_pass_existing_gate(tmp_path, operation):
         ops.scale(source, output, factor=.5)
         check_gated_output(output, [source], operation, 2)
     assert artifact_hashes(source.parent) == original_hashes
+
+
+@pytest.mark.parametrize("operation", ["average", "overlap"])
+def test_source_comparison_accepts_cluster_specific_snapshot_paths(tmp_path, operation):
+    sources, snapshots = [], []
+    for cluster, seed in (("cluster-a", 3), ("cluster-b", 9)):
+        directory = tmp_path / cluster
+        directory.mkdir()
+        source = adapter(directory / "source", seed=seed)
+        provenance = json.loads((source.parent / "provenance.json").read_text())
+        snapshot = provenance["config"]["sft"]["base_snapshot"]["path"]
+        config = json.loads((source / "adapter_config.json").read_text())
+        write_json(source / "adapter_config.json", {**config, "base_model_name_or_path": snapshot})
+        bind_source(source)
+        sources.append(source)
+        snapshots.append(snapshot)
+    assert snapshots[0] != snapshots[1]
+    output = tmp_path / "out"
+    if operation == "average":
+        report = ops.average(sources, output, rank=4)
+        check_output(sources[0], output, 4)
+        check_gated_output(output, sources, operation, 4, snapshot=snapshots[1])
+        for name, matrix in dense(output / "checkpoint").items():
+            expected = (dense(sources[0])[name] + dense(sources[1])[name]) / 2
+            torch.testing.assert_close(matrix, expected, rtol=1e-6, atol=2e-5)
+    else:
+        report = ops.overlap(*sources, output)
+        assert json.loads(output.read_text()) == report
+    assert [row["base_model_name_or_path"] for row in report["inputs"]] == snapshots
 
 
 @pytest.mark.parametrize("operation", ["truncate", "average", "scale"])

@@ -136,7 +136,8 @@ class Adapter:
 
     def receipt(self):
         return {"adapter": str(self.path.resolve()), "adapter_model_sha256": sha256(self.weights),
-                "adapter_config_sha256": sha256(self.path / "adapter_config.json")}
+                "adapter_config_sha256": sha256(self.path / "adapter_config.json"),
+                "base_model_name_or_path": self.config.get("base_model_name_or_path")}
 
 
 def thin_svd(b, a):
@@ -297,8 +298,7 @@ def truncate(adapter, out, *, rank=None, top_modules=None, targets=None, layers=
 def compatible(adapters):
     first = adapters[0]
     for other in adapters[1:]:
-        if other.config.get("base_model_name_or_path") != first.config.get("base_model_name_or_path"):
-            raise ValueError("Adapters must have the same base_model_name_or_path")
+        # Cluster-local paths are not model identity; gated operations check provenance.
         if other.shapes != first.shapes:
             raise ValueError("Adapters must have the same module set and dimensions")
 

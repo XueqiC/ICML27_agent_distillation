@@ -26,8 +26,8 @@ COMMON = {
 KCONF = {  # per data condition: verified view, epochs, reference lr, world size, train resources
     "k20": dict(verified=A + "/data/verified/seeds_full_train_r2/subsets/k20", epochs="32", lr="5e-5", gpus=2,
                 cpus=4, mem="30G", time="01:30:00", total_updates=320, ckpts="10 40 80 160"),
-    "k100": dict(verified=A + "/data/verified/seeds_full_train_r2/subsets/k100", epochs="64", lr="1e-4", gpus=4,
-                 cpus=8, mem="42G", time="03:00:00", total_updates=832, ckpts="26 104 208 416"),
+    "k100": dict(verified=A + "/data/verified/seeds_full_train_r2/subsets/k100", epochs="64", lr="1e-4", gpus=2,
+                 cpus=4, mem="36G", time="03:30:00", total_updates=832, ckpts="26 104 208 416"),
 }
 out = Path(sys.argv[1])
 (out / "jobs").mkdir(parents=True, exist_ok=True)
@@ -137,7 +137,8 @@ order += [f"train.{n}" for n in cells if n.startswith("a0-")]
 order += [n for n in jobs if n.startswith("eval.old-") and n.endswith("run2")]
 order += [f"train.{n}" for n in cells if n.startswith("a1-k20")] + [f"train.{n}" for n in cells if n.startswith("a1-k100")]
 order += [f"train.{n}" for n in cells if n.startswith("a2-")]
-order += [n for n in jobs if n.startswith("eval.") and not n.startswith("eval.old-")]
+order += [n for n in jobs if n.startswith("eval.") and not n.startswith("eval.old-") and n.endswith("run1")]
+order += [n for n in jobs if n.startswith("eval.") and not n.startswith("eval.old-") and n.endswith("run2")]
 assert sorted(order) == sorted(jobs), "every job is listed exactly once"
 (out / "lists" / "main.list").write_text("".join(n + "\n" for n in order))
 print(f"cells {len(cells)}  jobs {len(jobs)}  (train {sum(n.startswith('train.') for n in jobs)}, eval {sum(n.startswith('eval.') for n in jobs)})")
