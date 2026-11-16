@@ -25,9 +25,9 @@ COMMON = {
 }
 KCONF = {  # per data condition: verified view, epochs, reference lr, world size, train resources
     "k20": dict(verified=A + "/data/verified/seeds_full_train_r2/subsets/k20", epochs="32", lr="5e-5", gpus=2,
-                cpus=4, mem="40G", time="01:30:00", total_updates=320, ckpts="10 40 80 160"),
+                cpus=4, mem="30G", time="01:30:00", total_updates=320, ckpts="10 40 80 160"),
     "k100": dict(verified=A + "/data/verified/seeds_full_train_r2/subsets/k100", epochs="64", lr="1e-4", gpus=4,
-                 cpus=8, mem="56G", time="03:00:00", total_updates=832, ckpts="26 104 208 416"),
+                 cpus=8, mem="42G", time="03:00:00", total_updates=832, ckpts="26 104 208 416"),
 }
 out = Path(sys.argv[1])
 (out / "jobs").mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ def evaljob(name, adapters, k, *, include_base=False, time=None):
            "DECODING": "greedy", "INCLUDE_BASE": "1" if include_base else "0", "OUT": f"{R}/eval/{name}",
            "VERIFIED": KCONF[k]["verified"]}
     n = len(adapters) + (1 if include_base else 0)
-    res = dict(ACCOUNT="", PARTITION="hpg-b200", GPUS="1", CPUS="4", MEM="32G",
+    res = dict(ACCOUNT="", PARTITION="hpg-b200", GPUS="1", CPUS="4", MEM="24G",
                TIME=time or f"{(18 * n + 20) // 60:02d}:{(18 * n + 20) % 60:02d}:00", SCRIPT="scripts/hpg_eval_adapters.slurm")
     jobs[f"eval.{name}"] = (env, res, [p + "/adapter_model.safetensors" for _, p in adapters], [f"{R}/eval/{name}"])
 
