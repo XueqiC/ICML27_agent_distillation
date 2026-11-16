@@ -27,6 +27,17 @@ if [ "$MODE" = prep ] || [ "$MODE" = cpu ]; then
   [ -n "$jid" ] || { echo "SBATCH_FAILED $MODE $WHAT: $(printf '%s' "$o" | tail -n 2 | tr '\n' ' ')"; exit 1; }
   record "$MODE:$WHAT" "$jid"; echo "SUBMITTED $MODE:$WHAT $jid (wsp jobs before: $NJ, all: $NALL)"; exit 0
 fi
+if [ "$MODE" = gpucmd ]; then   # one GPU job running derive/SCRIPT.sh
+  lim="${4:?time limit}"; f="$Q/derive/$WHAT"; [ -f "$f" ] || { echo "NO_FILE $f"; exit 2; }
+  if cut -f1 "$Q/submitted.tsv" | grep -q -x -F -- "gpucmd:$WHAT"; then echo "ALREADY_SUBMITTED gpucmd:$WHAT"; exit 0; fi
+  count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
+  [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP wsp=$NJ"; exit 0; }
+  o=$(cd "$T" && sbatch --parsable -A "$ACCT" -p gpu2 -N1 -n1 --gres=gpu:1 --cpus-per-task=16 -t "$lim" -J "wsp-gpu-${WHAT%.sh}" \
+      -o "$Q/logs/slurm-%x-%j.out" --export=ALL --wrap "bash $f" 2>&1); jid=$(jobid "$o")
+  [ -n "$jid" ] || { echo "SBATCH_FAILED gpucmd $WHAT: $(printf '%s' "$o" | tail -n 2 | tr '\n' ' ')"; exit 1; }
+  scontrol update JobId="$jid" Partition=gpu2,gpu4 > /dev/null 2>&1 || true
+  record "gpucmd:$WHAT" "$jid"; echo "SUBMITTED gpucmd:$WHAT $jid (wsp gpu jobs before: $NJ)"; exit 0
+fi
 [ "$MODE" = list ] || { echo "REFUSE mode"; exit 2; }
 [ -f "$Q/lists/$WHAT" ] || { echo "NO_LIST"; exit 2; }
 nsub=0
@@ -46,9 +57,11 @@ while IFS= read -r name <&7; do
   [ -n "$GPUS" ] && [ -n "$CPUS" ] && [ -n "$TIME" ] && [ -f "$T/$STAGE_SCRIPT" ] || { echo "BAD_RES $name"; continue; }
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP wsp=$NJ (submitted now: $nsub)"; exit 0; }
-  o=$( set -a; . "$envf"; STAGE_SCRIPT="$STAGE_SCRIPT"; set +a; cd "$T" && sbatch --parsable -A "$ACCT" -p gpu2,gpu4 -N1 -n1 --gres=gpu:"$GPUS" \
+  o=$( set -a; . "$envf"; STAGE_SCRIPT="$STAGE_SCRIPT"; set +a; cd "$T" && sbatch --parsable -A "$ACCT" -p gpu2 -N1 -n1 --gres=gpu:"$GPUS" \
        --cpus-per-task="$CPUS" -t "$TIME" -J "wsp-$name" -o "$Q/logs/slurm-$name-%j.out" --export=ALL "$WRAP" 2>&1 ); jid=$(jobid "$o")
   [ -n "$jid" ] || { echo "SBATCH_FAILED $name: $(printf '%s' "$o" | tail -n 2 | tr '\n' ' ')"; exit 1; }
+  # sbatch on LONI rejects a partition list ("Invalid partition name"), scontrol accepts it: widen after submission.
+  scontrol update JobId="$jid" Partition=gpu2,gpu4 > /dev/null 2>&1 || echo "NOTE $name stays on gpu2 only"
   record "$name" "$jid"; echo "SUBMITTED $name $jid (wsp jobs before: $NJ, all: $NALL)"; nsub=$((nsub + 1))
 done 7< "$Q/lists/$WHAT"
 echo "SUBMIT_PASS_DONE submitted=$nsub"
