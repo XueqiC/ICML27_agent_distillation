@@ -39,7 +39,8 @@ if [ "$MODE" = cpu ]; then   # tc_wsp_submit.sh cpu SCRIPT.sh CAP ACCT : one CPU
   printf 'cpu:%s\t%s\t%s\t%s\n' "$WHAT" "$jid" "$ACCT" "$(date '+%F %T')" >> "$Q/submitted.tsv"
   echo "SUBMITTED cpu:$WHAT $jid $ACCT (jobs before: $NJ)"; exit 0
 fi
-if [ "$MODE" = gpu ]; then   # tc_wsp_submit.sh gpu SCRIPT.sh CAP ACCT TIME MEM : one 1-GPU job running derive/SCRIPT.sh
+if [ "$MODE" = gpu ]; then   # tc_wsp_submit.sh gpu SCRIPT.sh CAP ACCT TIME MEM : one 1-GPU job running derive/SCRIPT.sh (B200 only: the
+  # trainer's flex-attention Triton kernel does not fit the RTX PRO 6000 shared-memory limit)
   ACCT="${4:?account}"; lim="${5:?time}"; mem="${6:?mem}"
   case "$ACCT" in yd24f.fsu|fsu-compsci-dept) ;; *) echo "REFUSE account"; exit 2;; esac
   [ -f "$Q/derive/$WHAT" ] && [ -f "$Q/derive/tc_wsp_gpu.slurm" ] || { echo "NO_CMD_FILE"; exit 2; }
@@ -47,7 +48,7 @@ if [ "$MODE" = gpu ]; then   # tc_wsp_submit.sh gpu SCRIPT.sh CAP ACCT TIME MEM 
   if squeue -u xc25.fsu -h -o '%j' | grep -q -x -F -- "wsp-gpu-${WHAT%.sh}"; then echo "IN_QUEUE gpu:$WHAT"; exit 0; fi
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP jobs=$NJ"; exit 0; }
-  jid=$(cd "$T" && CMD_FILE="$Q/derive/$WHAT" sbatch --parsable --account="$ACCT" --qos="$ACCT" --partition=hpg-b200,hpg-rtx6000 --time="$lim" --mem="$mem" \
+  jid=$(cd "$T" && CMD_FILE="$Q/derive/$WHAT" sbatch --parsable --account="$ACCT" --qos="$ACCT" --partition=hpg-b200 --time="$lim" --mem="$mem" \
         --job-name="wsp-gpu-${WHAT%.sh}" --output="$Q/logs/slurm-gpu-${WHAT%.sh}-%j.out" --export=ALL "$Q/derive/tc_wsp_gpu.slurm") || { echo "SBATCH_FAILED gpu $WHAT"; exit 1; }
   printf 'gpu:%s\t%s\t%s\t%s\n' "$WHAT" "$jid" "$ACCT" "$(date '+%F %T')" >> "$Q/submitted.tsv"
   echo "SUBMITTED gpu:$WHAT $jid $ACCT (jobs before: $NJ)"; exit 0
