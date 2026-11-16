@@ -5,8 +5,8 @@ Q=/work/xueqic/hq/ICML27_wsp/queue; R=/work/xueqic/hq/ICML27_wsp
 S=$Q/tc_wsp_submit_loni.sh
 echo "== $(TZ=America/Chicago date '+%F %T %Z') LONI pass"
 [ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpucmd c1_k20.sh 12 04:00:00
-bash $S list main.list 12
 [ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpucmd c1_k100.sh 12 08:00:00
+bash $S list main.list 12
 bash $S list c.list 12
 bash $S list b.list 12
 [ -f "$Q/lists/b2.list" ] && bash $S list b2.list 12
