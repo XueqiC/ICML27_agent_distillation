@@ -5,6 +5,9 @@ import pytest
 torch = pytest.importorskip("torch")
 from safetensors.torch import load_file, save_file
 
+from harness.lora_adapters import inspect_adapter
+from sed.seed_evidence import artifact_hashes
+from sed.storage import digest, file_hash, write_json
 from tools import wsp_adapter_ops as ops
 
 
@@ -25,6 +28,11 @@ def adapter(path, seed=3, *, rslora=False, zero=False):
 
 
 def write_adapter(path, tensors, **overrides):
+    snapshot = path.parent / "base-snapshot"
+    snapshot.mkdir(exist_ok=True)
+    write_json(snapshot / "config.json", {"fixture": "tiny-local-base"})
+    path = path / "checkpoint"
+    path.parent.mkdir()
     path.mkdir()
     config = {"peft_type": "LORA", "base_model_name_or_path": "fake-local-base", "r": 2,
               "lora_alpha": 5, "use_rslora": overrides.pop("rslora", False), "bias": "none",
@@ -34,7 +42,24 @@ def write_adapter(path, tensors, **overrides):
               "inference_mode": True, "lora_bias": False, "modules_to_save": None, **overrides}
     (path / "adapter_config.json").write_text(json.dumps(config))
     save_file(tensors, path / "adapter_model.safetensors")
+    provenance = {"command": "synthetic-test-fixture", "config": {
+        "models": {"student": {"requested_repo": "fake-local-base", "revision": "fake-revision"}},
+        "sft": {"rank": 2, "lora_alpha": 5, "base_snapshot": {"path": str(snapshot.resolve()),
+                "metadata_sha256": {"config.json": file_hash(snapshot / "config.json")}}}}}
+    bind_source(path, provenance)
     return path
+
+
+def bind_source(path, provenance=None, **metadata):
+    """Seal synthetic fixture bytes, including deliberate malformed-math cases."""
+    provenance_path = path.parent / "provenance.json"
+    if provenance is None:
+        provenance = json.loads(provenance_path.read_text())
+    write_json(provenance_path, provenance)
+    hashes = artifact_hashes(path)
+    hashes.pop("training_state.json", None)
+    write_json(path / "training_state.json", {"final": False, "identity_sha256": digest(provenance),
+        "artifact_sha256": hashes, "supervised_tokens": 12, "passes": 1.25, "packing": "turn", **metadata})
 
 
 def dense(path):
@@ -51,6 +76,7 @@ def best(matrix, rank):
 
 
 def check_output(source, output, rank):
+    output = output / "checkpoint"
     original = json.loads((source / "adapter_config.json").read_text())
     actual = json.loads((output / "adapter_config.json").read_text())
     assert actual == {**original, "r": rank, "lora_alpha": rank, "use_rslora": False}
@@ -60,6 +86,150 @@ def check_output(source, output, rank):
     report = json.loads((output / "wsp_ops.json").read_text())
     assert report["inputs"][0]["adapter_model_sha256"] == ops.sha256(source / "adapter_model.safetensors")
     return report
+
+
+def check_gated_output(output, sources, operation, rank):
+    checkpoint = output / "checkpoint"
+    provenance = json.loads((output / "provenance.json").read_text())
+    original = json.loads((sources[0].parent / "provenance.json").read_text())
+    state = json.loads((checkpoint / "training_state.json").read_text())
+    student = original["config"]["models"]["student"]
+    snapshot = original["config"]["sft"]["base_snapshot"]["path"]
+    inspected = inspect_adapter(operation, checkpoint, student, snapshot)
+    assert inspected["rank"] == rank
+    assert {p.name for p in output.iterdir()} == {"checkpoint", "provenance.json"}
+    assert {p.name for p in checkpoint.iterdir()} == {
+        "adapter_config.json", "adapter_model.safetensors", "wsp_ops.json", "training_state.json"}
+    inputs = []
+    for source in sources:
+        source_state = json.loads((source / "training_state.json").read_text())
+        inputs.append({"adapter": str(source.resolve()),
+            "adapter_model_sha256": file_hash(source / "adapter_model.safetensors"),
+            "adapter_config_sha256": file_hash(source / "adapter_config.json"),
+            "training_state_sha256": file_hash(source / "training_state.json"),
+            "provenance_sha256": digest(json.loads((source.parent / "provenance.json").read_text())),
+            "checkpoint_metadata": {key: source_state[key] for key in ("supervised_tokens", "passes", "packing")}})
+    report = json.loads((checkpoint / "wsp_ops.json").read_text())
+    derived = {"operation": operation,
+               "parameters": {**report["parameters"], "rank": rank, "lora_alpha": rank},
+               "tool_sha256": file_hash(ops.__file__), "inputs": inputs}
+    if "wsp_derived" in original:
+        derived["parent"] = original["wsp_derived"]
+    assert provenance == {**original, "wsp_derived": derived}
+    hashes = artifact_hashes(checkpoint)
+    hashes.pop("training_state.json")
+    assert state == {"final": True, "wsp_derived": True, "identity_sha256": digest(provenance),
+                     "artifact_sha256": hashes, **inputs[0]["checkpoint_metadata"], "wsp_sources": inputs}
+    assert inspected["checkpoint_metadata"] == inputs[0]["checkpoint_metadata"]
+    assert report["inputs"] == [{key: row[key] for key in (
+        "adapter", "adapter_model_sha256", "adapter_config_sha256")} for row in inputs]
+
+
+@pytest.mark.parametrize("operation", ["truncate", "average", "scale", "chained"])
+def test_derived_adapters_pass_existing_gate(tmp_path, operation):
+    source = adapter(tmp_path / "first")
+    original_hashes = artifact_hashes(source.parent)
+    output = tmp_path / "out"
+    if operation in {"average", "chained"}:
+        second = adapter(tmp_path / "second", seed=9)
+        bind_source(second, supervised_tokens=24, passes=2.5, packing="conversation")
+        second_hashes = artifact_hashes(second.parent)
+        ops.average([source, second], output, rank=4)
+        check_gated_output(output, [source, second], "average", 4)
+        assert artifact_hashes(second.parent) == second_hashes
+        if operation == "chained":
+            chained = tmp_path / "chained"
+            ops.truncate(output / "checkpoint", chained, rank=1)
+            check_gated_output(chained, [output / "checkpoint"], "truncate", 1)
+            for name, matrix in dense(chained / "checkpoint").items():
+                torch.testing.assert_close(matrix, best(dense(output / "checkpoint")[name], 1),
+                                           rtol=1e-6, atol=2e-5)
+    elif operation == "truncate":
+        ops.truncate(source, output, rank=1)
+        check_gated_output(output, [source], operation, 1)
+    else:
+        ops.scale(source, output, factor=.5)
+        check_gated_output(output, [source], operation, 2)
+    assert artifact_hashes(source.parent) == original_hashes
+
+
+@pytest.mark.parametrize("operation", ["truncate", "average", "scale"])
+@pytest.mark.parametrize("change,message", [
+    ("adapter_config.json", "artifacts changed"),
+    ("adapter_model.safetensors", "artifacts changed"),
+    ("missing_provenance", "missing provenance.json"),
+    ("missing_state", "missing training_state.json"),
+    ("identity", "provenance mismatch"),
+    ("missing_hash", "artifacts changed"),
+    ("missing_metadata", "schema"),
+    ("invalid_json", "schema"),
+])
+def test_refuse_unverifiable_sources(tmp_path, operation, change, message):
+    valid = adapter(tmp_path / "valid")
+    source = adapter(tmp_path / "source", seed=9)
+    state_path = source / "training_state.json"
+    if change.startswith("adapter_"):
+        with (source / change).open("ab") as handle:
+            handle.write(b"\n")
+    elif change == "missing_provenance":
+        (source.parent / "provenance.json").unlink()
+    elif change == "missing_state":
+        state_path.unlink()
+    elif change == "invalid_json":
+        state_path.write_text("{")
+    else:
+        state = json.loads(state_path.read_text())
+        if change == "identity":
+            state["identity_sha256"] = "0" * 64
+        elif change == "missing_hash":
+            state["artifact_sha256"].pop("adapter_config.json")
+        else:
+            state.pop("packing")
+        write_json(state_path, state)
+    output = tmp_path / "out"
+    with pytest.raises(ValueError, match=message):
+        if operation == "average":
+            ops.average([valid, source], output, rank=2)
+        elif operation == "truncate":
+            ops.truncate(source, output, rank=1)
+        else:
+            ops.scale(source, output, factor=.5)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("field", ["requested_repo", "revision", "metadata_sha256"])
+def test_average_refuses_different_base_identity(tmp_path, field):
+    first, second = adapter(tmp_path / "first"), adapter(tmp_path / "second", seed=9)
+    provenance = json.loads((second.parent / "provenance.json").read_text())
+    config = json.loads((second / "adapter_config.json").read_text())
+    if field == "metadata_sha256":
+        provenance["config"]["sft"]["base_snapshot"][field] = {"config.json": "0" * 64}
+    else:
+        provenance["config"]["models"]["student"][field] = "different"
+        config["revision" if field == "revision" else "base_model_name_or_path"] = "different"
+        write_json(second / "adapter_config.json", config)
+    bind_source(second, provenance)
+    with pytest.raises(ValueError, match=field):
+        ops.average([first, second], tmp_path / "out", rank=4)
+    assert not (tmp_path / "out").exists()
+
+
+def test_chained_derivation_refuses_modified_report(tmp_path):
+    source = adapter(tmp_path / "source")
+    output = tmp_path / "scaled"
+    ops.scale(source, output, factor=.5)
+    write_json(output / "checkpoint/wsp_ops.json", {"operation": "tampered"})
+    with pytest.raises(ValueError, match="artifacts changed"):
+        ops.truncate(output / "checkpoint", tmp_path / "out", rank=1)
+    assert not (tmp_path / "out").exists()
+
+
+def test_analysis_accepts_adapters_without_training_provenance(tmp_path):
+    source = adapter(tmp_path / "source")
+    (source / "training_state.json").unlink()
+    (source.parent / "provenance.json").unlink()
+    ops.spectrum(source, tmp_path / "spectrum.json")
+    ops.overlap(source, source, tmp_path / "overlap.json")
 
 
 @pytest.mark.parametrize("rslora", [False, True])
@@ -95,7 +265,7 @@ def test_truncate_dense(tmp_path, rank, rslora):
     report = ops.truncate(source, output, rank=rank)
     check_output(source, output, rank or 2)
     original = dense(source)
-    for name, value in dense(output).items():
+    for name, value in dense(output / "checkpoint").items():
         expected = original[name] if rank is None else best(original[name], rank)
         torch.testing.assert_close(value, expected, rtol=1e-6, atol=1e-5)
         expected_share = float(expected.square().sum() / original[name].square().sum())
@@ -111,8 +281,8 @@ def test_top_modules_and_filters_zero_both_factors(tmp_path):
     filtered = tmp_path / "filtered"
     report = ops.truncate(source, filtered, targets="q_proj,down_proj", layers="1-1,9", top_modules=1)
     expected = max(NAMES[1:3], key=lambda n: float(dense(source)[n].square().sum()))
-    tensors = load_file(filtered / "adapter_model.safetensors")
-    for name, matrix in dense(filtered).items():
+    tensors = load_file(filtered / "checkpoint/adapter_model.safetensors")
+    for name, matrix in dense(filtered / "checkpoint").items():
         if name == expected:
             torch.testing.assert_close(matrix, dense(source)[name], rtol=1e-6, atol=1e-5)
         else:
@@ -132,7 +302,7 @@ def test_average_dense(tmp_path, same, rank, weights):
     report = ops.average([first, second], output, rank=rank, weights=weights)
     check_output(first, output, rank)
     w1, w2 = weights or [.5, .5]
-    for name, matrix in dense(output).items():
+    for name, matrix in dense(output / "checkpoint").items():
         expected = w1 * dense(first)[name] + w2 * dense(second)[name]
         torch.testing.assert_close(matrix, best(expected, rank), rtol=1e-6, atol=2e-5)
     if rank >= 4 and weights != [1., -1.]:
@@ -145,7 +315,7 @@ def test_scale_dense(tmp_path, factor):
     output = tmp_path / "out"
     ops.scale(source, output, factor=factor)
     check_output(source, output, 2)
-    for name, value in dense(output).items():
+    for name, value in dense(output / "checkpoint").items():
         torch.testing.assert_close(value, dense(source)[name] * factor, rtol=1e-6, atol=2e-5)
 
 
@@ -223,11 +393,11 @@ def test_cli_and_no_overwrite(tmp_path, operation):
     if operation == "scale":
         args += ["--factor", "2"]
     ops.main(args)
-    before = out.read_bytes() if out.is_file() else (out / "adapter_model.safetensors").read_bytes()
+    before = out.read_bytes() if out.is_file() else (out / "checkpoint/adapter_model.safetensors").read_bytes()
     with pytest.raises(SystemExit) as error:
         ops.main(args)
     assert error.value.code == 2
-    assert before == (out.read_bytes() if out.is_file() else (out / "adapter_model.safetensors").read_bytes())
+    assert before == (out.read_bytes() if out.is_file() else (out / "checkpoint/adapter_model.safetensors").read_bytes())
 
 
 @pytest.mark.parametrize("change", ["base", "modules", "dimensions", "missing_b", "extra", "nan"])
@@ -250,6 +420,7 @@ def test_refuse_incompatible_or_malformed(tmp_path, change):
     else:
         tensors[NAMES[0] + ".lora_A.weight"][0, 0] = float("nan")
     save_file(tensors, b / "adapter_model.safetensors")
+    bind_source(b)
     with pytest.raises(ValueError):
         ops.average([a, b], tmp_path / "out", rank=4)
     assert not (tmp_path / "out").exists()

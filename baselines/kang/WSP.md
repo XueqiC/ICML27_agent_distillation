@@ -52,14 +52,53 @@ python -m tools.wsp_adapter_ops scale ADAPTER --out scaled --factor 0.5
 python -m tools.wsp_adapter_ops overlap ADAPTER_A ADAPTER_B --out overlap.json --k 1 4 16
 ```
 
-Outputs must not exist. Math uses float64 thin QR and a core SVD; factors are
-saved as float32. Explicit averaging weights are used verbatim, without
+Outputs must not exist. `truncate`, `average`, and `scale` create this layout:
+
+```text
+OUT/
+  provenance.json
+  checkpoint/
+    adapter_config.json
+    adapter_model.safetensors
+    wsp_ops.json
+    training_state.json
+```
+
+Pass `OUT/checkpoint` as the adapter directory for evaluation or another
+operation. `spectrum` and `overlap` still write JSON reports and accept adapter
+directories without training provenance.
+
+Math uses float64 thin QR and a core SVD; factors are saved as float32.
+Explicit averaging weights are used verbatim, without
 normalization. Zero inputs have kept share 1; zero-update overlaps are null.
 When k exceeds either numerical rank, overlap uses and reports the common
 effective k, with chance level effective_k / dimension. Summary norm weights
 are the arithmetic mean of the two squared norms.
 
-Derived adapters carry `wsp_ops.json` input hashes and retained-energy reports.
-They are native PEFT artifacts, not new training runs: this tool does not forge
-`training_state.json` or training provenance. The existing gated evaluator
-requires a separate derived-artifact integration for these post-hoc outputs.
+Derivation requires every source to have `training_state.json` and its parent's
+`provenance.json`, a matching provenance identity digest, matching recorded
+artifact hashes, and the checkpoint metadata `supervised_tokens`, `passes`,
+and `packing`. Missing or inconsistent evidence is refused before output is
+created. Averaging also requires the same student `requested_repo`, `revision`,
+and `base_snapshot.metadata_sha256` across all sources.
+
+Derived provenance preserves the first source's training config and adds
+`wsp_derived`: operation parameters (including output rank/alpha), tool hash,
+source paths, artifact/state hashes, provenance digests, and checkpoint metadata.
+For chained operations the previous derivation remains under `wsp_derived.parent`.
+`wsp_ops.json` keeps its input hashes and retained-energy reports. The derived
+`training_state.json` is written last, binds the new provenance and artifacts,
+and explicitly marks `wsp_derived: true`. Its exposure fields come from the first
+source; `wsp_sources` records each source separately. These fields do not claim
+new training or sum exposure across averaged sources.
+
+The existing evaluator accepts this schema without changes. For example, with
+the usual model, verified collection, and evaluation paths configured:
+
+```sh
+ADAPTERS="name=/path/OUT/checkpoint" sbatch --export=ALL scripts/hpg_eval_adapters.slurm
+```
+
+The configured student and serving snapshot metadata must still match the
+original training provenance, and the normal serving equivalence gate still
+applies. CPU artifact checks do not establish HF/vLLM serving equivalence.

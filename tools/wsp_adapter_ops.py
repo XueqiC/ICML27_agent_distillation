@@ -7,6 +7,7 @@ use min(k, rank(A), rank(B)) nonzero directions, reported as effective_k.
 """
 import argparse
 from collections import defaultdict
+from copy import deepcopy
 import hashlib
 import json
 import math
@@ -16,6 +17,9 @@ import re
 import torch
 from safetensors import safe_open
 from safetensors.torch import save_file
+
+from sed.seed_evidence import artifact_hashes
+from sed.storage import digest
 
 
 def sha256(path):
@@ -45,10 +49,12 @@ def module_info(name):
 
 
 class Adapter:
-    def __init__(self, path):
-        self.path = Path(path)
+    def __init__(self, path, *, require_provenance=False):
+        self.path = Path(path).resolve()
         self.weights = self.path / "adapter_model.safetensors"
         self.config = json.loads((self.path / "adapter_config.json").read_text())
+        if require_provenance:
+            self.verify_source()
         for field in ("rank_pattern", "alpha_pattern", "use_dora", "lora_bias"):
             if self.config.get(field):
                 raise ValueError(f"Unsupported adapter field: {field}")
@@ -81,6 +87,45 @@ class Adapter:
                 if len(a) != 2 or len(b) != 2 or a[0] != self.rank or b[1] != self.rank or min(*a, *b) < 1:
                     raise ValueError(f"Invalid factor dimensions/r for module: {name}")
                 self.shapes[name] = (b[0], a[1])
+
+    def verify_source(self):
+        """Bind derivation to recorded artifacts; never invent training evidence."""
+        state_path = self.path / "training_state.json"
+        provenance_path = self.path.parent / "provenance.json"
+        for path in (state_path, provenance_path):
+            if not path.is_file():
+                raise ValueError(f"Unverifiable source adapter {self.path}: missing {path.name}")
+        try:
+            state = json.loads(state_path.read_text())
+            self.provenance = json.loads(provenance_path.read_text())
+            identity = digest(self.provenance)
+            if state["identity_sha256"] != identity:
+                raise ValueError(f"Source checkpoint provenance mismatch: {self.path}")
+            recorded = state["artifact_sha256"]
+            if not isinstance(recorded, dict):
+                raise ValueError(f"Invalid source artifact_sha256: {self.path}")
+            hashes = artifact_hashes(self.path)
+            if (not {"adapter_config.json", "adapter_model.safetensors"} <= recorded.keys()
+                    or any(key not in hashes or hashes[key] != value for key, value in recorded.items())):
+                raise ValueError(f"Source checkpoint artifacts changed after training: {self.path}")
+            metadata = {key: state[key] for key in ("supervised_tokens", "passes", "packing")}
+            config = self.provenance["config"]
+            student, snapshot = config["models"]["student"], config["sft"]["base_snapshot"]
+            self.base_identity = {key: student[key] for key in ("requested_repo", "revision")}
+            self.snapshot_hashes = snapshot["metadata_sha256"]
+            if not isinstance(self.snapshot_hashes, dict) or not self.snapshot_hashes:
+                raise ValueError(f"Source has no base snapshot metadata hashes: {self.path}")
+            base = self.config.get("base_model_name_or_path", self.config.get("base_model"))
+            if (base not in {student["requested_repo"], snapshot["path"]}
+                    or self.config.get("base_model") not in (None, base, student["requested_repo"])
+                    or self.config.get("revision") not in (None, student["revision"])):
+                raise ValueError(f"Source adapter base_model/revision conflicts with provenance: {self.path}")
+            if self.config.get("peft_type") != "LORA" or self.config.get("modules_to_save"):
+                raise ValueError(f"Unsupported source adapter configuration: {self.path}")
+        except (KeyError, TypeError, AttributeError, json.JSONDecodeError) as error:
+            raise ValueError(f"Invalid source training_state.json/provenance.json schema: {self.path}") from error
+        self.source_metadata = {**self.receipt(), "training_state_sha256": sha256(state_path),
+                                "provenance_sha256": identity, "checkpoint_metadata": metadata}
 
     def factors(self, name):
         with safe_open(self.weights, framework="pt", device="cpu") as handle:
@@ -122,8 +167,9 @@ def compressed_factors(decomposition, rank, keep=True):
     return b, a, norm2(s[:n])
 
 
-def save_adapter(output, adapter, rank, factors, report):
+def save_adapter(output, adapters, rank, factors, report):
     output = unused(output)
+    adapter = adapters[0]
     tensors = {}
     for name, (b, a) in factors.items():
         for part, value in (("A", a), ("B", b)):
@@ -132,10 +178,25 @@ def save_adapter(output, adapter, rank, factors, report):
                 raise ValueError(f"Output factor overflows float32: {name}")
             tensors[adapter.keys[name][part]] = value
     config = {**adapter.config, "r": rank, "lora_alpha": rank, "use_rslora": False}
+    sources = [a.source_metadata for a in adapters]
+    provenance = deepcopy(adapter.provenance)
+    derivation = {"operation": report["operation"],
+                  "parameters": {**report["parameters"], "rank": rank, "lora_alpha": rank},
+                  "tool_sha256": sha256(__file__), "inputs": sources}
+    if "wsp_derived" in provenance:
+        derivation["parent"] = provenance["wsp_derived"]
+    provenance["wsp_derived"] = derivation
     output.mkdir(parents=True, exist_ok=False)
-    save_file(tensors, output / "adapter_model.safetensors", metadata={"format": "pt"})
-    write_json(output / "adapter_config.json", config)
-    write_json(output / "wsp_ops.json", report)
+    checkpoint = output / "checkpoint"
+    checkpoint.mkdir()
+    save_file(tensors, checkpoint / "adapter_model.safetensors", metadata={"format": "pt"})
+    write_json(checkpoint / "adapter_config.json", config)
+    write_json(checkpoint / "wsp_ops.json", report)
+    write_json(output / "provenance.json", provenance)
+    state = {"final": True, "wsp_derived": True, "identity_sha256": digest(provenance),
+             "artifact_sha256": artifact_hashes(checkpoint),
+             **sources[0]["checkpoint_metadata"], "wsp_sources": sources}
+    write_json(checkpoint / "training_state.json", state)
     return report
 
 
@@ -205,7 +266,7 @@ def parse_layers(value):
 
 def truncate(adapter, out, *, rank=None, top_modules=None, targets=None, layers=None):
     unused(out)
-    adapter = Adapter(adapter)
+    adapter = Adapter(adapter, require_provenance=True)
     rank = adapter.rank if rank is None else rank
     positive(rank, "--rank")
     if top_modules is not None:
@@ -230,7 +291,7 @@ def truncate(adapter, out, *, rank=None, top_modules=None, targets=None, layers=
         records[name] = {**kept_record(norms[name], kept), "selected": name in selected}
     report = operation_report("truncate", {"rank": rank, "top_modules": top_modules, "targets": targets,
                                            "layers": layers}, [adapter], records)
-    return save_adapter(out, adapter, rank, factors, report)
+    return save_adapter(out, [adapter], rank, factors, report)
 
 
 def compatible(adapters):
@@ -247,7 +308,12 @@ def average(adapters, out, *, rank, weights=None):
     positive(rank, "--rank")
     if not adapters:
         raise ValueError("At least one adapter is required")
-    adapters = [Adapter(path) for path in adapters]
+    adapters = [Adapter(path, require_provenance=True) for path in adapters]
+    for other in adapters[1:]:
+        if other.base_identity != adapters[0].base_identity:
+            raise ValueError("Average sources must have the same student requested_repo and revision")
+        if other.snapshot_hashes != adapters[0].snapshot_hashes:
+            raise ValueError("Average sources must have the same base_snapshot.metadata_sha256")
     compatible(adapters)
     weights = [1 / len(adapters)] * len(adapters) if weights is None else weights
     if len(weights) != len(adapters) or any(not math.isfinite(w) for w in weights):
@@ -261,14 +327,14 @@ def average(adapters, out, *, rank, weights=None):
         factors[name] = (b, a)
         records[name] = kept_record(norm2(decomposition[1]), kept)
     report = operation_report("average", {"rank": rank, "weights": weights}, adapters, records)
-    return save_adapter(out, adapters[0], rank, factors, report)
+    return save_adapter(out, adapters, rank, factors, report)
 
 
 def scale(adapter, out, *, factor):
     unused(out)
     if not math.isfinite(factor):
         raise ValueError("--factor must be finite")
-    adapter = Adapter(adapter)
+    adapter = Adapter(adapter, require_provenance=True)
     factors, records = {}, {}
     for name in sorted(adapter.keys):
         b, a = adapter.factors(name)
@@ -276,7 +342,7 @@ def scale(adapter, out, *, factor):
         factors[name] = (b * factor, a if factor else torch.zeros_like(a))
         records[name] = kept_record(total, total * factor ** 2)
     report = operation_report("scale", {"factor": factor}, [adapter], records)
-    return save_adapter(out, adapter, adapter.rank, factors, report)
+    return save_adapter(out, [adapter], adapter.rank, factors, report)
 
 
 def numerical_rank(s, dimensions):

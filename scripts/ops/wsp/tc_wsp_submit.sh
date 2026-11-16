@@ -15,6 +15,7 @@ exec 8>>"$Q/.submit.lock"; flock -n 8 || { echo "SUBMIT_BUSY"; exit 1; }
 count_jobs() {  # prints the number of this user's jobs (all states, all accounts); fails loudly if squeue fails
   local out; out=$(squeue -u xc25.fsu -h -o '%i|%a') || return 1
   NJ=$(printf '%s\n' "$out" | grep -c .); NYD=$(printf '%s\n' "$out" | grep -c '|yd24f.fsu$'); NDEPT=$(printf '%s\n' "$out" | grep -c '|fsu-compsci-dept$')
+  return 0   # grep -c exits 1 on a zero count; the counts themselves are what matters
 }
 if [ "$MODE" = prep ]; then
   ACCT="${4:?account}"; case "$ACCT" in yd24f.fsu|fsu-compsci-dept) ;; *) echo "REFUSE account"; exit 2;; esac
