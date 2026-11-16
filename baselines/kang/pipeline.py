@@ -11,6 +11,7 @@ from baselines.eto.pipeline import run_command, stage_run
 from sed.config import load_config
 from sed.storage import digest, locked, write_json
 from sed.startup_timing import startup_timing
+from train.lora_options import add_arguments, command_options, normalize, recipe_overrides
 
 RECIPE = {"training_seed": 0, "epochs": 2, "max_length": 32768, "adaptation": "kang_lora",
     "rank": 64, "alpha": 128, "dropout": 0.05, "targets": "q/k/v/o/gate/up/down under .language_model.",
@@ -46,7 +47,8 @@ def training_command(args, output):
         *(["--warmup-steps", "0"] if optimizer["warmup_steps"] == 0 else []),
         "--original-batch", "8", "--weight-decay", "0", "--packing", RECIPE["packing"],
         "--scoring", getattr(args, "scoring", "per_turn"),
-        *(["--pipeline-output", str(Path(args.output).resolve())] if hasattr(args, "output") else [])]
+        *(["--pipeline-output", str(Path(args.output).resolve())] if hasattr(args, "output") else []),
+        *command_options(args)]
 
 
 def train_pipeline(args, identity):
@@ -72,11 +74,17 @@ def main(argv=None):
     parser.add_argument("--gpus", type=int, choices=[1, 2, 4, 8], default=1)
     parser.add_argument("--scoring", choices=["per_turn", "shared_history"], default="per_turn")
     parser.add_argument("--train-python", default=os.environ.get("TRAIN_PYTHON", sys.executable))
+    add_arguments(parser)
+    parser.add_argument("--reuse-prepared", default=argparse.SUPPRESS,
+                        help="CPU prepare: reuse a verified Kang pipeline's encoded examples for a new shape")
     args = parser.parse_args(argv)
+    if hasattr(args, "reuse_prepared") and args.mode != "prepare":
+        parser.error("--reuse-prepared requires --mode prepare")
     if args.mode == "prepare":
         require_cpu_preparation()
     try:
         optimizer = optimizer_recipe(args)
+        normalize(args)
     except ValueError as error:
         parser.error(str(error))
     if args.epochs < 1:
@@ -91,7 +99,7 @@ def main(argv=None):
             Path(args.output) / "startup_timing.jsonl", process="pipeline", mode=args.mode, snapshot=args.snapshot):
         identity = prepare(args, config, method="kang", recipe={**RECIPE, **optimizer, "training_seed": args.training_seed,
                                                               "epochs": args.epochs,
-                                                              "scoring": args.scoring})
+                                                              "scoring": args.scoring, **recipe_overrides(args)})
         try:
             if args.mode == "train":
                 train_pipeline(args, identity)

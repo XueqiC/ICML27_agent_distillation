@@ -44,7 +44,8 @@ def prepare_training(args, command):
     attempt.mkdir(parents=True)
     argv = command(args, attempt / "output")
     index = argv.index("baselines.common.fsdp_train")
-    run_command([args.train_python, "-m", *argv[index:], "--prepare-only"], attempt / "prepare.log")
+    run_command([args.train_python, "-m", *argv[index:], "--prepare-only",
+                 *(["--reuse-prepared", args.reuse_prepared] if hasattr(args, "reuse_prepared") else [])], attempt / "prepare.log")
 
 
 @timed("identity_prepare")

@@ -27,6 +27,7 @@ from sed.storage import digest, file_hash, write_json, JsonlLedger, fsync_dir
 from sed.startup_timing import first_update, phase, startup_timing, timed
 from train.dataset import load_tokenizer
 from train.modeling import copy_base_assets, load_student, snapshot_metadata
+from train.lora_options import add_arguments, normalize, OPTIONS, shape, validate_updates
 
 
 def text_parameter(name):
@@ -326,7 +327,8 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
                warmup_ratio, original_batch, epochs=3, seed=0, beta=0.1,
                reference=None, weight_decay=0.0, rank=0, world_size=1, device="cpu", warmup_steps=None,
                packing=None, processed_token_budget=None, checkpoint_callback=None,
-               scoring=None, flex_kernel_options=None, replicated_lora=False):
+               scoring=None, flex_kernel_options=None, replicated_lora=False,
+               checkpoint_updates=None, adapter_provenance=None):
     import torch
     import torch.distributed as dist
     from transformers import set_seed
@@ -379,6 +381,9 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
             raise ValueError("Token budgets/checkpoint callbacks are SAD-only")
         plan = dose(len(examples), original_batch, epochs=epochs)
         batches = epoch_batches(len(examples), plan["b_prime"], epochs=epochs, seed=seed)
+    validate_updates(checkpoint_updates, plan["total_steps"])
+    if checkpoint_updates and (objective != "sft" or adapter_provenance is None):
+        raise ValueError("Adapter checkpoints require SFT and adapter provenance")
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=learning_rate, betas=(0.9, 0.999), eps=1e-8,
                                  weight_decay=weight_decay, foreach=False, fused=False)
@@ -448,6 +453,14 @@ def train_loop(model, examples, output, *, objective, learning_rate, scheduler,
         norm = torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
         lr_used = optimizer.param_groups[0]["lr"]
         optimizer.step()
+        if checkpoint_updates and update in checkpoint_updates and rank == 0:
+            # No forward/eval mode changes or RNG calls; accounting includes this
+            # update before the usual counters below are advanced.
+            export_adapter(model, Path(output) / "checkpoints" / f"update-{update}", adapter_provenance,
+                {"update": update, "epochs": epochs, "examples_seen": exposure + len(indices),
+                 "passes": (exposure + len(indices)) / len(examples), "packing": packing,
+                 "supervised_tokens_seen": supervised + sum(supervised_count(examples[i]) for i in indices)},
+                final=False)
         lr_schedule.step()
         if update == 1 and rank == 0:
             if cuda:
@@ -624,7 +637,8 @@ def export_checkpoint(model, destination, base_snapshot, *, rank=0, max_shard_by
 
 @timed("model_load")
 def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora",
-                       scoring="per_turn", flex_kernel_options=None):
+                       scoring="per_turn", flex_kernel_options=None,
+                       rank=64, alpha=128, targets=None, layers=None, modules=None):
     """Registered text-only LoRA recipes; Kang remains the default."""
     from train.modeling import attach_lora
     model = load_student(snapshot, device=device, dtype="bfloat16" if device != "cpu" else "float32")
@@ -635,21 +649,31 @@ def prepare_lora_model(snapshot, *, device="cuda", adaptation="kang_lora",
         return attach_lora(model, rank=8, alpha=16, dropout=0.0, targets=["q_proj", "v_proj"])
     if adaptation != "kang_lora":
         raise ValueError("Unknown LoRA adaptation")
-    model = attach_lora(model, rank=64, alpha=128, dropout=0.05)
+    model = attach_lora(model, rank=rank, alpha=alpha, dropout=0.05,
+                        targets=targets, layers=layers, modules=modules)
     if scoring == "shared_history":
         from baselines.common.shared_history import validate_model
         validate_model(model)
     return model
 
 
-def export_adapter(model, destination, provenance, state):
+def export_adapter(model, destination, provenance, state, *, final=True):
     """PEFT artifacts with the existing serve_student/equivalence-gate schema."""
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
+    if not final:
+        # The serving gate expects provenance adjacent to adapter directories.
+        provenance_path = destination.parent / "provenance.json"
+        if provenance_path.exists():
+            if digest(json.loads(provenance_path.read_text())) != digest(provenance):
+                raise ValueError("Intermediate checkpoint provenance mismatch")
+        else:
+            write_json(provenance_path, provenance, exclusive=True)
     model.save_pretrained(destination, safe_serialization=True)
-    state = {**state, "identity_sha256": digest(provenance), "final": True,
+    state = {**state, "identity_sha256": digest(provenance), "final": final,
              "artifact_sha256": artifact_hashes(destination),
-             "passes": state["epochs"], "supervised_tokens": state["supervised_tokens_seen"]}
+             "passes": state["epochs"] if final else state["passes"],
+             "supervised_tokens": state["supervised_tokens_seen"]}
     write_json(destination / "training_state.json", state)
     return state
 
@@ -708,11 +732,18 @@ def prepare_lora_only(args):
     require_cpu_preparation()
     if not getattr(args, "pipeline_output", None):
         refuse("CPU preparation requires --pipeline-output")
-    with capture_collections() as bindings:
-        data = prepare_lora_data(args)
+    if getattr(args, "reuse_prepared", None):
+        from baselines.common.prepared import reuse_prepared
+        data, seal = reuse_prepared(args)
         config, collection, examples, chat_template = data
-        complete_bindings(bindings, config)
-    seal = write_prepared(args, data, bindings)
+    else:
+        with capture_collections() as bindings:
+            data = prepare_lora_data(args)
+            config, collection, examples, chat_template = data
+            complete_bindings(bindings, config)
+        validate_updates(getattr(args, "checkpoint_updates", None),
+                         dose(len(examples), args.original_batch, epochs=args.epochs)["total_steps"])
+        seal = write_prepared(args, data, bindings)
     base = snapshot_metadata(args.base_snapshot)
     hashes = artifact_hashes(args.base_snapshot)
     plan = dose(len(examples), args.original_batch, epochs=args.epochs)
@@ -764,8 +795,10 @@ def train_lora(args):
                          if turn.get("empty_visible_reply_masked")]
             empty_replies = {"empty_visible_turns_masked": len(locations), "masked_empty_replies": locations}
         plan = dose(len(examples), args.original_batch, epochs=args.epochs)
+        validate_updates(getattr(args, "checkpoint_updates", None), plan["total_steps"])
         model = prepare_lora_model(args.snapshot, device=str(device), adaptation=args.adaptation,
-                                   scoring=args.scoring, flex_kernel_options=args.flex_kernel_options)
+                                   scoring=args.scoring, flex_kernel_options=args.flex_kernel_options,
+                                   **(shape(args) if any(hasattr(args, k) for k in OPTIONS) else {}))
         # Identical adapter initialization even if a future loader consumes RNG
         # differently on one rank. Only trainable adapter tensors are broadcast.
         if world > 1:
@@ -781,6 +814,9 @@ def train_lora(args):
             config["sft"] = {"base_snapshot": base, "packing": args.packing, "rank": peft_config.r,
                 "alpha": peft_config.lora_alpha, "dropout": peft_config.lora_dropout,
                 "targets": sorted(peft_config.target_modules)}
+            for name in ("layers", "modules"):
+                if getattr(args, "lora_" + name, None) is not None:
+                    config["sft"][name] = getattr(args, "lora_" + name)
             config["baseline_training"] = {**vars(args), **plan, **empty_replies, "world_size": world,
                 **({"prepared_seal": seal} if seal is not None else {}),
                 "dropout_equivalence": dropout_equivalence(model),
@@ -812,7 +848,9 @@ def train_lora(args):
                 original_batch=args.original_batch, epochs=args.epochs, seed=args.seed,
                 weight_decay=args.weight_decay, device=device, packing=args.packing,
                 scoring=args.scoring, flex_kernel_options=args.flex_kernel_options,
-                rank=rank, world_size=world, replicated_lora=True)
+                rank=rank, world_size=world, replicated_lora=True,
+                **({"checkpoint_updates": args.checkpoint_updates, "adapter_provenance": provenance}
+                   if hasattr(args, "checkpoint_updates") else {}))
         state.update(adaptation=args.adaptation, frozen_base_dtype="bfloat16", world_size=world,
                      data_parallel="replicated_lora_gradient_mean_before_clip", **empty_replies)
 
@@ -867,7 +905,17 @@ def main(argv=None):
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-length", type=int, default=32768)
+    add_arguments(parser)
+    parser.add_argument("--reuse-prepared", default=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if any(hasattr(args, k) for k in OPTIONS) and (args.objective != "sft" or args.adaptation != "kang_lora"):
+        parser.error("LoRA shape/checkpoint options require --objective sft --adaptation kang_lora")
+    if hasattr(args, "reuse_prepared") and not (args.prepare_only and args.objective == "sft" and args.adaptation == "kang_lora"):
+        parser.error("--reuse-prepared requires --prepare-only --objective sft --adaptation kang_lora")
+    try:
+        normalize(args)
+    except ValueError as error:
+        parser.error(str(error))
     prepare_only = args.prepare_only
     del args.prepare_only  # Operational mode is not part of the training recipe.
     if args.adaptation != "kang_lora":

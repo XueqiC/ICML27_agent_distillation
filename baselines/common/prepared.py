@@ -58,10 +58,24 @@ def pipeline_identity(output, config, *, method=None, recipe=None, verified=None
 def trainer_recipe(args):
     # Output/transport locations differ between preparation and train attempts.
     # Every other effective trainer option, including masks and seeds, is bound.
-    return {k: v for k, v in vars(args).items() if k not in {"output", "pipeline_output"}}
+    return {k: v for k, v in vars(args).items() if k not in {"output", "pipeline_output", "reuse_prepared"}}
 
 
 def check_trainer_identity(identity, args):
+    if identity["method"] in METHODS and "rank" in identity["recipe"]:
+        from train.lora_options import recipe_overrides
+        from baselines.kang.pipeline import RECIPE
+        # Legacy targets are a descriptive string. Compare canonical effective
+        # shapes so prefixed CLI names cannot bypass the pipeline recipe.
+        actual = {**RECIPE, **recipe_overrides(args)}
+        from train.modeling import LORA_TARGETS
+        for key in ("rank", "alpha", "targets", "lora_layers", "lora_modules", "checkpoint_updates"):
+            expected, value = identity["recipe"].get(key), actual.get(key)
+            if key == "targets":
+                expected = LORA_TARGETS if expected == RECIPE["targets"] else expected
+                value = LORA_TARGETS if value == RECIPE["targets"] else value
+            if expected != value:
+                refuse(f"trainer {key} differs from pipeline identity")
     if hasattr(args, "objective"):
         method = ("smartad" if args.objective == "smartad" else
                   "adftp" if args.allow_empty_visible_replies else "kang")
@@ -105,12 +119,12 @@ def complete_bindings(bindings, config):
             hashes["smartad_selection.json"] = file_hash(path)
 
 
-def write_prepared(args, data, bindings):
+def write_prepared(args, data, bindings, *, encoded_source=None, reused_from=None):
     config, collection, examples, chat_template = data
     raw_config = load_config(args.config)
     identity = pipeline_identity(args.pipeline_output, raw_config, verified=args.verified, snapshot=args.snapshot)
     check_trainer_identity(identity, args)
-    if digest(collection) != identity["collection_sha256"]:
+    if reused_from is None and digest(collection) != identity["collection_sha256"]:
         refuse("validated collection differs from pipeline identity")
     hashes = artifact_hashes(args.snapshot)
     if hashes != identity["snapshot_artifact_sha256"]:
@@ -121,7 +135,13 @@ def write_prepared(args, data, bindings):
     dataset = {"adaptation": config["training"]["adaptation"], "collection": {k: collection[k] for k in
                ("K", "unique_instances", "task_groups")}, "chat_template": chat_template}
     examples_path = target.with_name("examples.json")
-    atomic_write(examples_path, canonical_bytes(examples) + b"\n")
+    if encoded_source is None:
+        atomic_write(examples_path, canonical_bytes(examples) + b"\n")
+    else:
+        # The source is immutable and verified; share its bytes without another
+        # large copy. A later edit to either link invalidates both seals.
+        examples_path.parent.mkdir(parents=True, exist_ok=True)
+        os.link(encoded_source, examples_path)
     inputs = [args.config, raw_config["paths"]["manifest"], raw_config["paths"]["split_freeze"],
               Path(args.pipeline_output) / "tasks.json"]
     seal = {"version": 1, "pipeline_identity_sha256": digest(identity),
@@ -135,10 +155,35 @@ def write_prepared(args, data, bindings):
             "code_sha256": identity["code_sha256"], "dataset": dataset,
             "encoded_examples_sha256": file_hash(examples_path), "examples_sha256": digest(examples),
             "examples_count": len(examples)}
+    if reused_from is not None:
+        seal["reused_from"] = reused_from
     # Seal is published last. An interruption can never authorize partial bytes.
     write_json(target, {"seal": seal, "sha256": digest(seal)})
     return {"path": str(target), "sha256": file_hash(target),
             "encoded_examples_sha256": seal["encoded_examples_sha256"]}
+
+
+def reuse_prepared(args):
+    """Reseal unchanged encoded data for a shape-only Kang ablation."""
+    from train.lora_options import validate_updates
+    from baselines.common.schedule import dose
+    config = load_config(args.config)
+    source = pipeline_identity(args.reuse_prepared, config, method="kang",
+                               verified=args.verified, snapshot=args.snapshot)
+    target = pipeline_identity(args.pipeline_output, config, method="kang",
+                               verified=args.verified, snapshot=args.snapshot)
+    shape_keys = {"rank", "alpha", "targets", "lora_layers", "lora_modules", "checkpoint_updates"}
+    def data_identity(identity):
+        return {**identity, "recipe": {k: v for k, v in identity["recipe"].items() if k not in shape_keys}}
+    if data_identity(source) != data_identity(target):
+        refuse("reuse source differs beyond LoRA shape/checkpoint options")
+    data, reference = verify_prepared(args.reuse_prepared, source, config)
+    validate_updates(getattr(args, "checkpoint_updates", None),
+                     dose(len(data[2]), args.original_batch, epochs=args.epochs)["total_steps"])
+    source_seal = read(reference["path"])["seal"]
+    seal = write_prepared(args, data, source_seal["input_collections"],
+                          encoded_source=Path(reference["path"]).with_name("examples.json"), reused_from=reference)
+    return data, seal
 
 
 @timed("seal_verification")
