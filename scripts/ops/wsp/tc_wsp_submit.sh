@@ -72,7 +72,8 @@ while IFS= read -r name <&7; do
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP jobs=$NJ (submitted now: $nsub)"; exit 0; }
   acct=$ACCOUNT
-  if [ -z "$acct" ]; then if [ "$NYD" -le "$NDEPT" ]; then acct=yd24f.fsu; else acct=fsu-compsci-dept; fi; fi
+  # 11-15: the yd24f.fsu GPU quota (8) is held by multi-day jobs of other users; GPU jobs only start in the dept QOS.
+  if [ -z "$acct" ]; then acct=fsu-compsci-dept; fi
   jid=$( set -a; . "$envf"; set +a; cd "$T" && sbatch --parsable --account="$acct" --qos="$acct" --partition="$PARTITION" --nodes=1 \
          --gpus="$GPUS" --cpus-per-task="$CPUS" --mem="$MEM" --time="$TIME" --job-name="wsp-$name" \
          --output="$Q/logs/slurm-$name-%j.out" --export=ALL "$SCRIPT" ) || { echo "SBATCH_FAILED $name"; exit 1; }
