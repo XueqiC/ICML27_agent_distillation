@@ -1,3 +1,5 @@
+# NOTE 11-16: on the clusters every jobs/eval.*.env was repointed from wsp_946b2a9 to the eval tree wsp_4ba5d0e
+#            (E-series serving fix); regenerate eval jobs with that tree.
 #!/usr/bin/env python3
 """gen_wsp_queue_loni.py OUT_DIR — LONI (QB-D, 2 x A100 per gpu2 node) lane of the WSP-vs-SFT experiments.
 

@@ -1,3 +1,5 @@
+# NOTE 11-16: on the clusters every jobs/eval.*.env was repointed from wsp_946b2a9 to the eval tree wsp_4ba5d0e
+#            (E-series serving fix); regenerate eval jobs with that tree.
 #!/usr/bin/env python3
 """gen_wsp_queue_c.py SITE OUT_DIR   (SITE = hpg | loni) — group C1 of the WSP-vs-SFT experiments.
 

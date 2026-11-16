@@ -13,6 +13,7 @@ from pathlib import Path
 H = "/blue/fsu-compsci-dept/xc25.fsu/hq"
 A = H + "/ICML27_agent_distillation"
 T = H + "/ICML27_runs/wsp_946b2a9"
+TE = H + "/ICML27_runs/wsp_4ba5d0e"   # eval tree: + E-series serving fix (TRITON_ATTN)
 R = H + "/ICML27_wsp"
 Q = R + "/queue"
 MODEL = H + "/tools/hf-cache/hub/models--google--gemma-4-E4B-it/snapshots/ee0ef6023621cff504d758262d4e04895a5af4a2"
@@ -81,7 +82,7 @@ cell("a2-k100-r16-attn", "k100", rank=16, targets=ATT)
 
 def evaljob(name, adapters, k, *, include_base=False, time=None):
     """adapters: list of (served name, adapter dir)."""
-    env = {**COMMON, "ADAPTERS": " ".join(f"{n}={p}" for n, p in adapters), "TASKS": T + "/data/manifest/dev140.json",
+    env = {**COMMON, "ADAPTERS": " ".join(f"{n}={p}" for n, p in adapters), "PROJECT_ROOT": TE, "CONFIG": TE + "/configs/base_e4b.yaml", "TASKS": TE + "/data/manifest/dev140.json",
            "DECODING": "greedy", "INCLUDE_BASE": "1" if include_base else "0", "OUT": f"{R}/eval/{name}",
            "VERIFIED": KCONF[k]["verified"]}
     n = len(adapters) + (1 if include_base else 0)

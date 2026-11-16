@@ -202,3 +202,9 @@ B1 和 SFT 差 31.5 题。但两者之间同时差了四样东西，当时没有
 
 **资源**：C1 每个 K 一个 1 卡作业（梯度 + 线搜）；hpg 申请 48G 内存（梯度累加在主机内存里约 15 GB）；LONI 同样一个 1 卡作业。
 
+## 11. 运行中偏差记录 2（11-16 00:14 CST；以上各节不改）
+
+- **评测代码树换成 `wsp_4ba5d0e`。** 第一个评测作业（hpg 51538568，K100 三个现成种子）在启动 vLLM 时失败：`FlashAttention forward only supports head dimension at most 256`。E 系列除了 2506fa9 之外还有一个评测侧的修复（46b8527："pin TRITON_ATTN for Gemma-4 E-series"，E4B 有 512 宽的全局注意力头），§9 合并时漏了。已 cherry-pick 到 wsp-eseries（4ba5d0e，227 个相关测试通过），部署到 hpg 和 LONI；所有评测作业改指向新树后重交。训练、预处理和已训练的 cell 不受影响（仍是 `wsp_946b2a9`，两棵树只差 `harness/serve_student.py` 这 7 行和工具文件）。
+- 失败的评测输出移到 `ICML27_wsp/_failed/eval_serve_fail_20261116/`，没有产生任何分数。
+- hpg 上 yd24f.fsu 的 GPU 额度一直被别人的长作业占满，GPU 作业全部改走 fsu-compsci-dept。
+
