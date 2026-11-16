@@ -90,10 +90,10 @@
 | 原始 | `Thought: The goal is to find two statues and place them on coffeetable 1. I should start by looking around…` → `look`；然后 `inventory`；然后 `go to armchair 1` | 40 步用完 |
 | SFT | `Thought: I’ll search the nearby surfaces for the statues.` → `go to coffeetable 1`；`go to diningtable 1`；`take statue 1 from diningtable 1` | 9 步做完 |
 | 一步改写 0.062 | `Thought: I need to find two statues. I'll start by looking around the room.` → `look`；`go to sofa 1`；`go to armchair 1` | 40 步用完 |
-| 一步改写 0.125 | `Thought: I'll check the armchair 3.` → `go to armchair 3`；`go to armchair 2`；`go to armchair 1` | 17 步结束 |
+| 一步改写 0.125 | `Thought: I'll check the armchair 3.` → `go to armchair 3`；`go to armchair 2`；`go to armchair 1` | 17 步做完（其中 5 个动作不可执行） |
 | 一步改写 0.25 | `Thought: ...` → `go to armchair 1`；`go to armchair 2`；`go to armchair 3` | 40 步用完 |
 
-一步改写学到了 teacher 的"话少"，没有学到 teacher"先去哪里找"。
+这一题上 0.125 那一档做对了，但 40 次里它总共只做对 18 次，和原始模型的 20 次没有差别。从这个例子能看到的是：一步改写先学到的是 teacher 的"话少"，而 SFT 学到的"先去哪里找"（直接去 coffeetable、diningtable）没有出现。
 
 ### 4.4 为什么：训练 loss 的 97% 在 Thought 上
 
