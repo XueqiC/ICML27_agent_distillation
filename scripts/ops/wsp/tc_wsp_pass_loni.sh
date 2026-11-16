@@ -7,6 +7,8 @@ echo "== $(TZ=America/Chicago date '+%F %T %Z') LONI pass"
 [ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpucmd c1_k20.sh 12 01:15:00
 [ -f "$Q/done/c1.k20" ] && [ ! -f "$Q/done/c1b.k20" ] && bash $S gpucmd c1b_k20.sh 12 00:45:00
 [ -f "$Q/done/c1.k100" ] && [ ! -f "$Q/done/c1b.k100" ] && bash $S gpucmd c1b_k100.sh 12 01:30:00
+[ -f "$Q/done/c1.k20" ] && [ ! -f "$Q/done/c1t2.k20" ] && ! squeue -u $USER -h -o %j | grep -q -x -F wsp-cpu-c1t2_k20 && bash $S cpu c1t2_k20.sh 12
+bash $S list ev_t2.list 12  # closed-loop step-size check on the 20 training tasks (prereg section 14)
 bash $S list ev1.list 12   # ready evaluations take free slots first; queued trainings keep theirs
 bash $S list ev_c1b.list 12  # loss-selected one-step edits: one run each (prereg section 14), after the main evaluations
 [ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpucmd c1_k100.sh 12 03:00:00
