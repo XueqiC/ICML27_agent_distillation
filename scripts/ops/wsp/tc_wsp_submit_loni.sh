@@ -29,7 +29,7 @@ if [ "$MODE" = prep ] || [ "$MODE" = cpu ]; then
 fi
 if [ "$MODE" = gpucmd ]; then   # one GPU job running derive/SCRIPT.sh
   lim="${4:?time limit}"; f="$Q/derive/$WHAT"; [ -f "$f" ] || { echo "NO_FILE $f"; exit 2; }
-  if cut -f1 "$Q/submitted.tsv" | grep -q -x -F -- "gpucmd:$WHAT"; then echo "ALREADY_SUBMITTED gpucmd:$WHAT"; exit 0; fi
+  if squeue -u "$USER" -h -o '%j' | grep -q -x -F -- "wsp-gpu-${WHAT%.sh}"; then echo "IN_QUEUE gpucmd:$WHAT"; exit 0; fi
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP wsp=$NJ"; exit 0; }
   o=$(cd "$T" && sbatch --parsable -A "$ACCT" -p gpu2 -N1 -n1 --gres=gpu:1 --cpus-per-task=16 -t "$lim" -J "wsp-gpu-${WHAT%.sh}" \

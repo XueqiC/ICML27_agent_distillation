@@ -43,7 +43,8 @@ if [ "$MODE" = gpu ]; then   # tc_wsp_submit.sh gpu SCRIPT.sh CAP ACCT TIME MEM 
   ACCT="${4:?account}"; lim="${5:?time}"; mem="${6:?mem}"
   case "$ACCT" in yd24f.fsu|fsu-compsci-dept) ;; *) echo "REFUSE account"; exit 2;; esac
   [ -f "$Q/derive/$WHAT" ] && [ -f "$Q/derive/tc_wsp_gpu.slurm" ] || { echo "NO_CMD_FILE"; exit 2; }
-  if cut -f1 "$Q/submitted.tsv" | grep -q -x -F -- "gpu:$WHAT"; then echo "ALREADY_SUBMITTED gpu:$WHAT"; exit 0; fi
+  # resubmittable (the scripts are idempotent and continue where they stopped): skip only while one is queued or running
+  if squeue -u xc25.fsu -h -o '%j' | grep -q -x -F -- "wsp-gpu-${WHAT%.sh}"; then echo "IN_QUEUE gpu:$WHAT"; exit 0; fi
   count_jobs || { echo "SQUEUE_FAILED"; exit 1; }
   [ "$NJ" -lt "$CAP" ] || { echo "AT_CAP jobs=$NJ"; exit 0; }
   jid=$(cd "$T" && CMD_FILE="$Q/derive/$WHAT" sbatch --parsable --account="$ACCT" --qos="$ACCT" --time="$lim" --mem="$mem" \

@@ -4,12 +4,11 @@
 Q=/work/xueqic/hq/ICML27_wsp/queue; R=/work/xueqic/hq/ICML27_wsp
 S=$Q/tc_wsp_submit_loni.sh
 echo "== $(TZ=America/Chicago date '+%F %T %Z') LONI pass"
-[ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpucmd c1_k20.sh 12 04:00:00
-[ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpucmd c1_k100.sh 12 08:00:00
+[ -f "$Q/done/prep.sc-k20" ] && [ ! -f "$Q/done/c1.k20" ] && bash $S gpucmd c1_k20.sh 12 01:15:00
+bash $S list ev1.list 12
+[ -f "$Q/done/prep.sc-k100" ] && [ ! -f "$Q/done/c1.k100" ] && bash $S gpucmd c1_k100.sh 12 03:00:00
 bash $S list main.list 12
-bash $S list c.list 12
-bash $S list b.list 12
-[ -f "$Q/lists/b2.list" ] && bash $S list b2.list 12
+bash $S list ev2.list 12
 echo "== queue"; squeue -u $USER -h -o '%i %j %P %T %M %S' | grep ' wsp-' | sort -k2 | cut -c1-105
 echo "== markers: $(ls $Q/done | tr '\n' ' ')"
 echo "== prep waves"; for f in $Q/logs/slurm-wsp-prep-*.out; do case "$f" in *-118450[456].out) continue;; esac; echo "$(basename $f): $(grep -c PREP_OK $f) ok, $(grep -c PREP_FAIL $f) fail, last: $(tail -n 1 $f | cut -c21-70)"; done
