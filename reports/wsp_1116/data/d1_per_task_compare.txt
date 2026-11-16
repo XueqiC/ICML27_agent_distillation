@@ -1,0 +1,9 @@
+t2 | d-raw solved 9 | d1-teacher solved 9 | gained 0 | lost 0 | same outcome 20 | mean steps raw 28.2 edit 29.4
+  gained: []
+  lost: []
+dev140 | d-raw solved 40 | d1-teacher solved 42 | gained 7 | lost 5 | same outcome 128 | mean steps raw 33.0 edit 32.9
+in-session (HF) confirmed edit: gained ['pick_two_obj_and_place-AlarmClock-None-Shelf-316', 'pick_two_obj_and_place-Statue-None-CoffeeTable-223'] lost []
+unedited: HF in-session vs vLLM merged path agree on 18 of 20 tasks (HF solved 9 , vLLM solved 9 )
+edited:   HF in-session vs vLLM merged path agree on 18 of 20 tasks (HF solved 11 , vLLM solved 9 )
+  in-session gained task pick_two_obj_and_place-AlarmClock-None-Shelf-316 -> vLLM raw True | vLLM edited True
+  in-session gained task pick_two_obj_and_place-Statue-None-CoffeeTable-223 -> vLLM raw False | vLLM edited False
