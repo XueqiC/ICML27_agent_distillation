@@ -1,0 +1,66 @@
+b2-k100-mlpin          op=truncate   modules_nonzero= 84 of 258  norm2_in=258.294 norm2_out=179.3343 share=0.694 | {'total_kept_share': 0.6943026526118535}
+b2-k100-r1             op=truncate   modules_nonzero=258 of 258  norm2_in=258.294 norm2_out=87.6959 share=0.340 | {'total_kept_share': 0.3395193764114552}
+b2-k100-r16            op=truncate   modules_nonzero=258 of 258  norm2_in=258.294 norm2_out=193.5591 share=0.749 | {'total_kept_share': 0.7493744773478497}
+b2-k100-r4             op=truncate   modules_nonzero=258 of 258  norm2_in=258.294 norm2_out=131.3833 share=0.509 | {'total_kept_share': 0.50865759899634}
+b2-k100-r4-top90       op=truncate   modules_nonzero= 90 of 258  norm2_in=258.294 norm2_out=96.0532 share=0.372 | {'total_kept_share': 0.3718753663953293}
+b2-k100-scale0.5       op=scale      modules_nonzero=258 of 258  norm2_in=258.294 norm2_out=64.5735 share=0.250 | {'total_kept_share': 0.25}
+b2-k100-scale2         op=scale      modules_nonzero=258 of 258  norm2_in=258.294 norm2_out=1033.1767 share=4.000 | {'total_kept_share': 4.0}
+b2-k100-top23          op=truncate   modules_nonzero= 23 of 258  norm2_in=258.294 norm2_out=65.7738 share=0.255 | {'total_kept_share': 0.25464701220617525}
+b2-k100-top50          op=truncate   modules_nonzero= 50 of 258  norm2_in=258.294 norm2_out=123.8582 share=0.480 | {'total_kept_share': 0.47952361877427424}
+b2-k100-top90          op=truncate   modules_nonzero= 90 of 258  norm2_in=258.294 norm2_out=191.1848 share=0.740 | {'total_kept_share': 0.7401823926128546}
+b2-k20-mlpin           op=truncate   modules_nonzero= 84 of 258  norm2_in=34.599 norm2_out=25.0174 share=0.723 | {'total_kept_share': 0.7230706691867778}
+b2-k20-r1              op=truncate   modules_nonzero=258 of 258  norm2_in=34.599 norm2_out=13.5912 share=0.393 | {'total_kept_share': 0.392822257302321}
+b2-k20-r16             op=truncate   modules_nonzero=258 of 258  norm2_in=34.599 norm2_out=26.9330 share=0.778 | {'total_kept_share': 0.7784368914454487}
+b2-k20-r4              op=truncate   modules_nonzero=258 of 258  norm2_in=34.599 norm2_out=19.0759 share=0.551 | {'total_kept_share': 0.5513453957617159}
+b2-k20-r4-top90        op=truncate   modules_nonzero= 90 of 258  norm2_in=34.599 norm2_out=13.9310 share=0.403 | {'total_kept_share': 0.40264381644329944}
+b2-k20-scale0.5        op=scale      modules_nonzero=258 of 258  norm2_in=34.599 norm2_out=8.6497 share=0.250 | {'total_kept_share': 0.25}
+b2-k20-scale2          op=scale      modules_nonzero=258 of 258  norm2_in=34.599 norm2_out=138.3954 share=4.000 | {'total_kept_share': 4.0}
+b2-k20-top23           op=truncate   modules_nonzero= 23 of 258  norm2_in=34.599 norm2_out=8.8142 share=0.255 | {'total_kept_share': 0.25475436984764227}
+b2-k20-top50           op=truncate   modules_nonzero= 50 of 258  norm2_in=34.599 norm2_out=17.4361 share=0.504 | {'total_kept_share': 0.503951466452668}
+b2-k20-top90           op=truncate   modules_nonzero= 90 of 258  norm2_in=34.599 norm2_out=25.9554 share=0.750 | {'total_kept_share': 0.7501803690550772}
+c1-k100-g1             op=truncate   modules_nonzero=258 of 258  norm2_in=396.196 norm2_out=285.6175 share=0.721 | {'total_kept_share': 0.7209003499402125}
+c1-k100-g16            op=truncate   modules_nonzero=258 of 258  norm2_in=396.196 norm2_out=385.3344 share=0.973 | {'total_kept_share': 0.9725865346831701}
+c1-k100-g64            op=onestep_gradient modules_nonzero=258 of 258  norm2_in=399.118 norm2_out=396.3317 share=0.993 | {'base_loss': 0.947319672703743, 'examples': 100, 'gradient_squared_frobenius_norm': 399.1179507742599, 'module_count': 258, 'supervised_tokens': 50535, 'total_kept_share': 0.9930188658982234}
+c1-k100-r1             op=scale      modules_nonzero=258 of 258  norm2_in=285.617 norm2_out=0.2500 share=0.001 | {'total_kept_share': 0.0008752965275919392}
+c1-k100-r1-opt         op=scale      modules_nonzero=258 of 258  norm2_in=285.617 norm2_out=0.0156 share=0.000 | {'total_kept_share': 5.47060329744962e-05}
+c1-k100-r16            op=scale      modules_nonzero=258 of 258  norm2_in=385.334 norm2_out=0.2500 share=0.001 | {'total_kept_share': 0.0006487870761382429}
+c1-k100-r16-opt        op=scale      modules_nonzero=258 of 258  norm2_in=385.334 norm2_out=0.0156 share=0.000 | {'total_kept_share': 4.054919225864018e-05}
+c1-k100-r64            op=scale      modules_nonzero=258 of 258  norm2_in=396.196 norm2_out=0.2500 share=0.001 | {'total_kept_share': 0.0006310015775572102}
+c1-k100-r64-opt        op=scale      modules_nonzero=258 of 258  norm2_in=396.196 norm2_out=0.0156 share=0.000 | {'total_kept_share': 3.943759859732564e-05}
+c1-k20-g1              op=truncate   modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=340.5349 share=0.705 | {'total_kept_share': 0.7052828204185072}
+c1-k20-g16             op=truncate   modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=466.1691 share=0.965 | {'total_kept_share': 0.9654842629278099}
+c1-k20-g4              op=truncate   modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=424.6386 share=0.879 | {'total_kept_share': 0.8794702734047752}
+c1-k20-g64             op=onestep_gradient modules_nonzero=258 of 258  norm2_in=488.699 norm2_out=482.9830 share=0.988 | {'base_loss': 1.0298984244465827, 'examples': 20, 'gradient_squared_frobenius_norm': 488.6990082893214, 'module_count': 258, 'supervised_tokens': 8552, 'total_kept_share': 0.9883037218204823}
+c1-k20-r1              op=scale      modules_nonzero=258 of 258  norm2_in=340.535 norm2_out=0.0625 share=0.000 | {'total_kept_share': 0.00018353478316648908}
+c1-k20-r1-n062         op=scale      modules_nonzero=258 of 258  norm2_in=340.535 norm2_out=0.0039 share=0.000 | {'total_kept_share': 1.1470923947905567e-05}
+c1-k20-r1-n125         op=scale      modules_nonzero=258 of 258  norm2_in=340.535 norm2_out=0.0156 share=0.000 | {'total_kept_share': 4.588369579162227e-05}
+c1-k20-r1-n375         op=scale      modules_nonzero=258 of 258  norm2_in=340.535 norm2_out=0.1406 share=0.000 | {'total_kept_share': 0.0004129532621246}
+c1-k20-r1-opt          op=scale      modules_nonzero=258 of 258  norm2_in=340.535 norm2_out=0.0156 share=0.000 | {'total_kept_share': 4.588369579162227e-05}
+c1-k20-r16             op=scale      modules_nonzero=258 of 258  norm2_in=466.169 norm2_out=0.0625 share=0.000 | {'total_kept_share': 0.000134071506589202}
+c1-k20-r16-opt         op=scale      modules_nonzero=258 of 258  norm2_in=466.169 norm2_out=0.0156 share=0.000 | {'total_kept_share': 3.35178766473005e-05}
+c1-k20-r4              op=scale      modules_nonzero=258 of 258  norm2_in=424.639 norm2_out=0.0625 share=0.000 | {'total_kept_share': 0.00014718397380039064}
+c1-k20-r4-opt          op=scale      modules_nonzero=258 of 258  norm2_in=424.639 norm2_out=0.0156 share=0.000 | {'total_kept_share': 3.679599345009766e-05}
+c1-k20-r64             op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0625 share=0.000 | {'total_kept_share': 0.0001294439301916879}
+c1-k20-r64-n031        op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0010 share=0.000 | {'total_kept_share': 2.0225614092451233e-06}
+c1-k20-r64-n062        op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0039 share=0.000 | {'total_kept_share': 8.090245636980493e-06}
+c1-k20-r64-n125        op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0156 share=0.000 | {'total_kept_share': 3.236098254792197e-05}
+c1-k20-r64-n188        op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0352 share=0.000 | {'total_kept_share': 7.281221073282448e-05}
+c1-k20-r64-n375        op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.1406 share=0.000 | {'total_kept_share': 0.0002912488429312979}
+c1-k20-r64-opt         op=scale      modules_nonzero=258 of 258  norm2_in=482.835 norm2_out=0.0156 share=0.000 | {'total_kept_share': 3.236098254792197e-05}
+c1a-k20-g64            op=onestep_gradient modules_nonzero=258 of 258  norm2_in=50.592 norm2_out=49.7320 share=0.983 | {'base_loss': 0.09700663955227355, 'examples': 20, 'gradient_squared_frobenius_norm': 50.59150716763897, 'module_count': 258, 'supervised_tokens': 2693, 'total_kept_share': 0.9830110893305679}
+c1a-k20-r64-n031       op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=0.0010 share=0.000 | {'total_kept_share': 1.9642721344889216e-05}
+c1a-k20-r64-n062       op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=0.0039 share=0.000 | {'total_kept_share': 7.857088537955686e-05}
+c1a-k20-r64-n1000      op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=1.0000 share=0.020 | {'total_kept_share': 0.020114146657166557}
+c1a-k20-r64-n125       op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=0.0156 share=0.000 | {'total_kept_share': 0.00031428354151822745}
+c1a-k20-r64-n2000      op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=4.0000 share=0.080 | {'total_kept_share': 0.08045658662866623}
+c1a-k20-r64-n250       op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=0.0625 share=0.001 | {'total_kept_share': 0.0012571341660729098}
+c1a-k20-r64-n500       op=scale      modules_nonzero=258 of 258  norm2_in=49.716 norm2_out=0.2500 share=0.005 | {'total_kept_share': 0.005028536664291639}
+c1t-k20-g64            op=onestep_gradient modules_nonzero=258 of 258  norm2_in=1052.372 norm2_out=1040.8975 share=0.989 | {'base_loss': 1.4798834696412086, 'examples': 20, 'gradient_squared_frobenius_norm': 1052.3717558040462, 'module_count': 258, 'supervised_tokens': 5859, 'total_kept_share': 0.9890967893947067}
+c1t-k20-r64-n125       op=scale      modules_nonzero=258 of 258  norm2_in=1040.572 norm2_out=0.0156 share=0.000 | {'total_kept_share': 1.50157793802512e-05}
+c1t-k20-r64-n250       op=scale      modules_nonzero=258 of 258  norm2_in=1040.572 norm2_out=0.0625 share=0.000 | {'total_kept_share': 6.00631175210048e-05}
+d1-rand0               op=from-dense modules_nonzero=  2 of 258  norm2_in=1.057 norm2_out=1.0575 share=1.000 | {'delta_squared_frobenius_norm': 1.0574918597424259, 'delta_tensor_count': 2, 'max_relative_error': 2.592625982861554e-06, 'residual_squared_frobenius_norm': 7.008750203824765e-12, 'total_kept_share': 0.9999999985999731, 'zero_module_count': 256}
+d1-rand1               op=from-dense modules_nonzero=  2 of 258  norm2_in=1.038 norm2_out=1.0381 share=1.000 | {'delta_squared_frobenius_norm': 1.0380760502837552, 'delta_tensor_count': 2, 'max_relative_error': 2.6182990367446816e-06, 'residual_squared_frobenius_norm': 7.024285475339862e-12, 'total_kept_share': 1.0000000013042458, 'zero_module_count': 256}
+d1-rand2               op=from-dense modules_nonzero=  2 of 258  norm2_in=1.048 norm2_out=1.0484 share=1.000 | {'delta_squared_frobenius_norm': 1.0484485906020522, 'delta_tensor_count': 2, 'max_relative_error': 2.6268586988477102e-06, 'residual_squared_frobenius_norm': 7.013783494699255e-12, 'total_kept_share': 1.0000000006732817, 'zero_module_count': 256}
+d1-rand3               op=from-dense modules_nonzero=  2 of 258  norm2_in=1.064 norm2_out=1.0636 share=1.000 | {'delta_squared_frobenius_norm': 1.0635505422542821, 'delta_tensor_count': 2, 'max_relative_error': 2.5750090248944935e-06, 'residual_squared_frobenius_norm': 7.022574213025899e-12, 'total_kept_share': 0.9999999990911699, 'zero_module_count': 256}
+d1-rand4               op=from-dense modules_nonzero=  2 of 258  norm2_in=1.074 norm2_out=1.0737 share=1.000 | {'delta_squared_frobenius_norm': 1.0737027278921158, 'delta_tensor_count': 2, 'max_relative_error': 2.5671688000918045e-06, 'residual_squared_frobenius_norm': 7.020185595020924e-12, 'total_kept_share': 0.9999999972728187, 'zero_module_count': 256}
+d1-teacher             op=from-dense modules_nonzero=  2 of 258  norm2_in=1.063 norm2_out=1.0633 share=1.000 | {'delta_squared_frobenius_norm': 1.0632946290239966, 'delta_tensor_count': 2, 'max_relative_error': 2.639904400788866e-06, 'residual_squared_frobenius_norm': 7.022834771561663e-12, 'total_kept_share': 1.0000000043464718, 'zero_module_count': 256}

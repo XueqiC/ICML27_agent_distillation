@@ -1,0 +1,96 @@
+== trained cells
+a0-k100-r64                  updates=832 train_s=12841 loss_first_epoch=0.4082 loss_last_epoch=0.00001 attempts=1
+a0-k20-r64                   updates=320 train_s=1432 loss_first_epoch=0.5614 loss_last_epoch=0.00004 attempts=1
+a1-k100-r1                   updates=832 train_s=12732 loss_first_epoch=0.8329 loss_last_epoch=0.00078 attempts=1
+a1-k100-r16                  updates=832 train_s=12697 loss_first_epoch=0.5136 loss_last_epoch=0.00002 attempts=1
+a1-k100-r4                   updates=832 train_s=12773 loss_first_epoch=0.6595 loss_last_epoch=0.00010 attempts=1
+a1-k20-r1-lr2e-4             updates=320 train_s=1416 loss_first_epoch=0.8394 loss_last_epoch=0.00024 attempts=1
+a1-k20-r1-lr5e-5             updates=320 train_s=1423 loss_first_epoch=1.0210 loss_last_epoch=0.14221 attempts=1
+a1-k20-r16-lr2e-4            updates=320 train_s=1418 loss_first_epoch=0.5454 loss_last_epoch=0.00007 attempts=1
+a1-k20-r16-lr5e-5            updates=320 train_s=1412 loss_first_epoch=0.7551 loss_last_epoch=0.00012 attempts=1
+a1-k20-r4-lr2e-4             updates=320 train_s=1424 loss_first_epoch=0.6784 loss_last_epoch=0.00008 attempts=1
+a1-k20-r4-lr5e-5             updates=320 train_s=1419 loss_first_epoch=0.9551 loss_last_epoch=0.00678 attempts=1
+a2-k100-r16-attn             updates=832 train_s=11547 loss_first_epoch=0.5897 loss_last_epoch=0.00016 attempts=1
+a2-k100-r16-mlp              updates=832 train_s=12225 loss_first_epoch=0.5496 loss_last_epoch=0.00004 attempts=1
+a2-k20-r16-L0-13-lr2e-4      updates=320 train_s=1294 loss_first_epoch=0.7725 loss_last_epoch=0.00401 attempts=1
+a2-k20-r16-L0-13-lr5e-5      updates=320 train_s=1286 loss_first_epoch=0.9538 loss_last_epoch=0.10865 attempts=1
+a2-k20-r16-L14-27-lr2e-4     updates=320 train_s=1283 loss_first_epoch=0.5852 loss_last_epoch=0.00008 attempts=1
+a2-k20-r16-L14-27-lr5e-5     updates=320 train_s=1288 loss_first_epoch=0.8102 loss_last_epoch=0.00035 attempts=1
+a2-k20-r16-L28-41-lr2e-4     updates=320 train_s=1278 loss_first_epoch=0.6624 loss_last_epoch=0.00009 attempts=1
+a2-k20-r16-L28-41-lr5e-5     updates=320 train_s=1285 loss_first_epoch=0.9170 loss_last_epoch=0.00283 attempts=1
+a2-k20-r16-attn-lr2e-4       updates=320 train_s=1285 loss_first_epoch=0.6180 loss_last_epoch=0.00010 attempts=1
+a2-k20-r16-attn-lr5e-5       updates=320 train_s=1290 loss_first_epoch=0.8573 loss_last_epoch=0.00181 attempts=1
+a2-k20-r16-b1mods-lr2e-4     updates=320 train_s=1228 loss_first_epoch=0.8522 loss_last_epoch=0.09386 attempts=1
+a2-k20-r16-b1mods-lr5e-5     updates=320 train_s=1224 loss_first_epoch=1.0029 loss_last_epoch=0.28556 attempts=1
+a2-k20-r16-mlp-lr2e-4        updates=320 train_s=1346 loss_first_epoch=0.5760 loss_last_epoch=0.00003 attempts=1
+a2-k20-r16-mlp-lr5e-5        updates=320 train_s=1353 loss_first_epoch=0.8141 loss_last_epoch=0.00027 attempts=1
+== evaluations (dev140, greedy): unit | adapter | successes/episodes | errors, parser rejections, unknown | serving check
+a0-k100-r64.run1                   a0-k100-r64                111/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k100-r64.run2                   a0-k100-r64                (running or incomplete)
+a0-k20-r64-u10.run1                a0-k20-r64-u10             37/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k20-r64-u160.run1               a0-k20-r64-u160            85/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k20-r64-u40.run1                a0-k20-r64-u40             82/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k20-r64-u80.run1                a0-k20-r64-u80             79/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k20-r64.run1                    a0-k20-r64                 81/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a0-k20-r64.run2                    a0-k20-r64                 82/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k100-r1.run1                    a1-k100-r1                 107/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k100-r16+r4.run1                a1-k100-r16                114/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k100-r16+r4.run1                a1-k100-r4                 107/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r1-lr2e-4.run1              a1-k20-r1-lr2e-4           85/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r1-lr2e-4.run2              a1-k20-r1-lr2e-4           79/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r1-lr5e-5.run1              a1-k20-r1-lr5e-5           72/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r1-lr5e-5.run2              a1-k20-r1-lr5e-5           72/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr2e-4.run1          a1-k20-r16-lr2e-4          90/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr2e-4.run1          a1-k20-r4-lr2e-4           87/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr2e-4.run2          a1-k20-r16-lr2e-4          89/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr2e-4.run2          a1-k20-r4-lr2e-4           90/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr5e-5.run1          a1-k20-r16-lr5e-5          76/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a1-k20-r16+r4-lr5e-5.run1          a1-k20-r4-lr5e-5           67/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k100-r16-mlp.run1               a2-k100-r16-mlp            109/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L0-13-lr2e-4.run1       a2-k20-r16-L0-13-lr2e-4    78/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L0-13-lr2e-4.run2       a2-k20-r16-L0-13-lr2e-4    78/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L0-13-lr5e-5.run1       a2-k20-r16-L0-13-lr5e-5    52/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L14-27-lr2e-4.run1      a2-k20-r16-L14-27-lr2e-4   80/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L14-27-lr2e-4.run2      a2-k20-r16-L14-27-lr2e-4   81/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L14-27-lr5e-5.run1      a2-k20-r16-L14-27-lr5e-5   65/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L28-41-lr2e-4.run1      a2-k20-r16-L28-41-lr2e-4   76/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L28-41-lr2e-4.run2      a2-k20-r16-L28-41-lr2e-4   74/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-L28-41-lr5e-5.run1      a2-k20-r16-L28-41-lr5e-5   60/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-attn-lr2e-4.run1        a2-k20-r16-attn-lr2e-4     77/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-attn-lr2e-4.run2        a2-k20-r16-attn-lr2e-4     77/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-attn-lr5e-5.run1        a2-k20-r16-attn-lr5e-5     56/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-b1mods-lr2e-4.run1      a2-k20-r16-b1mods-lr2e-4   56/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-b1mods-lr5e-5.run1      a2-k20-r16-b1mods-lr5e-5   40/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-mlp-lr2e-4.run1         a2-k20-r16-mlp-lr2e-4      81/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-mlp-lr2e-4.run2         a2-k20-r16-mlp-lr2e-4      80/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-mlp-lr5e-5.run1         a2-k20-r16-mlp-lr5e-5      88/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+a2-k20-r16-mlp-lr5e-5.run2         a2-k20-r16-mlp-lr5e-5      88/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+b2-k20-mlpin.run1                  b2-k20-mlpin               52/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+b2-k20-top23.run1                  b2-k20-top23               43/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+b2-k20-top50.run1                  b2-k20-top50               52/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+c1-k20-r1.run1                     c1-k20-r1                  8/140  err=0 parse=0 unknown=0 overflow=1 check=True 
+c1-k20-r4+r16.run1                 c1-k20-r16                 (running or incomplete)
+c1-k20-r4+r16.run1                 c1-k20-r4                  8/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+c1-k20-r64-opt.run1                c1-k20-r64-opt             25/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+c1-k20-r64.run1                    c1-k20-r64                 10/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+old-k100-s0.run1                   RAW:google/gemma-4-E4B-it  43/140  err=0 parse=0 unknown=0 overflow=0 check=None 
+old-k100-s0.run1                   old-k100-s0                111/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+old-k100-s2.run1                   old-k100-s2                114/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+old-k20-s0.run1                    RAW:google/gemma-4-E4B-it  43/140  err=0 parse=0 unknown=0 overflow=0 check=None 
+old-k20-s0.run1                    old-k20-s0                 82/140  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-a.run1                   c1-k20-r64-n031            10/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-a.run1                   c1-k20-r64-n062            7/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-a.run1                   c1-k20-r64-n125            10/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-a.run1                   c1-k20-r64-n188            3/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-a.run1                   RAW:google/gemma-4-E4B-it  10/20  err=0 parse=0 unknown=0 overflow=0 check=None 
+t2-k20-c1-a.run1                   old-k20-s0                 20/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r1-n062             7/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r1-n125             7/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r1-n375             1/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r1                  1/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r64-n375            1/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1-b.run1                   c1-k20-r64                 3/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1s.run1                    c1a-k20-r64-n125           6/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1s.run1                    c1a-k20-r64-n250           (running or incomplete)
+t2-k20-c1s2.run1                   c1a-k20-r64-n031           6/20  err=0 parse=0 unknown=0 overflow=0 check=True 
+t2-k20-c1s2.run1                   c1a-k20-r64-n062           9/20  err=0 parse=0 unknown=0 overflow=0 check=True 
