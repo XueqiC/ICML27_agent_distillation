@@ -1,6 +1,6 @@
 # 总报告：WSP 在什么条件下能取代 SFT
 
-状态：定稿（11-16 13:50 CST）。hpg 上有 3 个 B 组的数和几个重复评测因隧道断开没取回，不影响下面的结论，见 §6。分组报告：`A_lora_size_ZH.md`、`B_sft_delta_anatomy_ZH.md`、`C_one_step_edit_ZH.md`、`D_teacher_wsp_ZH.md`。预注册：`docs/direction/2026-11-15_WSP_vs_SFT_small_experiments_prereg_ZH.md`（§0–§17）。
+状态：定稿（11-16 13:50 CST）；11-16 19:57 CST 补入 hpg 上的 3 个 B 组数和重复评测（见 §6），结论不变。分组报告：`A_lora_size_ZH.md`、`B_sft_delta_anatomy_ZH.md`、`C_one_step_edit_ZH.md`、`D_teacher_wsp_ZH.md`。预注册：`docs/direction/2026-11-15_WSP_vs_SFT_small_experiments_prereg_ZH.md`（§0–§17）。
 
 ## 1. 结论
 
@@ -93,7 +93,7 @@ teacher 的 K 条轨迹 ──┬─ SFT：优化器在 −Σ log p(y_t | h_t) �
 - **没做**：A3（单步监督）、B4（不同基座的多学生表）、C2、C2b、C4、C5、D 的"指定位置 / 全部模块"变体。原因是 12 小时里 hpg 的 B200 被预留占住、LONI 训练比预估慢 3.7 倍、我按 A → B → C1 → D 的顺序排，后面的没排上。
 - **偏差**（都登记在预注册 §9、§11–§17）：评测用了三种 GPU；每个臂的重复评测只做了一部分；D 改用合并权重评测；C1 的步长改用闭环指标选。
 - **噪声**：同一 adapter 评两次差 0–6 题；同配方重训差 12 题。每个臂只训一次。10 题以内的差别这一轮分不出来。上面的结论都不依赖这样的差别。
-- **待补**：hpg 上的 3 个 B 组数（K20 的"秩 4 且 90 个模块"、三个 seed 平均后秩 4、平均后秩 16 的 hpg 评测）和几个重复评测。隧道恢复后补进分组报告。
+- **已补（11-16 19:57 CST，hpg）**：K20 "秩 4 且 90 个模块" 53 题；三个 seed 平均后秩 4 是 71 题、秩 16 是 80 题（rsi 上 73）；重复评测：K20 参照 93 / 92，K100 参照 113 / 108，10 月的 seed 两次相差 0–3 题。L4 卡上的数偏低（同一 adapter 76 对 82 / 83），不和其他卡混比。细节在 A、B 两份的 §6。
 
 ## 7. 建议的下一步（需要你定）
 
