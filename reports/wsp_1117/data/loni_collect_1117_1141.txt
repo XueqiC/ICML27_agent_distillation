@@ -1,0 +1,24 @@
+2026-11-17 11:41:51 CST
+== queue
+== markers: prep.b4-12b-k20-r64 prep.n1-k10-r16-lr2e-4 prep.n1-k1-r16-lr2e-4 prep.n1-k2-r16-lr2e-4 prep.n1-k5-r16-lr2e-4 
+== collect
+== trained cells
+n1-k1-r16-lr2e-4             updates=640 train_s=1471 loss_first_epoch=0.7338 loss_last_epoch=0.00000 attempts=1
+n1-k2-r16-lr2e-4             updates=640 train_s=1143 loss_first_epoch=0.7213 loss_last_epoch=0.00000 attempts=1
+== evaluations (dev140, greedy): unit | adapter | successes/episodes | errors, parser rejections, unknown | serving check
+t2-k100-b4-12b.run1                RAW:google/gemma-4-12B-it  57/100  err=0 parse=0 unknown=0 overflow=0 check=None 
+t2-k100-b4-12b.run1                tsft12b-k100-e64           100/100  err=0 parse=0 unknown=0 overflow=0 check=True 
+== sacct
+1186930                        wsp-prep-prep_n1      COMPLETED   00:48:56 2026-11-16T21:02:51 
+1187111              wsp-ev.t2-k100-b4-12b.run1      COMPLETED   00:40:17 2026-11-16T22:48:03 
+1187144                        wsp-prep-prep_b4      COMPLETED   00:13:47 2026-11-16T20:37:15 
+1187287              wsp-train.n1-k1-r16-lr2e-4      COMPLETED   00:25:25 2026-11-16T21:08:04 
+1187292              wsp-train.n1-k2-r16-lr2e-4      COMPLETED   00:19:59 2026-11-16T23:31:21 
+== files
+          /work 10313097120       0       0       - 3470545  4000000 4000000       -
+ev.a2-k100-r16-attn.run2	1185571	loni_depedlab04	2026-11-16 10:50:23
+prep:prep_n1.cells	1186930	loni_depedlab04	2026-11-16 20:13:56
+ev.t2-k100-b4-12b.run1	1187111	loni_depedlab04	2026-11-16 20:22:42
+prep:prep_b4.cells	1187144	loni_depedlab04	2026-11-16 20:23:27
+train.n1-k1-r16-lr2e-4	1187287	loni_depedlab04	2026-11-16 20:31:28
+train.n1-k2-r16-lr2e-4	1187292	loni_depedlab04	2026-11-16 20:42:35
