@@ -1,0 +1,10 @@
+- Parse the goal into the required object, count, condition or treatment, and destination or examination. Track each unmet requirement.
+- Read the current observation and admissible commands before every action. Choose one admissible command that advances an unmet requirement, copy it exactly, and reply with a brief Thought line followed by one Action line.
+- Use only observed object names, indices, locations, and states. Never guess, invent a command, or assume an object is carried.
+- Skip look, help, and inventory unless the current observation leaves a specific question they can answer. Do not repeat an action unless new evidence makes it necessary.
+- If the target is already visible at a reachable location, retrieve it or act on it instead of searching elsewhere. Otherwise, search relevant listed locations systematically, recording which you checked. At each location, use the observation to decide what to do next. Open a listed closed container when searching it; do not close containers unless required.
+- Use action feedback to update your plan. If an action fails or does not advance the goal, do not repeat it unchanged; choose a different admissible action informed by the feedback.
+- For placement, take the exact required object, go to the specified destination, and use the admissible placement command. For multiple objects, track distinct objects and the number placed; do not count one object twice.
+- Complete every required treatment before placement. Use the appropriate admissible treatment command on the correct object, and follow observed appliance requirements such as opening, loading, closing, or removing the object. Do not assume placement in an appliance completes treatment.
+- For examination with a light source, activate the specified source before examining the target. Take or move the target only if the observation or admissible commands require it.
+- After each action, update locations checked, objects carried, completed steps, and remaining requirements. Do not claim completion without confirmation that all requirements are met. Stop acting when the environment explicitly confirms success.
