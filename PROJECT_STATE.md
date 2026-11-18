@@ -3821,3 +3821,12 @@ smoke on a fixed dev subset, hpg environment + profiling report.
 - 11-17 20:37 CST: **A3 (LONI, dev140 two runs; reference = all 315 steps, whole reply: 89 / 90): all steps + Action line only = 34 / 31 (BELOW raw 42 / 43); the 90 mismatch steps + whole reply = 76 / 76 (training tasks 15/20, progress 0.902).** a3-p90-action evals running (1189752 / 53, t2 1189754). Reading so far: supervising only the action hurts; the Thought supervision is needed, and a third of the steps (the ones raw gets wrong) keeps most of the gain.
   - **C4 selection done: chosen alpha 1** (in-session: unedited 8/20, 0.781; alpha 0.5 9, 0.771; alpha 1 11, 0.812; alpha 2 4, 0.452; alpha 4 0, 0.000). Conditions frozen (B0, C4_a0.5/1/2/4, C4_rand0-2); exports running in d_c4 (3 done), merged evals submitted by the hook (dev_c4-B0 1189766, dev_c4-C4_a0.5 1189767, ...; outputs ICML27_wsp_d/eval/c4-*.merged.*).
   - C5 real basis: iteration 2 did not move (best new point c5 = -0.12: 14/20, 0.8977 vs current 13/20, 0.8953), step 0.03. Random basis unchanged. d3 fifth rollout 10/20 (0.799); d5 still inside rollout 2. rules-v1-type2 running (1189763); w1-rand-comp queued (1189764).
+- 11-17 20:58 CST: **A3 COMPLETE (LONI, dev140 two runs; raw 42 / 43):**
+  | | whole reply supervised | Action line only |
+  |---|---|---|
+  | all 315 steps | 89 / 90 (round-1 arm, same recipe) | 34 / 31 |
+  | the 90 steps raw gets wrong | 76 / 76 | 46 / 37 |
+  Training tasks (20): all-action 10 (progress 0.815), p90-action 11, p90-full 15 (0.902). **Action-only supervision gives nothing (at or below raw); the whole reply must be supervised; a third of the steps keeps most of the gain.**
+  - **C2b COMPLETE: raw 42 / 43; rule sheet v1 51 / 55; v2 44; v3 47; v1 + two same-type demonstrations 41** (the demonstrations cancel the sheet's gain). Selected version (training-task progress) = v1. Gate 59 not reached -> no compile step.
+  - C4 merged route on LONI (vLLM; training tasks): B0 8/20 (0.768), C4_a0.5 12/20 (0.863), C4_a1 8/20, C4_a2 5/20; dev140 runs in progress; C4_a4 and the three random controls running / queued. d_c4 finished (D_C4_DONE 20:49). Note vLLM B0-merged 8/20 vs vLLM raw-base 10/20 for the same weights: 2-task jitter again.
+  - d3 6th rollout 11/20 (0.828); d4 7 rollouts, best 10; d5 alive but very slow (second candidate = add_rank1 alpha 1.0 on 42 layers x 3 MLP targets makes the student emit garbage up to the token cap; about 18 min per task now, 19 of 20 done at 20:52). W2 arms started (w2-r1-equal running). w1-rand-comp running.
