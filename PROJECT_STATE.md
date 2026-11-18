@@ -3858,3 +3858,6 @@ smoke on a fixed dev subset, hpg environment + profiling report.
   - **d5 (W3) session SUBMITTED** after 8 rollouts (8, 13, 0, 13, 13, 9, 7, 13): B1 = one add_rank1 edit on mlp.gate_proj over all 42 layers at alpha 1.0 (in-session 13/20, progress 0.890; unedited 8/20, 0.781). Conditions frozen (B0, B1, B2_0..4), exports running, merged evals dev_d5-B0 / B1 submitted (1189966 / 67).
   - **icl-k10 on LONI: 36** (hpg 38); icl-k20 running (1189854, 1 h in).
   - C5 real basis: 9 of 12 candidate adapters for step 0.015 built (about 5.7 min each now); job 1189342 times out at about 23:07 CST, pass7 resubmits. d3: 11 rollouts.
+- 11-17 23:17 CST: **d5 (W3) done (D_D5_DONE 23:09). First merged-route numbers, training tasks: unedited B0 10/20, teacher's edit B1 10/20** (in-session HF it was 13 vs 8); dev140 for B0 / B1 running (1189966 / 67), random controls B2_0..2 running (1189974-76), B2_3 / B2_4 to follow. Do not read the in-session 13/20 as a gain until dev140 is in.
+  - C5 real-basis job 1189342 hit its 5 h limit at 23:07:30 as expected; **resubmitted by the driver as 1190002 (23:15)**, resumes with 11 of 12 step-0.015 candidates already built (state: rows 36, current c5 = -0.06 13/20, best c5 = -0.12 14/20).
+  - d3: 12 rollouts (last 10/20, 0.823), still in session (5 h 9 min of 12 h). icl-k20 (LONI) 1 h 11 min in. C4 broken-model reruns 1 h 9 min in.
