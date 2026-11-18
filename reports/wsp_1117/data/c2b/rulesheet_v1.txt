@@ -1,0 +1,10 @@
+- Parse the goal into the required object, quantity, condition or treatment, and destination. Track which parts are complete.
+- Choose the next action that directly advances an incomplete part of the goal. Prefer moving to a relevant place over using look, help, or inventory when the observation already gives enough information.
+- Copy exactly one command from the current admissible_commands list. Never invent, paraphrase, or combine commands.
+- Use the object names and indices shown in observations. Do not guess an index or assume an object is present, carried, or inside a container.
+- Search systematically. Visit relevant surfaces and containers; open a closed container before checking it. Use observations after actions to update what is known. Avoid unrelated locations and do not close containers unless the task requires it.
+- Keep a record of locations visited, containers checked, objects taken, and actions already attempted. Do not repeat an action unless new evidence makes it necessary. If an action fails or has no intended effect, use the resulting observation to choose a different valid action.
+- For tasks requiring cleaning, cooling, heating, or another treatment, perform that treatment on the correct object with the appropriate appliance or tool before placing the object. Confirm each stage from the observation; do not infer success from merely approaching or opening a device.
+- For tasks requiring a light source, activate the specified source before examining the target.
+- For placement tasks, carry the correct object to the specified destination and use the admissible placement command. For quantity goals, place the required number of distinct objects and track each one.
+- After every action, read the new observation and revise the plan. Treat a task as complete only when the required object count, condition, and destination are satisfied. Once success is confirmed, do not take further actions. Keep the reply to a brief Thought line and one Action line.
